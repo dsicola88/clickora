@@ -1,3 +1,4 @@
+import { fill } from "@/i18n";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useEffect, useState } from "react";
 import { applyMarketingAuthHead } from "@/lib/marketingSiteSeo";
@@ -29,6 +30,7 @@ function MfaVerifyForm({
   onSuccess: () => void;
   onBack: () => void;
 }) {
+  const { t } = useAppLocale();
   const { verifyMfa } = useAuth();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,17 +39,17 @@ function MfaVerifyForm({
     e.preventDefault();
     const trimmed = code.trim();
     if (trimmed.length < 6) {
-      toast.error("Introduza o código de 6 dígitos (ou um código de recuperação).");
+      toast.error(t("auth.mfaTooShort"));
       return;
     }
     setLoading(true);
     try {
       const { error } = await verifyMfa(mfaToken, trimmed);
       if (error) throw new Error(error);
-      toast.success("Sessão iniciada.");
+      toast.success(t("auth.sessionStarted"));
       onSuccess();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Código incorrecto";
+      const message = error instanceof Error ? error.message : t("auth.mfaWrong");
       toast.error(message);
       setCode("");
     } finally {
@@ -58,11 +60,10 @@ function MfaVerifyForm({
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <p className="text-sm text-muted-foreground text-pretty">
-        Introduza o código da app Authenticator para <strong className="text-foreground font-medium">{email}</strong>,
-        ou um código de recuperação.
+        {fill(t("auth.mfaIntro"), { email })}
       </p>
       <div className="space-y-2">
-        <Label htmlFor="mfa-code">Código MFA</Label>
+        <Label htmlFor="mfa-code">{t("auth.mfaCode")}</Label>
         <Input
           id="mfa-code"
           value={code}
@@ -76,14 +77,14 @@ function MfaVerifyForm({
         />
       </div>
       <Button type="submit" className="w-full" disabled={loading || code.trim().length < 6}>
-        {loading ? "A verificar…" : "Verificar e entrar"}
+        {loading ? t("auth.verifying") : t("auth.verifyEnter")}
       </Button>
       <button
         type="button"
         onClick={onBack}
         className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mx-auto"
       >
-        <ArrowLeft className="h-3 w-3" /> Voltar ao login
+        <ArrowLeft className="h-3 w-3" /> {t("auth.backToLogin")}
       </button>
     </form>
   );
@@ -106,13 +107,13 @@ function LoginFormComponent({ onSuccess }: { onSuccess: () => void }) {
       if (result.error) throw new Error(result.error);
       if (result.mfa) {
         setMfa(result.mfa);
-        toast.message("Confirme o código MFA para continuar.");
+        toast.message(t("auth.mfaContinue"));
         return;
       }
-      toast.success("Sessão iniciada.");
+      toast.success(t("auth.sessionStarted"));
       onSuccess();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Erro ao fazer login";
+      const message = error instanceof Error ? error.message : t("auth.loginFailed");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -133,13 +134,13 @@ function LoginFormComponent({ onSuccess }: { onSuccess: () => void }) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="email">E-mail</Label>
+        <Label htmlFor="email">{t("auth.email")}</Label>
         <div className="relative">
           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
             id="email"
             type="email"
-            placeholder="seu@email.com"
+            placeholder={t("auth.emailPlaceholder")}
             className={`pl-10 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
             {...register("email")}
           />
@@ -147,7 +148,7 @@ function LoginFormComponent({ onSuccess }: { onSuccess: () => void }) {
         <FieldError message={errors.email?.message} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Senha</Label>
+        <Label htmlFor="password">{t("auth.password")}</Label>
         <div className="relative">
           <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
@@ -161,13 +162,14 @@ function LoginFormComponent({ onSuccess }: { onSuccess: () => void }) {
         <FieldError message={errors.password?.message} />
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? t("common.loading") : t("auth.submit")}
+        {loading ? t("auth.loading") : t("auth.submit")}
       </Button>
     </form>
   );
 }
 
 function RegisterFormComponent({ onSuccess }: { onSuccess: () => void }) {
+  const { t } = useAppLocale();
   const { signUp } = useAuth();
   const [loading, setLoading] = useState(false);
   const [acceptedPolicies, setAcceptedPolicies] = useState(false);
@@ -178,17 +180,17 @@ function RegisterFormComponent({ onSuccess }: { onSuccess: () => void }) {
 
   const onSubmit = async (values: RegisterForm) => {
     if (!acceptedPolicies) {
-      toast.error("Aceite os Termos e a Política de Privacidade para continuar.");
+      toast.error(t("auth.acceptRequired"));
       return;
     }
     setLoading(true);
     try {
       const { error } = await signUp(values.email, values.password, values.fullName, true);
       if (error) throw new Error(error);
-      toast.success("Conta criada com sucesso!");
+      toast.success(t("auth.accountCreated"));
       onSuccess();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Erro ao criar conta";
+      const message = error instanceof Error ? error.message : t("auth.registerFailed");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -198,12 +200,12 @@ function RegisterFormComponent({ onSuccess }: { onSuccess: () => void }) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="fullName">Nome completo</Label>
+        <Label htmlFor="fullName">{t("auth.fullName")}</Label>
         <div className="relative">
           <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
             id="fullName"
-            placeholder="Seu nome"
+            placeholder={t("auth.namePlaceholder")}
             className={`pl-10 ${errors.fullName ? "border-destructive focus-visible:ring-destructive" : ""}`}
             {...register("fullName")}
           />
@@ -211,13 +213,13 @@ function RegisterFormComponent({ onSuccess }: { onSuccess: () => void }) {
         <FieldError message={errors.fullName?.message} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="email">E-mail</Label>
+        <Label htmlFor="email">{t("auth.email")}</Label>
         <div className="relative">
           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
             id="email"
             type="email"
-            placeholder="seu@email.com"
+            placeholder={t("auth.emailPlaceholder")}
             className={`pl-10 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
             {...register("email")}
           />
@@ -225,7 +227,7 @@ function RegisterFormComponent({ onSuccess }: { onSuccess: () => void }) {
         <FieldError message={errors.email?.message} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Senha</Label>
+        <Label htmlFor="password">{t("auth.password")}</Label>
         <div className="relative">
           <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
@@ -245,25 +247,26 @@ function RegisterFormComponent({ onSuccess }: { onSuccess: () => void }) {
           onCheckedChange={(v) => setAcceptedPolicies(v === true)}
         />
         <label htmlFor="accept-policies" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
-          Aceito os{" "}
+          {t("auth.acceptLead")}{" "}
           <Link to="/termos" className="underline underline-offset-2 hover:text-foreground">
-            Termos
+            {t("auth.terms")}
           </Link>{" "}
-          e a{" "}
+          {t("auth.acceptMid")}{" "}
           <Link to="/privacidade" className="underline underline-offset-2 hover:text-foreground">
-            Política de Privacidade
+            {t("auth.privacyPolicy")}
           </Link>
           .
         </label>
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? "Processando..." : "Criar conta"}
+        {loading ? t("auth.processing") : t("auth.register")}
       </Button>
     </form>
   );
 }
 
 function RecoveryFormComponent() {
+  const { t } = useAppLocale();
   const [loading, setLoading] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<RecoveryForm>({
     resolver: zodResolver(recoverySchema),
@@ -275,9 +278,9 @@ function RecoveryFormComponent() {
     try {
       const { error } = await authService.resetPassword(values.email);
       if (error) throw new Error(error);
-      toast.success("Se existir conta com este e-mail, enviámos um link de recuperação.");
+      toast.success(t("auth.recoverySent"));
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Erro ao enviar e-mail";
+      const message = error instanceof Error ? error.message : t("auth.recoveryFailed");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -287,13 +290,13 @@ function RecoveryFormComponent() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="email">E-mail</Label>
+        <Label htmlFor="email">{t("auth.email")}</Label>
         <div className="relative">
           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
             id="email"
             type="email"
-            placeholder="seu@email.com"
+            placeholder={t("auth.emailPlaceholder")}
             className={`pl-10 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
             {...register("email")}
           />
@@ -301,7 +304,7 @@ function RecoveryFormComponent() {
         <FieldError message={errors.email?.message} />
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? "Processando..." : "Enviar e-mail"}
+        {loading ? t("auth.processing") : t("auth.sendEmail")}
       </Button>
     </form>
   );
@@ -342,8 +345,8 @@ export default function Auth() {
 
     if (mfaRequired && mfaToken) {
       setMode("login");
-      setExternalMfa({ mfa_token: mfaToken, email: email || "a sua conta" });
-      toast.message("Confirme o código MFA para continuar.");
+      setExternalMfa({ mfa_token: mfaToken, email: email || t("auth.yourAccount") });
+      toast.message(t("auth.mfaContinue"));
       return;
     }
 
@@ -359,14 +362,14 @@ export default function Auth() {
         toast.error(error);
         return;
       }
-      toast.success("Sessão iniciada (SSO).");
+      toast.success(t("auth.ssoSuccess"));
       navigate("/inicio", { replace: true });
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [completeOidcLogin, navigate]);
+  }, [completeOidcLogin, navigate, t]);
 
   const goInicio = () => navigate("/inicio");
 
@@ -379,22 +382,19 @@ export default function Auth() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">
             {mode === "login" && t("auth.title")}
-            {mode === "register" && (trialIntent ? "Começar o teste grátis" : "Criar sua conta")}
-            {mode === "recovery" && "Recuperar senha"}
+            {mode === "register" && (trialIntent ? t("auth.trialTitle") : t("auth.registerTitle"))}
+            {mode === "recovery" && t("auth.recoveryTitle")}
           </h1>
           <p className="text-muted-foreground mt-2 text-pretty max-w-sm mx-auto">
-            {mode === "login" && "Acesse sua plataforma de tracking e presell"}
-            {mode === "register" &&
-              (trialIntent
-                ? "Crie a sua conta sem cartão — o plano Starter (teste) activa-se de imediato. Pode fazer upgrade depois em Planos."
-                : "Comece gratuitamente com o plano Starter")}
-            {mode === "recovery" && "Enviaremos um link para redefinir sua senha"}
+            {mode === "login" && t("auth.loginSubtitle")}
+            {mode === "register" && (trialIntent ? t("auth.trialSubtitle") : t("auth.registerSubtitle"))}
+            {mode === "recovery" && t("auth.recoverySubtitle")}
           </p>
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
           {oidcBusy ? (
-            <p className="text-sm text-muted-foreground text-center py-6">A concluir o login SSO…</p>
+            <p className="text-sm text-muted-foreground text-center py-6">{t("auth.ssoBusy")}</p>
           ) : null}
           {mode === "login" && !oidcBusy && externalMfa ? (
             <MfaVerifyForm
@@ -413,7 +413,7 @@ export default function Auth() {
                     <span className="w-full border-t border-border" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">ou com e-mail</span>
+                    <span className="bg-card px-2 text-muted-foreground">{t("auth.orEmail")}</span>
                   </div>
                 </div>
               ) : null}
@@ -421,7 +421,7 @@ export default function Auth() {
               <Button type="button" variant="outline" className="w-full gap-2" asChild>
                 <a href={authService.getOidcLoginUrl()}>
                   <Building2 className="h-4 w-4" />
-                  Entrar com SSO (empresa)
+                  {t("auth.ssoButton")}
                 </a>
               </Button>
             </div>
@@ -433,10 +433,10 @@ export default function Auth() {
             {mode === "login" && (
               <>
                 <button type="button" onClick={() => setMode("recovery")} className="text-primary hover:underline block w-full">
-                  Esqueceu sua senha?
+                  {t("auth.forgot")}
                 </button>
                 <p className="text-muted-foreground">
-                  Não tem conta?{" "}
+                  {t("auth.noAccount")}{" "}
                   <button
                     type="button"
                     onClick={() => {
@@ -445,16 +445,16 @@ export default function Auth() {
                     }}
                     className="text-primary hover:underline font-medium"
                   >
-                    Criar conta — teste grátis
+                    {t("auth.trialCta")}
                   </button>
                 </p>
               </>
             )}
             {mode === "register" && (
               <p className="text-muted-foreground">
-                Já tem conta?{" "}
+                {t("auth.hasAccount")}{" "}
                 <button type="button" onClick={() => setMode("login")} className="text-primary hover:underline">
-                  Entrar
+                  {t("chrome.signIn")}
                 </button>
               </p>
             )}
@@ -464,7 +464,7 @@ export default function Auth() {
                 onClick={() => setMode("login")}
                 className="text-primary hover:underline flex items-center gap-1 mx-auto"
               >
-                <ArrowLeft className="h-3 w-3" /> Voltar ao login
+                <ArrowLeft className="h-3 w-3" /> {t("auth.backToLogin")}
               </button>
             )}
           </div>
@@ -474,15 +474,15 @@ export default function Auth() {
             to="/"
             className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline block"
           >
-            Continuar sem entrar — ver planos
+            {t("auth.browsePlans")}
           </Link>
           <span className="text-xs text-muted-foreground">
             <Link to="/privacidade" className="underline-offset-2 hover:underline">
-              Privacidade
+              {t("auth.privacyShort")}
             </Link>
             {" · "}
             <Link to="/termos" className="underline-offset-2 hover:underline">
-              Termos
+              {t("auth.termsShort")}
             </Link>
           </span>
         </p>

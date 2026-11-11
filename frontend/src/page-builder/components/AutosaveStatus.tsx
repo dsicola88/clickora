@@ -1,20 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import type { MessageKey } from "@/i18n";
 import { usePresellBuilderEmbedOptional } from "@/contexts/PresellBuilderEmbedContext";
 import { useBuilder } from "../store";
 
-function formatRelative(savedAt: number, nowMs: number) {
+function formatRelative(savedAt: number, nowMs: number, t: (key: MessageKey) => string) {
   const sec = Math.floor((nowMs - savedAt) / 1000);
-  if (sec < 0) return "agora";
-  if (sec < 6) return "agora mesmo";
-  if (sec < 60) return `há ${sec}s`;
+  if (sec < 0) return t("pages.pageBuilder.autosave.now");
+  if (sec < 6) return t("pages.pageBuilder.autosave.justNow");
+  if (sec < 60) return fill(t("pages.pageBuilder.autosave.secondsAgo"), { n: sec });
   const min = Math.floor(sec / 60);
-  if (min < 60) return `há ${min} min`;
+  if (min < 60) return fill(t("pages.pageBuilder.autosave.minutesAgo"), { n: min });
   const h = Math.floor(min / 60);
-  if (h < 24) return `há ${h} h`;
+  if (h < 24) return fill(t("pages.pageBuilder.autosave.hoursAgo"), { n: h });
   return new Date(savedAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
 }
 
 export function AutosaveStatus() {
+  const { t } = useAppLocale();
   const lastPersistedAt = useBuilder((s) => s.lastPersistedAt);
   const embed = usePresellBuilderEmbedOptional();
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -30,13 +34,13 @@ export function AutosaveStatus() {
 
   const label = useMemo(() => {
     if (!inAccount) {
-      return formatRelative(lastPersistedAt, nowMs);
+      return formatRelative(lastPersistedAt, nowMs, t);
     }
-    if (cloudStatus === "pending" || cloudStatus === "saving") return "a guardar na conta…";
-    if (cloudStatus === "error") return "falha — a tentar de novo";
-    if (cloudAt) return formatRelative(cloudAt, nowMs);
-    return formatRelative(lastPersistedAt, nowMs);
-  }, [cloudAt, cloudStatus, inAccount, lastPersistedAt, nowMs]);
+    if (cloudStatus === "pending" || cloudStatus === "saving") return t("pages.pageBuilder.autosave.saving");
+    if (cloudStatus === "error") return t("pages.pageBuilder.autosave.retrying");
+    if (cloudAt) return formatRelative(cloudAt, nowMs, t);
+    return formatRelative(lastPersistedAt, nowMs, t);
+  }, [cloudAt, cloudStatus, inAccount, lastPersistedAt, nowMs, t]);
 
   const dotClass =
     cloudStatus === "error"
@@ -46,8 +50,8 @@ export function AutosaveStatus() {
         : "bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.25)]";
 
   const title = inAccount
-    ? "Cada alteração grava automaticamente na sua conta (base de dados). O browser só é cache local."
-    : "Alterações gravadas localmente neste browser.";
+    ? t("pages.pageBuilder.autosave.titleAccount")
+    : t("pages.pageBuilder.autosave.titleLocal");
 
   return (
     <div
@@ -57,7 +61,7 @@ export function AutosaveStatus() {
       <span className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
       <span className="truncate text-[11px] text-editor-fg-muted">
         <span className="font-medium text-editor-fg/90">
-          {inAccount ? "Autosave (conta)" : "Autosave"}
+          {inAccount ? t("pages.pageBuilder.autosave.account") : t("pages.pageBuilder.autosave.local")}
         </span>
         <span className="mx-1.5 text-editor-border">·</span>
         {label}

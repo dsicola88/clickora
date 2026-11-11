@@ -44,7 +44,8 @@ import {
 } from "../lib/conversionSyncQueue";
 import { loadSyncQueueHealth } from "../lib/syncHealth";
 import { enqueueConversionSync } from "../lib/conversionSyncQueue";
-import { normalizeIpForMatch } from "../lib/normalizeIp";
+import { onlyDigits, parseIpv4Blacklist, pickString } from "../lib/stringPrimitives";
+import { subscriptionPlanForWebhookGate } from "../lib/affiliateWebhookPlan";
 import { effectiveAutoBlacklistThreshold } from "../lib/trackingGuardPolicy";
 import { sendTelegram } from "../lib/telegram";
 import { isApprovedSaleNotice } from "../lib/saleNotice";
@@ -72,13 +73,6 @@ const profileNotifySchema = z.object({
   sale_notify_email: z.union([z.string().email(), z.literal("")]).optional(),
   sale_chime: z.enum(["kaching", "chaching", "registradora", "moedas", "chuva", "sino"]).optional(),
 });
-
-async function subscriptionPlanForWebhookGate(userId: string) {
-  return systemPrisma.subscription.findUnique({
-    where: { userId },
-    include: { plan: true },
-  });
-}
 
 export const integrationsController = {
   /** URL do webhook + estado (autenticado). */
@@ -2063,24 +2057,3 @@ export const integrationsController = {
   },
 };
 
-function pickString(...values: unknown[]): string | null {
-  for (const v of values) {
-    if (typeof v === "string" && v.trim()) return v.trim();
-  }
-  return null;
-}
-
-function onlyDigits(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const d = raw.replace(/\D/g, "");
-  return d.length > 0 ? d : null;
-}
-
-/** IPv4 só — alinhado com `normalizeIpForMatch` na verificação de tracking. */
-function parseIpv4Blacklist(raw: string): string | null {
-  const t = normalizeIpForMatch(raw.trim());
-  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(t)) return null;
-  const parts = t.split(".").map(Number);
-  if (parts.some((n) => n > 255 || n < 0)) return null;
-  return t;
-}

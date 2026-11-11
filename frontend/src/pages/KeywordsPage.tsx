@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { type MessageKey } from "@/i18n";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, ExternalLink, Plus, Trash2 } from "lucide-react";
@@ -61,13 +62,13 @@ import {
 
 const LAST_RESEARCH_STORAGE_KEY = "dclickora-keyword-research-last-id";
 
-const FALLBACK_LANGUAGES = [
-  { code: "en", label: "Inglês" },
-  { code: "pt", label: "Português" },
-  { code: "es", label: "Espanhol" },
-  { code: "fr", label: "Francês" },
-  { code: "de", label: "Alemão" },
-  { code: "it", label: "Italiano" },
+const FALLBACK_LANGUAGES: { code: string; labelKey: MessageKey }[] = [
+  { code: "en", labelKey: "pages.keywords.langEn" },
+  { code: "pt", labelKey: "pages.keywords.langPt" },
+  { code: "es", labelKey: "pages.keywords.langEs" },
+  { code: "fr", labelKey: "pages.keywords.langFr" },
+  { code: "de", labelKey: "pages.keywords.langDe" },
+  { code: "it", labelKey: "pages.keywords.langIt" },
 ];
 
 const AFFILIATE_PLATFORMS = [
@@ -84,9 +85,9 @@ const AFFILIATE_PLATFORMS = [
 ] as const;
 
 const FUNNEL_OPTIONS = [
-  { id: "BOTTOM" as const, title: "Fundo de funil", hint: "Compra e marca" },
-  { id: "MIDDLE" as const, title: "Meio de funil", hint: "Comparação e avaliação" },
-  { id: "TOP" as const, title: "Topo de funil", hint: "Descoberta e informação" },
+  { id: "BOTTOM" as const },
+  { id: "MIDDLE" as const },
+  { id: "TOP" as const },
 ];
 
 
@@ -152,7 +153,8 @@ export default function KeywordsPage() {
 
   const languages = FALLBACK_LANGUAGES.map((fallback) => {
     const remote = optionsQ.data?.languages?.find((item) => item.code === fallback.code);
-    return remote ? { ...remote, label: fallback.label } : fallback;
+    const label = t(fallback.labelKey);
+    return remote ? { ...remote, label } : { code: fallback.code, label };
   });
 
   const marketOptions = useMemo(
@@ -251,7 +253,7 @@ export default function KeywordsPage() {
         ...(needsPageText && pasted.length >= 40 ? { page_text: pasted } : {}),
       });
       if (error || !data) {
-        const err = new Error(error || "Não foi possível gerar a campanha.") as Error & {
+        const err = new Error(error || t("pages.keywords.generateFail")) as Error & {
           noResults?: boolean;
           needsPageText?: boolean;
         };
@@ -290,7 +292,7 @@ export default function KeywordsPage() {
       }
       setResearch(null);
       setGenerateError({
-        message: e.message || "Não foi possível gerar a campanha.",
+        message: e.message || t("pages.keywords.generateFail"),
         noResults: e.noResults,
       });
     },
@@ -299,7 +301,7 @@ export default function KeywordsPage() {
   const openHistory = useMutation({
     mutationFn: async (id: string) => {
       const { data, error } = await keywordResearchService.getById(id);
-      if (error || !data) throw new Error(error || "Pesquisa não encontrada.");
+      if (error || !data) throw new Error(error || t("pages.keywords.notFound"));
       return data;
     },
     onSuccess: (data) => {
@@ -365,7 +367,7 @@ export default function KeywordsPage() {
         startNewCampaign();
       }
       void qc.invalidateQueries({ queryKey: ["keyword-researches", "list"] });
-      toast.success("Pesquisa apagada.");
+      toast.success(t("pages.keywords.deleted"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -378,7 +380,7 @@ export default function KeywordsPage() {
     onSuccess: () => {
       startNewCampaign();
       void qc.invalidateQueries({ queryKey: ["keyword-researches", "list"] });
-      toast.success("Histórico limpo.");
+      toast.success(t("pages.keywords.historyCleared"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -411,7 +413,7 @@ export default function KeywordsPage() {
         .then(({ data, error }) => {
           if (error || !data) {
             setSaveState("dirty");
-            toast.error(error || "Não foi possível gravar automaticamente.");
+            toast.error(error || t("pages.keywords.autosaveFail"));
             return;
           }
           setResearch(data);
@@ -448,16 +450,16 @@ export default function KeywordsPage() {
 
   function submitGenerate() {
     if (product.trim().length < 2) {
-      toast.error("Indique o nome do produto.");
+      toast.error(t("pages.keywords.needProduct"));
       return;
     }
     const url = productUrl.trim();
     if (!isHttpUrl(url)) {
-      toast.error("Indique o link oficial do produto, começando por http:// ou https://");
+      toast.error(t("pages.keywords.needProductUrl"));
       return;
     }
     if (needsPageText && pageText.trim().length < 40) {
-      toast.error("Cole o texto visível da página. O link não foi consultado, por isso a campanha não foi gerada.");
+      toast.error(t("pages.keywords.needPageText"));
       return;
     }
     setGenerateError(null);
@@ -477,25 +479,25 @@ export default function KeywordsPage() {
         {research ? (
           <p className="text-xs text-muted-foreground">
             {saveState === "saving"
-              ? "A gravar alterações…"
+              ? t("pages.keywords.saving")
               : saveState === "dirty"
-                ? "Rascunho com alterações por gravar…"
+                ? t("pages.keywords.dirty")
                 : saveState === "saved"
-                  ? "Pacote gravado na sua conta."
-                  : "Pacote pronto para editar."}
+                  ? t("pages.keywords.savedState")
+                  : t("pages.keywords.readyEdit")}
           </p>
         ) : (
-          <span className="text-xs text-muted-foreground">Preencha o formulário e gere a campanha.</span>
+          <span className="text-xs text-muted-foreground">{t("pages.keywords.fillForm")}</span>
         )}
         <div className="flex flex-wrap gap-2">
           {research ? (
             <>
               <Button type="button" size="sm" variant="outline" onClick={() => setSetupOpen((o) => !o)}>
-                {setupOpen ? "Ocultar formulário" : "Alterar produto / regenerar"}
+                {setupOpen ? t("pages.keywords.hideForm") : t("pages.keywords.changeProduct")}
               </Button>
               <Button type="button" size="sm" onClick={startNewCampaign}>
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Nova campanha
+                {t("pages.keywords.newCampaign")}
               </Button>
             </>
           ) : null}
@@ -513,21 +515,21 @@ export default function KeywordsPage() {
             }}
           >
             <div className="space-y-2">
-              <Label htmlFor="kw-product">Nome do produto</Label>
+              <Label htmlFor="kw-product">{t("pages.keywords.productName")}</Label>
               <Input
                 id="kw-product"
                 value={product}
                 onChange={(e) => setProduct(e.target.value)}
-                placeholder="Ex.: Nordic Oak Lamp"
+                placeholder={t("pages.keywords.productPlaceholder")}
                 maxLength={200}
                 autoComplete="off"
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Idioma do anúncio</Label>
+                <Label>{t("pages.keywords.adLanguage")}</Label>
                 <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger aria-label="Idioma do anúncio">
+                  <SelectTrigger aria-label={t("pages.keywords.adLanguage")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -540,9 +542,9 @@ export default function KeywordsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Mercado do anúncio</Label>
+                <Label>{t("pages.keywords.adMarket")}</Label>
                 <Select value={market} onValueChange={setMarket}>
-                  <SelectTrigger aria-label="Mercado do anúncio">
+                  <SelectTrigger aria-label={t("pages.keywords.adMarket")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -557,7 +559,7 @@ export default function KeywordsPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Plataforma de afiliados</Label>
+                <Label>{t("pages.keywords.affiliatePlatform")}</Label>
                 <Select
                   value={affiliatePlatform}
                   onValueChange={(value) => {
@@ -569,20 +571,20 @@ export default function KeywordsPage() {
                     }
                   }}
                 >
-                  <SelectTrigger aria-label="Plataforma de afiliados">
+                  <SelectTrigger aria-label={t("pages.keywords.affiliatePlatform")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {AFFILIATE_PLATFORMS.map(([id, label]) => (
                       <SelectItem key={id} value={id}>
-                        {label}
+                        {id === "other" ? t("pages.keywords.platformOther") : label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="kw-final-url">URL final do anúncio (presell)</Label>
+                <Label htmlFor="kw-final-url">{t("pages.keywords.finalUrl")}</Label>
                 <Input
                   id="kw-final-url"
                   value={finalUrl}
@@ -590,17 +592,17 @@ export default function KeywordsPage() {
                     setFinalUrl(e.target.value);
                     if (research) setDraftDirty(true);
                   }}
-                  placeholder="https://… a sua presell publicada"
+                  placeholder={t("pages.keywords.finalUrlPlaceholder")}
                   inputMode="url"
                   autoComplete="off"
                 />
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Usada nos sitelinks e no destino do anúncio. O link do produto acima serve só para ler a oferta e gerar copy.
+                  {t("pages.keywords.finalUrlHint")}
                 </p>
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="kw-url">Link oficial do produto</Label>
+              <Label htmlFor="kw-url">{t("pages.keywords.productLink")}</Label>
               <Input
                 id="kw-url"
                 value={productUrl}
@@ -608,7 +610,7 @@ export default function KeywordsPage() {
                   setProductUrl(e.target.value);
                   setNeedsPageText(false);
                 }}
-                placeholder="https://… página de vendas"
+                placeholder={t("pages.keywords.productLinkPlaceholder")}
                 inputMode="url"
                 autoComplete="off"
               />
@@ -627,10 +629,22 @@ export default function KeywordsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Tipo de funil</Label>
-              <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Tipo de funil">
+              <Label>{t("pages.keywords.funnelType")}</Label>
+              <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label={t("pages.keywords.funnelType")}>
                 {FUNNEL_OPTIONS.map((option) => {
                   const selectedFunnel = funnel === option.id;
+                  const title =
+                    option.id === "BOTTOM"
+                      ? t("pages.keywords.funnelBottom")
+                      : option.id === "MIDDLE"
+                        ? t("pages.keywords.funnelMiddle")
+                        : t("pages.keywords.funnelTop");
+                  const hint =
+                    option.id === "BOTTOM"
+                      ? t("pages.keywords.funnelBottomHint")
+                      : option.id === "MIDDLE"
+                        ? t("pages.keywords.funnelMiddleHint")
+                        : t("pages.keywords.funnelTopHint");
                   return (
                     <button
                       key={option.id}
@@ -643,8 +657,8 @@ export default function KeywordsPage() {
                         selectedFunnel ? "border-primary bg-primary/10" : "border-border/70 hover:bg-muted/50",
                       )}
                     >
-                      <span className="block text-sm font-semibold">{option.title}</span>
-                      <span className="block text-xs text-muted-foreground">{option.hint}</span>
+                      <span className="block text-sm font-semibold">{title}</span>
+                      <span className="block text-xs text-muted-foreground">{hint}</span>
                     </button>
                   );
                 })}
@@ -652,10 +666,8 @@ export default function KeywordsPage() {
             </div>
             {needsPageText ? (
               <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
-                <Label htmlFor="kw-page-text">Texto da página</Label>
-                <p className="text-xs text-muted-foreground">
-                  O link não foi consultado. Cole o texto visível da página de vendas. Sem este texto, a campanha não é gerada.
-                </p>
+                <Label htmlFor="kw-page-text">{t("pages.keywords.pageText")}</Label>
+                <p className="text-xs text-muted-foreground">{t("pages.keywords.pageTextHint")}</p>
                 <textarea
                   id="kw-page-text"
                   className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -667,10 +679,10 @@ export default function KeywordsPage() {
             ) : null}
             <Button type="submit" className="h-11 w-full text-sm font-semibold tracking-wide" disabled={generate.isPending}>
               {generate.isPending
-                ? "A gerar campanha…"
+                ? t("pages.keywords.generating")
                 : research
-                  ? "Regenerar campanha (novo pacote)"
-                  : "Gerar campanha"}
+                  ? t("pages.keywords.regenerate")
+                  : t("pages.keywords.generate")}
             </Button>
           </form>
           ) : null}
@@ -679,14 +691,14 @@ export default function KeywordsPage() {
             <LoadingState
               message={
                 generate.isPending
-                  ? "A consultar a página e a montar a campanha..."
-                  : "A abrir a pesquisa..."
+                  ? t("pages.keywords.loadingBuild")
+                  : t("pages.keywords.loadingOpen")
               }
             />
           ) : generateError && !needsPageText ? (
             generateError.noResults ? (
               <ErrorState
-                message="Não encontramos sugestões suficientes. Tente outro produto ou nicho."
+                message={t("pages.keywords.noSuggestions")}
                 onRetry={() => submitGenerate()}
               />
             ) : (
@@ -712,17 +724,17 @@ export default function KeywordsPage() {
                   selected={selected}
                   onSelectedChange={setSelected}
                   onEditKeyword={editKeyword}
-                  onCopyKeywords={() => void copyText(copyKeywordsText(research.keywords), "Todas copiadas")}
-                  onCopySelected={() => void copyText(copyKeywordsText(selectedItems), "Seleccionadas copiadas")}
+                  onCopyKeywords={() => void copyText(copyKeywordsText(research.keywords), t("pages.keywords.copiedAll"))}
+                  onCopySelected={() => void copyText(copyKeywordsText(selectedItems), t("pages.keywords.copiedSelected"))}
                   onExportKeywordsCsv={() => {
                     const csv = keywordsToCsv(research.keywords, research);
                     const slug = research.product.replace(/[^\p{L}\p{N}]+/gu, "-").slice(0, 40);
                     downloadCsv(`palavras-chave-${slug || "export"}.csv`, csv);
-                    toast.success("CSV exportado");
+                    toast.success(t("pages.keywords.csvExported"));
                   }}
                 />
               ) : (
-                <p className="text-sm text-muted-foreground">Esta pesquisa antiga não tem pacote de anúncios. Gere de novo para criar copy.</p>
+                <p className="text-sm text-muted-foreground">{t("pages.keywords.oldResearch")}</p>
               )}
               {research.bundle ? (
                 <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center gap-2 border-t border-border/70 bg-background/95 px-1 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -764,10 +776,10 @@ export default function KeywordsPage() {
                         })),
                       ];
                       downloadCsv(`anuncios-${research.product.replace(/[^\p{L}\p{N}]+/gu, "-").slice(0, 40) || "export"}.csv`, adsToCsv(rows));
-                      toast.success("CSV de revisão exportado. Não é importação oficial.");
+                      toast.success(t("pages.keywords.csvReview"));
                     }}
                   >
-                    Exportar CSV de revisão
+                    {t("pages.keywords.exportReview")}
                   </Button>
                   <Button
                     type="button"
@@ -785,18 +797,18 @@ export default function KeywordsPage() {
                         .then(({ data, error }) => {
                           if (error || !data) {
                             setSaveState("dirty");
-                            toast.error(error || "Não foi possível gravar.");
+                            toast.error(error || t("pages.keywords.saveFail"));
                             return;
                           }
                           setResearch(data);
                           setDraftDirty(false);
                           setSaveState("saved");
-                          toast.success("Pacote gravado");
+                          toast.success(t("pages.keywords.bundleSaved"));
                           void qc.invalidateQueries({ queryKey: ["keyword-researches", "list"] });
                         });
                     }}
                   >
-                    Gravar agora
+                    {t("pages.keywords.saveNow")}
                   </Button>
                   {isHttpUrl(finalUrl.trim()) && canAdvertiseDpilot ? (
                     <Button type="button" size="sm" variant="outline" asChild>
@@ -811,7 +823,7 @@ export default function KeywordsPage() {
                         className="gap-1.5"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
-                        Assistente Google Ads
+                        {t("pages.keywords.dpilotAssistant")}
                       </Link>
                     </Button>
                   ) : null}
@@ -819,35 +831,35 @@ export default function KeywordsPage() {
               ) : null}
             </div>
           ) : showEmptyHistory ? (
-            <p className="text-sm text-muted-foreground py-6">Ainda não existem pesquisas.</p>
+            <p className="text-sm text-muted-foreground py-6">{t("pages.keywords.emptyHistory")}</p>
           ) : null}
         </div>
 
         <aside className="space-y-3 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold">Pesquisas recentes</h2>
+            <h2 className="text-sm font-semibold">{t("pages.keywords.recentTitle")}</h2>
             {history.length > 0 ? (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground">
-                    Limpar tudo
+                    {t("pages.keywords.clearAll")}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Limpar pesquisas recentes?</AlertDialogTitle>
+                    <AlertDialogTitle>{t("pages.keywords.clearTitle")}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Apaga todas as campanhas guardadas nesta lista. Não afeta presells nem campanhas no Google Ads.
+                      {t("pages.keywords.clearBody")}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={() => {
                         if (!clearAllHistory.isPending) clearAllHistory.mutate();
                       }}
                     >
-                      Apagar tudo
+                      {t("pages.keywords.clearConfirm")}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -855,9 +867,9 @@ export default function KeywordsPage() {
             ) : null}
           </div>
           {historyQ.isLoading ? (
-            <p className="text-xs text-muted-foreground">A carregar…</p>
+            <p className="text-xs text-muted-foreground">{t("common.loading")}</p>
           ) : history.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Ainda não existem pesquisas.</p>
+            <p className="text-xs text-muted-foreground">{t("pages.keywords.emptyHistory")}</p>
           ) : (
             <ul className="space-y-1">
               {history.map((h) => (

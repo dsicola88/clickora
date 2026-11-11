@@ -83,12 +83,12 @@ export default function AdPixelsConnectPage() {
       return data!;
     },
     onSuccess: (d) => {
-      toast.success(d.can_send ? "Meta CAPI pronta a enviar." : "Definições Meta guardadas.");
+      toast.success(d.can_send ? t("pages.pixels.metaReady") : t("pages.pixels.metaSaved"));
       setMetaToken("");
       void qc.invalidateQueries({ queryKey: ["integrations", "meta-capi"] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Falha ao guardar Meta CAPI"),
+    onError: (e: Error) => toast.error(e.message || t("pages.pixels.metaFail")),
   });
 
   const saveTiktokEvents = useMutation({
@@ -104,18 +104,18 @@ export default function AdPixelsConnectPage() {
       return data!;
     },
     onSuccess: (d) => {
-      toast.success(d.can_send ? "TikTok Events pronto a enviar." : "Definições TikTok guardadas.");
+      toast.success(d.can_send ? t("pages.pixels.ttReady") : t("pages.pixels.ttSaved"));
       setTtToken("");
       void qc.invalidateQueries({ queryKey: ["integrations", "tiktok-events"] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Falha ao guardar TikTok Events"),
+    onError: (e: Error) => toast.error(e.message || t("pages.pixels.ttFail")),
   });
 
   if (loadingMeta || loadingTt) {
     return (
       <div className={PRO_PAGE_SHELL}>
-        <LoadingState message="A carregar pixels / CAPI…" />
+        <LoadingState message={t("pages.pixels.loading")} />
       </div>
     );
   }
@@ -127,21 +127,21 @@ export default function AdPixelsConnectPage() {
         subtitle={t("pages.pixels.subtitle")}
         meta={
           <>
-            <ProStatusDot ok={Boolean(metaCapi?.can_send)} label="Meta CAPI" />
-            <ProStatusDot ok={Boolean(tiktokEvents?.can_send)} label="TikTok Events" />
+            <ProStatusDot ok={Boolean(metaCapi?.can_send)} label={t("pages.pixels.metaLabel")} />
+            <ProStatusDot ok={Boolean(tiktokEvents?.can_send)} label={t("pages.pixels.ttLabel")} />
           </>
         }
         actions={
           <Button variant="outline" size="sm" asChild>
-            <Link to="/integracoes">Voltar</Link>
+            <Link to="/integracoes">{t("pages.pixels.back")}</Link>
           </Button>
         }
       />
 
       <ProAlert
         severity="info"
-        title="Configuração mínima"
-        detail="Guarde Pixel ID + token uma vez. O PageView entra sozinho nas landers publicadas e o Purchase segue para a rede após o postback (fbclid/ttclid no URL do anúncio)."
+        title={t("pages.pixels.minTitle")}
+        detail={t("pages.pixels.minDetail")}
       />
 
       <div className="space-y-5 max-w-3xl">

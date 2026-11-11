@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { LoadingState } from "@/components/LoadingState";
 import { lessonsService, type AcademyLessonAdmin, type LessonDraft } from "@/services/lessonsService";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 type FormState = {
   title: string;
@@ -42,6 +43,7 @@ function toDraft(form: FormState): LessonDraft {
 }
 
 export function AdminLessonsPanel() {
+  const { t } = useAppLocale();
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -65,14 +67,14 @@ export function AdminLessonsPanel() {
       return result.data;
     },
     onSuccess: () => {
-      toast.success(editingId ? "Aula actualizada" : "Aula criada");
+      toast.success(editingId ? t("pages.admin.lessonUpdated") : t("pages.admin.lessonCreated"));
       setEditingId(null);
       setForm(emptyForm());
       void queryClient.invalidateQueries({ queryKey: ["admin-lessons"] });
       void queryClient.invalidateQueries({ queryKey: ["academy-lessons"] });
     },
     onError: (e: unknown) => {
-      toast.error(e instanceof Error ? e.message : "Não foi possível guardar a aula");
+      toast.error(e instanceof Error ? e.message : t("pages.admin.lessonSaveFailed"));
     },
   });
 
@@ -82,7 +84,7 @@ export function AdminLessonsPanel() {
       if (result.error) throw new Error(result.error);
     },
     onSuccess: (_data, id) => {
-      toast.success("Aula removida");
+      toast.success(t("pages.admin.lessonRemoved"));
       if (editingId === id) {
         setEditingId(null);
         setForm(emptyForm());
@@ -91,7 +93,7 @@ export function AdminLessonsPanel() {
       void queryClient.invalidateQueries({ queryKey: ["academy-lessons"] });
     },
     onError: (e: unknown) => {
-      toast.error(e instanceof Error ? e.message : "Não foi possível remover a aula");
+      toast.error(e instanceof Error ? e.message : t("pages.admin.lessonRemoveFailed"));
     },
   });
 

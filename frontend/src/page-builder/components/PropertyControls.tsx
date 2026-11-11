@@ -2,6 +2,7 @@ import type { SpacingValue } from "../types";
 import { Link2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { presellService } from "@/services/presellService";
 
 const labelCls = "block text-[11px] font-medium text-editor-fg-muted mb-1";
@@ -225,6 +226,7 @@ export function BuilderImageUrlField({
   onChange: (v: string) => void;
   placeholder?: string;
 }) {
+  const { t } = useAppLocale();
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
@@ -241,18 +243,18 @@ export function BuilderImageUrlField({
           e.target.value = "";
           if (!file) return;
           if (file.size > 3 * 1024 * 1024) {
-            toast.error("Imagem demasiado grande (máx. 3 MB).");
+            toast.error(t("pages.pageBuilder.upload.tooLarge"));
             return;
           }
           setBusy(true);
           const { data, error } = await presellService.uploadBuilderMedia(file);
           setBusy(false);
           if (error || !data?.url) {
-            toast.error(error || "Falha no upload.");
+            toast.error(error || t("pages.pageBuilder.upload.failed"));
             return;
           }
           onChange(data.url);
-          toast.success("Imagem carregada.");
+          toast.success(t("pages.pageBuilder.upload.loaded"));
         }}
       />
       <button
@@ -262,7 +264,7 @@ export function BuilderImageUrlField({
         className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded border border-editor-border bg-editor-panel-2 px-2 py-1.5 text-[11px] font-medium text-editor-fg transition-colors hover:bg-editor-border disabled:opacity-50"
       >
         <Upload className="h-3.5 w-3.5 shrink-0" />
-        {busy ? "A enviar…" : "Carregar do PC"}
+        {busy ? t("pages.pageBuilder.upload.sending") : t("pages.pageBuilder.upload.fromPc")}
       </button>
     </div>
   );

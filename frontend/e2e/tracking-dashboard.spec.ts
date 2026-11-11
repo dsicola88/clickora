@@ -17,16 +17,22 @@ test.describe("tracking dashboard / P&L", () => {
       .toBe(200);
 
     await page.goto("/auth");
-    await page.getByLabel("E-mail").fill("danielclickora@gmail.com");
-    await page.getByLabel("Senha").fill("Dpa211088@");
-    await page.getByRole("button", { name: "Entrar", exact: true }).click();
+    await page.locator("#email").fill("danielclickora@gmail.com");
+    await page.locator("#password").fill("Dpa211088@");
+    await page.getByRole("button", { name: /^(Entrar|Continue|Sign in)$/i }).click();
     await page.waitForURL((url) => !url.pathname.includes("/auth"), { timeout: 45_000 });
 
     await page.goto("/tracking/dashboard");
     await expect(page).toHaveURL(/\/resultados\/?$/, { timeout: 15_000 });
-    await expect(page.getByText(/A carregar resultados/i)).toHaveCount(0, { timeout: 90_000 });
-    await expect(page.getByRole("heading", { name: /^Resultados$/ })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/Receita|Cliques|Keywords|Braços|Visitantes/i).first()).toBeVisible({
+    await expect(page.getByText(/A carregar resultados|Loading results/i)).toHaveCount(0, {
+      timeout: 90_000,
+    });
+    await expect(page.getByRole("heading", { name: /^(Resultados|Results)$/ })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(
+      page.getByText(/Receita|Revenue|Cliques|Clicks|Keywords|Braços|Arms|Visitantes|Visitors/i).first(),
+    ).toBeVisible({
       timeout: 15_000,
     });
   });

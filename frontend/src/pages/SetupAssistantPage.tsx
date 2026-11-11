@@ -1,4 +1,5 @@
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill, type MessageKey } from "@/i18n";
 import { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -69,22 +70,21 @@ const SETUP_ASSISTANT_QUERY_PREFIXES = [
 ] as const;
 
 /** Mesmo critério que Final URL / ads (`isCustomDomainAdReady`) + probe go-live. */
-function domainGoLiveStatus(domains: CustomDomainDto[]): {
+function domainGoLiveStatus(domains: CustomDomainDto[], t: (key: MessageKey) => string): {
   status: StepStatus;
   hint: string;
 } {
   if (!domains.length) {
     return {
       status: "pending",
-      hint:
-        "Sem domínio próprio: as páginas usam o da conta. Para anunciar a sério, ligue o seu domínio — a Clickora trata da segurança.",
+      hint: t("pages.setup.domainNone"),
     };
   }
   const ready = domains.find(isCustomDomainAdReady);
   if (ready) {
     return {
       status: "done",
-      hint: `Pronto para anúncios: ${ready.hostname}.`,
+      hint: fill(t("pages.setup.domainReady"), { host: ready.hostname }),
     };
   }
   const hosting = domains.filter(isHostingCapableDomain);
@@ -92,7 +92,7 @@ function domainGoLiveStatus(domains: CustomDomainDto[]): {
   if (dnsPending) {
     return {
       status: "warn",
-      hint: `${dnsPending.hostname}: falta confirmar em Configurações → Domínio.`,
+      hint: fill(t("pages.setup.domainDns"), { host: dnsPending.hostname }),
     };
   }
   const sslWait = hosting.find(
@@ -103,13 +103,13 @@ function domainGoLiveStatus(domains: CustomDomainDto[]): {
       status: "warn",
       hint:
         sslWait.ssl_state === "misconfigured"
-          ? `${sslWait.hostname}: domínio mal apontado — corrija os valores do cartão.`
-          : `${sslWait.hostname}: a activar segurança — aguarde «Pronto para anúncios».`,
+          ? fill(t("pages.setup.domainBad"), { host: sslWait.hostname })
+          : fill(t("pages.setup.domainSsl"), { host: sslWait.hostname }),
     };
   }
   return {
     status: "warn",
-    hint: "Há domínio na conta — confirme em Configurações → Domínio.",
+    hint: t("pages.setup.domainConfirm"),
   };
 }
 
@@ -256,7 +256,7 @@ export default function SetupAssistantPage() {
   const loading =
     loadingPresells || loadingDash || loadingGa || loadingWh || loadingMeta || loadingTiktok || loadingDomains;
 
-  const domainLive = useMemo(() => domainGoLiveStatus(domains), [domains]);
+  const domainLive = useMemo(() => domainGoLiveStatus(domains, t), [domains, t]);
   const healthChecks = dashboard?.account_health?.checks;
 
   const published = useMemo(
@@ -323,54 +323,49 @@ export default function SetupAssistantPage() {
     const s: SetupStep[] = [
       {
         id: "domain",
-        title: "1. Domínio próprio (recomendado)",
-        description:
-          "Ligue o seu domínio. Pode testar com o da conta; para campanhas a sério, use o seu.",
+        title: t("pages.setup.stepDomainTitle"),
+        description: t("pages.setup.stepDomainDesc"),
         status: domainStatus,
-        actions: [{ to: "/configuracoes/dominio", label: "Configurar domínio" }],
+        actions: [{ to: "/configuracoes/dominio", label: t("pages.setup.configureDomain") }],
         hint: domainHint,
       },
       {
         id: "presell",
-        title: "2. Presell publicada",
-        description:
-          "Crie a página com o link da oferta e publique. O anúncio deve abrir o seu link — nunca a página do produto.",
+        title: t("pages.setup.stepPresellTitle"),
+        description: t("pages.setup.stepPresellDesc"),
         status: presellStatus,
-        actions: [{ to: "/presell/dashboard", label: "Minhas Presells" }],
+        actions: [{ to: "/presell/dashboard", label: t("pages.setup.myPresells") }],
         hint: presellHealth.detail
           || (hasPublished
-            ? `${published.length} página(s) publicada(s).`
-            : "Ainda sem presell publicada."),
+            ? fill(t("pages.setup.publishedCount"), { n: published.length })
+            : t("pages.setup.noPublished")),
       },
       {
         id: "urls",
-        title: "3. Link do anúncio",
-        description:
-          "Em Gerar link, copia o URL da página e cola no Google, Meta ou TikTok.",
+        title: t("pages.setup.stepUrlsTitle"),
+        description: t("pages.setup.stepUrlsDesc"),
         status: hasPublished ? "done" : "warn",
-        actions: [{ to: "/tracking/url-builder", label: "Gerar link" }],
-        hint: !hasPublished ? "Publica uma presell primeiro." : undefined,
+        actions: [{ to: "/tracking/url-builder", label: t("pages.setup.buildLink") }],
+        hint: !hasPublished ? t("pages.setup.publishFirst") : undefined,
       },
       {
         id: "clicks",
-        title: "4. Teste de clique",
-        description:
-          "Abra a página pública e clique no botão da oferta. O clique deve aparecer em Relatórios.",
+        title: t("pages.setup.stepClicksTitle"),
+        description: t("pages.setup.stepClicksDesc"),
         status: clicks > 0 ? "done" : hasPublished ? "warn" : "pending",
         actions: [
-          { to: "/tracking/relatorios/cliques", label: "Ver cliques" },
-          { to: "/resultados", label: "Resultados" },
+          { to: "/tracking/relatorios/cliques", label: t("pages.setup.viewClicks") },
+          { to: "/resultados", label: t("pages.setup.results") },
         ],
         hint:
           clicks > 0
-            ? `${clicks} clique(s) no período do resumo.`
-            : "Sem cliques neste período — faça um teste na página pública.",
+            ? fill(t("pages.setup.clicksInPeriod"), { n: clicks })
+            : t("pages.setup.noClicksPeriod"),
       },
       {
         id: "postback",
-        title: "5. Aviso de venda",
-        description:
-          "Em Integrações, copie o URL de aviso e cole na sua rede (BuyGoods, Digistore, etc.). Sem isto só vê cliques.",
+        title: t("pages.setup.stepPostbackTitle"),
+        description: t("pages.setup.stepPostbackDesc"),
         status: healthStepStatus(
           "postback",
           approvedSales > 0
@@ -384,61 +379,71 @@ export default function SetupAssistantPage() {
                   : "pending",
         ),
         actions: [
-          { to: "/integracoes/postback", label: "Configurar aviso de venda" },
+          { to: "/integracoes/postback", label: t("pages.setup.configurePostback") },
           ...(webhookPlanBlocked || (postbackPlan.found && !postbackPlan.ok)
-            ? [{ to: "/planos", label: "Ver planos" }]
+            ? [{ to: "/planos", label: t("pages.setup.viewPlans") }]
             : []),
         ],
         hint:
           postbackHealth.detail ||
           (webhookPlanBlocked || (postbackPlan.found && !postbackPlan.ok)
-            ? "Aviso de venda não está activo neste plano — faça upgrade."
+            ? t("pages.setup.postbackPlan")
             : webhook?.hook_url
               ? approvedSales > 0
-                ? "Há vendas aprovadas no período."
-                : "URL pronto — confirme na rede que está activo."
-              : "Abra Aviso de venda para copiar o URL completo."),
+                ? t("pages.setup.salesInPeriod")
+                : t("pages.setup.postbackReady")
+              : t("pages.setup.openPostback")),
       },
       {
         id: "reports",
-        title: "6. Conversões e relatórios",
-        description: "Cliques, vendas e receita aparecem em Resultados.",
+        title: t("pages.setup.stepReportsTitle"),
+        description: t("pages.setup.stepReportsDesc"),
         status: approvedSales > 0 || clicks > 0 ? "done" : "pending",
-        actions: [{ to: "/resultados/relatorios", label: "Abrir relatórios" }],
+        actions: [{ to: "/resultados/relatorios", label: t("pages.setup.openReports") }],
       },
       {
         id: "google",
-        title: "7. Google Ads — ligar conta",
-        description:
-          "Em Integrações → Google Ads, ligue a conta para custos e vendas. Sem colar chaves à mão.",
+        title: t("pages.setup.stepGoogleTitle"),
+        description: t("pages.setup.stepGoogleDesc"),
         status: googleHealthStatus,
-        actions: [{ to: "/integracoes/google-ads", label: "Ligar Google Ads" }],
+        actions: [{ to: "/integracoes/google-ads", label: t("pages.setup.connectGoogle") }],
         hint:
           accountHealthCheckOk(healthChecks, SETUP_ASSISTANT_HEALTH_MAP.google).detail ||
           (!gaEnv
-            ? "Google Ads ainda não está disponível neste ambiente."
+            ? t("pages.setup.googleUnavailable")
             : gaCanUpload
-              ? "Envio à Google pronto."
+              ? t("pages.setup.googleReady")
               : gaHasOAuth
                 ? gaCustomer
-                  ? "Conta ligada — confirme a conversão na Google."
-                  : "Conta autorizada — falta escolher a conta Ads."
-                : "Clique em Ligar: autoriza a Google uma vez; o resto é automático."),
+                  ? t("pages.setup.googleConfirm")
+                  : t("pages.setup.googlePickAccount")
+                : t("pages.setup.googleClickConnect")),
       },
       {
         id: "capi",
-        title: "8. Meta e TikTok (opcional)",
-        description:
-          "Em Integrações, cole o Pixel e a chave. Sem isto, as vendas continuam a entrar pelo aviso da rede.",
+        title: t("pages.setup.stepCapiTitle"),
+        description: t("pages.setup.stepCapiDesc"),
         status: capiStatus,
-        actions: [{ to: "/integracoes", label: "Integrações" }],
+        actions: [{ to: "/integracoes", label: t("pages.setup.integrations") }],
         hint: capiFromHealth
           ? [metaH.detail, ttH.detail].filter(Boolean).join(" ")
           : !metaTikTokDataReady
-            ? "A obter estado…"
+            ? t("pages.setup.capiLoading")
             : [
-                `Meta: ${!metaEnabled ? "opcional." : metaReady ? "pronta." : "falta Pixel ou chave."}`,
-                `TikTok: ${!ttEnabled ? "opcional." : ttReady ? "pronta." : "falta Pixel ou chave."}`,
+                fill(t("pages.setup.capiMetaLine"), {
+                  state: !metaEnabled
+                    ? t("pages.setup.capiOptional")
+                    : metaReady
+                      ? t("pages.setup.capiReady")
+                      : t("pages.setup.capiMissing"),
+                }),
+                fill(t("pages.setup.capiTtLine"), {
+                  state: !ttEnabled
+                    ? t("pages.setup.capiOptional")
+                    : ttReady
+                      ? t("pages.setup.capiReady")
+                      : t("pages.setup.capiMissing"),
+                }),
               ].join(" "),
       },
     ];
@@ -466,6 +471,7 @@ export default function SetupAssistantPage() {
     metaTikTokOptionalOk,
     metaTikTokWarn,
     metaTikTokDataReady,
+    t,
   ]);
 
   const coreSteps = steps.filter((x) => x.id !== "google" && x.id !== "capi" && x.id !== "domain");
@@ -481,16 +487,16 @@ export default function SetupAssistantPage() {
         : "pending";
 
   const goLivePillars: { id: string; label: string; status: StepStatus; to: string }[] = [
-    { id: "domain", label: "Domínio", status: domainLive.status, to: "/configuracoes/dominio" },
+    { id: "domain", label: t("pages.setup.pillarDomain"), status: domainLive.status, to: "/configuracoes/dominio" },
     {
       id: "google",
-      label: "Google Ads",
+      label: t("pages.setup.pillarGoogle"),
       status: googleStatus,
       to: "/integracoes/google-ads",
     },
     {
       id: "postback",
-      label: "Aviso de venda",
+      label: t("pages.setup.pillarPostback"),
       status: postbackStatus,
       to: "/integracoes/postback",
     },
@@ -518,12 +524,12 @@ export default function SetupAssistantPage() {
               }}
             >
               <RefreshCw className={`h-4 w-4 ${refreshingChecks ? "animate-spin" : ""}`} />
-              Atualizar
+              {t("pages.setup.refresh")}
             </Button>
             <Button variant="outline" size="sm" className="gap-2" asChild>
               <Link to="/ajuda">
                 <LayoutList className="h-4 w-4" />
-                Ajuda
+                {t("pages.setup.help")}
               </Link>
             </Button>
           </div>
@@ -531,25 +537,23 @@ export default function SetupAssistantPage() {
       />
 
       {loading ? (
-        <LoadingState message="A carregar estado da conta…" />
+        <LoadingState message={t("pages.setup.loading")} />
       ) : (
         <>
           {dashboardError ? (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90">
-              Não foi possível carregar métricas. Abra o{" "}
+              {t("pages.setup.metricsError")}{" "}
               <Link to="/resultados" className="font-medium underline underline-offset-2">
-                Resultados
+                {t("pages.setup.results")}
               </Link>{" "}
-              ou actualize.
+              {t("pages.setup.metricsErrorTail")}
             </p>
           ) : null}
 
           <div className="rounded-xl border border-border/70 bg-card px-4 py-4 space-y-3">
             <div>
-              <p className="text-sm font-semibold text-foreground">Pronto a anunciar</p>
-              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                Domínio → Google Ads → aviso de venda → Meta/TikTok (opcional). Complete o verde abaixo.
-              </p>
+              <p className="text-sm font-semibold text-foreground">{t("pages.setup.readyTitle")}</p>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{t("pages.setup.readyDesc")}</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
               {goLivePillars.map((p) => (
@@ -573,7 +577,7 @@ export default function SetupAssistantPage() {
                       p.status === "warn" && "text-amber-800 dark:text-amber-300",
                     )}
                   >
-                    {p.status === "done" ? "OK" : p.status === "warn" ? "Quase" : "Falta"}
+                    {p.status === "done" ? t("pages.setup.statusOk") : p.status === "warn" ? t("pages.setup.statusAlmost") : t("pages.setup.statusMissing")}
                   </Badge>
                 </Link>
               ))}
@@ -587,7 +591,7 @@ export default function SetupAssistantPage() {
               ) : (
                 <CircleDashed className="h-4 w-4 text-muted-foreground shrink-0" />
               )}
-              <span>{hasPublished ? "Presell publicada" : "Falta publicar presell"}</span>
+              <span>{hasPublished ? t("pages.setup.presellPublished") : t("pages.setup.presellMissing")}</span>
             </div>
             <div className="flex items-center gap-2 px-2 py-1">
               {clicks > 0 ? (
@@ -595,7 +599,7 @@ export default function SetupAssistantPage() {
               ) : (
                 <CircleDashed className="h-4 w-4 text-muted-foreground shrink-0" />
               )}
-              <span>{clicks > 0 ? `Cliques recebidos (${clicks})` : "Ainda sem cliques"}</span>
+              <span>{clicks > 0 ? fill(t("pages.setup.clicksReceived"), { n: clicks }) : t("pages.setup.clicksNone")}</span>
             </div>
             <div className="flex items-center gap-2 px-2 py-1">
               {conversions > 0 || approvedSales > 0 ? (
@@ -605,8 +609,8 @@ export default function SetupAssistantPage() {
               )}
               <span>
                 {conversions > 0 || approvedSales > 0
-                  ? `Conversões (${conversions || approvedSales})`
-                  : "Ainda sem conversões"}
+                  ? fill(t("pages.setup.conversionsReceived"), { n: conversions || approvedSales })
+                  : t("pages.setup.conversionsNone")}
               </span>
             </div>
           </div>
@@ -614,38 +618,37 @@ export default function SetupAssistantPage() {
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm">
             <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
             <span className="text-muted-foreground">
-              Essencial:{" "}
+              {t("pages.setup.essential")}{" "}
               <strong className="text-foreground">
-                {doneCount}/{coreSteps.length}
-              </strong>{" "}
-              concluídos
+                {fill(t("pages.setup.essentialDone"), { done: doneCount, total: coreSteps.length })}
+              </strong>
               {warnCount > 0 ? (
                 <>
                   {" "}
                   ·{" "}
                   <span className="text-amber-700 dark:text-amber-400">
-                    {warnCount} com aviso
+                    {fill(t("pages.setup.warnCount"), { n: warnCount })}
                   </span>
                 </>
               ) : null}
             </span>
             {gaCanUpload ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                Google Ads ligado
+                {t("pages.setup.googleLinked")}
               </Badge>
             ) : gaMetricsReady ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                Google métricas
+                {t("pages.setup.googleMetrics")}
               </Badge>
             ) : null}
             {metaEnabled && metaReady ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                Meta
+                {t("pages.setup.badgeMeta")}
               </Badge>
             ) : null}
             {ttEnabled && ttReady ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                TikTok
+                {t("pages.setup.badgeTiktok")}
               </Badge>
             ) : null}
           </div>

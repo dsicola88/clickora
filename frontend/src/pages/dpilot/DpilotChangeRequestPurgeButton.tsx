@@ -11,6 +11,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { paidAdsService } from "@/services/paidAdsService";
 
 type Props = {
@@ -20,6 +21,7 @@ type Props = {
 
 /** Remove o cartão da fila (pedido já rejeitado ou falhado). Requer permissão de admin no projecto. */
 export function DpilotChangeRequestPurgeButton({ changeRequestId, reload }: Props) {
+  const { t } = useAppLocale();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -31,7 +33,7 @@ export function DpilotChangeRequestPurgeButton({ changeRequestId, reload }: Prop
         toast.error(error);
         return;
       }
-      toast.success("Pedido removido da lista");
+      toast.success(t("pages.dpilot.hub.requestPurgeToast"));
       setOpen(false);
       reload();
     } finally {
@@ -43,20 +45,20 @@ export function DpilotChangeRequestPurgeButton({ changeRequestId, reload }: Prop
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button type="button" variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive">
-          Apagar da lista
+          {t("pages.dpilot.hub.requestPurgeBtn")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Apagar este pedido?</AlertDialogTitle>
+          <AlertDialogTitle>{t("pages.dpilot.hub.requestPurgeTitle")}</AlertDialogTitle>
           <AlertDialogDescription className="text-left leading-relaxed">
-            O registo sai da fila de aprovações no Clickora. Não altera campanhas na Google, Meta ou TikTok.
+            {t("pages.dpilot.hub.requestPurgeBody")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel disabled={busy}>{t("common.cancel")}</AlertDialogCancel>
           <Button type="button" variant="destructive" size="sm" disabled={busy} onClick={() => void onConfirm()}>
-            {busy ? "A apagar…" : "Apagar"}
+            {busy ? t("pages.dpilot.hub.purging") : t("pages.dpilot.hub.requestPurgeConfirm")}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -1,5 +1,6 @@
 import { Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 interface EmptyStateProps {
   title?: string;
@@ -12,22 +13,25 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({
-  title = "Nenhum dado encontrado",
-  description = "Comece criando seu primeiro item.",
+  title,
+  description,
   actionLabel,
   onAction,
   secondaryActionLabel,
   secondaryOnAction,
   icon,
 }: EmptyStateProps) {
+  const { t } = useAppLocale();
+  const heading = title ?? t("common.emptyTitle");
+  const hint = description ?? t("common.emptyHint");
   return (
     <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4 text-center px-4">
       <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
         {icon || <Inbox className="h-8 w-8 text-muted-foreground" />}
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-        <p className="text-sm text-muted-foreground mt-1 max-w-sm">{description}</p>
+        <h3 className="text-lg font-semibold text-foreground">{heading}</h3>
+        <p className="text-sm text-muted-foreground mt-1 max-w-sm">{hint}</p>
       </div>
       {(actionLabel && onAction) || (secondaryActionLabel && secondaryOnAction) ? (
         <div className="flex flex-col sm:flex-row gap-2">

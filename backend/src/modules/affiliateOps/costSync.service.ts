@@ -12,14 +12,9 @@ import {
   isGoogleAdsMetricsReadyForUser,
   type GoogleAdsUserSettings,
 } from "../googleAds/googleAds.service";
+import { onlyDigits } from "../../lib/stringPrimitives";
 
 const DIGITS = /^\d+$/;
-
-function onlyDigits(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const d = raw.replace(/\D/g, "");
-  return d.length > 0 ? d : null;
-}
 
 function dayUtc(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));

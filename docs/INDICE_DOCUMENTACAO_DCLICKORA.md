@@ -19,6 +19,7 @@
 | Segurança / IDOR | [SEGURANCA_E_ISOLAMENTO.md](./SEGURANCA_E_ISOLAMENTO.md) |
 | Fluxos de produto | [FLUXOS_FUNCIONAIS_DCLICKORA.md](./FLUXOS_FUNCIONAIS_DCLICKORA.md) |
 | Anúncios pagos | [PAID-ADS-ARCHITECTURE.md](./PAID-ADS-ARCHITECTURE.md) |
+| Google Ads (2 stacks) | [GOOGLE_ADS_STACKS.md](./GOOGLE_ADS_STACKS.md) |
 | Readiness mundial (ledger, sticky, i18n, gaps) | [WORLD_CLASS_READINESS_DCLICKORA.md](./WORLD_CLASS_READINESS_DCLICKORA.md) |
 | Validação final maturidade (provas + matriz) | [VALIDACAO_FINAL_MATURIDADE_INTERNACIONAL.md](./VALIDACAO_FINAL_MATURIDADE_INTERNACIONAL.md) |
 | FASE 1 — Ledger canónico Conversion | [FASE_LEDGER_CANONICO.md](./FASE_LEDGER_CANONICO.md) |
@@ -89,5 +90,17 @@ LOAD_TEST_BASE_URL=http://127.0.0.1:3001 npm run load:smoke
 - [x] Fluxos com estados honestos  
 - [x] Relatórios de auditoria / perf / carga / segurança linkados  
 - [x] README raiz aponta para este índice  
+
+## Longevidade (gates sem refactor arriscado)
+
+| Gate | Como |
+|------|------|
+| Tenant ↔ schema | `backend/src/lib/tenantPrisma.test.ts` (CI unit) |
+| Unit + paid + typecheck | job `backend-quality` no GitHub Actions |
+| Ficheiros grandes | `npm run check:longevity` (aviso; soft no CI) |
+| Dual pillar | job `backend-gate` + vitest presell/workspace + typecheck FE |
+| Google Ads stacks | [GOOGLE_ADS_STACKS.md](./GOOGLE_ADS_STACKS.md) |
+
+Detalhe operacional: [GUIA_DESENVOLVEDOR_DCLICKORA.md](./GUIA_DESENVOLVEDOR_DCLICKORA.md) §5.
 
 *Manter este ficheiro como mapa; não duplicar conteúdo longo aqui.*

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { Palette, X } from "lucide-react";
 import { useBuilder } from "../store";
 import type { PageGlobalDesign } from "../types";
@@ -10,6 +11,7 @@ import { ColorField, TextField } from "./PropertyControls";
  * cores + tipografia aplicadas via CSS variables --pb-*.
  */
 export function PageSettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useAppLocale();
   const doc = useBuilder((s) => s.doc);
   const updateSettings = useBuilder((s) => s.updateSettings);
   const [design, setDesign] = useState<PageGlobalDesign>({});
@@ -49,7 +51,7 @@ export function PageSettingsModal({ open, onClose }: { open: boolean; onClose: (
         <header className="flex items-center justify-between border-b border-editor-border p-4">
           <div className="flex items-center gap-2">
             <Palette className="h-5 w-5 text-editor-accent" />
-            <h2 className="text-base font-semibold">Design global da página</h2>
+            <h2 className="text-base font-semibold">{t("pages.pageBuilder.pageSettings.title")}</h2>
           </div>
           <button
             type="button"
@@ -62,19 +64,16 @@ export function PageSettingsModal({ open, onClose }: { open: boolean; onClose: (
 
         <div className="editor-scrollbar space-y-5 overflow-y-auto p-5">
           <p className="text-[11px] leading-relaxed text-editor-fg-muted">
-            Define cores e fontes uma vez para toda a página. Usa{" "}
-            <span className="font-mono">var(--pb-primary)</span>,{" "}
-            <span className="font-mono">var(--pb-accent)</span>,{" "}
-            <span className="font-mono">var(--pb-font-primary)</span> em CSS custom ou cores dos widgets.
+            {t("pages.pageBuilder.pageSettings.intro")}
           </p>
 
           <div className="space-y-3">
             <h3 className="text-[11px] font-semibold uppercase tracking-wider text-editor-fg-muted">
-              Página
+              {t("pages.pageBuilder.pageSettings.page")}
             </h3>
-            <ColorField label="Fundo da página" value={background} onChange={setBackground} />
+            <ColorField label={t("pages.pageBuilder.pageSettings.pageBg")} value={background} onChange={setBackground} />
             <label className="block text-[11px] font-medium text-editor-fg-muted">
-              Largura máx. conteúdo (px)
+              {t("pages.pageBuilder.pageSettings.maxWidth")}
               <input
                 type="number"
                 min={320}
@@ -88,26 +87,26 @@ export function PageSettingsModal({ open, onClose }: { open: boolean; onClose: (
 
           <div className="space-y-3">
             <h3 className="text-[11px] font-semibold uppercase tracking-wider text-editor-fg-muted">
-              Cores globais
+              {t("pages.pageBuilder.pageSettings.globalColors")}
             </h3>
             <ColorField
-              label="Primária"
+              label={t("pages.pageBuilder.pageSettings.primary")}
               value={design.primary ?? ""}
               onChange={(v) => patch("primary", v)}
             />
             <ColorField
-              label="Secundária"
+              label={t("pages.pageBuilder.pageSettings.secondary")}
               value={design.secondary ?? ""}
               onChange={(v) => patch("secondary", v)}
             />
-            <ColorField label="Texto" value={design.text ?? ""} onChange={(v) => patch("text", v)} />
+            <ColorField label={t("pages.pageBuilder.pageSettings.text")} value={design.text ?? ""} onChange={(v) => patch("text", v)} />
             <ColorField
-              label="Destaque (accent)"
+              label={t("pages.pageBuilder.pageSettings.accent")}
               value={design.accent ?? ""}
               onChange={(v) => patch("accent", v)}
             />
             <ColorField
-              label="Muted"
+              label={t("pages.pageBuilder.pageSettings.muted")}
               value={design.muted ?? ""}
               onChange={(v) => patch("muted", v)}
             />
@@ -115,16 +114,16 @@ export function PageSettingsModal({ open, onClose }: { open: boolean; onClose: (
 
           <div className="space-y-3">
             <h3 className="text-[11px] font-semibold uppercase tracking-wider text-editor-fg-muted">
-              Tipografia global
+              {t("pages.pageBuilder.pageSettings.globalType")}
             </h3>
             <TextField
-              label="Fonte primária (CSS)"
+              label={t("pages.pageBuilder.pageSettings.fontPrimary")}
               value={design.fontPrimary ?? ""}
               onChange={(v) => patch("fontPrimary", v)}
               placeholder="Inter, system-ui, sans-serif"
             />
             <TextField
-              label="Fonte secundária (CSS)"
+              label={t("pages.pageBuilder.pageSettings.fontSecondary")}
               value={design.fontSecondary ?? ""}
               onChange={(v) => patch("fontSecondary", v)}
               placeholder="Georgia, serif"
@@ -138,14 +137,14 @@ export function PageSettingsModal({ open, onClose }: { open: boolean; onClose: (
             onClick={onClose}
             className="rounded-md px-3 py-1.5 text-xs text-editor-fg-muted hover:bg-editor-panel-2"
           >
-            Cancelar
+            {t("common.cancel")}
           </button>
           <button
             type="button"
             onClick={handleSave}
             className="rounded-md bg-editor-accent px-3 py-1.5 text-xs font-semibold text-editor-accent-fg"
           >
-            Guardar
+            {t("common.save")}
           </button>
         </footer>
       </div>

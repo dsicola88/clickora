@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill, type MessageKey } from "@/i18n";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminService } from "@/services/adminService";
 import { plansLandingService } from "@/services/plansLandingService";
@@ -83,7 +85,6 @@ import { LandingMarkdown } from "@/components/plans/LandingMarkdown";
 import { SalesLandingLegalFooter } from "@/components/plans/SalesLandingSections";
 import {
   DEFAULT_LANDING_SECTION_ORDER,
-  LANDING_SECTION_LABELS,
   LANDING_SECTION_IDS,
   resolveSectionOrder,
   resolveSectionsEnabled,
@@ -165,81 +166,81 @@ function newLandingContentBlockKey(): string {
   return `lb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-const OPT_FONT = [
-  { value: "sans", label: "Sans (UI)" },
-  { value: "serif", label: "Serif" },
-  { value: "mono", label: "Mono" },
+const OPT_FONT: { value: string; label: MessageKey }[] = [
+  { value: "sans", label: "pages.admin.landing.fontSans" },
+  { value: "serif", label: "pages.admin.landing.fontSerif" },
+  { value: "mono", label: "pages.admin.landing.fontMono" },
 ];
-const OPT_ALIGN = [
-  { value: "left", label: "Esquerda" },
-  { value: "center", label: "Centro" },
-  { value: "right", label: "Direita" },
+const OPT_ALIGN: { value: string; label: MessageKey }[] = [
+  { value: "left", label: "pages.admin.landing.alignLeft" },
+  { value: "center", label: "pages.admin.landing.alignCenter" },
+  { value: "right", label: "pages.admin.landing.alignRight" },
 ];
-const OPT_TITLE_SIZE = [
-  { value: "sm", label: "Pequeno" },
-  { value: "md", label: "Médio" },
-  { value: "lg", label: "Grande" },
-  { value: "xl", label: "XL" },
-  { value: "2xl", label: "2XL" },
-  { value: "3xl", label: "3XL (padrão)" },
-  { value: "4xl", label: "4XL" },
-  { value: "5xl", label: "5XL" },
+const OPT_TITLE_SIZE: { value: string; label: MessageKey }[] = [
+  { value: "sm", label: "pages.admin.landing.sizeSm" },
+  { value: "md", label: "pages.admin.landing.sizeMd" },
+  { value: "lg", label: "pages.admin.landing.sizeLg" },
+  { value: "xl", label: "pages.admin.landing.sizeXl" },
+  { value: "2xl", label: "pages.admin.landing.size2xl" },
+  { value: "3xl", label: "pages.admin.landing.size3xl" },
+  { value: "4xl", label: "pages.admin.landing.size4xl" },
+  { value: "5xl", label: "pages.admin.landing.size5xl" },
 ];
-const OPT_WEIGHT = [
-  { value: "normal", label: "Normal" },
-  { value: "medium", label: "Médio" },
-  { value: "semibold", label: "Semibold" },
-  { value: "bold", label: "Bold (padrão)" },
-  { value: "extrabold", label: "Extrabold" },
+const OPT_WEIGHT: { value: string; label: MessageKey }[] = [
+  { value: "normal", label: "pages.admin.landing.weightNormal" },
+  { value: "medium", label: "pages.admin.landing.weightMedium" },
+  { value: "semibold", label: "pages.admin.landing.weightSemibold" },
+  { value: "bold", label: "pages.admin.landing.weightBold" },
+  { value: "extrabold", label: "pages.admin.landing.weightExtrabold" },
 ];
-const OPT_BODY = [
-  { value: "xs", label: "XS" },
-  { value: "sm", label: "SM" },
-  { value: "base", label: "Base (padrão)" },
-  { value: "lg", label: "LG" },
-  { value: "xl", label: "XL" },
-];
-
-const OPT_RICH_SIZE = [
-  { value: "xs", label: "XS" },
-  { value: "sm", label: "SM" },
-  { value: "base", label: "Base" },
-  { value: "lg", label: "LG" },
-  { value: "xl", label: "XL" },
-  { value: "2xl", label: "2XL" },
+const OPT_BODY: { value: string; label: MessageKey }[] = [
+  { value: "xs", label: "pages.admin.landing.sizeXs" },
+  { value: "sm", label: "pages.admin.landing.sizeSmShort" },
+  { value: "base", label: "pages.admin.landing.bodyBase" },
+  { value: "lg", label: "pages.admin.landing.sizeLgShort" },
+  { value: "xl", label: "pages.admin.landing.sizeXl" },
 ];
 
-const OPT_IMAGE_EFFECT = [
-  { value: "none", label: "Nenhum" },
-  { value: "ken-burns", label: "Zoom suave (Ken Burns)" },
-  { value: "hover-zoom", label: "Zoom ao passar o rato" },
-  { value: "parallax", label: "Parallax (fundo fixo em desktop)" },
+const OPT_RICH_SIZE: { value: string; label: MessageKey }[] = [
+  { value: "xs", label: "pages.admin.landing.sizeXs" },
+  { value: "sm", label: "pages.admin.landing.sizeSmShort" },
+  { value: "base", label: "pages.admin.landing.sizeBase" },
+  { value: "lg", label: "pages.admin.landing.sizeLgShort" },
+  { value: "xl", label: "pages.admin.landing.sizeXl" },
+  { value: "2xl", label: "pages.admin.landing.size2xl" },
 ];
 
-const OPT_OVERLAY = [
-  { value: "gradient-dark", label: "Gradiente escuro (legível)" },
-  { value: "gradient-light", label: "Gradiente claro" },
-  { value: "solid-dark", label: "Overlay escuro uniforme" },
-  { value: "solid-light", label: "Overlay claro uniforme" },
-  { value: "none", label: "Sem overlay" },
+const OPT_IMAGE_EFFECT: { value: string; label: MessageKey }[] = [
+  { value: "none", label: "pages.admin.landing.effectNone" },
+  { value: "ken-burns", label: "pages.admin.landing.effectKen" },
+  { value: "hover-zoom", label: "pages.admin.landing.effectHover" },
+  { value: "parallax", label: "pages.admin.landing.effectParallax" },
 ];
 
-const OPT_OVERLAY_STRENGTH = [
-  { value: "subtle", label: "Suave" },
-  { value: "medium", label: "Médio" },
-  { value: "strong", label: "Forte" },
+const OPT_OVERLAY: { value: string; label: MessageKey }[] = [
+  { value: "gradient-dark", label: "pages.admin.landing.overlayDark" },
+  { value: "gradient-light", label: "pages.admin.landing.overlayLight" },
+  { value: "solid-dark", label: "pages.admin.landing.overlaySolidDark" },
+  { value: "solid-light", label: "pages.admin.landing.overlaySolidLight" },
+  { value: "none", label: "pages.admin.landing.overlayNone" },
 ];
 
-const OPT_ENTRANCE = [
-  { value: "none", label: "Nenhuma" },
-  { value: "fade-in", label: "Aparecer" },
-  { value: "fade-up", label: "Fade + subir (recomendado)" },
+const OPT_OVERLAY_STRENGTH: { value: string; label: MessageKey }[] = [
+  { value: "subtle", label: "pages.admin.landing.strengthSubtle" },
+  { value: "medium", label: "pages.admin.landing.strengthMedium" },
+  { value: "strong", label: "pages.admin.landing.strengthStrong" },
 ];
 
-const OPT_HERO_FOCAL = [
-  { value: "center", label: "Centro" },
-  { value: "top", label: "Topo (cabeças / horizonte)" },
-  { value: "bottom", label: "Baixo" },
+const OPT_ENTRANCE: { value: string; label: MessageKey }[] = [
+  { value: "none", label: "pages.admin.landing.entranceNone" },
+  { value: "fade-in", label: "pages.admin.landing.entranceFade" },
+  { value: "fade-up", label: "pages.admin.landing.entranceUp" },
+];
+
+const OPT_HERO_FOCAL: { value: string; label: MessageKey }[] = [
+  { value: "center", label: "pages.admin.landing.focalCenter" },
+  { value: "top", label: "pages.admin.landing.focalTop" },
+  { value: "bottom", label: "pages.admin.landing.focalBottom" },
 ];
 
 type LandingEditorTab =
@@ -254,56 +255,55 @@ type LandingEditorTab =
 
 const LANDING_EDITOR_TABS: {
   id: LandingEditorTab;
-  label: string;
+  label: MessageKey;
   icon: typeof LayoutTemplate;
 }[] = [
-  { id: "structure", label: "Estrutura", icon: ListOrdered },
-  { id: "hero", label: "Hero", icon: AlignLeft },
-  { id: "typography", label: "Tipografia", icon: Type },
-  { id: "sales", label: "Tema", icon: Palette },
-  { id: "media", label: "Imagem", icon: ImageIcon },
-  { id: "copy", label: "Textos", icon: Layers },
-  { id: "labels", label: "Etiquetas", icon: Tag },
-  { id: "builder", label: "Blocos", icon: LayoutTemplate },
+  { id: "structure", label: "pages.admin.landing.tabStructure", icon: ListOrdered },
+  { id: "hero", label: "pages.admin.landing.tabHero", icon: AlignLeft },
+  { id: "typography", label: "pages.admin.landing.tabType", icon: Type },
+  { id: "sales", label: "pages.admin.landing.tabTheme", icon: Palette },
+  { id: "media", label: "pages.admin.landing.tabImage", icon: ImageIcon },
+  { id: "copy", label: "pages.admin.landing.tabCopy", icon: Layers },
+  { id: "labels", label: "pages.admin.landing.tabLabels", icon: Tag },
+  { id: "builder", label: "pages.admin.landing.tabBlocks", icon: LayoutTemplate },
 ];
 
-const THEME_FIELD_ROWS: { key: keyof LandingPageThemeInput; label: string; placeholder: string }[] = [
-  { key: "page_background", label: "Fundo da página", placeholder: "#050a18" },
-  { key: "nav_background", label: "Barra fixa (topo)", placeholder: "rgba(5,10,24,0.88)" },
-  { key: "accent", label: "Cor de destaque (CTAs)", placeholder: "#059669" },
-  { key: "accent_hover", label: "Destaque ao passar o rato", placeholder: "#047857" },
-  { key: "heading_on_dark", label: "Títulos sobre escuro", placeholder: "#ffffff" },
-  { key: "muted_on_dark", label: "Texto secundário", placeholder: "rgba(255,255,255,0.78)" },
-  { key: "link", label: "Ligações e rótulos pequenos", placeholder: "#34d399" },
-  { key: "card_surface", label: "Fundo dos cartões brancos", placeholder: "#ffffff" },
-  { key: "badge_border", label: "Borda do selo (hero)", placeholder: "rgba(16,185,129,0.45)" },
-  { key: "badge_background", label: "Fundo do selo", placeholder: "rgba(16,185,129,0.12)" },
-  { key: "badge_text", label: "Texto do selo", placeholder: "#d1fae5" },
-  { key: "selection_bg", label: "Seleção de texto", placeholder: "rgba(16,185,129,0.2)" },
-  { key: "stats_gradient_from", label: "Bloco números — topo do gradiente", placeholder: "rgba(6,78,59,0.38)" },
-  { key: "stats_gradient_to", label: "Bloco números — base do gradiente", placeholder: "#050a18" },
-  { key: "stats_border", label: "Borda do bloco números", placeholder: "rgba(16,185,129,0.25)" },
-  { key: "stats_glow", label: "Brilho ao fundo (números)", placeholder: "rgba(16,185,129,0.22)" },
-  { key: "faq_border", label: "Borda do FAQ", placeholder: "rgba(16,185,129,0.3)" },
-  { key: "nav_border", label: "Borda da barra / separadores", placeholder: "rgba(255,255,255,0.1)" },
-  { key: "outline_nav_border", label: "Botões outline (borda)", placeholder: "rgba(255,255,255,0.25)" },
-  { key: "outline_nav_bg", label: "Botões outline (fundo)", placeholder: "rgba(255,255,255,0.05)" },
+const THEME_FIELD_ROWS: { key: keyof LandingPageThemeInput; label: MessageKey; placeholder: string }[] = [
+  { key: "page_background", label: "pages.admin.landing.themePageBg", placeholder: "#050a18" },
+  { key: "nav_background", label: "pages.admin.landing.themeNavBg", placeholder: "rgba(5,10,24,0.88)" },
+  { key: "accent", label: "pages.admin.landing.themeAccent", placeholder: "#059669" },
+  { key: "accent_hover", label: "pages.admin.landing.themeAccentHover", placeholder: "#047857" },
+  { key: "heading_on_dark", label: "pages.admin.landing.themeHeading", placeholder: "#ffffff" },
+  { key: "muted_on_dark", label: "pages.admin.landing.themeMuted", placeholder: "rgba(255,255,255,0.78)" },
+  { key: "link", label: "pages.admin.landing.themeLink", placeholder: "#34d399" },
+  { key: "card_surface", label: "pages.admin.landing.themeCard", placeholder: "#ffffff" },
+  { key: "badge_border", label: "pages.admin.landing.themeBadgeBorder", placeholder: "rgba(16,185,129,0.45)" },
+  { key: "badge_background", label: "pages.admin.landing.themeBadgeBg", placeholder: "rgba(16,185,129,0.12)" },
+  { key: "badge_text", label: "pages.admin.landing.themeBadgeText", placeholder: "#d1fae5" },
+  { key: "selection_bg", label: "pages.admin.landing.themeSelection", placeholder: "rgba(16,185,129,0.2)" },
+  { key: "stats_gradient_from", label: "pages.admin.landing.themeStatsFrom", placeholder: "rgba(6,78,59,0.38)" },
+  { key: "stats_gradient_to", label: "pages.admin.landing.themeStatsTo", placeholder: "#050a18" },
+  { key: "stats_border", label: "pages.admin.landing.themeStatsBorder", placeholder: "rgba(16,185,129,0.25)" },
+  { key: "stats_glow", label: "pages.admin.landing.themeStatsGlow", placeholder: "rgba(16,185,129,0.22)" },
+  { key: "faq_border", label: "pages.admin.landing.themeFaqBorder", placeholder: "rgba(16,185,129,0.3)" },
+  { key: "nav_border", label: "pages.admin.landing.themeNavBorder", placeholder: "rgba(255,255,255,0.1)" },
+  { key: "outline_nav_border", label: "pages.admin.landing.themeOutlineBorder", placeholder: "rgba(255,255,255,0.25)" },
+  { key: "outline_nav_bg", label: "pages.admin.landing.themeOutlineBg", placeholder: "rgba(255,255,255,0.05)" },
   {
     key: "accent_button_shadow",
-    label: "Sombra dos botões principais (CTA)",
+    label: "pages.admin.landing.themeBtnShadow",
     placeholder: "0 8px 32px -8px rgba(5,150,105,0.45)",
   },
-  { key: "accent_button_radius", label: "Raio dos botões CTA", placeholder: "9999px ou 0.75rem" },
-  { key: "plan_card_radius", label: "Raio dos cartões de plano", placeholder: "1rem" },
+  { key: "accent_button_radius", label: "pages.admin.landing.themeBtnRadius", placeholder: "9999px ou 0.75rem" },
+  { key: "plan_card_radius", label: "pages.admin.landing.themePlanRadius", placeholder: "1rem" },
 ];
 
-const MARKDOWN_HINT = (
-  <p className="text-[11px] leading-snug text-muted-foreground">
-    Pode usar Markdown: <span className="font-mono">**negrito**</span>, listas,{" "}
-    <span className="font-mono">[texto](https://…)</span>, imagens{" "}
-    <span className="font-mono">![descrição](https://…)</span>.
-  </p>
-);
+function MarkdownHint() {
+  const { t } = useAppLocale();
+  return (
+    <p className="text-[11px] leading-snug text-muted-foreground">{t("pages.admin.landing.mdHint")}</p>
+  );
+}
 
 function HeroPreview(props: {
   badgeText: string;
@@ -409,11 +409,25 @@ function HeroPreview(props: {
   );
 }
 
+const SECTION_LABEL_KEY: Record<LandingSectionId, MessageKey> = {
+  content_blocks: "pages.admin.landing.secContentBlocks",
+  features: "pages.admin.landing.secFeatures",
+  stats: "pages.admin.landing.secStats",
+  testimonials: "pages.admin.landing.secTestimonials",
+  gallery: "pages.admin.landing.secGallery",
+  planos: "pages.admin.landing.secPlans",
+  guarantee: "pages.admin.landing.secGuarantee",
+  faq: "pages.admin.landing.secFaq",
+  product_demo: "pages.admin.landing.secProductDemo",
+  account_plan: "pages.admin.landing.secAccountPlan",
+};
+
 type Props = {
   onInvalidateAdmin?: () => void;
 };
 
 export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
+  const { t } = useAppLocale();
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const { data, isLoading, isError, refetch } = useQuery({
@@ -421,7 +435,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     queryFn: async () => {
       const { data: row, error } = await adminService.getPlansLanding();
       if (error) throw new Error(error);
-      if (!row) throw new Error("Resposta vazia");
+      if (!row) throw new Error(t("pages.admin.emptyResponse"));
       return row;
     },
   });
@@ -1233,9 +1247,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       const next = [...prev];
       const j = index + delta;
       if (j < 0 || j >= next.length) return prev;
-      const t = next[index];
+      const moved = next[index];
       next[index] = next[j]!;
-      next[j] = t!;
+      next[j] = moved!;
       return next;
     });
   };
@@ -1249,9 +1263,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       const next = [...prev];
       const j = index + delta;
       if (j < 0 || j >= next.length) return prev;
-      const t = next[index]!;
+      const moved = next[index]!;
       next[index] = next[j]!;
-      next[j] = t;
+      next[j] = moved;
       return next;
     });
   };
@@ -1261,21 +1275,21 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       const next = [...prev];
       const j = index + delta;
       if (j < 0 || j >= next.length) return prev;
-      const t = next[index];
+      const moved = next[index];
       next[index] = next[j]!;
-      next[j] = t!;
+      next[j] = moved!;
       return next;
     });
   };
 
   const saveTexts = async () => {
     if (!heroTitle.trim()) {
-      toast.error("O título do hero é obrigatório.");
+      toast.error(t("pages.admin.landing.heroRequired"));
       return;
     }
     if (builderEnabled && !savedPageDocument) {
       toast.error(
-        "Modo visual activo sem documento. Abra o editor visual → Temas → Publicar, ou desactive o modo visual abaixo.",
+        t("pages.admin.landing.visualNoDoc"),
       );
       return;
     }
@@ -1328,8 +1342,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       }
       toast.success(
         builderEnabled
-          ? "Guardado. /planos continua no modo visual (editor clássico não altera o layout público)."
-          : "Guardado. /planos usa agora o editor clássico.",
+          ? t("pages.admin.landing.savedVisual")
+          : t("pages.admin.landing.savedClassic"),
       );
       queryClient.invalidateQueries({ queryKey: PUBLIC_KEY });
       onInvalidateAdmin?.();
@@ -1354,7 +1368,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             : prev,
         );
       }
-      toast.success(result.data?.message ?? "Imagem publicada.");
+      toast.success(result.data?.message ?? t("pages.admin.landing.imagePublished"));
       queryClient.invalidateQueries({ queryKey: PUBLIC_KEY });
       onInvalidateAdmin?.();
     },
@@ -1373,7 +1387,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         const { message: _m, ...rest } = row as PlansLandingPublic & { message?: string };
         queryClient.setQueryData(ADMIN_KEY, rest as PlansLandingPublic);
       }
-      toast.success("Imagem do hero removida.");
+      toast.success(t("pages.admin.landing.heroRemoved"));
       queryClient.invalidateQueries({ queryKey: PUBLIC_KEY });
       onInvalidateAdmin?.();
     },
@@ -1383,8 +1397,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     return (
       <Card className="border-border/80 shadow-sm">
         <CardHeader className="py-4">
-          <CardTitle className="text-base">Página de vendas</CardTitle>
-          <CardDescription>A carregar o editor…</CardDescription>
+          <CardTitle className="text-base">{t("pages.admin.landing.title")}</CardTitle>
+          <CardDescription>{t("pages.admin.landing.loading")}</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -1394,8 +1408,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
     return (
       <Card className="border-destructive/30 shadow-sm">
         <CardHeader className="py-4">
-          <CardTitle className="text-base">Página de vendas</CardTitle>
-          <CardDescription>Não foi possível carregar a configuração.</CardDescription>
+          <CardTitle className="text-base">{t("pages.admin.landing.title")}</CardTitle>
+          <CardDescription>{t("pages.admin.landing.loadError")}</CardDescription>
         </CardHeader>
         <CardContent className="pt-0 pb-4">
           <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
@@ -1525,7 +1539,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               />
             </div>
           ) : (
-            <p className="mt-4 text-xs italic text-muted-foreground">Sem texto introdutório.</p>
+            <p className="mt-4 text-xs italic text-muted-foreground">{t("pages.admin.landing.noIntro")}</p>
           )}
           <div className="mt-4">
             <LandingPageBodySections
@@ -1591,14 +1605,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          Pré-visualização
+          {t("pages.admin.landing.preview")}
         </div>
         <div className="flex flex-wrap items-center gap-1">
           {(
             [
-              { id: "desktop" as const, icon: Monitor, label: "Desktop" },
-              { id: "tablet" as const, icon: Tablet, label: "Tablet" },
-              { id: "mobile" as const, icon: Smartphone, label: "Telemóvel" },
+              { id: "desktop" as const, icon: Monitor, label: t("pages.admin.landing.viewportDesktop") },
+              { id: "tablet" as const, icon: Tablet, label: t("pages.admin.landing.viewportTablet") },
+              { id: "mobile" as const, icon: Smartphone, label: t("pages.admin.landing.viewportMobile") },
             ] as const
           ).map((v) => {
             const Icon = v.icon;
@@ -1650,12 +1664,12 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
         </div>
       </div>
       <p className="shrink-0 border-t border-border/50 px-3 py-1.5 text-[10px] text-muted-foreground">
-        Largura alvo {previewFrameWidth}px · ajusta-se ao painel
+        {fill(t("pages.admin.landing.frameWidth"), { px: previewFrameWidth })}
         {previewViewport === "desktop"
-          ? " (desktop)"
+          ? t("pages.admin.landing.frameDesktop")
           : previewViewport === "tablet"
-            ? " (tablet)"
-            : " (telemóvel)"}
+            ? t("pages.admin.landing.frameTablet")
+            : t("pages.admin.landing.frameMobile")}
       </p>
     </div>
   );
@@ -1669,19 +1683,19 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
           <div className="min-w-0">
             <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight text-foreground">
               <LayoutTemplate className="h-4 w-4 text-primary" />
-              Página de vendas
+              {t("pages.admin.landing.title")}
             </h2>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
-              Abas expansíveis · pré-visualização com escala automática · página inicial (/)
+              {t("pages.admin.landing.editorLead")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex rounded-lg border border-border/70 bg-muted/40 p-0.5">
               {(
                 [
-                  { id: "editor" as const, icon: PanelLeft, label: "Expandir editor" },
-                  { id: "split" as const, icon: Columns2, label: "Dividido" },
-                  { id: "preview" as const, icon: PanelRight, label: "Expandir preview" },
+                  { id: "editor" as const, icon: PanelLeft, label: t("pages.admin.landing.layoutEditor"), short: t("pages.admin.landing.layoutEditorShort") },
+                  { id: "split" as const, icon: Columns2, label: t("pages.admin.landing.layoutSplit"), short: t("pages.admin.landing.layoutSplit") },
+                  { id: "preview" as const, icon: PanelRight, label: t("pages.admin.landing.layoutPreview"), short: t("pages.admin.landing.layoutPreviewShort") },
                 ] as const
               ).map((layout) => {
                 const Icon = layout.icon;
@@ -1702,14 +1716,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     )}
                   >
                     <Icon className="h-3.5 w-3.5" />
-                    <span className="hidden lg:inline">{layout.label.replace("Expandir ", "")}</span>
+                    <span className="hidden lg:inline">{layout.short}</span>
                   </button>
                 );
               })}
             </div>
             <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
               <Link to="/" target="_blank" rel="noreferrer">
-                Ver página
+                {t("pages.admin.viewPage")}
                 <ExternalLink className="h-3.5 w-3.5" />
               </Link>
             </Button>
@@ -1721,7 +1735,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               onClick={() => void saveTexts()}
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              Guardar
+              {t("common.save")}
             </Button>
           </div>
         </div>
@@ -1745,7 +1759,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 )}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
-                {tab.label}
+                {t(tab.label)}
               </button>
             );
           })}
@@ -1762,13 +1776,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
       >
         <p className="font-medium">
           {builderEnabled
-            ? "Modo visual activo em /planos — o layout público vem do editor visual (Temas → Publicar)."
-            : "Modo clássico activo em /planos — as secções deste formulário é que aparecem no site."}
+            ? t("pages.admin.landing.modeVisual")
+            : t("pages.admin.landing.modeClassic")}
         </p>
         <p className="mt-1 text-muted-foreground">
           {builderEnabled
-            ? "Pode editar SEO/nav/tema aqui e Guardar (mantém o documento visual). Para o site voltar a este formulário, desactive o interruptor e Guarde."
-            : "Para usar um Tema do editor visual: abra o visual → Temas → Publicar. Depois pode voltar aqui e activar/desactivar o modo abaixo."}
+            ? t("pages.admin.landing.modeVisualHint")
+            : t("pages.admin.landing.modeClassicHint")}
         </p>
         <label className="mt-3 flex cursor-pointer items-center gap-2 font-medium">
           <input
@@ -1779,15 +1793,15 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             onChange={(e) => {
               const on = e.target.checked;
               if (on && !savedPageDocument) {
-                toast.error("Ainda não há documento visual. Publique primeiro no editor visual.");
+                toast.error(t("pages.admin.landing.noVisualDoc"));
                 return;
               }
               setBuilderEnabled(on);
             }}
           />
-          Usar editor visual em /planos
+          {t("pages.admin.landing.useVisual")}
           {!savedPageDocument ? (
-            <span className="font-normal text-muted-foreground">(sem documento publicado)</span>
+            <span className="font-normal text-muted-foreground">{t("pages.admin.landing.noDoc")}</span>
           ) : null}
         </label>
       </div>
@@ -1812,10 +1826,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             {editorTab === "structure" ? (
               <div className="space-y-3">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Ordem e visibilidade</p>
+                  <p className="text-sm font-semibold text-foreground">{t("pages.admin.landing.orderTitle")}</p>
                   <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                    A primeira entrada fica logo após o texto introdutório. «Planos» só deve ficar oculto se não quiser
-                    mostrar preços nesta página.
+                    {t("pages.admin.landing.orderHint")}
                   </p>
                 </div>
                 <div className="space-y-1.5">
@@ -1826,10 +1839,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     >
                       <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                       <span className="min-w-0 flex-1 text-sm font-medium leading-tight">
-                        {LANDING_SECTION_LABELS[id]}
+                        {t(SECTION_LABEL_KEY[id])}
                       </span>
                       <div className="flex items-center gap-2">
-                        <Label className="text-[11px] text-muted-foreground whitespace-nowrap">Mostrar</Label>
+                        <Label className="text-[11px] text-muted-foreground whitespace-nowrap">{t("pages.admin.landing.lblShow")}</Label>
                         <Switch
                           checked={sectionsEnabled[id]}
                           onCheckedChange={(v) =>
@@ -1845,7 +1858,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           className="h-7 w-7"
                           disabled={index === 0}
                           onClick={() => moveSectionInOrder(index, -1)}
-                          aria-label="Subir"
+                          aria-label={t("pages.admin.landing.moveUp")}
                         >
                           <ChevronUp className="h-4 w-4" />
                         </Button>
@@ -1856,7 +1869,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           className="h-7 w-7"
                           disabled={index >= sectionOrder.length - 1}
                           onClick={() => moveSectionInOrder(index, 1)}
-                          aria-label="Descer"
+                          aria-label={t("pages.admin.landing.moveDown")}
                         >
                           <ChevronDown className="h-4 w-4" />
                         </Button>
@@ -1869,14 +1882,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
                 <div className="space-y-3 rounded-lg border border-border/70 bg-muted/10 p-3">
                   <div>
-                    <p className="text-sm font-semibold text-foreground">Navegação, promo e SEO</p>
+                    <p className="text-sm font-semibold text-foreground">{t("pages.admin.landing.navSeoTitle")}</p>
                     <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                      Controla a barra do topo, o atalho Agency e o título/descrição nos motores de busca.
+                      {t("pages.admin.landing.navSeoHint")}
                     </p>
                   </div>
                   <div className="grid gap-2.5 sm:grid-cols-2">
                     <div className="space-y-1">
-                      <Label className="text-[11px]">Marca (nav)</Label>
+                      <Label className="text-[11px]">{t("pages.admin.landing.lblBrand")}</Label>
                       <Input
                         className="h-8 text-sm"
                         value={siteChrome.brand_label ?? ""}
@@ -1885,7 +1898,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[11px]">Logo URL</Label>
+                      <Label className="text-[11px]">{t("pages.admin.landing.lblLogo")}</Label>
                       <Input
                         className="h-8 text-sm"
                         placeholder="/brand-dclickora.png"
@@ -1897,7 +1910,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[11px]">Botão comprar</Label>
+                      <Label className="text-[11px]">{t("pages.admin.landing.lblBuy")}</Label>
                       <Input
                         className="h-8 text-sm"
                         value={siteChrome.buy_label ?? ""}
@@ -1906,7 +1919,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[11px]">Entrar</Label>
+                      <Label className="text-[11px]">{t("pages.admin.landing.lblSignIn")}</Label>
                       <Input
                         className="h-8 text-sm"
                         value={siteChrome.login_label ?? ""}
@@ -1915,7 +1928,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[11px]">Painel</Label>
+                      <Label className="text-[11px]">{t("pages.admin.landing.lblPanel")}</Label>
                       <Input
                         className="h-8 text-sm"
                         value={siteChrome.panel_label ?? ""}
@@ -1925,7 +1938,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-2.5 py-2">
-                    <Label className="text-xs">2.º CTA do hero (outline)</Label>
+                    <Label className="text-xs">{t("pages.admin.landing.lblCta2")}</Label>
                     <Switch
                       checked={siteChrome.hero_secondary_cta_enabled}
                       onCheckedChange={(v) =>
@@ -1936,7 +1949,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   {siteChrome.hero_secondary_cta_enabled ? (
                     <div className="grid gap-2.5 sm:grid-cols-2">
                       <div className="space-y-1">
-                        <Label className="text-[11px]">Texto 2.º CTA</Label>
+                        <Label className="text-[11px]">{t("pages.admin.landing.lblCta2Text")}</Label>
                         <Input
                           className="h-8 text-sm"
                           value={siteChrome.hero_secondary_cta_label ?? ""}
@@ -1950,7 +1963,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[11px]">URL 2.º CTA</Label>
+                        <Label className="text-[11px]">{t("pages.admin.landing.lblCta2Url")}</Label>
                         <Input
                           className="h-8 text-sm"
                           value={siteChrome.hero_secondary_cta_href ?? ""}
@@ -1966,7 +1979,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     </div>
                   ) : null}
                   <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-2.5 py-2">
-                    <Label className="text-xs">Mostrar «Por objetivo»</Label>
+                    <Label className="text-xs">{t("pages.admin.landing.lblShowGoals")}</Label>
                     <Switch
                       checked={siteChrome.show_objective_nav}
                       onCheckedChange={(v) => setSiteChrome((p) => ({ ...p, show_objective_nav: v }))}
@@ -1975,7 +1988,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   {siteChrome.show_objective_nav ? (
                     <div className="space-y-2">
                       <div className="space-y-1">
-                        <Label className="text-[11px]">Etiqueta da fila</Label>
+                        <Label className="text-[11px]">{t("pages.admin.landing.lblRowLabel")}</Label>
                         <Input
                           className="h-8 text-sm"
                           value={siteChrome.objective_nav_label ?? ""}
@@ -1989,7 +2002,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         <div key={idx} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
                           <Input
                             className="h-8 text-sm"
-                            placeholder="Texto"
+                            placeholder={t("pages.admin.landing.textPlaceholder")}
                             value={link.label}
                             onChange={(e) =>
                               setSiteChrome((p) => ({
@@ -2002,7 +2015,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                           <Input
                             className="h-8 text-sm"
-                            placeholder="/rota ou https://…"
+                            placeholder={t("pages.admin.landing.routePlaceholder")}
                             value={link.href}
                             onChange={(e) =>
                               setSiteChrome((p) => ({
@@ -2024,7 +2037,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                                 objective_links: p.objective_links.filter((_, i) => i !== idx),
                               }))
                             }
-                            aria-label="Remover link"
+                            aria-label={t("pages.admin.landing.removeLink")}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -2043,13 +2056,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                             }))
                           }
                         >
-                          Adicionar link
+                          {t("pages.admin.landing.addLink")}
                         </Button>
                       ) : null}
                     </div>
                   ) : null}
                   <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-2.5 py-2">
-                    <Label className="text-xs">Banner Agency</Label>
+                    <Label className="text-xs">{t("pages.admin.landing.lblAgency")}</Label>
                     <Switch
                       checked={siteChrome.agency_banner_enabled}
                       onCheckedChange={(v) => setSiteChrome((p) => ({ ...p, agency_banner_enabled: v }))}
@@ -2058,7 +2071,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   {siteChrome.agency_banner_enabled ? (
                     <div className="grid gap-2.5">
                       <div className="space-y-1">
-                        <Label className="text-[11px]">Texto do banner</Label>
+                        <Label className="text-[11px]">{t("pages.admin.landing.lblBannerText")}</Label>
                         <Input
                           className="h-8 text-sm"
                           value={siteChrome.agency_banner_text ?? ""}
@@ -2070,7 +2083,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       </div>
                       <div className="grid gap-2.5 sm:grid-cols-2">
                         <div className="space-y-1">
-                          <Label className="text-[11px]">Texto do link</Label>
+                          <Label className="text-[11px]">{t("pages.admin.landing.lblLinkText")}</Label>
                           <Input
                             className="h-8 text-sm"
                             value={siteChrome.agency_banner_cta_label ?? ""}
@@ -2081,7 +2094,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[11px]">URL do link</Label>
+                          <Label className="text-[11px]">{t("pages.admin.landing.lblLinkUrl")}</Label>
                           <Input
                             className="h-8 text-sm"
                             value={siteChrome.agency_banner_href ?? ""}
@@ -2096,21 +2109,21 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   ) : null}
                   <div className="grid gap-2.5">
                     <div className="space-y-1">
-                      <Label className="text-[11px]">SEO — título da página</Label>
+                      <Label className="text-[11px]">{t("pages.admin.landing.lblSeoTitle")}</Label>
                       <Input
                         className="h-8 text-sm"
-                        placeholder="Vazio = título padrão de marketing"
+                        placeholder={t("pages.admin.landing.seoTitleEmpty")}
                         value={siteChrome.seo_title ?? ""}
                         onChange={(e) => setSiteChrome((p) => ({ ...p, seo_title: e.target.value }))}
                         maxLength={120}
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[11px]">SEO — descrição</Label>
+                      <Label className="text-[11px]">{t("pages.admin.landing.lblSeoDesc")}</Label>
                       <Textarea
                         rows={2}
                         className="resize-y text-sm"
-                        placeholder="Vazio = descrição padrão de marketing"
+                        placeholder={t("pages.admin.landing.seoDescEmpty")}
                         value={siteChrome.seo_description ?? ""}
                         onChange={(e) =>
                           setSiteChrome((p) => ({ ...p, seo_description: e.target.value }))
@@ -2127,11 +2140,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold text-foreground">
-                        Popups e promoções
+                        {t("pages.admin.landing.promosTitle")}
                       </p>
                       <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                        Barra sticky, exit intent, timed e scroll — códigos de desconto e CTAs
-                        100% editáveis.
+                        {t("pages.admin.landing.promosHint")}
                       </p>
                     </div>
                     <Button
@@ -2141,15 +2153,15 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       className="h-8 text-xs"
                       onClick={() => {
                         setPromos(structuredClone(DEFAULT_SALES_LANDING_PROMOS));
-                        toast.message("Template de promoções enterprise aplicado (grave para publicar).");
+                        toast.message(t("pages.admin.landing.promoTemplate"));
                       }}
                     >
-                      Restaurar template
+                      {t("pages.admin.landing.restoreTemplate")}
                     </Button>
                   </div>
 
                   <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-2.5 py-2">
-                    <Label className="text-xs">Barra sticky no topo</Label>
+                    <Label className="text-xs">{t("pages.admin.landing.lblSticky")}</Label>
                     <Switch
                       checked={promos.sticky_bar.enabled}
                       onCheckedChange={(v) =>
@@ -2163,7 +2175,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   {promos.sticky_bar.enabled ? (
                     <div className="grid gap-2.5">
                       <div className="space-y-1">
-                        <Label className="text-[11px]">Texto da barra</Label>
+                        <Label className="text-[11px]">{t("pages.admin.landing.lblBarText")}</Label>
                         <Input
                           className="h-8 text-sm"
                           value={promos.sticky_bar.text}
@@ -2178,7 +2190,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       </div>
                       <div className="grid gap-2.5 sm:grid-cols-3">
                         <div className="space-y-1">
-                          <Label className="text-[11px]">CTA</Label>
+                          <Label className="text-[11px]">{t("pages.admin.landing.lblCta")}</Label>
                           <Input
                             className="h-8 text-sm"
                             value={promos.sticky_bar.cta_label ?? ""}
@@ -2191,7 +2203,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[11px]">URL</Label>
+                          <Label className="text-[11px]">{t("pages.admin.landing.lblUrl")}</Label>
                           <Input
                             className="h-8 text-sm"
                             value={promos.sticky_bar.cta_href ?? ""}
@@ -2204,7 +2216,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[11px]">Código desconto</Label>
+                          <Label className="text-[11px]">{t("pages.admin.landing.lblDiscount")}</Label>
                           <Input
                             className="h-8 text-sm"
                             value={promos.sticky_bar.discount_code ?? ""}
@@ -2218,7 +2230,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         </div>
                       </div>
                       <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-2.5 py-2">
-                        <Label className="text-xs">Permitir fechar (sessão)</Label>
+                        <Label className="text-xs">{t("pages.admin.landing.lblDismiss")}</Label>
                         <Switch
                           checked={promos.sticky_bar.dismissible}
                           onCheckedChange={(v) =>
@@ -2234,7 +2246,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <Label className="text-xs font-semibold">Popups</Label>
+                      <Label className="text-xs font-semibold">{t("pages.admin.landing.lblPopups")}</Label>
                       <Button
                         type="button"
                         variant="ghost"
@@ -2283,14 +2295,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                                 popups: p.popups.filter((_, i) => i !== idx),
                               }))
                             }
-                            aria-label="Remover popup"
+                            aria-label={t("pages.admin.landing.removePopup")}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                         <div className="grid gap-2 sm:grid-cols-2">
                           <div className="space-y-1">
-                            <Label className="text-[11px]">Disparo</Label>
+                            <Label className="text-[11px]">{t("pages.admin.landing.lblTrigger")}</Label>
                             <Select
                               value={popup.trigger}
                               onValueChange={(v) =>
@@ -2311,16 +2323,16 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="exit_intent">Exit intent</SelectItem>
-                                <SelectItem value="timed">Timed (delay)</SelectItem>
-                                <SelectItem value="scroll">Scroll %</SelectItem>
-                                <SelectItem value="manual">Manual (off)</SelectItem>
+                                <SelectItem value="exit_intent">{t("pages.admin.landing.triggerExit")}</SelectItem>
+                                <SelectItem value="timed">{t("pages.admin.landing.triggerTimed")}</SelectItem>
+                                <SelectItem value="scroll">{t("pages.admin.landing.lblScroll")}</SelectItem>
+                                <SelectItem value="manual">{t("pages.admin.landing.triggerManual")}</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                           {popup.trigger === "timed" ? (
                             <div className="space-y-1">
-                              <Label className="text-[11px]">Delay (ms)</Label>
+                              <Label className="text-[11px]">{t("pages.admin.landing.lblDelay")}</Label>
                               <Input
                                 type="number"
                                 className="h-8 text-sm"
@@ -2340,7 +2352,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           ) : null}
                           {popup.trigger === "scroll" ? (
                             <div className="space-y-1">
-                              <Label className="text-[11px]">Scroll %</Label>
+                              <Label className="text-[11px]">{t("pages.admin.landing.lblScroll")}</Label>
                               <Input
                                 type="number"
                                 className="h-8 text-sm"
@@ -2365,7 +2377,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         <div className="grid gap-2 sm:grid-cols-2">
                           <Input
                             className="h-8 text-sm"
-                            placeholder="Badge"
+                            placeholder={t("pages.admin.landing.popupBadgePh")}
                             value={popup.badge ?? ""}
                             onChange={(e) =>
                               setPromos((p) => ({
@@ -2378,7 +2390,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                           <Input
                             className="h-8 text-sm"
-                            placeholder="Código desconto"
+                            placeholder={t("pages.admin.landing.lblDiscount")}
                             value={popup.discount_code ?? ""}
                             onChange={(e) =>
                               setPromos((p) => ({
@@ -2392,7 +2404,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         </div>
                         <Input
                           className="h-8 text-sm"
-                          placeholder="Título"
+                          placeholder={t("pages.admin.landing.lblTitle")}
                           value={popup.title}
                           onChange={(e) =>
                             setPromos((p) => ({
@@ -2406,7 +2418,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         <Textarea
                           rows={2}
                           className="resize-y text-sm"
-                          placeholder="Corpo"
+                          placeholder={t("pages.admin.landing.bodyPh")}
                           value={popup.body}
                           onChange={(e) =>
                             setPromos((p) => ({
@@ -2420,7 +2432,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         <div className="grid gap-2 sm:grid-cols-2">
                           <Input
                             className="h-8 text-sm"
-                            placeholder="CTA"
+                            placeholder={t("pages.admin.landing.lblCta")}
                             value={popup.cta_label}
                             onChange={(e) =>
                               setPromos((p) => ({
@@ -2433,7 +2445,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                           <Input
                             className="h-8 text-sm"
-                            placeholder="CTA URL"
+                            placeholder={t("pages.admin.landing.ctaUrlPh")}
                             value={popup.cta_href}
                             onChange={(e) =>
                               setPromos((p) => ({
@@ -2446,7 +2458,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                           <Input
                             className="h-8 text-sm"
-                            placeholder="2.º botão"
+                            placeholder={t("pages.admin.landing.secondBtnPh")}
                             value={popup.secondary_label ?? ""}
                             onChange={(e) =>
                               setPromos((p) => ({
@@ -2459,7 +2471,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                           <Input
                             className="h-8 text-sm"
-                            placeholder="2.º URL (vazio = só fecha)"
+                            placeholder={t("pages.admin.landing.secondUrlPh")}
                             value={popup.secondary_href ?? ""}
                             onChange={(e) =>
                               setPromos((p) => ({
@@ -2524,11 +2536,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         setLandingTheme({ ...DEFAULT_LANDING_EXTRAS.theme });
                       }
                       toast.success(
-                        "Template enterprise carregado no editor — grave a landing para publicar no site.",
+                        t("pages.admin.landing.enterpriseLoaded"),
                       );
                     }}
                   >
-                    Aplicar template enterprise completo (textos + promos)
+                    {t("pages.admin.landing.applyEnterprise")}
                   </Button>
                 </div>
               </div>
@@ -2537,10 +2549,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             {editorTab === "hero" ? (
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="pl-badge">Selo / etiqueta (opcional)</Label>
+                  <Label htmlFor="pl-badge">{t("pages.admin.landing.lblBadge")}</Label>
                   <Input
                     id="pl-badge"
-                    placeholder="Ex.: Planos e preços"
+                    placeholder={t("pages.admin.landing.badgePlaceholder")}
                     value={badgeText}
                     onChange={(e) => setBadgeText(e.target.value)}
                     maxLength={80}
@@ -2548,7 +2560,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="pl-title">Título principal</Label>
+                  <Label htmlFor="pl-title">{t("pages.admin.landing.lblMainTitle")}</Label>
                   <Input
                     id="pl-title"
                     value={heroTitle}
@@ -2558,16 +2570,16 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="pl-sub">Subtítulo</Label>
+                  <Label htmlFor="pl-sub">{t("pages.admin.landing.lblSubtitle")}</Label>
                   <Textarea
                     id="pl-sub"
                     rows={3}
-                    placeholder="Uma frase que explica o valor dos planos…"
+                    placeholder={t("pages.admin.landing.plansValuePh")}
                     value={heroSubtitle}
                     onChange={(e) => setHeroSubtitle(e.target.value)}
                     className="min-h-[72px] resize-y"
                   />
-                  {MARKDOWN_HINT}
+                  <MarkdownHint />
                 </div>
               </div>
             ) : null}
@@ -2581,7 +2593,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Fonte</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblFont")}</Label>
                   <Select value={heroFont} onValueChange={setHeroFont}>
                     <SelectTrigger>
                       <SelectValue />
@@ -2589,14 +2601,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_FONT.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Alinhamento</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblAlign")}</Label>
                   <Select value={heroTextAlign} onValueChange={setHeroTextAlign}>
                     <SelectTrigger>
                       <SelectValue />
@@ -2604,14 +2616,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_ALIGN.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Tamanho do título</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblTitleSize")}</Label>
                   <Select value={heroTitleSize} onValueChange={setHeroTitleSize}>
                     <SelectTrigger>
                       <SelectValue />
@@ -2619,14 +2631,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_TITLE_SIZE.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Peso do título</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblTitleWeight")}</Label>
                   <Select value={heroTitleWeight} onValueChange={setHeroTitleWeight}>
                     <SelectTrigger>
                       <SelectValue />
@@ -2634,14 +2646,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_WEIGHT.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs">Tamanho do subtítulo</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblSubSize")}</Label>
                   <Select value={heroSubtitleSize} onValueChange={setHeroSubtitleSize}>
                     <SelectTrigger>
                       <SelectValue />
@@ -2649,7 +2661,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_BODY.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2659,148 +2671,148 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             </div>
 
             <div className="rounded-lg border border-violet-500/25 bg-violet-500/[0.06] p-3 space-y-2.5">
-              <p className="text-sm font-semibold text-foreground">Tipografia por zona (opcional)</p>
+              <p className="text-sm font-semibold text-foreground">{t("pages.admin.landing.typographyZone")}</p>
               <p className="text-[11px] text-muted-foreground leading-snug">
-                Cor, letra, tamanho e alinhamento por bloco. Use «Repor» para o padrão de cada zona.
+                {t("pages.admin.landing.typoZoneHint")}
               </p>
               <div className="space-y-2.5 pr-0.5">
                 <PlansLandingTextStyleFields
-                  label="Título do hero"
+                  label={t("pages.admin.landing.zoneHeroTitle")}
                   value={textStyles.hero_title}
                   onChange={(b) => patchTextStyle("hero_title", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Subtítulo do hero"
+                  label={t("pages.admin.landing.zoneHeroSub")}
                   value={textStyles.hero_subtitle}
                   onChange={(b) => patchTextStyle("hero_subtitle", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Selo / etiqueta (hero)"
+                  label={t("pages.admin.landing.zoneHeroBadge")}
                   value={textStyles.hero_badge}
                   onChange={(b) => patchTextStyle("hero_badge", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Texto introdutório"
+                  label={t("pages.admin.landing.zoneIntro")}
                   value={textStyles.intro}
                   onChange={(b) => patchTextStyle("intro", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Rodapé da secção"
+                  label={t("pages.admin.landing.zoneSectionFooter")}
                   value={textStyles.footer}
                   onChange={(b) => patchTextStyle("footer", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Etiqueta pequena (PLANOS)"
+                  label={t("pages.admin.landing.zonePlansKicker")}
                   value={textStyles.plans_section_label}
                   onChange={(b) => patchTextStyle("plans_section_label", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Título da secção de planos"
+                  label={t("pages.admin.landing.zonePlansTitle")}
                   value={textStyles.plans_section_title}
                   onChange={(b) => patchTextStyle("plans_section_title", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Subtítulo da secção de planos"
+                  label={t("pages.admin.landing.zonePlansSub")}
                   value={textStyles.plans_section_subtitle}
                   onChange={(b) => patchTextStyle("plans_section_subtitle", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Destaques — título"
+                  label={t("pages.admin.landing.zoneFeatTitle")}
                   value={textStyles.features_title}
                   onChange={(b) => patchTextStyle("features_title", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Destaques — subtítulo"
+                  label={t("pages.admin.landing.zoneFeatSub")}
                   value={textStyles.features_subtitle}
                   onChange={(b) => patchTextStyle("features_subtitle", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Destaques — título do cartão"
+                  label={t("pages.admin.landing.zoneFeatCardTitle")}
                   value={textStyles.feature_card_title}
                   onChange={(b) => patchTextStyle("feature_card_title", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Destaques — texto do cartão"
+                  label={t("pages.admin.landing.zoneFeatCardBody")}
                   value={textStyles.feature_card_body}
                   onChange={(b) => patchTextStyle("feature_card_body", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Números — título"
+                  label={t("pages.admin.landing.zoneStatsTitle")}
                   value={textStyles.stats_title}
                   onChange={(b) => patchTextStyle("stats_title", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Números — subtítulo"
+                  label={t("pages.admin.landing.zoneStatsSub")}
                   value={textStyles.stats_subtitle}
                   onChange={(b) => patchTextStyle("stats_subtitle", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Números — valor (grande)"
+                  label={t("pages.admin.landing.zoneStatsValue")}
                   value={textStyles.stat_value}
                   onChange={(b) => patchTextStyle("stat_value", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Números — etiqueta"
+                  label={t("pages.admin.landing.zoneStatsLabel")}
                   value={textStyles.stat_label}
                   onChange={(b) => patchTextStyle("stat_label", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="FAQ — título"
+                  label={t("pages.admin.landing.zoneFaqTitle")}
                   value={textStyles.faq_title}
                   onChange={(b) => patchTextStyle("faq_title", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="FAQ — pergunta"
+                  label={t("pages.admin.landing.zoneFaqQuestion")}
                   value={textStyles.faq_question}
                   onChange={(b) => patchTextStyle("faq_question", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="FAQ — resposta"
+                  label={t("pages.admin.landing.zoneFaqAnswer")}
                   value={textStyles.faq_answer}
                   onChange={(b) => patchTextStyle("faq_answer", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Rodapé legal (linhas)"
+                  label={t("pages.admin.landing.zoneLegalLines")}
                   value={textStyles.legal_footer}
                   onChange={(b) => patchTextStyle("legal_footer", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Testemunhos — título"
+                  label={t("pages.admin.landing.zoneQuotesTitle")}
                   value={textStyles.testimonials_title}
                   onChange={(b) => patchTextStyle("testimonials_title", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Testemunhos — subtítulo"
+                  label={t("pages.admin.landing.zoneQuotesSub")}
                   value={textStyles.testimonials_subtitle}
                   onChange={(b) => patchTextStyle("testimonials_subtitle", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Galeria — título"
+                  label={t("pages.admin.landing.zoneGalleryTitle")}
                   value={textStyles.gallery_title}
                   onChange={(b) => patchTextStyle("gallery_title", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Galeria — subtítulo"
+                  label={t("pages.admin.landing.zoneGallerySub")}
                   value={textStyles.gallery_subtitle}
                   onChange={(b) => patchTextStyle("gallery_subtitle", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Garantia — título"
+                  label={t("pages.admin.landing.zoneGuaranteeTitle")}
                   value={textStyles.guarantee_title}
                   onChange={(b) => patchTextStyle("guarantee_title", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Garantia — destaque / lead"
+                  label={t("pages.admin.landing.zoneGuaranteeLead")}
                   value={textStyles.guarantee_lead}
                   onChange={(b) => patchTextStyle("guarantee_lead", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Garantia — corpo"
+                  label={t("pages.admin.landing.zoneGuaranteeBody")}
                   value={textStyles.guarantee_body}
                   onChange={(b) => patchTextStyle("guarantee_body", b)}
                 />
                 <PlansLandingTextStyleFields
-                  label="Garantia — rodapé destacado"
+                  label={t("pages.admin.landing.zoneGuaranteeFoot")}
                   value={textStyles.guarantee_footer}
                   onChange={(b) => patchTextStyle("guarantee_footer", b)}
                 />
@@ -2814,13 +2826,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             <div className="rounded-lg border border-blue-500/25 bg-blue-500/[0.06] p-3 space-y-3">
               <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Sparkles className="h-4 w-4 text-blue-600" />
-                Tema e blocos da página
+                {t("pages.admin.landing.salesThemeTitle")}
               </p>
               <p className="text-[11px] text-muted-foreground leading-snug">
-                Fundo escuro, cores, FAQ, provas e rodapé legal. Visibilidade de cada bloco: aba Estrutura.
+                {t("pages.admin.landing.salesThemeHint")}
               </p>
               <div className="space-y-1.5">
-                <Label className="text-xs">Aparência global</Label>
+                <Label className="text-xs">{t("pages.admin.landing.lblAppearance")}</Label>
                 <Select
                   value={appearance}
                   onValueChange={(v) => setAppearance(v as LandingExtrasPublic["appearance"])}
@@ -2829,46 +2841,45 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="default">Claro (padrão do site)</SelectItem>
-                    <SelectItem value="sales_dark">Escuro — vendas (cartões brancos, destaque verde)</SelectItem>
+                    <SelectItem value="default">{t("pages.admin.landing.appearanceLight")}</SelectItem>
+                    <SelectItem value="sales_dark">{t("pages.admin.landing.appearanceDark")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-3 rounded-md border border-border/60 bg-background/50 p-3">
-                <p className="text-xs font-semibold text-foreground">Primeiro ecrã e cartões</p>
+                <p className="text-xs font-semibold text-foreground">{t("pages.admin.landing.firstScreen")}</p>
                 <p className="text-xs text-muted-foreground">
-                  Deixe um campo vazio para o esconder. A janela do produto e o resumo da conta ligam-se na lista de secções.
-                  A lista de cada plano edita-se no cartão do plano, uma linha por frase.
+                  {t("pages.admin.landing.productWindowHint")}
                 </p>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Nota por baixo do subtítulo</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.heroNoteLabel")}</Label>
                   <Textarea value={heroNote} onChange={(e) => setHeroNote(e.target.value)} rows={3} className="resize-y text-sm" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Plano em destaque</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblFeatured")}</Label>
                   <Select value={recommendedPlanType} onValueChange={setRecommendedPlanType}>
                     <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Nenhum</SelectItem>
+                      <SelectItem value="none">{t("pages.admin.landing.effectNone")}</SelectItem>
                       <SelectItem value="free_trial">Starter</SelectItem>
-                      <SelectItem value="monthly">Pro Mensal</SelectItem>
-                      <SelectItem value="annual">Pro Anual</SelectItem>
-                      <SelectItem value="quarterly">Trimestral</SelectItem>
+                      <SelectItem value="monthly">{t("pages.admin.landing.planMonthly")}</SelectItem>
+                      <SelectItem value="annual">{t("pages.admin.landing.planAnnual")}</SelectItem>
+                      <SelectItem value="quarterly">{t("pages.admin.landing.planQuarterly")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Frase do plano em destaque</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblFeaturedLine")}</Label>
                   <Input value={recommendedNote} onChange={(e) => setRecommendedNote(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Nota dos cliques no plano grátis</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblFreeClicks")}</Label>
                   <Input value={freeLimitsNote} onChange={(e) => setFreeLimitsNote(e.target.value)} />
                 </div>
                 {(["free_trial", "monthly", "annual", "quarterly"] as const).map((key) => (
                   <div key={key} className="space-y-1.5">
-                    <Label className="text-xs">Frase curta — {key === "free_trial" ? "Starter" : key === "monthly" ? "Pro Mensal" : key === "annual" ? "Pro Anual" : "Trimestral"}</Label>
+                    <Label className="text-xs">Frase curta — {key === "free_trial" ? "Starter" : key === "monthly" ? t("pages.admin.landing.planMonthly") : key === "annual" ? t("pages.admin.landing.planAnnual") : t("pages.admin.landing.planQuarterly")}</Label>
                     <Input
                       value={planTaglines[key]}
                       onChange={(e) => setPlanTaglines((prev) => ({ ...prev, [key]: e.target.value }))}
@@ -2876,38 +2887,31 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   </div>
                 ))}
                 <Separator />
-                <p className="text-xs font-medium text-foreground">Textos da janela do produto</p>
-                <Input placeholder="Nome da oferta" value={demoOffer} onChange={(e) => setDemoOffer(e.target.value)} />
-                <Textarea placeholder="Menu, um item por linha" value={demoNav} onChange={(e) => setDemoNav(e.target.value)} rows={4} className="resize-y text-sm" />
+                <p className="text-xs font-medium text-foreground">{t("pages.admin.landing.productWindow")}</p>
+                <Input placeholder={t("pages.admin.landing.demoOfferPh")} value={demoOffer} onChange={(e) => setDemoOffer(e.target.value)} />
+                <Textarea placeholder={t("pages.admin.landing.demoMenuPh")} value={demoNav} onChange={(e) => setDemoNav(e.target.value)} rows={4} className="resize-y text-sm" />
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <Input placeholder="Estado da presell" value={demoStatus} onChange={(e) => setDemoStatus(e.target.value)} />
-                  <Input placeholder="Nota da presell" value={demoPresellNote} onChange={(e) => setDemoPresellNote(e.target.value)} />
-                  <Input placeholder="Rótulo das palavras-chave" value={demoKeywordsLabel} onChange={(e) => setDemoKeywordsLabel(e.target.value)} />
-                  <Input placeholder="Meta da palavra-chave" value={demoKeywordMeta} onChange={(e) => setDemoKeywordMeta(e.target.value)} />
-                  <Input placeholder="Rótulo do anúncio" value={demoAdLabel} onChange={(e) => setDemoAdLabel(e.target.value)} />
-                  <Input placeholder="Título do anúncio" value={demoAdTitle} onChange={(e) => setDemoAdTitle(e.target.value)} />
-                  <Input placeholder="Contagem do título" value={demoAdMeta} onChange={(e) => setDemoAdMeta(e.target.value)} />
+                  <Input placeholder={t("pages.admin.landing.demoStatusPh")} value={demoStatus} onChange={(e) => setDemoStatus(e.target.value)} />
+                  <Input placeholder={t("pages.admin.landing.demoNotePh")} value={demoPresellNote} onChange={(e) => setDemoPresellNote(e.target.value)} />
+                  <Input placeholder={t("pages.admin.landing.demoKwLabel")} value={demoKeywordsLabel} onChange={(e) => setDemoKeywordsLabel(e.target.value)} />
+                  <Input placeholder={t("pages.admin.landing.demoKwMeta")} value={demoKeywordMeta} onChange={(e) => setDemoKeywordMeta(e.target.value)} />
+                  <Input placeholder={t("pages.admin.landing.demoAdLabel")} value={demoAdLabel} onChange={(e) => setDemoAdLabel(e.target.value)} />
+                  <Input placeholder={t("pages.admin.landing.demoAdTitle")} value={demoAdTitle} onChange={(e) => setDemoAdTitle(e.target.value)} />
+                  <Input placeholder={t("pages.admin.landing.demoAdMeta")} value={demoAdMeta} onChange={(e) => setDemoAdMeta(e.target.value)} />
                 </div>
-                <Textarea placeholder="Palavras-chave, uma por linha" value={demoKeywords} onChange={(e) => setDemoKeywords(e.target.value)} rows={3} className="resize-y text-sm" />
-                <Textarea placeholder={"Linhas de rastreio, uma por linha: Campanha | pesquisa"} value={demoRows} onChange={(e) => setDemoRows(e.target.value)} rows={3} className="resize-y text-sm" />
-                <Textarea placeholder="Legenda" value={demoCaption} onChange={(e) => setDemoCaption(e.target.value)} rows={2} className="resize-y text-sm" />
+                <Textarea placeholder={t("pages.admin.landing.keywordsPh")} value={demoKeywords} onChange={(e) => setDemoKeywords(e.target.value)} rows={3} className="resize-y text-sm" />
+                <Textarea placeholder={t("pages.admin.landing.trackingRowsPh")} value={demoRows} onChange={(e) => setDemoRows(e.target.value)} rows={3} className="resize-y text-sm" />
+                <Textarea placeholder={t("pages.admin.landing.captionPh")} value={demoCaption} onChange={(e) => setDemoCaption(e.target.value)} rows={2} className="resize-y text-sm" />
               </div>
 
               <div className="rounded-md border border-border/60 bg-background/50 p-3 space-y-3">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Personalização completa da <span className="font-medium text-foreground">copy</span>,{" "}
-                  <span className="font-medium text-foreground">imagem e vídeo do hero</span>,{" "}
-                  <span className="font-medium text-foreground">tipografia</span>,{" "}
-                  <span className="font-medium text-foreground">ordem e visibilidade das secções</span>,{" "}
-                  <span className="font-medium text-foreground">cores</span> e{" "}
-                  <span className="font-medium text-foreground">posição do recorte</span> da foto. Isto não é um page
-                  builder por arrastar blocos como em alguns temas WordPress — aqui tudo passa por estes campos e
-                  pré-visualização ao lado.
+                  {t("pages.admin.landing.productWindowLead")}
                 </p>
                 {appearance === "sales_dark" ? (
                   <>
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2">
-                      <p className="text-xs font-semibold text-foreground">Cores (CSS: #hex ou rgba)</p>
+                      <p className="text-xs font-semibold text-foreground">{t("pages.admin.landing.colorsCss")}</p>
                       <Button
                         type="button"
                         variant="outline"
@@ -2915,11 +2919,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         className="h-7 text-xs"
                         onClick={() => setLandingTheme({})}
                       >
-                        Repor tema padrão
+                        {t("pages.admin.landing.resetTheme")}
                       </Button>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Fonte das secções (destaques, estatísticas, FAQ…)</Label>
+                      <Label className="text-xs">{t("pages.admin.landing.lblSectionFont")}</Label>
                       <Select
                         value={landingTheme.section_font ?? "sans"}
                         onValueChange={(v) =>
@@ -2935,7 +2939,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         <SelectContent>
                           {OPT_FONT.map((o) => (
                             <SelectItem key={o.value} value={o.value}>
-                              {o.label}
+                              {t(o.label)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -2944,7 +2948,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <div className="grid max-h-[min(420px,55vh)] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
                       {THEME_FIELD_ROWS.map(({ key, label, placeholder }) => (
                         <div key={key} className="space-y-1">
-                          <Label className="text-[11px] leading-tight text-muted-foreground">{label}</Label>
+                          <Label className="text-[11px] leading-tight text-muted-foreground">{t(label)}</Label>
                           <Input
                             value={String(landingTheme[key] ?? "")}
                             onChange={(e) =>
@@ -2965,25 +2969,25 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
               <div className="grid gap-3 sm:grid-cols-1">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Etiqueta pequena acima dos planos (ex.: PLANOS)</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblPlansEyebrow")}</Label>
                   <Input
                     value={plansSectionLabel}
                     onChange={(e) => setPlansSectionLabel(e.target.value)}
-                    placeholder="PLANOS"
+                    placeholder={t("pages.admin.landing.plansKickerPh")}
                     maxLength={80}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Título da secção de planos</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.zonePlansTitle")}</Label>
                   <Input
                     value={plansSectionTitle}
                     onChange={(e) => setPlansSectionTitle(e.target.value)}
-                    placeholder="Nossas Opções de Adesão"
+                    placeholder={t("pages.admin.landing.plansTitlePh")}
                     maxLength={200}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Subtítulo da secção de planos</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.zonePlansSub")}</Label>
                   <Textarea
                     value={plansSectionSubtitle}
                     onChange={(e) => setPlansSectionSubtitle(e.target.value)}
@@ -2996,17 +3000,16 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
               <Separator />
 
-              <p className="text-xs font-medium text-foreground">Cartões de destaque (até 3)</p>
+              <p className="text-xs font-medium text-foreground">{t("pages.admin.landing.featureCards")}</p>
               <p className="text-[11px] text-muted-foreground leading-snug">
-                Layout em faixa clara: imagem opcional por cartão (16:9), título e texto alinhados à esquerda — como uma secção de
-                benefícios.
+                {t("pages.admin.landing.featLayoutHint")}
               </p>
               <div className="space-y-1.5">
-                <Label className="text-xs">Título do bloco</Label>
+                <Label className="text-xs">{t("pages.admin.landing.lblBlockTitle")}</Label>
                 <Input value={featTitle} onChange={(e) => setFeatTitle(e.target.value)} maxLength={200} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Subtítulo do bloco</Label>
+                <Label className="text-xs">{t("pages.admin.landing.lblBlockSubtitle")}</Label>
                 <Input value={featSubtitle} onChange={(e) => setFeatSubtitle(e.target.value)} maxLength={500} />
               </div>
               <input
@@ -3025,13 +3028,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   try {
                     const { data, error } = await adminService.uploadPlansGalleryImage(file);
                     if (error || !data?.image_url) {
-                      toast.error(error || "Não foi possível carregar a imagem.");
+                      toast.error(error || t("pages.admin.landing.imageLoadError"));
                       return;
                     }
                     setFeatCards((prev) =>
                       prev.map((c, i) => (i === idx ? { ...c, image_url: data.image_url } : c)),
                     );
-                    toast.success("Imagem do cartão carregada. Guarde a landing para persistir.");
+                    toast.success(t("pages.admin.landing.cardImageLoaded"));
                   } finally {
                     setFeatureImageUploadBusy(false);
                   }
@@ -3039,10 +3042,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               />
               {featCards.map((card, idx) => (
                 <div key={idx} className="rounded-md border border-border/60 bg-background/80 p-3 space-y-2">
-                  <p className="text-[11px] font-medium text-muted-foreground">Cartão {idx + 1}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground">{fill(t("pages.admin.landing.cardN"), { n: idx + 1 })}</p>
                   <div className="space-y-1.5">
                     <div className="flex flex-wrap items-end justify-between gap-2">
-                      <Label className="text-xs">Imagem (opcional, URL ou PC)</Label>
+                      <Label className="text-xs">{t("pages.admin.landing.lblImageOpt")}</Label>
                       <Button
                         type="button"
                         variant="secondary"
@@ -3085,7 +3088,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     ) : null}
                   </div>
                   <Input
-                    placeholder="Título"
+                    placeholder={t("pages.admin.landing.lblTitle")}
                     value={card.title}
                     onChange={(e) =>
                       setFeatCards((prev) =>
@@ -3094,7 +3097,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     }
                   />
                   <Textarea
-                    placeholder="Texto"
+                    placeholder={t("pages.admin.landing.textPlaceholder")}
                     value={card.body}
                     onChange={(e) =>
                       setFeatCards((prev) =>
@@ -3108,25 +3111,25 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               ))}
               {featCards.length < 6 ? (
                 <Button type="button" variant="outline" size="sm" onClick={() => setFeatCards((prev) => [...prev, { title: "", body: "", image_url: "" }])}>
-                  Adicionar cartão
+                  {t("pages.admin.landing.addCard")}
                 </Button>
               ) : null}
-              {MARKDOWN_HINT}
+              <MarkdownHint />
 
               <Separator />
 
               <p className="text-xs font-medium text-foreground">
-                Números / estatísticas (até 8) — visíveis na página só com aparência «Escuro — vendas»
+                {t("pages.admin.landing.statsBandHint")}
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Input
-                  placeholder="Título do bloco"
+                  placeholder={t("pages.admin.landing.lblBlockTitle")}
                   value={statTitle}
                   onChange={(e) => setStatTitle(e.target.value)}
                   maxLength={200}
                 />
                 <Input
-                  placeholder="Subtítulo"
+                  placeholder={t("pages.admin.landing.lblSubtitle")}
                   value={statSubtitle}
                   onChange={(e) => setStatSubtitle(e.target.value)}
                   maxLength={500}
@@ -3135,7 +3138,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               {statItems.map((row, idx) => (
                 <div key={idx} className="flex flex-col gap-2 sm:flex-row">
                   <Input
-                    placeholder="Valor (ex.: 7k+)"
+                    placeholder={t("pages.admin.landing.valuePh")}
                     value={row.value}
                     onChange={(e) =>
                       setStatItems((prev) =>
@@ -3144,7 +3147,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     }
                   />
                   <Input
-                    placeholder="Etiqueta"
+                    placeholder={t("pages.admin.landing.labelWord")}
                     value={row.label}
                     onChange={(e) =>
                       setStatItems((prev) =>
@@ -3156,15 +3159,15 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               ))}
               {statItems.length < 8 ? (
                 <Button type="button" variant="outline" size="sm" onClick={() => setStatItems((prev) => [...prev, { value: "", label: "" }])}>
-                  Adicionar número
+                  {t("pages.admin.landing.addStat")}
                 </Button>
               ) : null}
 
               <Separator />
 
-              <p className="text-xs font-medium text-foreground">FAQ (até 20 perguntas)</p>
+              <p className="text-xs font-medium text-foreground">{t("pages.admin.landing.faqLimit")}</p>
               <Input
-                placeholder="Título da secção FAQ"
+                placeholder={t("pages.admin.landing.faqTitlePh")}
                 value={faqTitle}
                 onChange={(e) => setFaqTitle(e.target.value)}
                 maxLength={200}
@@ -3173,7 +3176,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               {faqItems.map((row, idx) => (
                 <div key={idx} className="mb-3 space-y-2 rounded-md border border-border/60 p-3">
                   <Input
-                    placeholder={`Pergunta ${idx + 1}`}
+                    placeholder={fill(t("pages.admin.landing.questionN"), { n: idx + 1 })}
                     value={row.q}
                     onChange={(e) =>
                       setFaqItems((prev) =>
@@ -3182,7 +3185,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     }
                   />
                   <Textarea
-                    placeholder="Resposta"
+                    placeholder={t("pages.admin.landing.answerPh")}
                     value={row.a}
                     onChange={(e) =>
                       setFaqItems((prev) =>
@@ -3196,7 +3199,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               ))}
               {faqItems.length < 20 ? (
                 <Button type="button" variant="outline" size="sm" onClick={() => setFaqItems((prev) => [...prev, { q: "", a: "" }])}>
-                  Adicionar pergunta
+                  {t("pages.admin.landing.addQuestion")}
                 </Button>
               ) : null}
 
@@ -3212,8 +3215,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-3 px-3 pb-3 pt-1">
                   <p className="text-xs text-muted-foreground">
-                    Secção em duas colunas: imagem do selo (opcional) e textos. A posição na página segue a ordem das secções
-                    (por defeito após «Planos»). Corpo e rodapé suportam Markdown (**negrito**, ligações).
+                    {t("pages.admin.landing.guaranteeHint")}
                   </p>
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/15 px-3 py-2">
                     <div className="flex items-center gap-2">
@@ -3223,7 +3225,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         onCheckedChange={setGuaranteeEnabled}
                       />
                       <Label htmlFor="guarantee-enabled" className="text-xs font-medium">
-                        Mostrar conteúdo desta secção
+                        {t("pages.admin.landing.showSection")}
                       </Label>
                     </div>
                   </div>
@@ -3241,11 +3243,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       try {
                         const { data, error } = await adminService.uploadPlansGalleryImage(file);
                         if (error || !data?.image_url) {
-                          toast.error(error || "Não foi possível carregar a imagem.");
+                          toast.error(error || t("pages.admin.landing.imageLoadError"));
                           return;
                         }
                         setGuaranteeSealUrl(data.image_url);
-                        toast.success("Selo carregado. Guarde a landing para persistir.");
+                        toast.success(t("pages.admin.landing.badgeLoaded"));
                       } finally {
                         setGuaranteeSealUploadBusy(false);
                       }
@@ -3253,7 +3255,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   />
                   <div className="space-y-1.5">
                     <div className="flex flex-wrap items-end justify-between gap-2">
-                      <Label className="text-xs">URL da imagem do selo (ou carregue do PC)</Label>
+                      <Label className="text-xs">{t("pages.admin.landing.sealImageUrl")}</Label>
                       <Button
                         type="button"
                         variant="secondary"
@@ -3267,11 +3269,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         ) : (
                           <Upload className="h-3.5 w-3.5" />
                         )}
-                        Carregar do PC
+                        {t("pages.admin.landing.uploadFromPc")}
                       </Button>
                     </div>
                     <Input
-                      placeholder="https://… ou use «Carregar do PC»"
+                      placeholder={t("pages.admin.landing.uploadFromPcPh")}
                       value={guaranteeSealUrl}
                       onChange={(e) => setGuaranteeSealUrl(e.target.value)}
                       maxLength={2000}
@@ -3289,18 +3291,18 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     ) : null}
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Título</Label>
+                    <Label className="text-xs">{t("pages.admin.landing.lblTitle")}</Label>
                     <Input
-                      placeholder="Ex.: 100% Livre de Riscos"
+                      placeholder={t("pages.admin.landing.riskFreePh")}
                       value={guaranteeTitle}
                       onChange={(e) => setGuaranteeTitle(e.target.value)}
                       maxLength={200}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Destaque / lead</Label>
+                    <Label className="text-xs">{t("pages.admin.landing.leadHighlight")}</Label>
                     <Textarea
-                      placeholder="Frase curta abaixo do título"
+                      placeholder={t("pages.admin.landing.shortLinePh")}
                       value={guaranteeLead}
                       onChange={(e) => setGuaranteeLead(e.target.value)}
                       rows={2}
@@ -3309,9 +3311,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Corpo (Markdown)</Label>
+                    <Label className="text-xs">{t("pages.admin.landing.bodyMarkdown")}</Label>
                     <Textarea
-                      placeholder="Texto principal — parágrafos, **negrito**, listas"
+                      placeholder={t("pages.admin.landing.guaranteeBodyPh")}
                       value={guaranteeBody}
                       onChange={(e) => setGuaranteeBody(e.target.value)}
                       rows={5}
@@ -3320,9 +3322,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Rodapé destacado (Markdown, ícone verde na página)</Label>
+                    <Label className="text-xs">{t("pages.admin.landing.guaranteeFootLabel")}</Label>
                     <Textarea
-                      placeholder="Ex.: A decisão agora é sua — e o **risco é todo nosso.**"
+                      placeholder={t("pages.admin.landing.guaranteeFootPh")}
                       value={guaranteeFooter}
                       onChange={(e) => setGuaranteeFooter(e.target.value)}
                       rows={3}
@@ -3339,7 +3341,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-semibold hover:bg-muted/50 [&[data-state=open]]:border-b border-border/50">
                   <span className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" />
-                    Testemunhos em vídeo (grelha)
+                    {t("pages.admin.landing.videoGridTitle")}
                   </span>
                   <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                 </CollapsibleTrigger>
@@ -3360,36 +3362,35 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       try {
                         const { data, error } = await adminService.uploadPlansGalleryImage(file);
                         if (error || !data?.image_url) {
-                          toast.error(error || "Não foi possível carregar a imagem.");
+                          toast.error(error || t("pages.admin.landing.imageLoadError"));
                           return;
                         }
                         setTestimonialItems((prev) =>
                           prev.map((r, i) => (i === idx ? { ...r, thumbnail_url: data.image_url } : r)),
                         );
-                        toast.success("Miniatura carregada. Guarde a landing para persistir.");
+                        toast.success(t("pages.admin.landing.thumbLoaded"));
                       } finally {
                         setTestimonialThumbUploadBusy(false);
                       }
                     }}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Miniatura em retrato (9:16), URL do vídeo (YouTube/Vimeo ou .mp4) ao clicar. Até 8 cartões. Aparece
-                    após os números e antes dos planos.
+                    {t("pages.admin.landing.videoGridHint")}
                   </p>
                   <div className="grid gap-2 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Título da secção</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.sectionTitleLabel")}</Label>
                   <Input
-                    placeholder="Testemunhos"
+                    placeholder={t("pages.admin.landing.testimonialsPh")}
                     value={testimonialTitle}
                     onChange={(e) => setTestimonialTitle(e.target.value)}
                     maxLength={200}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Subtítulo</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblSubtitle")}</Label>
                   <Input
-                    placeholder="Veja o que os utilizadores dizem…"
+                    placeholder={t("pages.admin.landing.testimonialsSubPh")}
                     value={testimonialSubtitle}
                     onChange={(e) => setTestimonialSubtitle(e.target.value)}
                     maxLength={800}
@@ -3418,12 +3419,12 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   }
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Adicionar cartão
+                  {t("pages.admin.landing.addCard")}
                 </Button>
               </div>
               {testimonialItems.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  Sem testemunhos. Adicione citação em texto e/ou miniatura+vídeo (sem inventar resultados financeiros).
+                  {t("pages.admin.landing.noTestimonials")}
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -3433,7 +3434,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       className="space-y-2 rounded-md border border-border/60 bg-background/80 p-3"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-medium text-muted-foreground">Cartão {idx + 1}</span>
+                        <span className="text-[11px] font-medium text-muted-foreground">{fill(t("pages.admin.landing.cardN"), { n: idx + 1 })}</span>
                         <Button
                           type="button"
                           variant="ghost"
@@ -3448,9 +3449,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2">
                         <div className="space-y-1 sm:col-span-2">
-                          <Label className="text-xs">Citação (texto — sem prometer ganhos)</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.quoteLabel")}</Label>
                           <Textarea
-                            placeholder="O que o fluxo resolve no dia a dia…"
+                            placeholder={t("pages.admin.landing.quoteExamplePh")}
                             value={row.quote}
                             onChange={(e) =>
                               setTestimonialItems((prev) =>
@@ -3463,7 +3464,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         </div>
                         <div className="space-y-1.5 sm:col-span-2">
                           <div className="flex flex-wrap items-end justify-between gap-2">
-                            <Label className="text-xs">URL da miniatura (opcional se houver citação)</Label>
+                            <Label className="text-xs">{t("pages.admin.landing.thumbUrlLabel")}</Label>
                             <Button
                               type="button"
                               variant="secondary"
@@ -3480,11 +3481,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                               ) : (
                                 <Upload className="h-3.5 w-3.5" />
                               )}
-                              Carregar do PC
+                              {t("pages.admin.landing.uploadFromPc")}
                             </Button>
                           </div>
                           <Input
-                            placeholder="https://… (retrato recomendado)"
+                            placeholder={t("pages.admin.landing.portraitPh")}
                             value={row.thumbnail_url}
                             onChange={(e) =>
                               setTestimonialItems((prev) =>
@@ -3498,7 +3499,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           {row.thumbnail_url.trim() ? (
                             <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border/50 bg-muted/25 p-2">
                               <p className="mb-1.5 text-[10px] text-muted-foreground">
-                                Pré-visualização (9:16 na página pública)
+                                {t("pages.admin.landing.videoPreview")}
                               </p>
                               <div className="mx-auto aspect-[9/16] w-full max-w-[140px] overflow-hidden rounded-lg bg-muted">
                                 <img
@@ -3513,9 +3514,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           ) : null}
                         </div>
                         <div className="space-y-1.5 sm:col-span-2">
-                          <Label className="text-xs">URL do vídeo (ao clicar)</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.videoUrlClick")}</Label>
                           <Input
-                            placeholder="YouTube, Vimeo ou .mp4"
+                            placeholder={t("pages.admin.landing.videoSrcPh")}
                             value={row.video_url}
                             onChange={(e) =>
                               setTestimonialItems((prev) =>
@@ -3528,7 +3529,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs">Nome (opcional)</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.nameOptional")}</Label>
                           <Input
                             value={row.name}
                             onChange={(e) =>
@@ -3542,9 +3543,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs">Função / título (opcional)</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.roleOptional")}</Label>
                           <Input
-                            placeholder="Ex.: Empreendedora digital"
+                            placeholder={t("pages.admin.landing.roleExamplePh")}
                             value={row.role}
                             onChange={(e) =>
                               setTestimonialItems((prev) =>
@@ -3557,9 +3558,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                         </div>
                         <div className="space-y-1.5 sm:col-span-2">
-                          <Label className="text-xs">Rede / handle (opcional, canto superior)</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.handleTop")}</Label>
                           <Input
-                            placeholder="@instagram ou texto curto"
+                            placeholder={t("pages.admin.landing.handlePh")}
                             value={row.social_handle}
                             onChange={(e) =>
                               setTestimonialItems((prev) =>
@@ -3591,11 +3592,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-3 px-3 pb-3 pt-1">
                   <p className="text-xs text-muted-foreground">
-                    Imagens em grelha ou em carrossel (setas, pontos, autoplay). Clique na imagem para ampliar. Até 8
-                    cartões. Ordem na lista = ordem no carrossel ou na grelha. Pode{" "}
-                    <strong className="text-foreground/90">colar um URL</strong> ou{" "}
-                    <strong className="text-foreground/90">carregar do PC</strong> (JPG, PNG ou WebP, máx. 2 MB) — o
-                    servidor gera o URL público. Guarde a landing em seguida.
+                    {t("pages.admin.landing.galleryHint")}
                   </p>
                   <input
                     ref={galleryFileInputRef}
@@ -3613,13 +3610,13 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       try {
                         const { data, error } = await adminService.uploadPlansGalleryImage(file);
                         if (error || !data?.image_url) {
-                          toast.error(error || "Não foi possível carregar a imagem.");
+                          toast.error(error || t("pages.admin.landing.imageLoadError"));
                           return;
                         }
                         setGalleryItems((prev) =>
                           prev.map((r, i) => (i === idx ? { ...r, image_url: data.image_url } : r)),
                         );
-                        toast.success("Imagem carregada. Guarde a landing para persistir.");
+                        toast.success(t("pages.admin.landing.imageLoaded"));
                       } finally {
                         setGalleryUploadBusy(false);
                       }
@@ -3627,16 +3624,16 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   />
                   <div className="grid gap-2 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Título</Label>
+                      <Label className="text-xs">{t("pages.admin.landing.lblTitle")}</Label>
                       <Input
-                        placeholder="Galeria"
+                        placeholder={t("pages.admin.landing.galleryPh")}
                         value={galleryTitle}
                         onChange={(e) => setGalleryTitle(e.target.value)}
                         maxLength={200}
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Subtítulo</Label>
+                      <Label className="text-xs">{t("pages.admin.landing.lblSubtitle")}</Label>
                       <Input
                         value={gallerySubtitle}
                         onChange={(e) => setGallerySubtitle(e.target.value)}
@@ -3645,7 +3642,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Apresentação</Label>
+                    <Label className="text-xs">{t("pages.admin.landing.presentation")}</Label>
                     <Select
                       value={galleryDisplay}
                       onValueChange={(v) => setGalleryDisplay(v === "carousel" ? "carousel" : "grid")}
@@ -3654,17 +3651,17 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="grid">Grelha</SelectItem>
-                        <SelectItem value="carousel">Carrossel de imagens</SelectItem>
+                        <SelectItem value="grid">{t("pages.admin.landing.layoutGrid")}</SelectItem>
+                        <SelectItem value="carousel">{t("pages.admin.landing.layoutCarousel")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   {galleryDisplay === "carousel" ? (
                     <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3">
-                      <p className="text-xs font-medium text-foreground">Opções do carrossel</p>
+                      <p className="text-xs font-medium text-foreground">{t("pages.admin.landing.carouselOptions")}</p>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-background/80 px-2 py-1.5">
-                          <Label className="text-xs">Reprodução automática</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.autoplay")}</Label>
                           <Switch
                             checked={galleryCarouselOpts.autoplay}
                             onCheckedChange={(v) =>
@@ -3673,7 +3670,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs">Intervalo (ms)</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.intervalMs")}</Label>
                           <Input
                             type="number"
                             min={2000}
@@ -3690,7 +3687,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                         </div>
                         <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-background/80 px-2 py-1.5">
-                          <Label className="text-xs">Setas</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.arrows")}</Label>
                           <Switch
                             checked={galleryCarouselOpts.show_arrows}
                             onCheckedChange={(v) =>
@@ -3699,7 +3696,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                         </div>
                         <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-background/80 px-2 py-1.5">
-                          <Label className="text-xs">Pontos (indicadores)</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.dots")}</Label>
                           <Switch
                             checked={galleryCarouselOpts.show_dots}
                             onCheckedChange={(v) =>
@@ -3708,7 +3705,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                         </div>
                         <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-background/80 px-2 py-1.5 sm:col-span-2">
-                          <Label className="text-xs">Loop (voltar ao início)</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.loopSlides")}</Label>
                           <Switch
                             checked={galleryCarouselOpts.loop}
                             onCheckedChange={(v) =>
@@ -3717,7 +3714,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs">Slides visíveis (desktop)</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.slidesDesktop")}</Label>
                           <Select
                             value={String(galleryCarouselOpts.slides_desktop)}
                             onValueChange={(v) =>
@@ -3739,7 +3736,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           </Select>
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs">Slides visíveis (telemóvel)</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.slidesMobile")}</Label>
                           <Select
                             value={String(galleryCarouselOpts.slides_mobile)}
                             onValueChange={(v) =>
@@ -3759,7 +3756,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           </Select>
                         </div>
                         <div className="space-y-1.5 sm:col-span-2">
-                          <Label className="text-xs">Espaço entre slides (px)</Label>
+                          <Label className="text-xs">{t("pages.admin.landing.slideGap")}</Label>
                           <Input
                             type="number"
                             min={0}
@@ -3797,11 +3794,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       }
                     >
                       <Plus className="h-3.5 w-3.5" />
-                      Adicionar imagem
+                      {t("pages.admin.landing.addImage")}
                     </Button>
                   </div>
                   {galleryItems.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">Sem imagens na galeria.</p>
+                    <p className="text-xs text-muted-foreground">{t("pages.admin.landing.noGalleryImages")}</p>
                   ) : (
                     <div className="space-y-3">
                       {galleryItems.map((row, idx) => (
@@ -3821,7 +3818,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                                 className="h-7 w-7"
                                 disabled={idx === 0}
                                 onClick={() => moveGalleryItem(idx, -1)}
-                                aria-label="Subir na galeria"
+                                aria-label={t("pages.admin.landing.moveGalleryUp")}
                               >
                                 <ChevronUp className="h-3.5 w-3.5" />
                               </Button>
@@ -3832,7 +3829,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                                 className="h-7 w-7"
                                 disabled={idx >= galleryItems.length - 1}
                                 onClick={() => moveGalleryItem(idx, 1)}
-                                aria-label="Descer na galeria"
+                                aria-label={t("pages.admin.landing.moveGalleryDown")}
                               >
                                 <ChevronDown className="h-3.5 w-3.5" />
                               </Button>
@@ -3852,7 +3849,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           <div className="grid gap-2 sm:grid-cols-2">
                             <div className="space-y-1.5 sm:col-span-2">
                               <div className="flex flex-wrap items-end justify-between gap-2">
-                                <Label className="text-xs">URL da imagem (ou carregue do PC)</Label>
+                                <Label className="text-xs">{t("pages.admin.landing.imageUrlOrUpload")}</Label>
                                 <Button
                                   type="button"
                                   variant="secondary"
@@ -3869,11 +3866,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                                   ) : (
                                     <Upload className="h-3.5 w-3.5" />
                                   )}
-                                  Carregar do PC
+                                  {t("pages.admin.landing.uploadFromPc")}
                                 </Button>
                               </div>
                               <Input
-                                placeholder="https://… ou use «Carregar do PC»"
+                                placeholder={t("pages.admin.landing.uploadFromPcPh")}
                                 value={row.image_url}
                                 onChange={(e) =>
                                   setGalleryItems((prev) =>
@@ -3897,7 +3894,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                               ) : null}
                             </div>
                             <div className="space-y-1.5">
-                              <Label className="text-xs">Nome (opcional)</Label>
+                              <Label className="text-xs">{t("pages.admin.landing.nameOptional")}</Label>
                               <Input
                                 value={row.name}
                                 onChange={(e) =>
@@ -3911,7 +3908,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                               />
                             </div>
                             <div className="space-y-1.5">
-                              <Label className="text-xs">Função (opcional)</Label>
+                              <Label className="text-xs">{t("pages.admin.landing.roleShort")}</Label>
                               <Input
                                 value={row.role}
                                 onChange={(e) =>
@@ -3925,7 +3922,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                               />
                             </div>
                             <div className="space-y-1.5">
-                              <Label className="text-xs">Legenda (opcional)</Label>
+                              <Label className="text-xs">{t("pages.admin.landing.captionOptional")}</Label>
                               <Input
                                 value={row.caption}
                                 onChange={(e) =>
@@ -3939,7 +3936,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                               />
                             </div>
                             <div className="space-y-1.5 sm:col-span-2">
-                              <Label className="text-xs">Handle / rede (opcional)</Label>
+                              <Label className="text-xs">{t("pages.admin.landing.handleOptional")}</Label>
                               <Input
                                 value={row.social_handle}
                                 onChange={(e) =>
@@ -3962,9 +3959,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
               <Separator />
 
-              <p className="text-xs font-medium text-foreground">Rodapé legal</p>
+              <p className="text-xs font-medium text-foreground">{t("pages.admin.landing.legalFooter")}</p>
               <Textarea
-                placeholder="Linhas de texto (uma por linha): copyright, avisos…"
+                placeholder={t("pages.admin.landing.legalLinesPh")}
                 value={legalLines}
                 onChange={(e) => setLegalLines(e.target.value)}
                 rows={3}
@@ -3973,7 +3970,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               {legalLinks.map((link, idx) => (
                 <div key={idx} className="flex flex-col gap-2 sm:flex-row">
                   <Input
-                    placeholder="Texto do link"
+                    placeholder={t("pages.admin.landing.lblLinkText")}
                     value={link.label}
                     onChange={(e) =>
                       setLegalLinks((prev) =>
@@ -3982,7 +3979,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     }
                   />
                   <Input
-                    placeholder="URL"
+                    placeholder={t("pages.admin.landing.lblUrl")}
                     value={link.href}
                     onChange={(e) =>
                       setLegalLinks((prev) =>
@@ -3994,7 +3991,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               ))}
               {legalLinks.length < 12 ? (
                 <Button type="button" variant="outline" size="sm" onClick={() => setLegalLinks((prev) => [...prev, { label: "", href: "" }])}>
-                  Adicionar link
+                  {t("pages.admin.landing.addLink")}
                 </Button>
               ) : null}
             </div>
@@ -4004,8 +4001,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             {editorTab === "media" ? (
               <div className="space-y-3">
             <div className="space-y-2">
-              <Label>Imagem de fundo do hero</Label>
-              <p className="text-xs text-muted-foreground">JPG, PNG ou WebP até 2 MB.</p>
+              <Label>{t("pages.admin.landing.heroBg")}</Label>
+              <p className="text-xs text-muted-foreground">{t("pages.admin.landing.heroBgHint")}</p>
               <input
                 ref={fileRef}
                 type="file"
@@ -4027,7 +4024,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   onClick={() => fileRef.current?.click()}
                 >
                   <Upload className="h-4 w-4" />
-                  Carregar imagem
+                  {t("pages.admin.landing.uploadImage")}
                 </Button>
                 <Button
                   type="button"
@@ -4049,11 +4046,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 Efeitos visuais do hero
               </p>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Overlay, animação de entrada e efeitos na imagem — tudo configurável aqui, sem ferramentas externas.
+                {t("pages.admin.landing.heroMediaHint")}
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Altura mínima — mobile (px)</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.minHeightMobile")}</Label>
                   <Input
                     type="number"
                     min={160}
@@ -4068,10 +4065,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       }));
                     }}
                   />
-                  <p className="text-[11px] text-muted-foreground">160–900 (padrão 220)</p>
+                  <p className="text-[11px] text-muted-foreground">{t("pages.admin.landing.minHeightMobileHint")}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Altura mínima — desktop (px)</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.minHeightDesktop")}</Label>
                   <Input
                     type="number"
                     min={200}
@@ -4086,10 +4083,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       }));
                     }}
                   />
-                  <p className="text-[11px] text-muted-foreground">200–1200 (padrão 280)</p>
+                  <p className="text-[11px] text-muted-foreground">{t("pages.admin.landing.minHeightDesktopHint")}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Imagem</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.tabImage")}</Label>
                   <Select
                     value={heroVisual.image_effect}
                     onValueChange={(v) =>
@@ -4102,14 +4099,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_IMAGE_EFFECT.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Recorte da imagem (foco)</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.imageCrop")}</Label>
                   <Select
                     value={heroVisual.image_object_position}
                     onValueChange={(v) =>
@@ -4125,14 +4122,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_HERO_FOCAL.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Overlay sobre a foto</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.overlayOnPhoto")}</Label>
                   <Select
                     value={heroVisual.overlay_style}
                     onValueChange={(v) =>
@@ -4145,14 +4142,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_OVERLAY.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Intensidade do overlay</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.overlayStrength")}</Label>
                   <Select
                     value={heroVisual.overlay_intensity}
                     onValueChange={(v) =>
@@ -4165,14 +4162,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_OVERLAY_STRENGTH.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Entrada do texto</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.textEntrance")}</Label>
                   <Select
                     value={heroVisual.content_entrance}
                     onValueChange={(v) =>
@@ -4185,7 +4182,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_ENTRANCE.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -4196,9 +4193,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <Label htmlFor="pl-hero-cta" className="text-sm">
-                      Botão sobre o hero
+                      {t("pages.admin.landing.heroCta")}
                     </Label>
-                    <p className="text-xs text-muted-foreground">Ex.: “Ver planos” com link para a grelha (#planos).</p>
+                    <p className="text-xs text-muted-foreground">{t("pages.admin.landing.heroCtaExample")}</p>
                   </div>
                   <Switch
                     id="pl-hero-cta"
@@ -4209,16 +4206,16 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 {heroVisual.cta_enabled ? (
                   <div className="grid gap-2 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Texto do botão</Label>
+                      <Label className="text-xs">{t("pages.admin.landing.buttonText")}</Label>
                       <Input
-                        placeholder="Ver planos"
+                        placeholder={t("pages.admin.landing.seePlansPh")}
                         value={heroVisual.cta_label ?? ""}
                         onChange={(e) => setHeroVisual((p) => ({ ...p, cta_label: e.target.value }))}
                         maxLength={80}
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Link (URL, /rota ou #planos)</Label>
+                      <Label className="text-xs">{t("pages.admin.landing.ctaLink")}</Label>
                       <Input
                         placeholder="#planos"
                         value={heroVisual.cta_href ?? ""}
@@ -4236,22 +4233,22 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             {editorTab === "copy" ? (
               <div className="space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="pl-intro">Texto antes dos cartões (opcional)</Label>
+              <Label htmlFor="pl-intro">{t("pages.admin.landing.introBeforePlans")}</Label>
               <Textarea
                 id="pl-intro"
                 rows={4}
-                placeholder="Parágrafo curto acima da grelha de planos…"
+                placeholder={t("pages.admin.landing.introPh")}
                 value={introText}
                 onChange={(e) => setIntroText(e.target.value)}
                 className="resize-y"
               />
-              {MARKDOWN_HINT}
+              <MarkdownHint />
             </div>
             <div className="rounded-lg border border-border/60 p-3 space-y-3">
-              <p className="text-xs font-medium text-muted-foreground">Tipografia do texto introdutório</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("pages.admin.landing.introType")}</p>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Fonte</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblFont")}</Label>
                   <Select value={introFont} onValueChange={setIntroFont}>
                     <SelectTrigger>
                       <SelectValue />
@@ -4259,14 +4256,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_FONT.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Alinhamento</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblAlign")}</Label>
                   <Select value={introTextAlign} onValueChange={setIntroTextAlign}>
                     <SelectTrigger>
                       <SelectValue />
@@ -4274,14 +4271,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_ALIGN.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Tamanho</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblSize")}</Label>
                   <Select value={introTextSize} onValueChange={setIntroTextSize}>
                     <SelectTrigger>
                       <SelectValue />
@@ -4289,7 +4286,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_BODY.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -4299,22 +4296,22 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pl-foot">Rodapé da secção (opcional)</Label>
+              <Label htmlFor="pl-foot">{t("pages.admin.landing.sectionFooterOpt")}</Label>
               <Textarea
                 id="pl-foot"
                 rows={3}
-                placeholder="Nota legal, garantias ou CTA final…"
+                placeholder={t("pages.admin.landing.footerNotePh")}
                 value={footerText}
                 onChange={(e) => setFooterText(e.target.value)}
                 className="resize-y"
               />
-              {MARKDOWN_HINT}
+              <MarkdownHint />
             </div>
             <div className="rounded-lg border border-border/60 p-3 space-y-3">
-              <p className="text-xs font-medium text-muted-foreground">Tipografia do rodapé</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("pages.admin.landing.footerType")}</p>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Fonte</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblFont")}</Label>
                   <Select value={footerFont} onValueChange={setFooterFont}>
                     <SelectTrigger>
                       <SelectValue />
@@ -4322,14 +4319,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_FONT.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Alinhamento</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblAlign")}</Label>
                   <Select value={footerTextAlign} onValueChange={setFooterTextAlign}>
                     <SelectTrigger>
                       <SelectValue />
@@ -4337,14 +4334,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_ALIGN.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Tamanho</Label>
+                  <Label className="text-xs">{t("pages.admin.landing.lblSize")}</Label>
                   <Select value={footerTextSize} onValueChange={setFooterTextSize}>
                     <SelectTrigger>
                       <SelectValue />
@@ -4352,7 +4349,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     <SelectContent>
                       {OPT_BODY.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -4368,10 +4365,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
               <div className="space-y-3">
               <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Tag className="h-4 w-4 text-primary" />
-                Etiquetas dos cartões de plano
+                {t("pages.admin.landing.planCardLabels")}
               </p>
               <p className="text-[11px] text-muted-foreground leading-snug">
-                Moeda, textos das secções e botões na página pública. Guarde para aplicar.
+                {t("pages.admin.landing.planCardLabelsHint")}
               </p>
               <div className="grid gap-2.5 sm:grid-cols-2">
                 {PLAN_LABEL_FORM_FIELDS.map(({ key, title }) => (
@@ -4399,9 +4396,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             {editorTab === "builder" ? (
               <div className="space-y-3">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Blocos de conteúdo</p>
+                  <p className="text-sm font-semibold text-foreground">{t("pages.admin.landing.contentBlocksTitle")}</p>
                   <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                    Vídeo, imagem ou texto Markdown após o intro. Arraste para reordenar · Guarde no topo.
+                    {t("pages.admin.landing.contentBlocksHint")}
                   </p>
                 </div>
         <input
@@ -4420,7 +4417,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
             try {
               const { data, error } = await adminService.uploadPlansGalleryImage(file);
               if (error || !data?.image_url) {
-                toast.error(error || "Não foi possível carregar a imagem.");
+                toast.error(error || t("pages.admin.landing.imageLoadError"));
                 return;
               }
               setContentBlocks((prev) =>
@@ -4428,7 +4425,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   i === idx && b.type === "image" ? { ...b, src: data.image_url } : b,
                 ),
               );
-              toast.success("Imagem carregada. Guarde a landing para persistir.");
+              toast.success(t("pages.admin.landing.imageLoaded"));
             } finally {
               setContentBlockImageUploadBusy(false);
             }
@@ -4441,27 +4438,25 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
           />
           <div className="min-w-0 space-y-4">
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border/70 bg-muted/10 px-3 py-2">
-              <span className="text-xs text-muted-foreground">Atalhos rápidos:</span>
+              <span className="text-xs text-muted-foreground">{t("pages.admin.landing.quickShortcuts")}</span>
               <Button type="button" variant="secondary" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => addContentBlock("video")}>
                 <Plus className="h-3.5 w-3.5" />
-                Vídeo
+                {t("pages.admin.landing.video")}
               </Button>
               <Button type="button" variant="secondary" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => addContentBlock("image")}>
                 <Plus className="h-3.5 w-3.5" />
-                Imagem
+                {t("pages.admin.landing.tabImage")}
               </Button>
               <Button type="button" variant="secondary" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => addContentBlock("rich_text")}>
                 <Plus className="h-3.5 w-3.5" />
-                Texto
+                {t("pages.admin.landing.textPlaceholder")}
               </Button>
             </div>
 
         {contentBlocks.length === 0 ? (
           <div className="rounded-xl border border-border/60 bg-muted/10 px-4 py-10 text-center">
-            <p className="text-sm font-medium text-foreground">Nenhum bloco ainda</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Escolha um widget no painel «Elementos» ou use os atalhos acima.
-            </p>
+            <p className="text-sm font-medium text-foreground">{t("pages.admin.landing.emptyBlocks")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("pages.admin.landing.emptyBlocksHint")}</p>
           </div>
         ) : (
           <DndContext
@@ -4487,20 +4482,20 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="inline-flex min-w-0 flex-1 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    <button {...dragHandleProps} title="Arrastar para reordenar">
+                    <button {...dragHandleProps} title={t("pages.admin.landing.dragReorder")}>
                       <GripVertical className="h-4 w-4" aria-hidden />
                     </button>
                     {block.type === "video" ? (
                       <>
-                        <Video className="h-3.5 w-3.5" /> Vídeo
+                        <Video className="h-3.5 w-3.5" /> {t("pages.admin.landing.video")}
                       </>
                     ) : block.type === "image" ? (
                       <>
-                        <ImageIcon className="h-3.5 w-3.5" /> Imagem
+                        <ImageIcon className="h-3.5 w-3.5" /> {t("pages.admin.landing.tabImage")}
                       </>
                     ) : (
                       <>
-                        <Type className="h-3.5 w-3.5" /> Texto
+                        <Type className="h-3.5 w-3.5" /> {t("pages.admin.landing.textPlaceholder")}
                       </>
                     )}
                     <span className="text-[10px] font-normal normal-case opacity-70">#{index + 1}</span>
@@ -4513,7 +4508,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       className="h-8 w-8"
                       disabled={index === 0}
                       onClick={() => moveContentBlock(index, -1)}
-                      aria-label="Mover para cima"
+                      aria-label={t("pages.admin.landing.moveUp")}
                     >
                       <ChevronUp className="h-4 w-4" />
                     </Button>
@@ -4524,7 +4519,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       className="h-8 w-8"
                       disabled={index >= contentBlocks.length - 1}
                       onClick={() => moveContentBlock(index, 1)}
-                      aria-label="Mover para baixo"
+                      aria-label={t("pages.admin.landing.moveDown")}
                     >
                       <ChevronDown className="h-4 w-4" />
                     </Button>
@@ -4534,7 +4529,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
                       onClick={() => removeContentBlock(index)}
-                      aria-label="Remover bloco"
+                      aria-label={t("pages.admin.landing.removeBlock")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -4544,10 +4539,10 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                 {block.type === "rich_text" ? (
                   <div className="space-y-4">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Conteúdo (Markdown)</Label>
+                      <Label className="text-xs">{t("pages.admin.landing.markdownContent")}</Label>
                       <Textarea
                         rows={8}
-                        placeholder="Parágrafos, **negrito**, listas e [ligações](https://…)"
+                        placeholder={t("pages.admin.landing.markdownPh")}
                         value={block.content}
                         onChange={(e) =>
                           setContentBlocks((prev) =>
@@ -4561,12 +4556,12 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         className="resize-y font-mono text-sm"
                       />
                       <p className="text-[11px] text-muted-foreground leading-snug">
-                        Vazio não é guardado. Cor vazio no texto = cores do tema escolhido na landing.
+                        {t("pages.admin.landing.emptyNotSaved")}
                       </p>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Tipo de letra</Label>
+                        <Label className="text-xs">{t("pages.admin.landing.lblFont")}</Label>
                         <Select
                           value={block.font_family}
                           onValueChange={(v) =>
@@ -4585,14 +4580,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           <SelectContent>
                             {OPT_FONT.map((o) => (
                               <SelectItem key={o.value} value={o.value}>
-                                {o.label}
+                                {t(o.label)}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Tamanho</Label>
+                        <Label className="text-xs">{t("pages.admin.landing.lblSize")}</Label>
                         <Select
                           value={block.font_size}
                           onValueChange={(v) =>
@@ -4611,14 +4606,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           <SelectContent>
                             {OPT_RICH_SIZE.map((o) => (
                               <SelectItem key={o.value} value={o.value}>
-                                {o.label}
+                                {t(o.label)}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Peso</Label>
+                        <Label className="text-xs">{t("pages.admin.landing.lblWeight")}</Label>
                         <Select
                           value={block.font_weight}
                           onValueChange={(v) =>
@@ -4637,14 +4632,14 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           <SelectContent>
                             {OPT_WEIGHT.map((o) => (
                               <SelectItem key={o.value} value={o.value}>
-                                {o.label}
+                                {t(o.label)}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Alinhamento</Label>
+                        <Label className="text-xs">{t("pages.admin.landing.lblAlign")}</Label>
                         <Select
                           value={block.text_align}
                           onValueChange={(v) =>
@@ -4663,7 +4658,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                           <SelectContent>
                             {OPT_ALIGN.map((o) => (
                               <SelectItem key={o.value} value={o.value}>
-                                {o.label}
+                                {t(o.label)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4672,9 +4667,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Cor do texto (opcional)</Label>
+                        <Label className="text-xs">{t("pages.admin.landing.textColorOpt")}</Label>
                         <Input
-                          placeholder="ex.: #e2e8f0 ou rgba(255,255,255,0.9)"
+                          placeholder={t("pages.admin.landing.textColorPh")}
                           value={block.text_color}
                           onChange={(e) =>
                             setContentBlocks((prev) =>
@@ -4689,9 +4684,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Fundo da secção (opcional)</Label>
+                        <Label className="text-xs">{t("pages.admin.landing.sectionBgOpt")}</Label>
                         <Input
-                          placeholder="ex.: rgba(0,0,0,0.25)"
+                          placeholder={t("pages.admin.landing.sectionBgPh")}
                           value={block.background_color}
                           onChange={(e) =>
                             setContentBlocks((prev) =>
@@ -4708,7 +4703,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5 sm:col-span-2">
-                        <Label className="text-xs">Largura</Label>
+                        <Label className="text-xs">{t("pages.admin.landing.lblWidth")}</Label>
                         <Select
                           value={block.layout}
                           onValueChange={(v) =>
@@ -4725,8 +4720,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="contained">Contida (max. ~896px)</SelectItem>
-                            <SelectItem value="wide">Larga (largura útil)</SelectItem>
+                            <SelectItem value="contained">{t("pages.admin.landing.layoutContained")}</SelectItem>
+                            <SelectItem value="wide">{t("pages.admin.landing.layoutWide")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -4736,7 +4731,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                   <>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Título (opcional)</Label>
+                        <Label className="text-xs">{t("pages.admin.landing.titleOpt")}</Label>
                         <Input
                           value={block.title}
                           onChange={(e) =>
@@ -4752,7 +4747,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Subtítulo (opcional)</Label>
+                        <Label className="text-xs">{t("pages.admin.landing.subtitleOpt")}</Label>
                         <Input
                           value={block.subtitle}
                           onChange={(e) =>
@@ -4771,7 +4766,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5 sm:col-span-2">
-                        <Label className="text-xs">Largura</Label>
+                        <Label className="text-xs">{t("pages.admin.landing.lblWidth")}</Label>
                         <Select
                           value={block.layout}
                           onValueChange={(v) =>
@@ -4788,8 +4783,8 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="contained">Contida (max. ~896px)</SelectItem>
-                            <SelectItem value="wide">Larga (largura útil)</SelectItem>
+                            <SelectItem value="contained">{t("pages.admin.landing.layoutContained")}</SelectItem>
+                            <SelectItem value="wide">{t("pages.admin.landing.layoutWide")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -4797,9 +4792,9 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
 
                     {block.type === "video" ? (
                       <div className="space-y-1.5">
-                        <Label className="text-xs">URL do vídeo</Label>
+                        <Label className="text-xs">{t("pages.admin.landing.videoUrl")}</Label>
                         <Input
-                          placeholder="https://www.youtube.com/watch?v=… ou https://…/video.mp4"
+                          placeholder={t("pages.admin.landing.videoUrlExample")}
                           value={block.url}
                           onChange={(e) =>
                             setContentBlocks((prev) =>
@@ -4815,7 +4810,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                       <div className="space-y-3">
                         <div className="space-y-1.5">
                           <div className="flex flex-wrap items-end justify-between gap-2">
-                            <Label className="text-xs">URL da imagem (ou carregue do PC)</Label>
+                            <Label className="text-xs">{t("pages.admin.landing.imageUrlOrUpload")}</Label>
                             <Button
                               type="button"
                               variant="secondary"
@@ -4832,11 +4827,11 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                               ) : (
                                 <Upload className="h-3.5 w-3.5" />
                               )}
-                              Carregar do PC
+                              {t("pages.admin.landing.uploadFromPc")}
                             </Button>
                           </div>
                           <Input
-                            placeholder="https://… ou use «Carregar do PC»"
+                            placeholder={t("pages.admin.landing.uploadFromPcPh")}
                             value={block.src}
                             onChange={(e) =>
                               setContentBlocks((prev) =>
@@ -4861,7 +4856,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="space-y-1.5">
-                            <Label className="text-xs">Texto alternativo (acessibilidade)</Label>
+                            <Label className="text-xs">{t("pages.admin.landing.altText")}</Label>
                             <Input
                               value={block.alt}
                               onChange={(e) =>
@@ -4875,7 +4870,7 @@ export function PlansLandingEditor({ onInvalidateAdmin }: Props) {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label className="text-xs">Legenda (opcional)</Label>
+                            <Label className="text-xs">{t("pages.admin.landing.captionOptional")}</Label>
                             <Input
                               value={block.caption}
                               onChange={(e) =>

@@ -13,12 +13,14 @@ import { LoadingState } from "@/components/LoadingState";
 import { useState, useEffect } from "react";
 import { PRO_PAGE_SHELL, ProPageHeader, ProPanel, ProTable, ProTh, ProTd, ProEmpty } from "@/components/enterprise/ProShell";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill, numberLocaleFor } from "@/i18n";
 
 /**
  * Automizer de keywords + sync de custos — controlo simples para media buyers Google Ads.
  */
 export default function AffiliateAutomizerPage() {
-  const { t } = useAppLocale();
+  const { t, locale } = useAppLocale();
+  const numLoc = numberLocaleFor(locale);
   const { user } = useAuth();
   const locked = !userCanWriteIntegrations(user);
   const qc = useQueryClient();
@@ -75,29 +77,35 @@ export default function AffiliateAutomizerPage() {
       }
       if (extra?.sync_costs_now && d?.cost_sync) {
         const parts: string[] = [];
-        if (d.cost_sync.google.ok) parts.push(`Google OK (${d.cost_sync.google.rows ?? 0} dias)`);
+        if (d.cost_sync.google.ok)
+          parts.push(fill(t("pages.automizer.googleOk"), { n: d.cost_sync.google.rows ?? 0 }));
         else if (d.cost_sync.google.error && d.cost_sync.google.error !== "google_not_ready")
-          parts.push(`Google: ${d.cost_sync.google.error}`);
-        else parts.push("Google: ligue a conta em Integrações");
-        if (d.cost_sync.meta.ok) parts.push(`Meta OK (${d.cost_sync.meta.rows ?? 0})`);
+          parts.push(fill(t("pages.automizer.googleErr"), { error: d.cost_sync.google.error }));
+        else parts.push(t("pages.automizer.googleConnect"));
+        if (d.cost_sync.meta.ok) parts.push(fill(t("pages.automizer.metaOk"), { n: d.cost_sync.meta.rows ?? 0 }));
         else if (metaAct.trim() && d.cost_sync.meta.error && d.cost_sync.meta.error !== "meta_not_configured")
-          parts.push(`Meta: ${d.cost_sync.meta.error}`);
-        if (d.cost_sync.tiktok.ok) parts.push(`TikTok OK (${d.cost_sync.tiktok.rows ?? 0})`);
+          parts.push(fill(t("pages.automizer.metaErr"), { error: d.cost_sync.meta.error }));
+        if (d.cost_sync.tiktok.ok) parts.push(fill(t("pages.automizer.ttOk"), { n: d.cost_sync.tiktok.rows ?? 0 }));
         else if (ttAdv.trim() && d.cost_sync.tiktok.error && d.cost_sync.tiktok.error !== "tiktok_not_configured")
-          parts.push(`TikTok: ${d.cost_sync.tiktok.error}`);
+          parts.push(fill(t("pages.automizer.ttErr"), { error: d.cost_sync.tiktok.error }));
         const anyOk = d.cost_sync.google.ok || d.cost_sync.meta.ok || d.cost_sync.tiktok.ok;
-        if (anyOk) toast.success("Custos actualizados", { description: parts.join(" · ") });
-        else toast.error("Não foi possível sincronizar custos", { description: parts.join(" · ") });
+        if (anyOk) toast.success(t("pages.automizer.costsUpdated"), { description: parts.join(" · ") });
+        else toast.error(t("pages.automizer.costsFail"), { description: parts.join(" · ") });
         return;
       }
       if (extra?.run_automizer_now && d?.automizer_run) {
         const r = d.automizer_run;
-        toast.success("Automizer executado", {
-          description: `Avaliadas ${r.evaluated} · pausadas ${r.paused} · simulação ${r.dry_run} · ignoradas ${r.skipped}`,
+        toast.success(t("pages.automizer.ran"), {
+          description: fill(t("pages.automizer.ranDetail"), {
+            evaluated: r.evaluated,
+            paused: r.paused,
+            dry: r.dry_run,
+            skipped: r.skipped,
+          }),
         });
         return;
       }
-      toast.success("Definições guardadas.");
+      toast.success(t("pages.automizer.saved"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -105,7 +113,7 @@ export default function AffiliateAutomizerPage() {
   if (isLoading) {
     return (
       <div className={PRO_PAGE_SHELL}>
-        <LoadingState message="A carregar custos automáticos…" />
+        <LoadingState message={t("pages.automizer.loading")} />
       </div>
     );
   }
@@ -120,17 +128,15 @@ export default function AffiliateAutomizerPage() {
       {data && (data.cost_sync_stale || !data.cost_sync_ok) ? (
         <div className="mb-4 rounded-xl border border-amber-500/35 bg-amber-500/[0.07] px-4 py-3 text-sm text-foreground">
           <p className="font-medium text-amber-950 dark:text-amber-100">
-            {data.cost_sync_stale
-              ? "Custos desactualizados (>48h)"
-              : "Ainda sem custo do período"}
+            {data.cost_sync_stale ? t("pages.automizer.stale") : t("pages.automizer.noPeriodCost")}
           </p>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
             {data.last_cost_sync_at
-              ? `Última sync: ${new Date(data.last_cost_sync_at).toLocaleString("pt-PT")}. `
+              ? fill(t("pages.automizer.lastSync"), {
+                  when: new Date(data.last_cost_sync_at).toLocaleString(numLoc),
+                })
               : null}
-            {data.google_ads_ready
-              ? "Actualize custos agora para o ROAS do período ficar correcto."
-              : "Ligue o Google Ads em Integrações para sincronizar custos."}{" "}
+            {data.google_ads_ready ? t("pages.automizer.refreshForRoas") : t("pages.automizer.connectGoogle")}{" "}
             <Link to="/integracoes/google-ads" className="font-medium text-primary underline underline-offset-2">
               Google Ads
             </Link>
@@ -140,10 +146,8 @@ export default function AffiliateAutomizerPage() {
 
       {!dryRun && enabled ? (
         <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
-          <p className="font-medium text-foreground">Modo real activo</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            A simulação está desligada — «Aplicar pausas agora» pausa keywords de verdade no Google Ads.
-          </p>
+          <p className="font-medium text-foreground">{t("pages.automizer.realMode")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("pages.automizer.realModeDetail")}</p>
         </div>
       ) : null}
 
@@ -152,17 +156,13 @@ export default function AffiliateAutomizerPage() {
         <div className="flex items-start gap-3">
           <Zap className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           <div className="text-sm text-muted-foreground space-y-1">
-            <p>
-              Regra: gasto acima do limite, visitas acima do mínimo e nenhuma venda. A palavra-chave fica em pausa no Google Ads.
-            </p>
-            <p>
-              Comece em <strong className="text-foreground">simulação</strong> (só regista o que pausaria). Depois desligue a simulação.
-            </p>
+            <p>{t("pages.automizer.rule")}</p>
+            <p>{t("pages.automizer.startSim")}</p>
             {data?.last_cost_sync_at && data.cost_sync_ok ? (
               <p className="text-[11px]">
-                Custos OK · última sync{" "}
+                {t("pages.automizer.costsOk")}{" "}
                 <span className="font-mono tabular-nums text-foreground/80">
-                  {new Date(data.last_cost_sync_at).toLocaleString("pt-PT")}
+                  {new Date(data.last_cost_sync_at).toLocaleString(numLoc)}
                 </span>
               </p>
             ) : null}
@@ -170,20 +170,20 @@ export default function AffiliateAutomizerPage() {
         </div>
 
         <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="auto-on">Activar pausa automática</Label>
+          <Label htmlFor="auto-on">{t("pages.automizer.enablePause")}</Label>
           <Switch id="auto-on" checked={enabled} disabled={locked} onCheckedChange={setEnabled} />
         </div>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <Label htmlFor="auto-dry">Simulação (recomendado)</Label>
-            <p className="text-xs text-muted-foreground">Não pausa de verdade — só escreve no registo.</p>
+            <Label htmlFor="auto-dry">{t("pages.automizer.simulation")}</Label>
+            <p className="text-xs text-muted-foreground">{t("pages.automizer.simulationHint")}</p>
           </div>
           <Switch id="auto-dry" checked={dryRun} disabled={locked} onCheckedChange={setDryRun} />
         </div>
 
         <div className="grid sm:grid-cols-3 gap-3">
           <div className="space-y-1.5">
-            <Label>Gasto mín.</Label>
+            <Label>{t("pages.automizer.minSpend")}</Label>
             <Input
               type="number"
               min={1}
@@ -191,10 +191,10 @@ export default function AffiliateAutomizerPage() {
               disabled={locked}
               onChange={(e) => setMinSpend(Number(e.target.value) || 15)}
             />
-            <p className="text-[10px] text-muted-foreground">Moeda da conta Google Ads (não força USD).</p>
+            <p className="text-[10px] text-muted-foreground">{t("pages.automizer.minSpendHint")}</p>
           </div>
           <div className="space-y-1.5">
-            <Label>Cliques mín.</Label>
+            <Label>{t("pages.automizer.minClicks")}</Label>
             <Input
               type="number"
               min={1}
@@ -204,7 +204,7 @@ export default function AffiliateAutomizerPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Janela (dias)</Label>
+            <Label>{t("pages.automizer.lookback")}</Label>
             <Input
               type="number"
               min={1}
@@ -217,70 +217,68 @@ export default function AffiliateAutomizerPage() {
         </div>
 
         <div className="space-y-1.5 border-t border-border/50 pt-4">
-          <Label>Número da conta Meta (opcional)</Label>
+          <Label>{t("pages.automizer.metaAccount")}</Label>
           <Input
-            placeholder="Número da conta de anúncios"
+            placeholder={t("pages.automizer.metaPlaceholder")}
             value={metaAct}
             disabled={locked}
             onChange={(e) => setMetaAct(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Usa a mesma ligação da Meta, com permissão para ler anúncios.</p>
+          <p className="text-xs text-muted-foreground">{t("pages.automizer.metaHint")}</p>
         </div>
         <div className="space-y-1.5">
-          <Label>Número da conta TikTok (opcional)</Label>
+          <Label>{t("pages.automizer.tiktokAccount")}</Label>
           <Input
-            placeholder="ID numérico"
+            placeholder={t("pages.automizer.tiktokPlaceholder")}
             value={ttAdv}
             disabled={locked}
             onChange={(e) => setTtAdv(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">
-            Precisa de token Marketing API do TikTok (o token só Events API não lê gasto).
-          </p>
+          <p className="text-xs text-muted-foreground">{t("pages.automizer.tiktokHint")}</p>
         </div>
 
         <div className="flex flex-wrap gap-2 pt-2">
           <Button disabled={locked || save.isPending} onClick={() => save.mutate({})}>
-            Guardar
+            {t("common.save")}
           </Button>
           <Button
             variant="secondary"
             disabled={locked || save.isPending}
             onClick={() => save.mutate({ sync_costs_now: true })}
           >
-            Actualizar custos agora
+            {t("pages.automizer.syncNow")}
           </Button>
           <Button
             variant="outline"
             disabled={locked || save.isPending || !enabled}
             onClick={() => save.mutate({ run_automizer_now: true })}
           >
-            Aplicar pausas agora
+            {t("pages.automizer.applyPauses")}
           </Button>
           <Button variant="ghost" asChild>
-            <Link to="/integracoes">Voltar</Link>
+            <Link to="/integracoes">{t("pages.automizer.back")}</Link>
           </Button>
         </div>
       </section>
 
-      <ProPanel title="Histórico" description="Últimas 30 acções, em simulação ou de verdade.">
+      <ProPanel title={t("pages.automizer.history")} description={t("pages.automizer.historyDesc")}>
         {(data?.recent_logs?.length ?? 0) === 0 ? (
-          <ProEmpty title="Sem registos" detail="Active a simulação e aplique as pausas, ou actualize os custos." />
+          <ProEmpty title={t("pages.automizer.emptyLogs")} detail={t("pages.automizer.emptyLogsDetail")} />
         ) : (
           <ProTable>
             <thead>
               <tr>
-                <ProTh>Quando</ProTh>
-                <ProTh>Palavra-chave</ProTh>
-                <ProTh>Acção</ProTh>
-                <ProTh>Modo</ProTh>
+                <ProTh>{t("pages.automizer.when")}</ProTh>
+                <ProTh>{t("pages.automizer.keyword")}</ProTh>
+                <ProTh>{t("pages.automizer.action")}</ProTh>
+                <ProTh>{t("pages.automizer.mode")}</ProTh>
               </tr>
             </thead>
             <tbody>
               {data!.recent_logs.map((l) => (
                 <tr key={l.id} className="hover:bg-muted/30">
                   <ProTd className="text-[11px] text-muted-foreground whitespace-nowrap">
-                    {new Date(l.created_at).toLocaleString("pt-PT")}
+                    {new Date(l.created_at).toLocaleString(numLoc)}
                   </ProTd>
                   <ProTd mono>{l.keyword}</ProTd>
                   <ProTd>
@@ -288,7 +286,7 @@ export default function AffiliateAutomizerPage() {
                     {l.reason ? <p className="text-[10px] text-muted-foreground mt-0.5 max-w-[280px]">{l.reason}</p> : null}
                   </ProTd>
                   <ProTd className="text-[11px]">
-                    {l.dry_run ? "simulação" : l.ok ? "real" : "erro"}
+                    {l.dry_run ? t("pages.automizer.sim") : l.ok ? t("pages.automizer.real") : t("pages.automizer.err")}
                   </ProTd>
                 </tr>
               ))}

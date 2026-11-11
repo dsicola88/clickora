@@ -2,7 +2,10 @@ import { useEffect } from "react";
 import { useAppLocale } from "./AppLocaleProvider";
 import { translateLegacyPt } from "./legacyBridge";
 
-const SKIP_SEL = "script,style,textarea,input,select,option,code,pre,[contenteditable='true'],[data-no-i18n]";
+/** Skip translating text content inside these (user input / code). */
+const SKIP_TEXT_SEL = "script,style,textarea,input,select,option,code,pre,[contenteditable='true'],[data-no-i18n]";
+/** Form controls: still translate placeholder/title/aria-*, but do not walk children. */
+const ATTR_ONLY_SEL = "textarea,input,select";
 
 function translateAttrs(el: Element, locale: Parameters<typeof translateLegacyPt>[0]) {
   for (const attr of ["title", "placeholder", "aria-label", "aria-description", "alt"] as const) {
@@ -28,7 +31,7 @@ function translateTextNode(node: Text, locale: Parameters<typeof translateLegacy
 
 /**
  * Best-effort DOM pass for leftover Portuguese chrome after React paint.
- * Skips form fields and code. Safe no-op when locale is PT.
+ * Translates attributes on form fields; skips their typed text/options and code. No-op when locale is PT.
  */
 export function LegacyDomLocalizer() {
   const { locale } = useAppLocale();
@@ -43,13 +46,19 @@ export function LegacyDomLocalizer() {
       const walk = (node: Node) => {
         if (node.nodeType === Node.TEXT_NODE) {
           const parent = node.parentElement;
-          if (parent?.closest(SKIP_SEL)) return;
+          if (parent?.closest(SKIP_TEXT_SEL)) return;
           translateTextNode(node as Text, locale);
           return;
         }
         if (node.nodeType !== Node.ELEMENT_NODE) return;
         const el = node as Element;
-        if (el.matches(SKIP_SEL) || el.closest(SKIP_SEL)) return;
+        if (el.closest("[data-no-i18n]")) return;
+        if (el.matches("script,style,code,pre")) return;
+        if (el.matches(ATTR_ONLY_SEL)) {
+          translateAttrs(el, locale);
+          return;
+        }
+        if (el.matches("option")) return;
         translateAttrs(el, locale);
         const children = el.childNodes;
         for (let i = 0; i < children.length; i++) walk(children[i]!);

@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type MessageKey } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { ensurePageDocumentFonts } from "../typography-presets";
 import type { SelectionTarget } from "../types";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
@@ -9,7 +11,7 @@ import type {
   SectionNode,
   WidgetNode,
 } from "../types";
-import { WIDGET_REGISTRY } from "../widget-registry";
+import { WIDGET_NAME_KEY, WIDGET_REGISTRY } from "../widget-registry";
 import { NestedRenderProvider } from "../nested-render";
 import { columnFlexItem, isSectionStacked, sectionColumnsGrid, sectionDirectionFor, stylesToCss, stylesToCssWidgetShell } from "../style-utils";
 import { WidgetInlineStyle } from "../widget-custom-css";
@@ -44,7 +46,19 @@ const DEVICE_WIDTHS: Record<DeviceType, string> = {
   mobile: "390px",
 };
 
+const LAYOUT_TITLE_KEY: Record<string, MessageKey> = {
+  "1": "pages.pageBuilder.chrome.layouts.one",
+  "2": "pages.pageBuilder.chrome.layouts.two",
+  "3": "pages.pageBuilder.chrome.layouts.three",
+  "4": "pages.pageBuilder.chrome.layouts.four",
+  "1/3": "pages.pageBuilder.chrome.layouts.third",
+  "2/3": "pages.pageBuilder.chrome.layouts.twoThirds",
+  "20/60/20": "pages.pageBuilder.chrome.layouts.nav",
+  "45/55": "pages.pageBuilder.chrome.layouts.hero",
+};
+
 export function Canvas() {
+  const { t } = useAppLocale();
   const doc = useBuilder((s) => s.doc);
   const device = useBuilder((s) => s.device);
   const preview = useBuilder((s) => s.preview);
@@ -122,7 +136,7 @@ export function Canvas() {
                 }}
                 className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 py-3 text-sm font-medium text-slate-600 transition-colors hover:border-editor-accent hover:text-editor-accent"
               >
-                <Plus className="h-4 w-4" /> Adicionar secção
+                <Plus className="h-4 w-4" /> {t("pages.pageBuilder.chrome.addSection")}
               </button>
               {layoutOpen ? (
                 <div
@@ -131,7 +145,7 @@ export function Canvas() {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                    Estrutura
+                    {t("pages.pageBuilder.topbar.structure")}
                   </p>
                   <div className="grid grid-cols-3 gap-2">
                     {SECTION_LAYOUTS.map((layout) => (
@@ -179,6 +193,7 @@ function EmptyCanvasDropZone({
   onOpenBlocks: () => void;
   onOpenTemplates: () => void;
 }) {
+  const { t } = useAppLocale();
   const { setNodeRef, isOver } = useDroppable({
     id: "canvas:empty",
     data: { kind: "canvas-empty" },
@@ -194,23 +209,22 @@ function EmptyCanvasDropZone({
         <Columns3 className="h-9 w-9 text-slate-400" />
       </div>
       <div className="max-w-lg">
-        <h3 className="mb-1 text-lg font-semibold text-slate-900">Monte a página do zero</h3>
+        <h3 className="mb-1 text-lg font-semibold text-slate-900">{t("pages.pageBuilder.chrome.emptyTitle")}</h3>
         <p className="text-sm leading-relaxed text-slate-500">
-          Escolha a estrutura de colunas, arraste widgets da esquerda e estilize no
-          painel direito. Ou use blocos / modelo e edite tudo depois.
+          {t("pages.pageBuilder.chrome.emptyBody")}
         </p>
       </div>
 
       <div className="w-full max-w-md">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-          Estrutura da primeira secção
+          {t("pages.pageBuilder.chrome.firstStructure")}
         </p>
         <div className="grid grid-cols-4 gap-2">
           {SECTION_LAYOUTS.map((layout) => (
             <button
               key={layout.label}
               type="button"
-              title={layout.title}
+              title={LAYOUT_TITLE_KEY[layout.label] ? t(LAYOUT_TITLE_KEY[layout.label]) : layout.title}
               onClick={() => onAddLayout(layout.widths)}
               className="flex h-14 flex-col items-center justify-center gap-1 rounded-md border border-slate-200 px-1.5 hover:border-editor-accent hover:bg-slate-50"
             >
@@ -231,18 +245,18 @@ function EmptyCanvasDropZone({
           onClick={onOpenBlocks}
           className="inline-flex items-center gap-2 rounded-md bg-editor-accent px-4 py-2 text-sm font-medium text-editor-accent-fg hover:opacity-90"
         >
-          <Blocks className="h-4 w-4" /> Blocos DTC
+          <Blocks className="h-4 w-4" /> {t("pages.pageBuilder.chrome.blocksDtc")}
         </button>
         <button
           type="button"
           onClick={onOpenTemplates}
           className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-editor-accent"
         >
-          <LayoutTemplate className="h-4 w-4" /> Temas
+          <LayoutTemplate className="h-4 w-4" /> {t("pages.pageBuilder.topbar.themes")}
         </button>
       </div>
       <p className="max-w-sm text-[11px] text-slate-400">
-        Abra Temas para «Tema dclickora — vendas», ou arraste widgets da barra esquerda.
+        {t("pages.pageBuilder.chrome.themesFoot")}
       </p>
     </div>
   );
@@ -263,6 +277,7 @@ function SectionView({
   preview: boolean;
   onContextMenu: (event: React.MouseEvent, target: Exclude<SelectionTarget, null>) => void;
 }) {
+  const { t } = useAppLocale();
   const selection = useBuilder((s) => s.selection);
   const select = useBuilder((s) => s.select);
   const removeSection = useBuilder((s) => s.removeSection);
@@ -339,10 +354,10 @@ function SectionView({
           }`}
         >
           <span className="px-1 text-[10px] font-semibold uppercase tracking-wider" data-pb-hint-chip>
-            Secção · layout
+            {t("pages.pageBuilder.chrome.sectionChip")}
           </span>
           <ToolbarBtn
-            title="Mover para cima"
+            title={t("pages.pageBuilder.chrome.moveUp")}
             disabled={index === 0}
             onClick={(e) => {
               e.stopPropagation();
@@ -352,7 +367,7 @@ function SectionView({
             <ChevronUp className="h-3 w-3" />
           </ToolbarBtn>
           <ToolbarBtn
-            title="Mover para baixo"
+            title={t("pages.pageBuilder.chrome.moveDown")}
             disabled={index >= count - 1}
             onClick={(e) => {
               e.stopPropagation();
@@ -362,7 +377,7 @@ function SectionView({
             <ChevronDown className="h-3 w-3" />
           </ToolbarBtn>
           <ToolbarBtn
-            title="Adicionar coluna"
+            title={t("pages.pageBuilder.chrome.addColumn")}
             onClick={(e) => {
               e.stopPropagation();
               addColumn(section.id);
@@ -371,7 +386,7 @@ function SectionView({
             <Plus className="h-3 w-3" />
           </ToolbarBtn>
           <ToolbarBtn
-            title="Duplicar"
+            title={t("pages.pageBuilder.chrome.duplicate")}
             onClick={(e) => {
               e.stopPropagation();
               duplicateSection(section.id);
@@ -380,7 +395,7 @@ function SectionView({
             <Copy className="h-3 w-3" />
           </ToolbarBtn>
           <ToolbarBtn
-            title="Excluir"
+            title={t("common.delete")}
             onClick={(e) => {
               e.stopPropagation();
               removeSection(section.id);
@@ -424,7 +439,7 @@ function SectionView({
                   key={`resize-${leftIndex}`}
                   role="separator"
                   aria-orientation="vertical"
-                  title="Arrastar para mudar a largura"
+                  title={t("pages.pageBuilder.chrome.dragResize")}
                   className="absolute top-0 z-30 h-full w-3 -translate-x-1/2 cursor-col-resize"
                   style={{ left: `${(left / total) * 100}%` }}
                   onPointerDown={(event) => {
@@ -487,6 +502,7 @@ function ColumnView({
   widthPercent: number;
   onContextMenu: (event: React.MouseEvent, target: Exclude<SelectionTarget, null>) => void;
 }) {
+  const { t } = useAppLocale();
   const selection = useBuilder((s) => s.selection);
   const select = useBuilder((s) => s.select);
   const removeColumn = useBuilder((s) => s.removeColumn);
@@ -546,7 +562,7 @@ function ColumnView({
           <span>Coluna</span>
           {section.columns.length > 1 ? (
             <ToolbarBtn
-              title="Excluir coluna"
+              title={t("pages.pageBuilder.chrome.deleteColumn")}
               onClick={(e) => {
                 e.stopPropagation();
                 removeColumn(section.id, column.id);
@@ -560,8 +576,8 @@ function ColumnView({
 
       {column.widgets.length === 0 && !preview ? (
         <div className="m-2 flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-xs text-slate-500">
-          <span className="font-medium text-slate-600">Largue um elemento aqui</span>
-          <span className="text-[10px] text-slate-400">Título, texto ou botão na barra à esquerda</span>
+          <span className="font-medium text-slate-600">{t("pages.pageBuilder.chrome.dropHere")}</span>
+          <span className="text-[10px] text-slate-400">{t("pages.pageBuilder.chrome.dropHint")}</span>
         </div>
       ) : (
         column.widgets.map((widget, index) =>
@@ -652,6 +668,7 @@ function EditableWidget({
   containerId?: string;
   onContextMenu: (event: React.MouseEvent, target: Exclude<SelectionTarget, null>) => void;
 }) {
+  const { t } = useAppLocale();
   const selection = useBuilder((s) => s.selection);
   const select = useBuilder((s) => s.select);
   const removeWidget = useBuilder((s) => s.removeWidget);
@@ -762,7 +779,7 @@ function EditableWidget({
       >
         <button
           type="button"
-          title="Arrastar elemento"
+          title={t("pages.pageBuilder.chrome.dragElement")}
           ref={setDragRef}
           {...listeners}
           {...attributes}
@@ -773,10 +790,10 @@ function EditableWidget({
         </button>
         <div className="flex items-center gap-0.5 px-1.5 py-0.5">
           <span className="max-w-[7rem] truncate px-0.5 text-[10px] font-semibold uppercase tracking-wider">
-            {def.label}
+            {t(WIDGET_NAME_KEY[widget.type])}
           </span>
           <ToolbarBtn
-            title="Duplicar"
+            title={t("pages.pageBuilder.chrome.duplicate")}
             onClick={(e) => {
               e.stopPropagation();
               duplicateWidget(section.id, column.id, widget.id);
@@ -785,7 +802,7 @@ function EditableWidget({
             <Copy className="h-3 w-3" />
           </ToolbarBtn>
           <ToolbarBtn
-            title="Excluir"
+            title={t("common.delete")}
             onClick={(e) => {
               e.stopPropagation();
               removeWidget(section.id, column.id, widget.id);
@@ -858,6 +875,7 @@ function CanvasContextMenu({
   menu: { x: number; y: number; target: Exclude<SelectionTarget, null> };
   onClose: () => void;
 }) {
+  const { t } = useAppLocale();
   const clipboard = useBuilder((s) => s.clipboard);
   const styleClipboard = useBuilder((s) => s.styleClipboard);
   const copySelection = useBuilder((s) => s.copySelection);
@@ -879,30 +897,30 @@ function CanvasContextMenu({
 
   const items: Array<{ label: string; hint?: string; disabled?: boolean; action: () => void; danger?: boolean }> = [
     {
-      label: "Duplicar",
+      label: t("pages.pageBuilder.chrome.duplicate"),
       hint: "⌘D",
       disabled: menu.target.kind === "column",
       action: () => duplicateSelection(),
     },
     {
-      label: "Copiar",
+      label: t("common.copy"),
       hint: "⌘C",
       disabled: menu.target.kind !== "widget",
       action: () => copySelection(),
     },
     {
-      label: "Colar",
+      label: t("pages.pageBuilder.chrome.paste"),
       hint: "⌘V",
       disabled: !clipboard,
       action: () => pasteClipboard(),
     },
     {
-      label: "Copiar estilo",
+      label: t("pages.pageBuilder.chrome.copyStyle"),
       hint: "⇧⌘C",
       action: () => copyStyle(),
     },
     {
-      label: "Colar estilo",
+      label: t("pages.pageBuilder.chrome.pasteStyle"),
       hint: "⇧⌘V",
       disabled: !styleClipboard,
       action: () => pasteStyle(),
@@ -911,19 +929,19 @@ function CanvasContextMenu({
   if (menu.target.kind === "section") {
     items.push(
       {
-        label: "Mover para cima",
+        label: t("pages.pageBuilder.chrome.moveUp"),
         disabled: sectionIndex <= 0,
         action: () => moveSection(sectionIndex, sectionIndex - 1),
       },
       {
-        label: "Mover para baixo",
+        label: t("pages.pageBuilder.chrome.moveDown"),
         disabled: sectionIndex < 0 || sectionIndex >= doc.sections.length - 1,
         action: () => moveSection(sectionIndex, sectionIndex + 1),
       },
     );
   }
   items.push({
-    label: "Eliminar",
+    label: t("common.delete"),
     hint: "⌫",
     danger: true,
     action: () => deleteSelection(),

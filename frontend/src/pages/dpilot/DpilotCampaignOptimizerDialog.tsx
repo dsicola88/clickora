@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,6 +24,7 @@ type Props = {
 
 /** Editar override do optimizer por campanha (admin). Valores vazios removem override. */
 export function DpilotCampaignOptimizerDialog({ projectId, campaign, reload }: Props) {
+  const { t } = useAppLocale();
   const [open, setOpen] = useState(false);
   const [pauseUsd, setPauseUsd] = useState("");
   const [minClicks, setMinClicks] = useState("");
@@ -45,11 +48,13 @@ export function DpilotCampaignOptimizerDialog({ projectId, campaign, reload }: P
     campaign.optimizer_pause_spend_usd != null || campaign.optimizer_pause_min_clicks != null
       ? [
           campaign.optimizer_pause_spend_usd != null ? `${campaign.optimizer_pause_spend_usd} USD` : null,
-          campaign.optimizer_pause_min_clicks != null ? `${campaign.optimizer_pause_min_clicks} cliques` : null,
+          campaign.optimizer_pause_min_clicks != null
+            ? fill(t("pages.dpilot.optimizer.clicksUnit"), { n: campaign.optimizer_pause_min_clicks })
+            : null,
         ]
           .filter(Boolean)
           .join(" · ")
-      : "Política do projecto";
+      : t("pages.dpilot.optimizer.projectPolicy");
 
   const onSave = async () => {
     let optimizer_pause_spend_usd: number | null;
@@ -58,7 +63,7 @@ export function DpilotCampaignOptimizerDialog({ projectId, campaign, reload }: P
     } else {
       const n = parseFloat(pauseUsd.replace(",", "."));
       if (!Number.isFinite(n) || n <= 0) {
-        toast.error("USD: número positivo ou vazio para herd do projecto.");
+        toast.error(t("pages.dpilot.optimizer.usdInvalid"));
         return;
       }
       optimizer_pause_spend_usd = n;
@@ -70,7 +75,7 @@ export function DpilotCampaignOptimizerDialog({ projectId, campaign, reload }: P
     } else {
       const n = parseInt(minClicks.trim(), 10);
       if (!Number.isFinite(n) || n < 0 || n > 500) {
-        toast.error("Cliques: inteiro 0–500 ou vazio.");
+        toast.error(t("pages.dpilot.optimizer.clicksInvalid"));
         return;
       }
       optimizer_pause_min_clicks = n;
@@ -86,7 +91,7 @@ export function DpilotCampaignOptimizerDialog({ projectId, campaign, reload }: P
         toast.error(error);
         return;
       }
-      toast.success("Limites desta campanha actualizados.");
+      toast.success(t("pages.dpilot.optimizer.saved"));
       setOpen(false);
       reload();
     } finally {
@@ -98,34 +103,36 @@ export function DpilotCampaignOptimizerDialog({ projectId, campaign, reload }: P
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="h-7 text-xs">
-          Pausa motor
+          {t("pages.dpilot.optimizer.trigger")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Pausa sem conversões · {campaign.name.slice(0, 80)}</DialogTitle>
+          <DialogTitle>
+            {fill(t("pages.dpilot.optimizer.title"), { name: campaign.name.slice(0, 80) })}
+          </DialogTitle>
           <DialogDescription>
-            Actual: <span className="font-medium text-foreground">{summary}</span>. Vazios voltam à política definida em
-            «Visão geral» (guardrails).
+            {t("pages.dpilot.optimizer.currentPrefix")}{" "}
+            <span className="font-medium text-foreground">{summary}</span>. {t("pages.dpilot.optimizer.emptyHint")}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor={`opt-usd-${campaign.id}`}>Gasto máx. USD</Label>
+            <Label htmlFor={`opt-usd-${campaign.id}`}>{t("pages.dpilot.optimizer.usdLabel")}</Label>
             <Input
               id={`opt-usd-${campaign.id}`}
               inputMode="decimal"
-              placeholder="Vazio = projecto"
+              placeholder={t("pages.dpilot.optimizer.usdPlaceholder")}
               value={pauseUsd}
               onChange={(e) => setPauseUsd(e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`opt-cl-${campaign.id}`}>Mín. cliques</Label>
+            <Label htmlFor={`opt-cl-${campaign.id}`}>{t("pages.dpilot.optimizer.clicksLabel")}</Label>
             <Input
               id={`opt-cl-${campaign.id}`}
               inputMode="numeric"
-              placeholder="Vazio = projecto"
+              placeholder={t("pages.dpilot.optimizer.clicksPlaceholder")}
               value={minClicks}
               onChange={(e) => setMinClicks(e.target.value)}
             />
@@ -133,10 +140,10 @@ export function DpilotCampaignOptimizerDialog({ projectId, campaign, reload }: P
         </div>
         <DialogFooter>
           <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
-            Cancelar
+            {t("common.cancel")}
           </Button>
           <Button type="button" onClick={() => void onSave()} disabled={saving}>
-            {saving ? "A guardar…" : "Guardar"}
+            {saving ? t("common.saving") : t("common.save")}
           </Button>
         </DialogFooter>
       </DialogContent>

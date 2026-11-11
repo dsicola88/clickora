@@ -1,7 +1,9 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useBuilder } from "../store";
 import type { SelectionTarget } from "../types";
-import { WIDGET_REGISTRY } from "../widget-registry";
+import { WIDGET_NAME_KEY } from "../widget-registry";
 import { readContainerChildren } from "../widget-tree";
 import type { WidgetNode } from "../types";
 import { GripVertical, ListTree } from "lucide-react";
@@ -15,6 +17,7 @@ function selectionClasses(active: boolean) {
 }
 
 export function StructureNavigator() {
+  const { t } = useAppLocale();
   const doc = useBuilder((s) => s.doc);
   const selection = useBuilder((s) => s.selection);
   const select = useBuilder((s) => s.select);
@@ -32,11 +35,13 @@ export function StructureNavigator() {
     <aside className="flex h-full min-h-0 w-full min-w-0 flex-col border-l border-editor-border bg-editor-panel text-editor-fg">
       <div className="flex items-center gap-2 border-b border-editor-border px-3 py-2">
         <ListTree className="h-4 w-4 text-editor-fg-muted" />
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-editor-fg-muted">Estrutura</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-editor-fg-muted">
+          {t("pages.pageBuilder.structure.title")}
+        </h2>
       </div>
       <div className="editor-scrollbar flex-1 overflow-y-auto p-2">
         {doc.sections.length === 0 ? (
-          <p className="px-2 py-4 text-center text-[11px] text-editor-fg-muted">Sem secções.</p>
+          <p className="px-2 py-4 text-center text-[11px] text-editor-fg-muted">{t("pages.pageBuilder.structure.empty")}</p>
         ) : (
           <ul className="space-y-0.5">
             {doc.sections.map((section, si) => (
@@ -46,7 +51,7 @@ export function StructureNavigator() {
                   className={selectionClasses(isSectionSel(section.id))}
                   onClick={() => select({ kind: "section", id: section.id } satisfies SelectionTarget)}
                 >
-                  Seção {si + 1}
+                  {fill(t("pages.pageBuilder.sectionN"), { n: si + 1 })}
                 </button>
                 <ul className="ml-2 mt-0.5 space-y-0.5 border-l border-editor-border pl-2">
                   {section.columns.map((column, ci) => (
@@ -62,7 +67,7 @@ export function StructureNavigator() {
                           } satisfies SelectionTarget)
                         }
                       >
-                        Coluna {ci + 1}
+                        {fill(t("pages.pageBuilder.columnN"), { n: ci + 1 })}
                       </button>
                       <ul className="ml-2 mt-0.5 space-y-0.5 border-l border-editor-border pl-2">
                         {column.widgets.map((widget, index) => (
@@ -111,11 +116,12 @@ function WidgetBranch({
   isWidgetSel: (sectionId: string, columnId: string, widgetId: string) => boolean;
   onSelect: (target: SelectionTarget) => void;
 }) {
+  const { t } = useAppLocale();
   const children = readContainerChildren(widget);
   return (
     <li>
       <NavWidget
-        label={WIDGET_REGISTRY[widget.type]?.label ?? widget.type}
+        label={t(WIDGET_NAME_KEY[widget.type])}
         active={active}
         sectionId={sectionId}
         columnId={columnId}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { usePresellBuilderEmbedOptional } from "@/contexts/PresellBuilderEmbedContext";
 import { useBuilder } from "../store";
 import { downloadHtml } from "../export-html";
@@ -45,10 +46,14 @@ import { PageSettingsModal } from "./PageSettingsModal";
 import { PopupsModal } from "./PopupsModal";
 import { useEditorChromeThemeContextOptional } from "../EditorChromeThemeContext";
 
-const DEVICES: Array<{ id: DeviceType; Icon: typeof Monitor; label: string }> = [
-  { id: "desktop", Icon: Monitor, label: "Computador" },
-  { id: "tablet", Icon: Tablet, label: "Tablet" },
-  { id: "mobile", Icon: Smartphone, label: "Telemóvel" },
+const DEVICES: Array<{
+  id: DeviceType;
+  Icon: typeof Monitor;
+  labelKey: "pages.pageBuilder.topbar.desktop" | "pages.pageBuilder.topbar.tablet" | "pages.pageBuilder.topbar.mobile";
+}> = [
+  { id: "desktop", Icon: Monitor, labelKey: "pages.pageBuilder.topbar.desktop" },
+  { id: "tablet", Icon: Tablet, labelKey: "pages.pageBuilder.topbar.tablet" },
+  { id: "mobile", Icon: Smartphone, labelKey: "pages.pageBuilder.topbar.mobile" },
 ];
 
 const menuItem =
@@ -57,6 +62,7 @@ const menuContent =
   "z-[240] min-w-[12rem] border-editor-border bg-editor-panel text-editor-fg";
 
 export function EditorTopbar() {
+  const { t } = useAppLocale();
   const device = useBuilder((s) => s.device);
   const setDevice = useBuilder((s) => s.setDevice);
   const togglePreview = useBuilder((s) => s.togglePreview);
@@ -70,6 +76,33 @@ export function EditorTopbar() {
   const canRedo = useBuilder((s) => s.future.length > 0);
   const historyLabels = useBuilder((s) => s.historyLabels);
   const futureLabels = useBuilder((s) => s.futureLabels);
+  const historyLabelText = (label: string) => {
+    switch (label) {
+      case "history.insert":
+        return t("pages.pageBuilder.chrome.historyInsert");
+      case "history.delete":
+        return t("pages.pageBuilder.chrome.historyDelete");
+      case "history.duplicate":
+        return t("pages.pageBuilder.chrome.historyDuplicate");
+      case "history.move":
+        return t("pages.pageBuilder.chrome.historyMove");
+      case "history.edit":
+        return t("pages.pageBuilder.chrome.historyEdit");
+      // Legacy PT labels from sessions before i18n keys
+      case "Inserir elemento":
+        return t("pages.pageBuilder.chrome.historyInsert");
+      case "Eliminar elemento":
+        return t("pages.pageBuilder.chrome.historyDelete");
+      case "Duplicar elemento":
+        return t("pages.pageBuilder.chrome.historyDuplicate");
+      case "Mover elemento":
+        return t("pages.pageBuilder.chrome.historyMove");
+      case "Edição":
+        return t("pages.pageBuilder.chrome.historyEdit");
+      default:
+        return label;
+    }
+  };
   const jumpToHistory = useBuilder((s) => s.jumpToHistory);
   const jumpForward = useBuilder((s) => s.jumpForward);
   const structurePanelOpen = useBuilder((s) => s.structurePanelOpen);
@@ -99,7 +132,7 @@ export function EditorTopbar() {
   const chromeTheme = useEditorChromeThemeContextOptional();
 
   const commitName = () => {
-    const next = nameDraft.trim() || "Presell";
+    const next = nameDraft.trim() || t("pages.pageBuilder.topbar.defaultName");
     if (next !== doc.name) updateName(next);
   };
 
@@ -127,22 +160,22 @@ export function EditorTopbar() {
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
           }}
-          aria-label="Nome da página"
+          aria-label={t("pages.pageBuilder.topbar.pageName")}
           className="h-8 min-w-0 max-w-[220px] flex-1 truncate rounded-md border border-transparent bg-transparent px-2 text-sm font-medium text-editor-fg outline-none hover:border-editor-border focus:border-editor-accent focus:bg-editor-bg"
         />
         <AutosaveStatus />
-        <IconBtn label="Desfazer" onClick={undo} disabled={!canUndo}>
+        <IconBtn label={t("pages.pageBuilder.topbar.undo")} onClick={undo} disabled={!canUndo}>
           <Undo2 className="h-4 w-4" />
         </IconBtn>
-        <IconBtn label="Refazer" onClick={redo} disabled={!canRedo}>
+        <IconBtn label={t("pages.pageBuilder.topbar.redo")} onClick={redo} disabled={!canRedo}>
           <Redo2 className="h-4 w-4" />
         </IconBtn>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              title="Histórico"
-              aria-label="Histórico"
+              title={t("pages.pageBuilder.topbar.history")}
+              aria-label={t("pages.pageBuilder.topbar.history")}
               className="flex h-8 w-8 items-center justify-center rounded-md text-editor-fg-muted hover:bg-editor-panel-2 hover:text-editor-fg"
             >
               <History className="h-4 w-4" />
@@ -151,7 +184,7 @@ export function EditorTopbar() {
           <DropdownMenuContent align="start" className={`${menuContent} max-h-72 overflow-y-auto`}>
             {historyLabels.length === 0 && futureLabels.length === 0 ? (
               <DropdownMenuItem disabled className={menuItem}>
-                Sem alterações
+                {t("pages.pageBuilder.topbar.noChanges")}
               </DropdownMenuItem>
             ) : (
               <>
@@ -163,7 +196,7 @@ export function EditorTopbar() {
                       className={`${menuItem} text-editor-fg-muted`}
                       onClick={() => jumpForward(steps)}
                     >
-                      {label}
+                      {historyLabelText(label)}
                     </DropdownMenuItem>
                   );
                 })}
@@ -175,7 +208,7 @@ export function EditorTopbar() {
                       className={menuItem}
                       onClick={() => jumpToHistory(keep)}
                     >
-                      {label}
+                      {historyLabelText(label)}
                     </DropdownMenuItem>
                   );
                 })}
@@ -186,7 +219,9 @@ export function EditorTopbar() {
       </div>
 
       <div className="flex items-center gap-1 rounded-md bg-editor-panel-2 p-1">
-        {DEVICES.map(({ id, Icon, label }) => (
+        {DEVICES.map(({ id, Icon, labelKey }) => {
+          const label = t(labelKey);
+          return (
           <button
             key={id}
             type="button"
@@ -200,27 +235,28 @@ export function EditorTopbar() {
           >
             <Icon className="h-4 w-4" />
           </button>
-        ))}
+          );
+        })}
       </div>
 
       <div className="flex items-center justify-end gap-1">
         {chromeTheme ? (
           <EditorThemePicker themeId={chromeTheme.themeId} onChange={chromeTheme.setThemeId} />
         ) : null}
-        <IconBtn label="Blocos (do zero)" onClick={() => setBlocksOpen(true)}>
+        <IconBtn label={t("pages.pageBuilder.topbar.blocks")} onClick={() => setBlocksOpen(true)}>
           <Blocks className="h-4 w-4" />
         </IconBtn>
         <button
           type="button"
           onClick={() => setTemplatesOpen(true)}
-          title="Temas e modelos"
+          title={t("pages.pageBuilder.topbar.themesTitle")}
           className="flex h-8 items-center gap-1.5 rounded-md bg-editor-panel-2 px-2.5 text-xs font-semibold text-editor-fg transition-colors hover:bg-editor-border"
         >
           <LayoutTemplate className="h-3.5 w-3.5 text-editor-accent" />
-          <span>Temas</span>
+          <span>{t("pages.pageBuilder.topbar.themes")}</span>
         </button>
         <IconBtn
-          label="Estrutura"
+          label={t("pages.pageBuilder.topbar.structure")}
           onClick={() => toggleStructurePanel()}
           active={structurePanelOpen}
         >
@@ -236,7 +272,7 @@ export function EditorTopbar() {
           }`}
         >
           <Eye className="h-3.5 w-3.5" />
-          <span className="hidden lg:inline">{preview ? "Editar" : "Pré-visualizar"}</span>
+          <span className="hidden lg:inline">{preview ? t("common.edit") : t("pages.pageBuilder.topbar.preview")}</span>
         </button>
         {presellEmbed ? (
           <button
@@ -249,7 +285,7 @@ export function EditorTopbar() {
             className="flex h-8 items-center gap-1.5 rounded-md bg-editor-accent px-3 text-xs font-semibold text-editor-accent-fg hover:opacity-90 disabled:opacity-50"
           >
             <Globe className="h-3.5 w-3.5" />
-            {presellEmbed.isSaving ? "A publicar…" : "Publicar"}
+            {presellEmbed.isSaving ? t("pages.pageBuilder.topbar.publishing") : t("pages.pageBuilder.topbar.publish")}
           </button>
         ) : (
           <button
@@ -258,7 +294,7 @@ export function EditorTopbar() {
             className="flex h-8 items-center gap-1.5 rounded-md bg-editor-accent px-3 text-xs font-semibold text-editor-accent-fg hover:opacity-90"
           >
             <Globe className="h-3.5 w-3.5" />
-            Publicar
+            {t("pages.pageBuilder.topbar.publish")}
           </button>
         )}
         <DropdownMenu>
@@ -266,7 +302,7 @@ export function EditorTopbar() {
             <button
               type="button"
               className="flex h-8 w-8 items-center justify-center rounded-md text-editor-fg-muted transition-colors hover:bg-editor-panel-2 hover:text-editor-fg"
-              title="Mais ações"
+              title={t("pages.pageBuilder.topbar.more")}
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
@@ -274,42 +310,42 @@ export function EditorTopbar() {
           <DropdownMenuContent align="end" className={menuContent}>
             <DropdownMenuItem className={menuItem} onClick={() => setPagesLibraryOpen(true)}>
               <FolderOpen className="mr-2 h-4 w-4" />
-              Páginas guardadas
+              {t("pages.pageBuilder.topbar.savedPages")}
             </DropdownMenuItem>
             <DropdownMenuItem className={menuItem} onClick={() => setPageSettingsOpen(true)}>
               <Palette className="mr-2 h-4 w-4" />
-              Design global
+              {t("pages.pageBuilder.topbar.globalDesign")}
             </DropdownMenuItem>
             <DropdownMenuItem className={menuItem} onClick={() => setPopupsOpen(true)}>
               <MessageSquarePlus className="mr-2 h-4 w-4" />
-              Popups
+              {t("pages.pageBuilder.topbar.popups")}
             </DropdownMenuItem>
             <DropdownMenuItem className={menuItem} onClick={() => setSeoOpen(true)}>
               <Search className="mr-2 h-4 w-4" />
-              SEO
+              {t("pages.pageBuilder.topbar.seo")}
             </DropdownMenuItem>
             <DropdownMenuItem className={menuItem} onClick={() => setTrackingOpen(true)}>
               <BarChart3 className="mr-2 h-4 w-4" />
-              Tracking da página
+              {t("pages.pageBuilder.topbar.pageTracking")}
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-editor-border" />
             <DropdownMenuItem className={menuItem} onClick={handleExportHtml}>
               <Download className="mr-2 h-4 w-4" />
-              Exportar HTML
+              {t("pages.pageBuilder.topbar.exportHtml")}
             </DropdownMenuItem>
             <DropdownMenuItem className={menuItem} onClick={handleExportJson}>
               <FileJson className="mr-2 h-4 w-4" />
-              Exportar JSON
+              {t("pages.pageBuilder.topbar.exportJson")}
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-editor-border" />
             <DropdownMenuItem
               className={menuItem}
               onClick={() => {
-                if (confirm("Limpar toda a página?")) reset();
+                if (confirm(t("pages.pageBuilder.topbar.clearConfirm"))) reset();
               }}
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Limpar página
+              {t("pages.pageBuilder.topbar.clearPage")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

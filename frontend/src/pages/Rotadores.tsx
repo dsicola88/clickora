@@ -61,7 +61,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWriteRotators } from "@/lib/workspaceCapabilities";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
-import { fill } from "@/i18n";
+import { fill, numberLocaleFor, type MessageKey } from "@/i18n";
 
 function slugify(s: string): string {
   return s
@@ -82,7 +82,8 @@ function parseIsoList(raw: string): string[] | null {
 }
 
 function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate: boolean }) {
-  const { t } = useAppLocale();
+  const { t, locale } = useAppLocale();
+  const numLocale = numberLocaleFor(locale);
   const [open, setOpen] = useState(false);
   const [lookback, setLookback] = useState(30);
   const [metric, setMetric] = useState<"conversion_rate" | "revenue">("conversion_rate");
@@ -93,7 +94,7 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
     queryFn: async () => {
       const { data: d, error } = await trafficRotatorsService.abStats(rotatorId, { lookback_days: lookback });
       if (error) throw new Error(error);
-      if (!d) throw new Error("Resposta vazia");
+      if (!d) throw new Error(t("pages.rotators.toastEmptyResponse"));
       return d;
     },
     enabled: open,
@@ -177,8 +178,9 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
         ) : data ? (
           <>
             <p className="text-[11px] text-muted-foreground">
-              Desde {new Date(data.lookback_from).toLocaleString("pt-PT", { dateStyle: "short" })} · cliques
-              atribuídos a braço (excl. recurso)
+              {fill(t("pages.rotators.since"), {
+                when: new Date(data.lookback_from).toLocaleString(numLocale, { dateStyle: "short" }),
+              })}
             </p>
             <div className="overflow-x-auto rounded-md border border-border/60 text-xs">
               <table className="w-full text-left">
@@ -199,10 +201,10 @@ function RotatorAbPanel({ rotatorId, canMutate }: { rotatorId: string; canMutate
                         {row.label || "—"}
                       </td>
                       <td className="py-1.5 px-2 tabular-nums">{row.current_weight}</td>
-                      <td className="py-1.5 px-2 tabular-nums">{row.clicks.toLocaleString("pt-PT")}</td>
-                      <td className="py-1.5 px-2 tabular-nums">{row.conversions.toLocaleString("pt-PT")}</td>
+                      <td className="py-1.5 px-2 tabular-nums">{row.clicks.toLocaleString(numLocale)}</td>
+                      <td className="py-1.5 px-2 tabular-nums">{row.conversions.toLocaleString(numLocale)}</td>
                       <td className="py-1.5 px-2 tabular-nums">
-                        {(row.conversion_rate * 100).toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%
+                        {(row.conversion_rate * 100).toLocaleString(numLocale, { maximumFractionDigits: 2 })}%
                       </td>
                       <td className="py-1.5 px-2 tabular-nums">{row.revenue}</td>
                     </tr>
@@ -316,10 +318,10 @@ function armsToPayload(arms: ArmForm[]): TrafficRotatorArmInput[] | null {
 function resolveRulesPolicyForSubmit(
   drafts: RotatorRuleDraft[],
   editing: TrafficRotatorDto | null,
-): { ok: true; value: unknown | undefined | null } | { ok: false; error: string } {
+): { ok: true; value: unknown | undefined | null } | { ok: false; error: MessageKey } {
   for (const d of drafts) {
     if (d.action === "redirect" && !/^https?:\/\//i.test(d.redirect_url.trim())) {
-      return { ok: false, error: "Regra com redirect precisa de URL https válida." };
+      return { ok: false, error: "pages.rotators.toastRuleRedirect" };
     }
   }
   const policy = draftsToPolicy(drafts);
@@ -328,7 +330,7 @@ function resolveRulesPolicyForSubmit(
     if (!editing) return { ok: true, value: undefined };
     if (hadPolicy && drafts.length === 0) return { ok: true, value: null };
     if (hadPolicy && drafts.length > 0) {
-      return { ok: false, error: "Regras inválidas — corrija ou remova-as antes de guardar." };
+      return { ok: false, error: "pages.rotators.toastRulesFix" };
     }
     return { ok: true, value: undefined };
   }
@@ -487,26 +489,24 @@ export default function Rotadores() {
       backupUrl.trim() || "",
     ].filter((u) => u && isBrokenMainHostPresellPath(u));
     if (badPaths.length) {
-      toast.error(
-        "Em dclickora.com use /p/<UUID> da presell (não o slug). Copie o link público no editor da página.",
-      );
+      toast.error(t("pages.rotators.toastDclickoraPath"));
       return;
     }
 
     let rulesRes: ReturnType<typeof resolveRulesPolicyForSubmit>;
     if (rulesJsonAdvanced) {
-      const t = rulesPolicyText.trim();
-      if (!t) {
+      const rawJson = rulesPolicyText.trim();
+      if (!rawJson) {
         rulesRes = resolveRulesPolicyForSubmit([], editing);
       } else {
         try {
-          const parsed: unknown = JSON.parse(t);
+          const parsed: unknown = JSON.parse(rawJson);
           const hadPolicy = Boolean(editing && editing.rules_policy != null);
           if (!editing && parsed === null) rulesRes = { ok: true, value: undefined };
           else if (editing && parsed === null && hadPolicy) rulesRes = { ok: true, value: null };
           else rulesRes = { ok: true, value: parsed };
         } catch {
-          toast.error("Formato inválido nas regras avançadas.");
+          toast.error(t("pages.rotators.toastRulesInvalid"));
           return;
         }
       }
@@ -514,7 +514,7 @@ export default function Rotadores() {
       rulesRes = resolveRulesPolicyForSubmit(rulesDrafts, editing);
     }
     if (rulesRes.ok === false) {
-      toast.error(rulesRes.error);
+      toast.error(t(rulesRes.error));
       return;
     }
 
@@ -757,13 +757,13 @@ export default function Rotadores() {
                     onClick={() => {
                       setMode("weighted");
                       setArms([
-                        { ...emptyArm(0), label: "Página A", weight: "50" },
-                        { ...emptyArm(1), label: "Página B", weight: "50" },
+                        { ...emptyArm(0), label: t("pages.rotators.pageA"), weight: "50" },
+                        { ...emptyArm(1), label: t("pages.rotators.pageB"), weight: "50" },
                       ]);
-                      toast.message("Preset A/B 50/50 — preencha os URLs das páginas.");
+                      toast.message(t("pages.rotators.toastPresetAb"));
                     }}
                   >
-                    Preset A/B 50/50
+                    {t("pages.rotators.presetAbBtn")}
                   </Button>
                   <Button
                     type="button"
@@ -773,14 +773,14 @@ export default function Rotadores() {
                     onClick={() => {
                       setMode("sequential");
                       setArms([
-                        { ...emptyArm(0), label: "Vendedor 1", destination_url: "https://wa.me/", weight: "100" },
-                        { ...emptyArm(1), label: "Vendedor 2", destination_url: "https://wa.me/", weight: "100" },
-                        { ...emptyArm(2), label: "Vendedor 3", destination_url: "https://wa.me/", weight: "100" },
+                        { ...emptyArm(0), label: fill(t("pages.rotators.sellerN"), { n: 1 }), destination_url: "https://wa.me/", weight: "100" },
+                        { ...emptyArm(1), label: fill(t("pages.rotators.sellerN"), { n: 2 }), destination_url: "https://wa.me/", weight: "100" },
+                        { ...emptyArm(2), label: fill(t("pages.rotators.sellerN"), { n: 3 }), destination_url: "https://wa.me/", weight: "100" },
                       ]);
-                      toast.message("Preset WhatsApp sequencial — complete os números wa.me/…");
+                      toast.message(t("pages.rotators.toastPresetWa"));
                     }}
                   >
-                    Preset WhatsApp rodízio
+                    {t("pages.rotators.presetWa")}
                   </Button>
                   <Button
                     type="button"
@@ -790,23 +790,23 @@ export default function Rotadores() {
                     onClick={() => {
                       setMode("weighted");
                       setArms([
-                        { ...emptyArm(0), label: "Oferta 1", weight: "50" },
-                        { ...emptyArm(1), label: "Oferta 2", weight: "50" },
+                        { ...emptyArm(0), label: fill(t("pages.rotators.offerN"), { n: 1 }), weight: "50" },
+                        { ...emptyArm(1), label: fill(t("pages.rotators.offerN"), { n: 2 }), weight: "50" },
                       ]);
-                      toast.message("Preset ofertas afiliado — cole os hoplinks.");
+                      toast.message(t("pages.rotators.toastPresetOffer"));
                     }}
                   >
-                    Preset ofertas
+                    {t("pages.rotators.presetOfferBtn")}
                   </Button>
                 </div>
               ) : null}
             </div>
 
             <div className="space-y-2">
-              <Label>Presell de contexto (conversões / relatórios)</Label>
+              <Label>{t("pages.rotators.contextPresell")}</Label>
               <Select value={contextPresellId} onValueChange={setContextPresellId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma presell publicada" />
+                  <SelectValue placeholder={t("pages.rotators.pickPresell")} />
                 </SelectTrigger>
                 <SelectContent>
                   {publishedPresells.map((p) => (
@@ -816,28 +816,21 @@ export default function Rotadores() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-[11px] text-muted-foreground">
-                O postback de afiliados continua a usar o <span className="font-mono">clickora_click_id</span> deste
-                clique; a presell cumpre a regra de negócio da conta.
-              </p>
+              <p className="text-[11px] text-muted-foreground">{t("pages.rotators.contextHint")}</p>
             </div>
 
             <div className="space-y-2">
-              <Label>URL de recurso / contingência (recomendado)</Label>
+              <Label>{t("pages.rotators.fallbackUrl")}</Label>
               <Input
                 value={backupUrl}
                 onChange={(e) => setBackupUrl(e.target.value)}
-                placeholder="https://… página segura se o destino cair ou for bloqueado"
+                placeholder={t("pages.rotators.fallbackPlaceholder")}
               />
-              <p className="text-[11px] text-muted-foreground">
-                Usado quando nenhum braço se aplica <em>e</em> quando um destino HTTP falha a verificação rápida (5xx /
-                timeout / 404). Links WhatsApp não são sondados — o rodízio continua normal. Em dclickora.com o destino
-                deve ser <span className="font-mono">/p/&lt;uuid&gt;</span> (slug só em domínio personalizado).
-              </p>
+              <p className="text-[11px] text-muted-foreground">{t("pages.rotators.fallbackHint")}</p>
             </div>
 
             <div className="space-y-2">
-              <Label>Código de acesso (opcional)</Label>
+              <Label>{t("pages.rotators.accessCode")}</Label>
               <Input
                 value={accessCode}
                 onChange={(e) => {
@@ -846,8 +839,8 @@ export default function Rotadores() {
                 }}
                 placeholder={
                   editing?.access_code_set
-                    ? "Novo código (opcional) — vazio mantém o actual"
-                    : "Ex.: promo2026 → ?access_code=promo2026"
+                    ? t("pages.rotators.newCodePlaceholder")
+                    : t("pages.rotators.codeExample")
                 }
                 disabled={stripAccessCode}
               />
@@ -863,11 +856,11 @@ export default function Rotadores() {
                       setAccessCode("");
                     }}
                   >
-                    {stripAccessCode ? "Cancelar remoção" : "Remover protecção do link"}
+                    {stripAccessCode ? t("pages.rotators.cancelRemove") : t("pages.rotators.removeProtection")}
                   </Button>
                   {stripAccessCode ? (
                     <span className="text-[11px] text-amber-700 dark:text-amber-400">
-                      Ao guardar, o link deixará de exigir código.
+                      {t("pages.rotators.removeProtectionHint")}
                     </span>
                   ) : null}
                 </div>
@@ -960,14 +953,12 @@ export default function Rotadores() {
                           (parsed as { version?: unknown }).version !== 1 ||
                           !Array.isArray((parsed as { rules?: unknown }).rules)
                         ) {
-                          toast.error(
-                            'Política inválida — use { "version": 1, "rules": [...] }. Corrija o JSON ou continue no modo avançado.',
-                          );
+                          toast.error(t("pages.rotators.toastPolicyInvalid"));
                           return;
                         }
                         setRulesDrafts(policyToDrafts(parsed));
                       } catch {
-                        toast.error("Formato inválido — corrija antes de voltar ao editor visual.");
+                        toast.error(t("pages.rotators.toastRulesVisual"));
                         return;
                       }
                     } else {
@@ -976,7 +967,7 @@ export default function Rotadores() {
                     setRulesJsonAdvanced(false);
                   }}
                 >
-                  {rulesJsonAdvanced ? "Usar editor visual" : "Modo avançado (texto)"}
+                  {rulesJsonAdvanced ? t("pages.rotators.useVisual") : t("pages.rotators.advancedText")}
                 </Button>
                 {!rulesDrafts.length && !rulesJsonAdvanced ? (
                   <Button
@@ -987,7 +978,7 @@ export default function Rotadores() {
                     onClick={() => setRulesDrafts([emptyRuleDraft()])}
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    Começar com uma regra
+                    {t("pages.rotators.startRule")}
                   </Button>
                 ) : null}
               </CollapsibleContent>
@@ -996,12 +987,11 @@ export default function Rotadores() {
             <div className="space-y-3 border-t border-border pt-4">
               {editing ? (
                 <p className="text-[11px] text-amber-800/90 dark:text-amber-300/90 rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2">
-                  Ao guardar, a lista de destinos é substituída e os contadores de cliques <strong>entregues</strong> por
-                  braço voltam a zero (os cliques antigos permanecem nos relatórios).
+                  {t("pages.rotators.armsReset")}
                 </p>
               ) : null}
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <Label className="text-base">Destinos (braços)</Label>
+                <Label className="text-base">{t("pages.rotators.arms")}</Label>
                 <div className="flex items-center gap-2">
                   {contextPresellId ? (
                     <Button
@@ -1021,10 +1011,10 @@ export default function Rotadores() {
                           return next;
                         });
                         if (!backupUrl.trim()) setBackupUrl(pub);
-                        toast.message("URL público /p/<uuid> inserido.");
+                        toast.message(t("pages.rotators.toastPublicUrl"));
                       }}
                     >
-                      Inserir URL da presell de contexto
+                      {t("pages.rotators.insertContext")}
                     </Button>
                   ) : null}
                   <Button
@@ -1035,7 +1025,7 @@ export default function Rotadores() {
                     onClick={() => setArms((prev) => [...prev, emptyArm(prev.length)])}
                   >
                     <Plus className="h-3.5 w-3.5 mr-1" />
-                    Braço
+                    {t("pages.rotators.arm")}
                   </Button>
                 </div>
               </div>
@@ -1043,7 +1033,7 @@ export default function Rotadores() {
               {arms.map((arm, idx) => (
                 <div key={idx} className="rounded-lg border border-border/60 p-3 space-y-2 bg-muted/10">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs font-medium text-muted-foreground">Braço {idx + 1}</span>
+                    <span className="text-xs font-medium text-muted-foreground">{fill(t("pages.rotators.armN"), { n: idx + 1 })}</span>
                     {arms.length > 1 ? (
                       <Button
                         type="button"
@@ -1052,12 +1042,12 @@ export default function Rotadores() {
                         className="h-7 text-xs text-destructive"
                         onClick={() => setArms((prev) => prev.filter((_, i) => i !== idx).map((a, i) => ({ ...a, order_index: i })))}
                       >
-                        Remover
+                        {t("common.remove")}
                       </Button>
                     ) : null}
                   </div>
                   <Input
-                    placeholder="URL de destino (https://…)"
+                    placeholder={t("pages.rotators.destPlaceholder")}
                     value={arm.destination_url}
                     onChange={(e) =>
                       setArms((prev) => prev.map((a, i) => (i === idx ? { ...a, destination_url: e.target.value } : a)))
@@ -1065,7 +1055,7 @@ export default function Rotadores() {
                   />
                   <div className="grid sm:grid-cols-2 gap-2">
                     <Input
-                      placeholder="Etiqueta (opcional)"
+                      placeholder={t("pages.rotators.labelOptional")}
                       value={arm.label}
                       onChange={(e) =>
                         setArms((prev) => prev.map((a, i) => (i === idx ? { ...a, label: e.target.value } : a)))
@@ -1073,7 +1063,7 @@ export default function Rotadores() {
                     />
                     <div className="flex gap-2">
                       <Input
-                        placeholder="Peso (0 = off)"
+                        placeholder={t("pages.rotators.weightOff")}
                         className="w-24"
                         value={arm.weight}
                         onChange={(e) =>
@@ -1081,7 +1071,7 @@ export default function Rotadores() {
                         }
                       />
                       <Input
-                        placeholder="Máx. cliques"
+                        placeholder={t("pages.rotators.maxClicks")}
                         className="flex-1"
                         value={arm.max_clicks}
                         onChange={(e) =>
@@ -1092,14 +1082,14 @@ export default function Rotadores() {
                   </div>
                   <div className="grid sm:grid-cols-2 gap-2">
                     <Input
-                      placeholder="Países permitidos (PT, ES)"
+                      placeholder={t("pages.rotators.countriesAllow")}
                       value={arm.countries_allow}
                       onChange={(e) =>
                         setArms((prev) => prev.map((a, i) => (i === idx ? { ...a, countries_allow: e.target.value } : a)))
                       }
                     />
                     <Input
-                      placeholder="Países excluídos (US)"
+                      placeholder={t("pages.rotators.countriesDeny")}
                       value={arm.countries_deny}
                       onChange={(e) =>
                         setArms((prev) => prev.map((a, i) => (i === idx ? { ...a, countries_deny: e.target.value } : a)))
@@ -1118,9 +1108,9 @@ export default function Rotadores() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Qualquer dispositivo</SelectItem>
-                      <SelectItem value="mobile">Só móvel / tablet</SelectItem>
-                      <SelectItem value="desktop">Só desktop</SelectItem>
+                      <SelectItem value="all">{t("pages.rotators.anyDevice")}</SelectItem>
+                      <SelectItem value="mobile">{t("pages.rotators.mobileOnly")}</SelectItem>
+                      <SelectItem value="desktop">{t("pages.rotators.desktopOnly")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1130,7 +1120,7 @@ export default function Rotadores() {
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={busy}>
-              Cancelar
+              {t("common.cancel")}
             </Button>
             <Button type="button" className="gradient-primary border-0 text-primary-foreground" onClick={submit} disabled={busy}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : editing ? t("common.save") : t("common.create")}

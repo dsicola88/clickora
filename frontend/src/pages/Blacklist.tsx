@@ -1,11 +1,11 @@
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { numberLocaleFor } from "@/i18n";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldBan, ShieldCheck, Search, Trash2, AlertTriangle, Bot, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -18,7 +18,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 
 export default function Blacklist() {
-  const { t } = useAppLocale();
+  const { t, locale } = useAppLocale();
+  const numLocale = numberLocaleFor(locale);
   const { user } = useAuth();
   const intLocked = !userCanWriteIntegrations(user);
   const queryClient = useQueryClient();
@@ -92,7 +93,7 @@ export default function Blacklist() {
       if (error) throw new Error(error);
     },
     onSuccess: () => {
-      toast.success("IP removido.");
+      toast.success(t("pages.blacklist.toastRemoved"));
       void queryClient.invalidateQueries({ queryKey: ["integrations-blacklist"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -141,7 +142,7 @@ export default function Blacklist() {
       if (error) throw new Error(error);
     },
     onSuccess: () => {
-      toast.success("IP removido da whitelist.");
+      toast.success(t("pages.blacklist.toastRemovedWhitelist"));
       void queryClient.invalidateQueries({ queryKey: ["integrations-whitelist"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -149,7 +150,7 @@ export default function Blacklist() {
 
   const handleAdd = () => {
     if (!newIp.trim()) {
-      toast.error("Insira um IP.");
+      toast.error(t("pages.blacklist.toastNeedIp"));
       return;
     }
     addMutation.mutate();
@@ -157,7 +158,7 @@ export default function Blacklist() {
 
   const handleAddWl = () => {
     if (!newWlIp.trim()) {
-      toast.error("Insira um IP.");
+      toast.error(t("pages.blacklist.toastNeedIp"));
       return;
     }
     addWlMutation.mutate();
@@ -175,47 +176,37 @@ export default function Blacklist() {
 
       {intLocked ? (
         <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90 mb-4">
-          Só pode <strong>consultar</strong> estas listas e regras: alterar proteções ou listas requer permissão para integrações neste workspace.
+          {t("pages.blacklist.readOnly")}
         </div>
       ) : null}
 
       <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3 text-sm text-muted-foreground space-y-2">
-        <p className="font-medium text-foreground/90">Ordem em que o servidor avalia cada pedido de tracking</p>
+        <p className="font-medium text-foreground/90">{t("pages.blacklist.orderTitle")}</p>
         <ol className="list-decimal list-inside space-y-1 text-xs sm:text-sm leading-relaxed">
-          <li>Limite de frequência por IP (anti-spam em memória; por defeito ~240 pedidos por minuto por IP — ajustável no servidor com TRACK_RATE_LIMIT_*).</li>
-          <li>Blacklist — IP bloqueado: a página pública fica no texto seguro e o clique não abre o hoplink.</li>
-          <li>Whitelist — se existir pelo menos um IP permitido, só esses IPs passam.</li>
-          <li>User-Agent vazio — se a regra estiver ativa.</li>
-          <li>Bot (UA) — se a regra estiver ativa. Desligada, o clique conta, inclusive de um crawler.</li>
-          <li>Proxy / VPN — se a regra estiver ativa.</li>
-          <li>
-            Limite de cliques por IP (opcional) — conta cliques já gravados na janela. Com 0 fica desligado. O mínimo activo é 30,
-            em IPv4 e IPv6. O pedido que atinge o limite entra na blacklist e não abre o hoplink.
-          </li>
+          <li>{t("pages.blacklist.order1")}</li>
+          <li>{t("pages.blacklist.order2")}</li>
+          <li>{t("pages.blacklist.order3")}</li>
+          <li>{t("pages.blacklist.order4")}</li>
+          <li>{t("pages.blacklist.order5")}</li>
+          <li>{t("pages.blacklist.order6")}</li>
+          <li>{t("pages.blacklist.order7")}</li>
         </ol>
-        <p className="text-xs border-t border-border/50 pt-2 mt-2">
-          A mesma decisão vale para a página, o pixel e o clique. O IP é o do proxy (Railway, Vercel ou Cloudflare), não um cabeçalho à escolha do browser. Intervalos CIDR não são suportados — um endereço por linha.
-        </p>
+        <p className="text-xs border-t border-border/50 pt-2 mt-2">{t("pages.blacklist.orderNote")}</p>
         <p className="text-xs border-t border-border/50 pt-2 mt-2 text-foreground/80">
-          <strong className="font-medium">Bloqueio só manual:</strong> nenhum IP de cloud/datacenter é
-          bloqueado automaticamente. Vê cliques e IPs nos relatórios e adiciona à blacklist abaixo
-          quando quiseres. As regras opcionais desta página (bots, proxy, limite de cliques) só
-          aplicam se as activares.
+          <strong className="font-medium">{t("pages.blacklist.manualOnly")}</strong> {t("pages.blacklist.manualOnlyBody")}
         </p>
       </div>
 
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold text-foreground">Regras opcionais da conta</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("pages.blacklist.rulesTitle")}</h2>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Desativadas por defeito. Ative só se souber o impacto (ex.: bloquear bots pode afetar pré-visualizações de redes).
-        </p>
+        <p className="text-sm text-muted-foreground">{t("pages.blacklist.rulesHint")}</p>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-lg border border-border/60 p-4">
           <div className="space-y-1">
-            <Label htmlFor="guard-empty-ua">Recusar pedidos sem User-Agent</Label>
-            <p className="text-xs text-muted-foreground">Reduz tráfego «anónimo» ou scripts sem UA (403).</p>
+            <Label htmlFor="guard-empty-ua">{t("pages.blacklist.guardEmptyUa")}</Label>
+            <p className="text-xs text-muted-foreground">{t("pages.blacklist.guardEmptyUaHint")}</p>
           </div>
           <Switch
             id="guard-empty-ua"
@@ -226,11 +217,8 @@ export default function Blacklist() {
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-lg border border-border/60 p-4">
           <div className="space-y-1">
-            <Label htmlFor="guard-bots">Bloquear cliques identificados como bot (UA)</Label>
-            <p className="text-xs text-muted-foreground">
-              Recusa tracking quando o UA é crawler/bot. Recomendado em campanhas Google Ads (AdsBot oficial
-              continua a ver a landing para aprovação).
-            </p>
+            <Label htmlFor="guard-bots">{t("pages.blacklist.guardBots")}</Label>
+            <p className="text-xs text-muted-foreground">{t("pages.blacklist.guardBotsHint")}</p>
           </div>
           <Switch
             id="guard-bots"
@@ -241,11 +229,8 @@ export default function Blacklist() {
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-lg border border-border/60 p-4">
           <div className="space-y-1">
-            <Label htmlFor="guard-proxy">Bloquear proxy / VPN suspeito</Label>
-            <p className="text-xs text-muted-foreground">
-              Score de fraude (CF threat, multi-hop, Tor). Opt-in: só bloqueia se activares.
-              Pode bloquear VPNs legítimas — teste primeiro.
-            </p>
+            <Label htmlFor="guard-proxy">{t("pages.blacklist.guardProxy")}</Label>
+            <p className="text-xs text-muted-foreground">{t("pages.blacklist.guardProxyHint")}</p>
           </div>
           <Switch
             id="guard-proxy"
@@ -257,17 +242,13 @@ export default function Blacklist() {
 
         <div className="rounded-lg border border-border/60 p-4 space-y-4">
           <div className="space-y-1">
-            <Label>Limite opcional de cliques por IP (só se activares)</Label>
-            <p className="text-xs text-muted-foreground">
-              Desligado por defeito (<strong className="text-foreground/90">0</strong>). Se definires um máximo (≥30),
-              conta cliques já gravados na janela; ao atingir o limite, esse IP entra na blacklist e o hoplink deixa de
-              abrir. É uma regra que <em>tu</em> ligas — não há bloqueio silencioso de cloud/datacenter.
-            </p>
+            <Label>{t("pages.blacklist.clickLimit")}</Label>
+            <p className="text-xs text-muted-foreground">{t("pages.blacklist.clickLimitHint")}</p>
           </div>
           <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:items-end">
             <div className="space-y-1.5 flex-1 min-w-[140px]">
               <Label htmlFor="auto-click-limit-input" className="text-xs text-muted-foreground">
-                Máximo de cliques por IP (0 = desativado, mínimo activo 30)
+                {t("pages.blacklist.maxClicks")}
               </Label>
               <Input
                 id="auto-click-limit-input"
@@ -282,7 +263,7 @@ export default function Blacklist() {
               />
             </div>
             <div className="space-y-1.5 flex-1 min-w-[160px]">
-              <Label className="text-xs text-muted-foreground">Janela (horas)</Label>
+              <Label className="text-xs text-muted-foreground">{t("pages.blacklist.windowHours")}</Label>
               <Select
                 value={String(autoClickWindowH)}
                 onValueChange={(v) => setAutoClickWindowH(Number(v))}
@@ -313,7 +294,7 @@ export default function Blacklist() {
                 })
               }
             >
-              Guardar limite
+              {t("common.save")}
             </Button>
           </div>
         </div>
@@ -322,17 +303,16 @@ export default function Blacklist() {
       <div className="mt-8 bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-emerald-600" />
-          <h2 className="text-lg font-semibold text-foreground">Whitelist (permitidos)</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("pages.blacklist.allowTitle")}</h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          <strong className="text-foreground/90">Só faz efeito se existir pelo menos um IP:</strong> nesse modo, apenas esses IPv4
-          podem gerar cliques/impressões rastreados; todos os outros recebem 403 (além da blacklist, que continua a bloquear).
-          Lista vazia = desligado.
+          <strong className="text-foreground/90">{t("pages.blacklist.allowEffect")}</strong>{" "}
+          {t("pages.blacklist.allowEffectBody")} {t("pages.blacklist.emptyListOff")}
         </p>
         <div className="flex flex-col sm:flex-row flex-wrap gap-3 w-full">
           <Input
             className="sm:flex-1 min-w-[140px]"
-            placeholder="IPv4 permitido"
+            placeholder={t("pages.blacklist.allowPlaceholder")}
             value={newWlIp}
             readOnly={intLocked}
             onChange={(e) => setNewWlIp(e.target.value)}
@@ -340,26 +320,26 @@ export default function Blacklist() {
           />
           <Input
             className="sm:flex-1 min-w-[140px]"
-            placeholder="Nota (opcional)"
+            placeholder={t("pages.blacklist.notePlaceholder")}
             value={newWlNote}
             readOnly={intLocked}
             onChange={(e) => setNewWlNote(e.target.value)}
           />
           <Button type="button" onClick={handleAddWl} disabled={intLocked || addWlMutation.isPending} className="gap-2 shrink-0">
-            <ShieldCheck className="h-4 w-4" /> Adicionar
+            <ShieldCheck className="h-4 w-4" /> {t("common.add")}
           </Button>
         </div>
         {!whitelist?.length ? (
-          <p className="text-sm text-muted-foreground text-center py-2">Nenhum IP na whitelist — modo restrito desligado.</p>
+          <p className="text-sm text-muted-foreground text-center py-2">{t("pages.blacklist.allowEmpty")}</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border/50">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">IP</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Nota</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Adicionado</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Ação</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t("pages.blacklist.note")}</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t("pages.blacklist.added")}</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">{t("pages.blacklist.action")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -368,7 +348,7 @@ export default function Blacklist() {
                     <td className="py-2.5 px-4 font-mono text-xs text-card-foreground">{item.ip}</td>
                     <td className="py-2.5 px-4 text-muted-foreground text-xs">{item.note || "—"}</td>
                     <td className="py-2.5 px-4 text-muted-foreground text-xs whitespace-nowrap">
-                      {new Date(item.added_at).toLocaleString("pt-PT")}
+                      {new Date(item.added_at).toLocaleString(numLocale)}
                     </td>
                     <td className="py-2.5 px-4 text-right">
                       <button
@@ -376,7 +356,7 @@ export default function Blacklist() {
                         disabled={intLocked || removeWlMutation.isPending}
                         onClick={() => removeWlMutation.mutate(item.id)}
                         className="text-destructive hover:text-destructive/80 transition-colors"
-                        aria-label="Remover"
+                        aria-label={t("common.remove")}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -392,14 +372,14 @@ export default function Blacklist() {
       <div className="mt-8 bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
         <div className="flex items-center gap-2">
           <ShieldBan className="h-5 w-5 text-destructive" />
-          <h2 className="text-lg font-semibold text-foreground">Blacklist (bloqueados)</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("pages.blacklist.blockTitle")}</h2>
         </div>
-        <p className="text-sm text-muted-foreground">Bloqueio por IP: estes pedidos não contam como clique ou impressão.</p>
+        <p className="text-sm text-muted-foreground">{t("pages.blacklist.blockHint")}</p>
 
         <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4 w-full">
           <div className="space-y-2 flex-1 w-full">
             <Input
-              placeholder="IPv4, ex: 203.0.113.10"
+              placeholder={t("pages.blacklist.blockPlaceholder")}
               value={newIp}
               readOnly={intLocked}
               onChange={(e) => setNewIp(e.target.value)}
@@ -412,30 +392,28 @@ export default function Blacklist() {
             disabled={intLocked || addMutation.isPending}
             className="gap-2 w-full sm:w-auto shrink-0 gradient-primary border-0 text-primary-foreground hover:opacity-90"
           >
-            <Search className="h-4 w-4" /> Adicionar à blacklist
+            <Search className="h-4 w-4" /> {t("pages.blacklist.addBlock")}
           </Button>
         </div>
 
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-900 dark:text-amber-200/90">
-            <strong>Blacklist:</strong> cliques e pixels deste IP são bloqueados e{" "}
-            <strong>não contam</strong> nos relatórios. Outras regras (lista branca, limite de ritmo, robots) aparecem
-            na mesma tabela abaixo quando configuradas.
+            <strong>{t("pages.blacklist.blockExplainLead")}</strong> {t("pages.blacklist.blockExplain")}
           </p>
         </div>
 
         {!blacklist?.length ? (
-          <p className="text-sm text-muted-foreground text-center py-4">Nenhum IP na blacklist.</p>
+          <p className="text-sm text-muted-foreground text-center py-4">{t("pages.blacklist.blockEmpty")}</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border/50">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">IP</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Nota</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Adicionado</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Ação</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t("pages.blacklist.note")}</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t("pages.blacklist.added")}</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">{t("pages.blacklist.action")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -444,7 +422,7 @@ export default function Blacklist() {
                     <td className="py-2.5 px-4 font-mono text-xs text-card-foreground">{item.ip}</td>
                     <td className="py-2.5 px-4 text-muted-foreground text-xs">{item.reason || "—"}</td>
                     <td className="py-2.5 px-4 text-muted-foreground text-xs">
-                      {new Date(item.added_at).toLocaleString("pt-PT")}
+                      {new Date(item.added_at).toLocaleString(numLocale)}
                     </td>
                     <td className="py-2.5 px-4 text-right">
                       <button
@@ -452,7 +430,7 @@ export default function Blacklist() {
                         disabled={intLocked || removeMutation.isPending}
                         onClick={() => removeMutation.mutate(item.id)}
                         className="text-destructive hover:text-destructive/80 transition-colors"
-                        aria-label="Remover IP"
+                        aria-label={t("common.remove")}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -468,22 +446,22 @@ export default function Blacklist() {
       <div className="mt-8 bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-4">
         <div className="flex items-center gap-2">
           <ShieldBan className="h-5 w-5 text-destructive" />
-          <h2 className="text-lg font-semibold text-foreground">Tentativas bloqueadas (recentes)</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("pages.blacklist.attemptsTitle")}</h2>
         </div>
         <p className="text-xs text-muted-foreground">
-          Inclui bloqueios por blacklist, whitelist (IP não permitido), limite de pedidos (anti-spam), UA vazio ou bot (conforme ativar acima).
+          {t("pages.blacklist.attemptsHint")}
         </p>
         {!blocks?.length ? (
-          <p className="text-sm text-muted-foreground py-2">Ainda não há tentativas bloqueadas registadas.</p>
+          <p className="text-sm text-muted-foreground py-2">{t("pages.blacklist.attemptsEmpty")}</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border/50">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left py-3 px-3 font-medium text-muted-foreground">Data</th>
+                  <th className="text-left py-3 px-3 font-medium text-muted-foreground">{t("pages.blacklist.colWhen")}</th>
                   <th className="text-left py-3 px-3 font-medium text-muted-foreground">IP</th>
-                  <th className="text-left py-3 px-3 font-medium text-muted-foreground">Canal</th>
-                  <th className="text-left py-3 px-3 font-medium text-muted-foreground max-w-[160px]">Motivo</th>
+                  <th className="text-left py-3 px-3 font-medium text-muted-foreground">{t("pages.blacklist.colChannel")}</th>
+                  <th className="text-left py-3 px-3 font-medium text-muted-foreground max-w-[160px]">{t("pages.blacklist.colReason")}</th>
                   <th className="text-left py-3 px-3 font-medium text-muted-foreground max-w-[200px]">User-Agent</th>
                 </tr>
               </thead>
@@ -491,7 +469,7 @@ export default function Blacklist() {
                 {blocks.map((row) => (
                   <tr key={row.id} className="border-b border-border/50">
                     <td className="py-2 px-3 text-xs whitespace-nowrap">
-                      {new Date(row.created_at).toLocaleString("pt-PT")}
+                      {new Date(row.created_at).toLocaleString(numLocale)}
                     </td>
                     <td className="py-2 px-3 font-mono text-xs">{row.ip ?? "—"}</td>
                     <td className="py-2 px-3 text-xs">{row.channel ?? "—"}</td>
@@ -512,13 +490,12 @@ export default function Blacklist() {
       <div className="mt-8 bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-3">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold text-foreground">Bots nos relatórios</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("pages.blacklist.botsTitle")}</h2>
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Por defeito, tráfego com <strong className="text-foreground/90">User-Agent</strong> de bot (Googlebot, crawlers, etc.){" "}
-          <strong>continua a contar</strong> nos eventos, com etiqueta <Badge variant="secondary" className="mx-0.5">bot</Badge> em Analytics.
-          Pode ativar <strong className="text-foreground/90">Bloquear cliques identificados como bot</strong> acima para recusar esses pedidos (403).
-          IP em blacklist ou fora da whitelist (modo restrito) também são bloqueados.
+          {t("pages.blacklist.botsBodyLead")} {t("pages.blacklist.botsBodyMid")}{" "}
+          <strong className="text-foreground/90">{t("pages.blacklist.botsBodyRule")}</strong>{" "}
+          {t("pages.blacklist.botsBodyTail")}
         </p>
       </div>
     </div>

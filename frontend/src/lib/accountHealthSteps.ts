@@ -1,4 +1,4 @@
-import type { MessageKey } from "@/i18n/messages";
+import type { MessageKey } from "@/i18n";
 
 /**
  * Passos do hub Integrações — IDs iguais a `account_health.checks` no backend.

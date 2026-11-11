@@ -27,34 +27,34 @@ export type OverlayAnimation =
   | "slideDown";
 
 export const OVERLAY_POSITION_OPTIONS: Array<{ value: OverlayPosition; label: string }> = [
-  { value: "center", label: "Centro" },
-  { value: "top", label: "Topo (barra)" },
-  { value: "bottom", label: "Fundo (barra)" },
-  { value: "top-left", label: "Canto superior esquerdo" },
-  { value: "top-right", label: "Canto superior direito" },
-  { value: "bottom-left", label: "Canto inferior esquerdo" },
-  { value: "bottom-right", label: "Canto inferior direito" },
-  { value: "left", label: "Lateral esquerda" },
-  { value: "right", label: "Lateral direita" },
+  { value: "center", label: "Center" },
+  { value: "top", label: "Top (bar)" },
+  { value: "bottom", label: "Bottom (bar)" },
+  { value: "top-left", label: "Top-left corner" },
+  { value: "top-right", label: "Top-right corner" },
+  { value: "bottom-left", label: "Bottom-left corner" },
+  { value: "bottom-right", label: "Bottom-right corner" },
+  { value: "left", label: "Left side" },
+  { value: "right", label: "Right side" },
 ];
 
 export const OVERLAY_MODE_OPTIONS: Array<{ value: OverlayDisplayMode; label: string }> = [
-  { value: "modal", label: "Modal (centro / foco)" },
-  { value: "bar", label: "Barra (largura total)" },
-  { value: "slide-in", label: "Painel lateral / canto" },
-  { value: "toast", label: "Toast compacto" },
+  { value: "modal", label: "Modal (center / focus)" },
+  { value: "bar", label: "Bar (full width)" },
+  { value: "slide-in", label: "Side / corner panel" },
+  { value: "toast", label: "Compact toast" },
 ];
 
 export const OVERLAY_ANIMATION_OPTIONS: Array<{ value: OverlayAnimation; label: string }> = [
-  { value: "none", label: "Nenhuma" },
+  { value: "none", label: "None" },
   { value: "fade", label: "Fade" },
-  { value: "fadeUp", label: "Fade + subir" },
-  { value: "fadeDown", label: "Fade + descer" },
-  { value: "scale", label: "Escala" },
-  { value: "slideLeft", label: "Deslizar da esquerda" },
-  { value: "slideRight", label: "Deslizar da direita" },
-  { value: "slideUp", label: "Deslizar de baixo" },
-  { value: "slideDown", label: "Deslizar de cima" },
+  { value: "fadeUp", label: "Fade + rise" },
+  { value: "fadeDown", label: "Fade + drop" },
+  { value: "scale", label: "Scale" },
+  { value: "slideLeft", label: "Slide from the left" },
+  { value: "slideRight", label: "Slide from the right" },
+  { value: "slideUp", label: "Slide from the bottom" },
+  { value: "slideDown", label: "Slide from the top" },
 ];
 
 const ANIM_FROM: Record<Exclude<OverlayAnimation, "none">, string> = {

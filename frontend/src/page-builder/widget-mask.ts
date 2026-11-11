@@ -1,12 +1,13 @@
 import type { CSSProperties } from "react";
 import type { WidgetNode } from "./types";
 
+/** Fallback labels (EN); UI resolves via pages.pageBuilder.chrome.mask.* */
 export const CSS_MASK_OPTIONS = [
-  { value: "none", label: "Nenhuma" },
-  { value: "circle", label: "Círculo" },
-  { value: "ellipse", label: "Elipse" },
-  { value: "diamond", label: "Losango" },
-  { value: "hexagon", label: "Hexágono" },
+  { value: "none", label: "None" },
+  { value: "circle", label: "Circle" },
+  { value: "ellipse", label: "Ellipse" },
+  { value: "diamond", label: "Diamond" },
+  { value: "hexagon", label: "Hexagon" },
   { value: "blob", label: "Blob" },
   { value: "custom", label: "Custom (clip-path)" },
 ] as const;

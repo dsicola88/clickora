@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useBuilder } from "../store";
 import type { PageTrackingConfig } from "../types";
 import { X, BarChart3, Code2 } from "lucide-react";
@@ -9,22 +10,23 @@ const inputCls =
 const textareaCls = `${inputCls} min-h-[80px] resize-y`;
 
 export function TrackingModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useAppLocale();
   const doc = useBuilder((s) => s.doc);
   const updateTracking = useBuilder((s) => s.updateTracking);
 
-  const [t, setT] = useState<PageTrackingConfig>(doc.tracking ?? {});
+  const [cfg, setCfg] = useState<PageTrackingConfig>(doc.tracking ?? {});
 
   useEffect(() => {
-    if (open) setT(doc.tracking ?? {});
+    if (open) setCfg(doc.tracking ?? {});
   }, [open, doc.tracking]);
 
   if (!open) return null;
 
   const set = <K extends keyof PageTrackingConfig>(k: K, v: PageTrackingConfig[K]) =>
-    setT((prev) => ({ ...prev, [k]: v }));
+    setCfg((prev) => ({ ...prev, [k]: v }));
 
   const handleSave = () => {
-    updateTracking(t);
+    updateTracking(cfg);
     onClose();
   };
 
@@ -41,9 +43,9 @@ export function TrackingModal({ open, onClose }: { open: boolean; onClose: () =>
           <div className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-editor-accent" />
             <div>
-              <h2 className="text-base font-semibold">Rastreio e análises</h2>
+              <h2 className="text-base font-semibold">{t("pages.pageBuilder.tracking.title")}</h2>
               <p className="text-[11px] text-editor-fg-muted">
-                Aplica-se à rota pública /p/{`<slug>`} e ao HTML exportado
+                {t("pages.pageBuilder.tracking.subtitle")}
               </p>
             </div>
           </div>
@@ -59,30 +61,30 @@ export function TrackingModal({ open, onClose }: { open: boolean; onClose: () =>
         <div className="editor-scrollbar flex-1 space-y-5 overflow-y-auto p-5">
           <section className="space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-editor-fg-muted">
-              Integrações
+              {t("pages.pageBuilder.tracking.integrations")}
             </h3>
             <div>
-              <label className={labelCls}>Google Tag Manager ID</label>
+              <label className={labelCls}>{t("pages.pageBuilder.tracking.gtm")}</label>
               <input
-                value={t.gtmId ?? ""}
+                value={cfg.gtmId ?? ""}
                 onChange={(e) => set("gtmId", e.target.value.trim() || undefined)}
                 className={inputCls}
                 placeholder="GTM-XXXXXXX"
               />
             </div>
             <div>
-              <label className={labelCls}>Google Analytics 4 (ID de medição)</label>
+              <label className={labelCls}>{t("pages.pageBuilder.tracking.ga4")}</label>
               <input
-                value={t.ga4Id ?? ""}
+                value={cfg.ga4Id ?? ""}
                 onChange={(e) => set("ga4Id", e.target.value.trim() || undefined)}
                 className={inputCls}
                 placeholder="G-XXXXXXXXXX"
               />
             </div>
             <div>
-              <label className={labelCls}>Meta (Facebook) Pixel ID</label>
+              <label className={labelCls}>{t("pages.pageBuilder.tracking.metaPixel")}</label>
               <input
-                value={t.metaPixelId ?? ""}
+                value={cfg.metaPixelId ?? ""}
                 onChange={(e) => set("metaPixelId", e.target.value.trim() || undefined)}
                 className={inputCls}
                 placeholder="1234567890"
@@ -92,54 +94,58 @@ export function TrackingModal({ open, onClose }: { open: boolean; onClose: () =>
 
           <section className="space-y-2 rounded border border-editor-border bg-editor-panel-2 p-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-editor-fg-muted">
-              Eventos automáticos
+              {t("pages.pageBuilder.tracking.autoEvents")}
             </h3>
             <label className="flex items-center gap-2 text-xs">
               <input
                 type="checkbox"
-                checked={t.trackFormSubmits !== false}
+                checked={cfg.trackFormSubmits !== false}
                 onChange={(e) => set("trackFormSubmits", e.target.checked)}
                 className="h-3.5 w-3.5 accent-editor-accent"
               />
-              Disparar <code className="rounded bg-editor-bg px-1">form_submit</code> /{" "}
-              <code className="rounded bg-editor-bg px-1">Lead</code> ao enviar formulários
+              {t("pages.pageBuilder.tracking.trackFormsBefore")}{" "}
+              <code className="rounded bg-editor-bg px-1">form_submit</code> /{" "}
+              <code className="rounded bg-editor-bg px-1">Lead</code>{" "}
+              {t("pages.pageBuilder.tracking.trackFormsAfter")}
             </label>
             <label className="flex items-center gap-2 text-xs">
               <input
                 type="checkbox"
-                checked={t.trackButtonClicks !== false}
+                checked={cfg.trackButtonClicks !== false}
                 onChange={(e) => set("trackButtonClicks", e.target.checked)}
                 className="h-3.5 w-3.5 accent-editor-accent"
               />
-              Disparar <code className="rounded bg-editor-bg px-1">button_click</code> /{" "}
-              <code className="rounded bg-editor-bg px-1">Contact</code> em cliques de botões/CTAs
+              {t("pages.pageBuilder.tracking.trackClicksBefore")}{" "}
+              <code className="rounded bg-editor-bg px-1">button_click</code> /{" "}
+              <code className="rounded bg-editor-bg px-1">Contact</code>{" "}
+              {t("pages.pageBuilder.tracking.trackClicksAfter")}
             </label>
           </section>
 
           <section className="space-y-3">
             <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-editor-fg-muted">
-              <Code2 className="h-3.5 w-3.5" /> Código personalizado (avançado)
+              <Code2 className="h-3.5 w-3.5" /> {t("pages.pageBuilder.tracking.customCode")}
             </h3>
             <div>
-              <label className={labelCls}>Injeção em &lt;head&gt;</label>
+              <label className={labelCls}>{t("pages.pageBuilder.tracking.headInject")}</label>
               <textarea
-                value={t.customHeadCode ?? ""}
+                value={cfg.customHeadCode ?? ""}
                 onChange={(e) => set("customHeadCode", e.target.value || undefined)}
                 className={textareaCls}
-                placeholder={"<!-- Hotjar, Clarity, scripts customizados -->"}
+                placeholder={t("pages.pageBuilder.tracking.headPlaceholder")}
               />
             </div>
             <div>
-              <label className={labelCls}>Injeção antes do &lt;/body&gt;</label>
+              <label className={labelCls}>{t("pages.pageBuilder.tracking.bodyInject")}</label>
               <textarea
-                value={t.customBodyCode ?? ""}
+                value={cfg.customBodyCode ?? ""}
                 onChange={(e) => set("customBodyCode", e.target.value || undefined)}
                 className={textareaCls}
-                placeholder={"<!-- Chat, widgets, scripts customizados -->"}
+                placeholder={t("pages.pageBuilder.tracking.bodyPlaceholder")}
               />
             </div>
             <p className="text-[11px] text-editor-fg-muted">
-              ⚠️ Esses scripts rodam apenas em /p/seu-slug e no HTML exportado — não no editor.
+              {t("pages.pageBuilder.tracking.warning")}
             </p>
           </section>
         </div>
@@ -150,14 +156,14 @@ export function TrackingModal({ open, onClose }: { open: boolean; onClose: () =>
             onClick={onClose}
             className="rounded border border-editor-border bg-editor-panel-2 px-4 py-2 text-xs font-medium text-editor-fg hover:bg-editor-border"
           >
-            Cancelar
+            {t("common.cancel")}
           </button>
           <button
             type="button"
             onClick={handleSave}
             className="rounded bg-editor-accent px-4 py-2 text-xs font-medium text-editor-accent-fg hover:opacity-90"
           >
-            Guardar rastreio
+            {t("pages.pageBuilder.tracking.save")}
           </button>
         </footer>
       </div>

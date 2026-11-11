@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { friendlyGoogleAdsNetworkError } from "@/lib/paidAdsUi";
 import {
   paidAdsService,
@@ -50,6 +51,7 @@ export type DpilotPaidValue = {
 const Ctx = createContext<DpilotPaidValue | null>(null);
 
 export function DpilotPaidProvider({ projectId, children }: { projectId: string; children: ReactNode }) {
+  const { t } = useAppLocale();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
@@ -99,7 +101,7 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
       if (!r || r.status === "rejected") {
         return {
           data: null,
-          error: r?.status === "rejected" && r.reason instanceof Error ? r.reason.message : "Pedido interrompido.",
+          error: r?.status === "rejected" && r.reason instanceof Error ? r.reason.message : t("pages.dpilot.oauth.requestInterrupted"),
         };
       }
       return r.value as ApiOk<T>;
@@ -115,10 +117,10 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
     const tOv = unwrap<TikCount>(7);
 
     if (ov.error || !ov.data) {
-      setErr(ov.error || "Resumo indisponível.");
+      setErr(ov.error || t("pages.dpilot.oauth.overviewUnavailable"));
       setOverview(null);
     } else if (!isValidOverview(ov.data)) {
-      setErr("Resumo do projecto incompleto. Tente recarregar a página.");
+      setErr(t("pages.dpilot.oauth.overviewIncomplete"));
       setOverview(null);
     } else {
       setErr(null);
@@ -149,7 +151,7 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
 
     if (tOv.data) setTiktokCounts(tOv.data);
     else setTiktokCounts(null);
-  }, []);
+  }, [t]);
 
   const reload = useCallback(() => {
     void (async () => {
@@ -187,14 +189,14 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
     if (loading) return;
     const g = searchParams.get("google");
     const m = searchParams.get("meta");
-    const t = searchParams.get("tiktok");
-    if (g === "connected") toast.success("Google Ads ligado com sucesso.");
-    if (g === "error") toast.error("Não foi possível concluir o Google Ads OAuth.");
-    if (m === "connected") toast.success("Meta Ads ligado com sucesso.");
-    if (m === "error") toast.error("Não foi possível concluir o Meta OAuth.");
-    if (t === "connected") toast.success("TikTok Ads ligado com sucesso.");
-    if (t === "error") toast.error("Não foi possível concluir o TikTok OAuth.");
-    if (g || m || t) {
+    const tik = searchParams.get("tiktok");
+    if (g === "connected") toast.success(t("pages.dpilot.oauth.googleConnected"));
+    if (g === "error") toast.error(t("pages.dpilot.oauth.googleFailed"));
+    if (m === "connected") toast.success(t("pages.dpilot.oauth.metaConnected"));
+    if (m === "error") toast.error(t("pages.dpilot.oauth.metaFailed"));
+    if (tik === "connected") toast.success(t("pages.dpilot.oauth.tiktokConnected"));
+    if (tik === "error") toast.error(t("pages.dpilot.oauth.tiktokFailed"));
+    if (g || m || tik) {
       const next = new URLSearchParams(searchParams);
       next.delete("google");
       next.delete("meta");
@@ -202,7 +204,7 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
       setSearchParams(next, { replace: true });
       void loadCore(projectId);
     }
-  }, [loading, searchParams, setSearchParams, loadCore, projectId]);
+  }, [loading, searchParams, setSearchParams, loadCore, projectId, t]);
 
   const startOAuth = useCallback(
     async (kind: "google" | "meta" | "tiktok") => {
@@ -216,7 +218,7 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
               : paidAdsService.tiktokOAuthStart;
         const { data, error } = await fn(projectId);
         if (error || !data?.url) {
-          toast.error(error || "Não foi possível iniciar OAuth.");
+          toast.error(error || t("pages.dpilot.oauth.startFailed"));
           return;
         }
         window.location.assign(data.url);
@@ -224,7 +226,7 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
         setConnecting(null);
       }
     },
-    [projectId],
+    [projectId, t],
   );
 
   const disconnect = useCallback(
@@ -244,14 +246,14 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
           toast.error(error);
           return;
         }
-        toast.success("Ligação removida.");
+        toast.success(t("pages.dpilot.oauth.disconnected"));
         await loadCore(projectId);
       } finally {
         disconnectLockRef.current = false;
         setDisconnecting(null);
       }
     },
-    [projectId, loadCore],
+    [projectId, loadCore, t],
   );
 
   const review = useCallback(
@@ -274,17 +276,16 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
           return;
         }
         if (status === "applied") {
-          toast.success("Aplicado na rede", {
-            description: "O pedido foi enviado para a conta publicitária (Google Ads, Meta ou TikTok).",
+          toast.success(t("pages.dpilot.oauth.appliedTitle"), {
+            description: t("pages.dpilot.oauth.appliedDesc"),
           });
         } else if (status === "approved") {
-          toast.success("Pedido aprovado", {
-            description:
-              "A decisão ficou registada. Para publicar de facto na rede, utilize «Aplicar na rede» no mesmo pedido.",
+          toast.success(t("pages.dpilot.oauth.approvedTitle"), {
+            description: t("pages.dpilot.oauth.approvedDesc"),
           });
         } else {
-          toast.info("Pedido fechado", {
-            description: "Não será aplicado à rede. Para um novo envio, trabalhe o rascunho em Campanhas e volte a esta fila se for necessário.",
+          toast.info(t("pages.dpilot.oauth.closedTitle"), {
+            description: t("pages.dpilot.oauth.closedDesc"),
           });
         }
         await loadCore(projectId);
@@ -293,7 +294,7 @@ export function DpilotPaidProvider({ projectId, children }: { projectId: string;
         setReviewBusyChangeRequestId(null);
       }
     },
-    [projectId, loadCore],
+    [projectId, loadCore, t],
   );
 
   const value: DpilotPaidValue = useMemo(

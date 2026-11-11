@@ -1,4 +1,5 @@
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -53,16 +54,13 @@ export default function GoogleAdsConnectPage() {
     if (st === "success") {
       const boot = params.get("boot");
       if (boot === "ok") {
-        toast.success("Conta ligada. As vendas aprovadas passam a seguir para o Google.");
+        toast.success(t("pages.googleAds.oauthReady"));
       } else if (boot === "partial") {
-        toast.message(params.get("boot_detail") || "Google autorizado. Escolha a conta abaixo.");
+        toast.message(params.get("boot_detail") || t("pages.googleAds.oauthPartialFallback"));
       } else if (boot === "error") {
-        toast.error(
-          params.get("boot_detail") ||
-            "Google autorizado, mas a preparação falhou. Use «Actualizar ligação» ou indique o número da conta.",
-        );
+        toast.error(params.get("boot_detail") || t("pages.googleAds.oauthBootFail"));
       } else {
-        toast.message("Google autorizado. A confirmar a conta…");
+        toast.message(t("pages.googleAds.oauthConfirming"));
       }
       void qc.invalidateQueries({ queryKey: ["integrations", "google-ads"] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -70,17 +68,17 @@ export default function GoogleAdsConnectPage() {
       const reason = params.get("reason") || "";
       toast.error(
         reason === "no_refresh_token"
-          ? "O Google não devolveu a autorização permanente. Volte a escolher a conta e aceite o acesso."
-          : reason || "Não foi possível ligar o Google Ads",
+          ? t("pages.googleAds.oauthNoRefresh")
+          : reason || t("pages.googleAds.oauthFail"),
       );
     }
     setParams({}, { replace: true });
-  }, [params, setParams, qc]);
+  }, [params, setParams, qc, t]);
 
   const connect = useMutation({
     mutationFn: async () => {
       const { data: d, error } = await integrationsService.beginGoogleAdsOAuth();
-      if (error || !d?.authorize_url) throw new Error(error || "Não foi possível abrir a página do Google.");
+      if (error || !d?.authorize_url) throw new Error(error || t("pages.googleAds.oauthOpenFail"));
       return d.authorize_url;
     },
     onSuccess: (url) => {
@@ -93,7 +91,7 @@ export default function GoogleAdsConnectPage() {
     mutationFn: async () => {
       const { data: d, error } = await integrationsService.bootstrapGoogleAds();
       if (error) throw new Error(error);
-      if (!d?.ok) throw new Error(d?.detail || d?.error || "A ligação ficou incompleta");
+      if (!d?.ok) throw new Error(d?.detail || d?.error || t("pages.googleAds.bootstrapIncomplete"));
       return d;
     },
     onSuccess: (d) => {
@@ -114,7 +112,7 @@ export default function GoogleAdsConnectPage() {
       return d;
     },
     onSuccess: async () => {
-      toast.success("Conta guardada.");
+      toast.success(t("pages.googleAds.saved"));
       await bootstrap.mutateAsync();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -123,7 +121,7 @@ export default function GoogleAdsConnectPage() {
   if (isLoading) {
     return (
       <div className={PRO_PAGE_SHELL}>
-        <LoadingState message="A carregar Google Ads…" />
+        <LoadingState message={t("pages.googleAds.loading")} />
       </div>
     );
   }
@@ -139,16 +137,16 @@ export default function GoogleAdsConnectPage() {
         subtitle={t("pages.googleAds.subtitle")}
         meta={
           <>
-            <ProStatusDot ok={Boolean(data?.api_env_configured)} label="Serviço" />
-            <ProStatusDot ok={Boolean(data?.has_refresh_token)} label="Conta Google" />
-            <ProStatusDot ok={costsReady} label="Custos" />
-            <ProStatusDot ok={ready} label="Vendas" />
-            {isFetching ? <span>A actualizar…</span> : null}
+            <ProStatusDot ok={Boolean(data?.api_env_configured)} label={t("pages.googleAds.service")} />
+            <ProStatusDot ok={Boolean(data?.has_refresh_token)} label={t("pages.googleAds.googleAccount")} />
+            <ProStatusDot ok={costsReady} label={t("pages.googleAds.costs")} />
+            <ProStatusDot ok={ready} label={t("pages.googleAds.sales")} />
+            {isFetching ? <span>{t("common.updating")}</span> : null}
           </>
         }
         actions={
           <Button variant="outline" size="sm" asChild>
-            <Link to="/integracoes">Voltar</Link>
+            <Link to="/integracoes">{t("pages.googleAds.back")}</Link>
           </Button>
         }
       />
@@ -156,30 +154,30 @@ export default function GoogleAdsConnectPage() {
       {!data?.api_env_configured ? (
         <ProAlert
           severity="critical"
-          title="Ligação ao Google indisponível"
-          detail="Esta conta ainda não consegue falar com o Google Ads. Contacte o suporte."
+          title={t("pages.googleAds.unavailableTitle")}
+          detail={t("pages.googleAds.unavailableDetail")}
         />
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
         <ProPanel
-          title="Ligar a conta"
-          description="Autoriza a dclickora a ler o custo dos anúncios e a enviar as vendas aprovadas. Não precisa de criar nada à mão no Google Ads."
+          title={t("pages.googleAds.connectTitle")}
+          description={t("pages.googleAds.connectDesc")}
         >
           <div className="space-y-4 px-4 py-4">
             <ol className="space-y-2 text-xs text-muted-foreground list-decimal pl-4">
-              <li>Clique em «Ligar Google Ads», escolha a conta onde estão os anúncios e aceite o acesso.</li>
-              <li>A dclickora guarda essa conta e passa a enviar as vendas aprovadas.</li>
+              <li>{t("pages.googleAds.step1")}</li>
+              <li>{t("pages.googleAds.step2")}</li>
               <li>
-                O custo, quando o Google o deixar ler, aparece em{" "}
-                <ProInlineLink to="/resultados">Resultados</ProInlineLink>.
+                {t("pages.googleAds.step3")}{" "}
+                <ProInlineLink to="/resultados">{t("pages.googleAds.results")}</ProInlineLink>
               </li>
             </ol>
 
             <div className="flex flex-wrap gap-2">
               <Button disabled={locked || connect.isPending || linked} onClick={() => connect.mutate()} className="gap-2">
                 {connect.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {linked ? "Conta ligada" : "Ligar Google Ads"}
+                {linked ? t("pages.googleAds.linked") : t("pages.googleAds.connect")}
               </Button>
               {linked ? (
                 <Button
@@ -188,7 +186,7 @@ export default function GoogleAdsConnectPage() {
                   onClick={() => connect.mutate()}
                   className="gap-2"
                 >
-                  Trocar conta
+                  {t("pages.googleAds.switchAccount")}
                 </Button>
               ) : null}
               {data?.has_refresh_token ? (
@@ -199,7 +197,7 @@ export default function GoogleAdsConnectPage() {
                   className="gap-2"
                 >
                   {bootstrap.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  Actualizar ligação
+                  {t("pages.googleAds.refreshLink")}
                 </Button>
               ) : null}
             </div>
@@ -208,40 +206,31 @@ export default function GoogleAdsConnectPage() {
               <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div className="text-xs leading-relaxed">
-                  <p className="font-semibold text-foreground">Vendas prontas a enviar</p>
+                  <p className="font-semibold text-foreground">{t("pages.googleAds.salesReady")}</p>
                   <p className="text-muted-foreground mt-0.5">
-                    {`Conta ${data?.google_ads_customer_id}. ${
-                      data?.google_ads_login_customer_id
-                        ? `Conta gestora ${data.google_ads_login_customer_id}.`
-                        : "Conta gestora não indicada."
-                    } O custo em Resultados só aparece se o Google aceitar a leitura desta conta.`}
+                    {fill(t("pages.googleAds.salesReadyBody"), {
+                      id: data?.google_ads_customer_id ?? "",
+                      manager: data?.google_ads_login_customer_id
+                        ? fill(t("pages.googleAds.managerSet"), { id: data.google_ads_login_customer_id })
+                        : t("pages.googleAds.managerMissing"),
+                    })}
                   </p>
-                  <p className="text-muted-foreground mt-1.5">
-                    Para as vendas reflectirem no Google Ads: active a{" "}
-                    <span className="font-medium text-foreground">codificação automática</span> na
-                    conta, cole a URL gerada pela Clickora (campanha / URL Builder) como Final URL, e
-                    não acrescente <span className="font-mono text-foreground">gclid=…</span> à mão —
-                    o Google injeta o ID real no clique.
-                  </p>
-                  <p className="text-muted-foreground mt-1.5">
-                    Se Relatórios mostrar «Erro API» no envio Google, clique em{" "}
-                    <span className="font-medium text-foreground">Trocar conta</span> / volte a ligar
-                    uma vez — o Google exige o novo acesso Data Manager para conversões offline.
-                  </p>
+                  <p className="text-muted-foreground mt-1.5">{t("pages.googleAds.autoTagging")}</p>
+                  <p className="text-muted-foreground mt-1.5">{t("pages.googleAds.apiErrorHint")}</p>
                 </div>
               </div>
             ) : null}
           </div>
         </ProPanel>
 
-        <ProPanel title="Estado" description="O que já está automático nesta conta.">
+        <ProPanel title={t("pages.googleAds.statusTitle")} description={t("pages.googleAds.statusDesc")}>
           <ul className="divide-y divide-border/50 text-sm">
             {[
-              ["Conta Google", data?.has_refresh_token ? "Ligada" : "Por ligar"],
-              ["Número da conta", data?.google_ads_customer_id || "—"],
-              ["Conta gestora", data?.google_ads_login_customer_id || "Não indicada"],
-              ["Envio das vendas", data?.google_ads_enabled ? "Activo" : "Desligado"],
-              ["Pronto a enviar", data?.can_upload ? "Sim" : "Ainda não"],
+              [t("pages.googleAds.rowAccount"), data?.has_refresh_token ? t("pages.googleAds.stateLinked") : t("pages.googleAds.statePending")],
+              [t("pages.googleAds.rowCustomer"), data?.google_ads_customer_id || "—"],
+              [t("pages.googleAds.rowManager"), data?.google_ads_login_customer_id || t("pages.googleAds.notSet")],
+              [t("pages.googleAds.rowUpload"), data?.google_ads_enabled ? t("pages.googleAds.on") : t("pages.googleAds.off")],
+              [t("pages.googleAds.readyLabel"), data?.can_upload ? t("pages.googleAds.readyYes") : t("pages.googleAds.readyNo")],
             ].map(([k, v]) => (
               <li key={k} className="flex justify-between gap-3 px-4 py-2.5">
                 <span className="text-xs text-muted-foreground">{k}</span>
@@ -251,11 +240,11 @@ export default function GoogleAdsConnectPage() {
           </ul>
           <div className="border-t border-border/60 px-4 py-3 flex flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link to="/integracoes/automizer">Actualizar custos</Link>
+              <Link to="/integracoes/automizer">{t("pages.googleAds.updateCosts")}</Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to="/resultados">
-                Resultados <ExternalLink className="ml-1 h-3 w-3" />
+                {t("pages.googleAds.results")} <ExternalLink className="ml-1 h-3 w-3" />
               </Link>
             </Button>
           </div>
@@ -264,16 +253,16 @@ export default function GoogleAdsConnectPage() {
 
       {data?.has_refresh_token && (!data.google_ads_customer_id || !data.google_ads_login_customer_id) ? (
         <ProPanel
-          title="Indicar a conta à mão"
+          title={t("pages.googleAds.manualTitle")}
           description={
             data.google_ads_customer_id
-              ? "A conta de anúncios já está guardada. Se o Google recusar o custo, indique o número da conta que gere as outras."
-              : "Cole os 10 dígitos da conta onde estão os anúncios. Se essa conta for gerida por outra, indique também o número da conta gestora."
+              ? t("pages.googleAds.manualDescHas")
+              : t("pages.googleAds.manualDescMissing")
           }
         >
           <div className="grid gap-3 sm:grid-cols-2 px-4 py-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Número da conta</Label>
+              <Label className="text-xs">{t("pages.googleAds.customerLabel")}</Label>
               <Input
                 className="h-9 font-mono text-xs"
                 value={customerDraft}
@@ -283,18 +272,18 @@ export default function GoogleAdsConnectPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Conta gestora (opcional)</Label>
+              <Label className="text-xs">{t("pages.googleAds.managerLabel")}</Label>
               <Input
                 className="h-9 font-mono text-xs"
                 value={mccDraft}
                 disabled={locked}
                 onChange={(e) => setMccDraft(e.target.value)}
-                placeholder="Só se tiver uma conta que gere as outras"
+                placeholder={t("pages.googleAds.managerPlaceholder")}
               />
             </div>
             <div className="sm:col-span-2">
               <Button size="sm" disabled={locked || saveIds.isPending} onClick={() => saveIds.mutate()}>
-                Guardar
+                {t("common.save")}
               </Button>
             </div>
           </div>

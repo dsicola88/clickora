@@ -12,6 +12,7 @@ import {
   orderedAdNetworkTokenSections,
 } from "@/lib/adNetworkDynamicTokens";
 import { AdNetworkTokensPickerPanel } from "@/components/tracking/AdNetworkTokensPickerPanel";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 type Props = {
   open: boolean;
@@ -25,6 +26,7 @@ type Props = {
  * No redirect `/track/r/…` use chaves aceites pelo servidor: utm_term (keyword), utm_content, campaign, sub1–sub3, gclid, cost, externalid, var1–var10, clickid/cid (tipo Voluum), etc.
  */
 export function AdNetworkTokensReferenceDialog({ open, onOpenChange, boostPlatformLabel }: Props) {
+  const { t } = useAppLocale();
   const sections = useMemo(() => {
     if (boostPlatformLabel) return orderedAdNetworkTokenSections(boostPlatformLabel);
     return AD_NETWORK_TOKEN_SECTIONS;
@@ -33,10 +35,10 @@ export function AdNetworkTokensReferenceDialog({ open, onOpenChange, boostPlatfo
   const handleSelect = (token: string) => {
     void navigator.clipboard.writeText(token).then(
       () => {
-        toast.success("Macro copiada — cole no parâmetro certo (ex. utm_term, sub1).");
+        toast.success(t("pages.trackingTools.macroCopied"));
       },
       () => {
-        toast.error("Não foi possível copiar. Selecione o texto manualmente.");
+        toast.error(t("pages.trackingTools.macroCopyFailed"));
       },
     );
   };

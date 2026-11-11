@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import {
   Download,
   FileJson,
@@ -40,6 +41,7 @@ function formatWhen(ts: number) {
 }
 
 export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useAppLocale();
   const doc = useBuilder((s) => s.doc);
   const linkedLibraryId = useBuilder((s) => s.linkedLibraryId);
   const hydrateDocument = useBuilder((s) => s.hydrateDocument);
@@ -67,26 +69,26 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
   );
 
   const handleSaveCopy = () => {
-    const name = saveName.trim() || doc.name || "Página sem título";
+    const name = saveName.trim() || doc.name || t("pages.pageBuilder.library.untitled");
     try {
       createLibraryEntry(name, doc);
       refresh();
-      toast.success("Cópia guardada na biblioteca local.");
+      toast.success(t("pages.pageBuilder.library.copySaved"));
       setSaveName(name);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível guardar.");
+      toast.error(e instanceof Error ? e.message : t("pages.pageBuilder.library.saveFailed"));
     }
   };
 
   const handleSaveAndLink = () => {
-    const name = saveName.trim() || doc.name || "Página sem título";
+    const name = saveName.trim() || doc.name || t("pages.pageBuilder.library.untitled");
     try {
       const id = createLibraryEntry(name, doc);
       setLinkedLibraryId(id);
       refresh();
-      toast.success("Guardado e ligado: as próximas edições atualizam esta entrada.");
+      toast.success(t("pages.pageBuilder.library.savedAndLinked"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível guardar.");
+      toast.error(e instanceof Error ? e.message : t("pages.pageBuilder.library.saveFailed"));
     }
   };
 
@@ -95,12 +97,14 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
     try {
       const loaded = getLibraryDoc(id);
       if (!loaded) {
-        toast.error("Entrada em falta ou corrompida.");
+        toast.error(t("pages.pageBuilder.library.entryMissing"));
         refresh();
         return;
       }
       hydrateDocument(loaded, sync ? { linkedLibraryId: id } : {});
-      toast.success(sync ? "Página aberta com sincronização à biblioteca." : "Página carregada no editor.");
+      toast.success(
+        sync ? t("pages.pageBuilder.library.openedSynced") : t("pages.pageBuilder.library.openedEditor"),
+      );
       onClose();
     } finally {
       setBusyId(null);
@@ -108,19 +112,19 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Eliminar esta entrada da biblioteca local?")) return;
+    if (!confirm(t("pages.pageBuilder.library.deleteConfirm"))) return;
     deleteLibraryEntry(id);
     if (linkedLibraryId === id) {
       setLinkedLibraryId(null);
     }
     refresh();
-    toast.success("Entrada removida.");
+    toast.success(t("pages.pageBuilder.library.entryRemoved"));
   };
 
   const exportEntryHtml = (id: string) => {
     const d = getLibraryDoc(id);
     if (!d) {
-      toast.error("Documento em falta.");
+      toast.error(t("pages.pageBuilder.library.docMissing"));
       return;
     }
     const slug = d.name.replace(/\s+/g, "-").toLowerCase().slice(0, 80) || "pagina";
@@ -130,7 +134,7 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
   const exportEntryJson = (id: string) => {
     const d = getLibraryDoc(id);
     if (!d) {
-      toast.error("Documento em falta.");
+      toast.error(t("pages.pageBuilder.library.docMissing"));
       return;
     }
     const blob = new Blob([JSON.stringify(d, null, 2)], { type: "application/json" });
@@ -140,7 +144,7 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
     a.download = `${(d.name || "pagina").replace(/\s+/g, "-").toLowerCase()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("JSON descarregado.");
+    toast.success(t("pages.pageBuilder.library.jsonDownloaded"));
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,16 +162,14 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
         parsed = parsePageDocumentFromJson(text);
       }
       if (!parsed) {
-        toast.error(
-          "Ficheiro inválido. Use JSON exportado pelo editor ou HTML gerado pelo Clickora (com dados embutidos).",
-        );
+        toast.error(t("pages.pageBuilder.library.importInvalid"));
         return;
       }
       hydrateDocument(parsed, {});
-      toast.success("Documento importado para o editor.");
+      toast.success(t("pages.pageBuilder.library.imported"));
       onClose();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao ler o ficheiro.");
+      toast.error(err instanceof Error ? err.message : t("pages.pageBuilder.library.readFailed"));
     } finally {
       setBusyId(null);
     }
@@ -198,11 +200,10 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
               </div>
               <div className="min-w-0">
                 <h2 id="pages-library-title" className="text-base font-semibold text-editor-fg">
-                  Biblioteca de páginas
+                  {t("pages.pageBuilder.library.title")}
                 </h2>
                 <p className="text-xs leading-relaxed text-editor-fg-muted">
-                  Cópias guardadas neste dispositivo (local). Exporte para HTML ou JSON, ou importe ficheiros gerados pelo
-                  Clickora.
+                  {t("pages.pageBuilder.library.subtitle")}
                 </p>
               </div>
             </div>
@@ -210,7 +211,7 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
               type="button"
               className="rounded-md p-1.5 text-editor-fg-muted hover:bg-editor-border hover:text-editor-fg"
               onClick={onClose}
-              aria-label="Fechar"
+              aria-label={t("common.close")}
             >
               <span className="text-lg leading-none">×</span>
             </button>
@@ -219,7 +220,7 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-editor-border bg-editor-panel-2 px-3 py-2 text-[11px] text-editor-fg-muted">
               <Link2 className="h-3.5 w-3.5 shrink-0 text-editor-accent" aria-hidden />
               <span>
-                Sincronizado com:{" "}
+                {t("pages.pageBuilder.library.syncedWith")}{" "}
                 <span className="font-medium text-editor-fg">{linkedMeta?.name ?? linkedLibraryId}</span>
               </span>
               <button
@@ -227,11 +228,11 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
                 className="ml-auto inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-editor-fg-muted hover:bg-editor-border hover:text-editor-fg"
                 onClick={() => {
                   setLinkedLibraryId(null);
-                  toast.message("Sincronização desligada — o editor continua com o conteúdo atual.");
+                  toast.message(t("pages.pageBuilder.library.syncOff"));
                 }}
               >
                 <Unlink className="h-3 w-3" />
-                Desligar
+                {t("pages.pageBuilder.library.unlink")}
               </button>
             </div>
           ) : null}
@@ -242,19 +243,24 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
             className="rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-3 py-2.5 text-[11px] leading-snug text-editor-fg"
             role="note"
           >
-            <span className="font-semibold text-editor-fg">Atenção:</span> esta biblioteca guarda só{" "}
-            <span className="font-medium">neste dispositivo</span>. Não cria página na conta nem em «Páginas criadas».
-            Para publicar no servidor e obter o link <span className="font-mono text-[10px]">/p/…</span>, fecha aqui e
-            usa <span className="font-medium">«Guardar na conta»</span> na barra de cima (com o link da oferta
-            preenchido).
+            <span className="font-semibold text-editor-fg">{t("pages.pageBuilder.library.warningTitle")}</span>{" "}
+            {t("pages.pageBuilder.library.warningBefore")}{" "}
+            <span className="font-medium">{t("pages.pageBuilder.library.warningDevice")}</span>
+            {t("pages.pageBuilder.library.warningMiddle")}{" "}
+            <span className="font-mono text-[10px]">{t("pages.pageBuilder.library.warningPath")}</span>
+            {t("pages.pageBuilder.library.warningAfterPath")}{" "}
+            <span className="font-medium">{t("pages.pageBuilder.library.warningSave")}</span>{" "}
+            {t("pages.pageBuilder.library.warningEnd")}
           </div>
           <div className="rounded-lg border border-editor-border bg-editor-bg/80 p-3">
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-editor-fg-muted">Nova cópia</p>
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-editor-fg-muted">
+              {t("pages.pageBuilder.library.newCopy")}
+            </p>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Input
                 value={saveName}
                 onChange={(e) => setSaveName(e.target.value)}
-                placeholder="Nome da página na biblioteca"
+                placeholder={t("pages.pageBuilder.library.namePlaceholder")}
                 className="h-9 border-editor-border bg-editor-panel text-editor-fg text-sm"
               />
               <div className="flex shrink-0 gap-2">
@@ -265,7 +271,7 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
                   className="h-9 border border-editor-border bg-editor-panel-2 text-editor-fg hover:bg-editor-border"
                   onClick={handleSaveCopy}
                 >
-                  Guardar cópia
+                  {t("pages.pageBuilder.library.saveCopy")}
                 </Button>
                 <Button
                   type="button"
@@ -273,12 +279,12 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
                   className="h-9 bg-editor-accent text-editor-accent-fg hover:opacity-90"
                   onClick={handleSaveAndLink}
                 >
-                  Guardar e ligar
+                  {t("pages.pageBuilder.library.saveAndLink")}
                 </Button>
               </div>
             </div>
             <p className="mt-2 text-[10px] leading-relaxed text-editor-fg-muted">
-              «Guardar e ligar» mantém esta entrada atualizada enquanto editas. «Guardar cópia» apenas arquiva um instantâneo.
+              {t("pages.pageBuilder.library.saveHint")}
             </p>
           </div>
 
@@ -303,20 +309,22 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
               ) : (
                 <FileUp className="mr-2 h-4 w-4" />
               )}
-              Importar ficheiro (.json ou .html Clickora)
+              {t("pages.pageBuilder.library.importFile")}
             </Button>
           </div>
         </div>
 
         <div className="border-t border-editor-border px-5 pb-2 pt-1">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-editor-fg-muted">Entradas guardadas</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-editor-fg-muted">
+            {t("pages.pageBuilder.library.savedEntries")}
+          </p>
         </div>
 
         <ScrollArea className="max-h-[min(42vh,320px)] px-3">
           <ul className="space-y-2 pb-4">
             {entries.length === 0 ? (
               <li className="rounded-lg border border-dashed border-editor-border bg-editor-bg/50 px-4 py-8 text-center text-sm text-editor-fg-muted">
-                Ainda não há cópias. Edite a página e use «Guardar cópia» acima.
+                {t("pages.pageBuilder.library.empty")}
               </li>
             ) : (
               entries.map((en) => (
@@ -341,7 +349,7 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
                         disabled={busyId === en.id}
                         onClick={() => handleOpen(en.id, true)}
                       >
-                        {busyId === en.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Abrir"}
+                        {busyId === en.id ? <Loader2 className="h-3 w-3 animate-spin" /> : t("common.open")}
                       </Button>
                       <Button
                         type="button"
@@ -350,16 +358,16 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
                         className="h-7 px-2 text-[11px] text-editor-fg-muted"
                         disabled={busyId === en.id}
                         onClick={() => handleOpen(en.id, false)}
-                        title="Carregar sem sobrescrever a biblioteca ao editar"
+                        title={t("pages.pageBuilder.library.openUnlinkedTitle")}
                       >
-                        Sem ligação
+                        {t("pages.pageBuilder.library.openUnlinked")}
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         variant="ghost"
                         className="h-7 w-7 p-0 text-editor-fg-muted hover:text-editor-fg"
-                        title="Exportar HTML"
+                        title={t("pages.pageBuilder.library.exportHtml")}
                         onClick={() => exportEntryHtml(en.id)}
                       >
                         <Download className="h-3.5 w-3.5" />
@@ -369,7 +377,7 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
                         size="sm"
                         variant="ghost"
                         className="h-7 w-7 p-0 text-editor-fg-muted hover:text-editor-fg"
-                        title="Exportar JSON"
+                        title={t("pages.pageBuilder.library.exportJson")}
                         onClick={() => exportEntryJson(en.id)}
                       >
                         <FileJson className="h-3.5 w-3.5" />
@@ -379,7 +387,7 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
                         size="sm"
                         variant="ghost"
                         className="h-7 w-7 p-0 text-destructive/80 hover:text-destructive"
-                        title="Eliminar"
+                        title={t("common.delete")}
                         onClick={() => handleDelete(en.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />

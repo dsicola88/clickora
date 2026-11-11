@@ -1,5 +1,7 @@
+import { fill } from "@/i18n";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { usePageBuilderT } from "../usePageBuilderT";
 import { Check, X } from "lucide-react";
 
 export interface PriceFeature {
@@ -28,20 +30,21 @@ export interface PriceTableContent {
 }
 
 export function PriceTableWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
+  const t = usePageBuilderT();
   const c = widget.content as Partial<PriceTableContent>;
   const badge = c.badge ?? "";
   const title = c.title ?? "Pro";
-  const subtitle = c.subtitle ?? "Para quem quer crescer";
+  const subtitle = c.subtitle ?? t("pages.pageBuilder.defaults.priceSubtitle");
   const currency = c.currency ?? "R$";
   const price = c.price ?? "97";
-  const period = c.period ?? "/mês";
+  const period = c.period ?? t("pages.pageBuilder.livePlans.perMonth");
   const features = c.features ?? [
-    { id: "1", text: "Recurso 1 incluso", included: true },
-    { id: "2", text: "Recurso 2 incluso", included: true },
-    { id: "3", text: "Recurso 3 incluso", included: true },
-    { id: "4", text: "Recurso premium", included: false },
+    { id: "1", text: fill(t("pages.pageBuilder.defaults.featureIncluded"), { n: 1 }), included: true },
+    { id: "2", text: fill(t("pages.pageBuilder.defaults.featureIncluded"), { n: 2 }), included: true },
+    { id: "3", text: fill(t("pages.pageBuilder.defaults.featureIncluded"), { n: 3 }), included: true },
+    { id: "4", text: t("pages.pageBuilder.defaults.featurePremium"), included: false },
   ];
-  const ctaText = c.ctaText ?? "Assinar agora";
+  const ctaText = c.ctaText ?? t("pages.pageBuilder.defaults.ctaSubscribeNow");
   const ctaHref = c.ctaHref ?? "#";
   const highlighted = c.highlighted ?? false;
   const cardBg = c.cardBg ?? "#ffffff";

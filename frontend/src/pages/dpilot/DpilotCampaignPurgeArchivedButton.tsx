@@ -11,6 +11,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 import { campaignStatusPurgeableLocally } from "@/lib/paidAdsUi";
 import type { CampaignRow } from "@/services/paidAdsService";
 import { paidAdsService } from "@/services/paidAdsService";
@@ -23,6 +25,7 @@ type Props = {
 
 /** Remove o registo no Clickora (após arquivo). Não apaga recursos na Google/Meta/TikTok. */
 export function DpilotCampaignPurgeArchivedButton({ projectId, campaign, reload }: Props) {
+  const { t } = useAppLocale();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -41,10 +44,10 @@ export function DpilotCampaignPurgeArchivedButton({ projectId, campaign, reload 
         toast.error(error);
         return;
       }
-      toast.success("Campanha removida da lista", {
+      toast.success(t("pages.dpilot.hub.purgeToast"), {
         description: hadRemote
-          ? "O registo local foi apagado; se a campanha ainda existir na rede, gere-a no gestor de anúncios."
-          : "Rascunho e dados associados foram removidos do projecto.",
+          ? t("pages.dpilot.hub.purgeToastRemote")
+          : t("pages.dpilot.hub.purgeToastLocal"),
       });
       setOpen(false);
       reload();
@@ -57,28 +60,21 @@ export function DpilotCampaignPurgeArchivedButton({ projectId, campaign, reload 
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button type="button" variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive">
-          Apagar
+          {t("pages.dpilot.hub.purgeBtn")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Apagar «{campaign.name}» do projecto?</AlertDialogTitle>
+          <AlertDialogTitle>{fill(t("pages.dpilot.hub.purgeTitle"), { name: campaign.name })}</AlertDialogTitle>
           <AlertDialogDescription className="text-left leading-relaxed">
-            Isto remove o registo da campanha no Clickora (rascunho, palavras-chave, anúncios e histórico local associados).{" "}
-            <strong className="font-medium text-foreground">Não</strong> desactiva nem apaga nada na Google, Meta ou
-            TikTok.
-            {hadRemote ? (
-              <>
-                {" "}
-                Esta campanha tinha ID na rede — confirme no gestor da plataforma se ainda existe e apague lá se precisar.
-              </>
-            ) : null}
+            {t("pages.dpilot.hub.purgeBody")}
+            {hadRemote ? t("pages.dpilot.hub.purgeBodyRemote") : null}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel disabled={busy}>{t("common.cancel")}</AlertDialogCancel>
           <Button type="button" variant="destructive" size="sm" disabled={busy} onClick={() => void onConfirm()}>
-            {busy ? "A apagar…" : "Apagar do Clickora"}
+            {busy ? t("pages.dpilot.hub.purging") : t("pages.dpilot.hub.purgeConfirm")}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

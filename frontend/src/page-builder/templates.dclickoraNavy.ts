@@ -646,7 +646,7 @@ function buildPricingCards(): SectionNode {
           subtitle: "Para quem já anuncia",
           currency: "$",
           price: "24",
-          period: "/mês",
+          period: "/month",
           features: [
             "Tudo do Starter",
             "Postback das redes",

@@ -1,4 +1,5 @@
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -99,9 +100,9 @@ export default function PresellManualPagesPage() {
     mutationFn: (id: string) => presellService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
-      toast.success("Página removida.");
+      toast.success(t("pages.manualPages.removed"));
     },
-    onError: () => toast.error("Erro ao remover a página."),
+    onError: () => toast.error(t("pages.manualPages.removeError")),
   });
 
   const toggleMutation = useMutation({
@@ -113,23 +114,23 @@ export default function PresellManualPagesPage() {
         throw new Error(
           blocked.compliance?.error ||
             blocked.message ||
-            "Publicação bloqueada pelas verificações internas.",
+            t("pages.manualPages.publishBlocked"),
         );
       }
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
-      toast.success("Estado atualizado.");
+      toast.success(t("pages.manualPages.statusUpdated"));
     },
     onError: (e: Error) => {
-      toast.error(e.message || "Não foi possível alterar o estado.");
+      toast.error(e.message || t("pages.manualPages.statusError"));
     },
   });
 
   const handleEdit = (page: Presell) => {
     if (!canWritePresells) {
-      toast.error("Sem permissão para editar presells neste workspace.");
+      toast.error(t("pages.manualPages.noPermission"));
       return;
     }
     navigate(`/presell/builder/${page.id}`);
@@ -137,7 +138,7 @@ export default function PresellManualPagesPage() {
 
   const handleDelete = (page: Presell) => {
     if (!canWritePresells) return;
-    if (!confirm(`Remover «${page.title}»? Esta ação não pode ser desfeita.`)) return;
+    if (!confirm(fill(t("pages.manualPages.deleteConfirm"), { title: page.title }))) return;
     deleteMutation.mutate(page.id);
   };
 
@@ -145,14 +146,14 @@ export default function PresellManualPagesPage() {
     const url = getPublicPresellFullUrl(customDomains, page.custom_domain_id, page);
     navigator.clipboard.writeText(url);
     setCopiedId(page.id);
-    toast.success("Link público copiado.");
+    toast.success(t("pages.manualPages.linkCopied"));
     setTimeout(() => setCopiedId(null), 2000);
   };
 
   const loadFresh = async (id: string) => {
     const { data, error } = await presellService.getById(id);
     if (error || !data) {
-      toast.error(error || "Não foi possível carregar a página.");
+      toast.error(error || t("pages.manualPages.loadError"));
       return null;
     }
     return data;
@@ -165,7 +166,7 @@ export default function PresellManualPagesPage() {
       if (!data) return;
       const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
       if (!parsePresellBuilderPageDocument(data.content)) {
-        toast.error("Documento do editor em falta.");
+        toast.error(t("pages.manualPages.docMissing"));
         return;
       }
       const html = buildPresellStandaloneHtml(data, {
@@ -174,9 +175,9 @@ export default function PresellManualPagesPage() {
         format: "htmlWidget",
       });
       await navigator.clipboard.writeText(html);
-      toast.success("HTML copiado (com pixels e rastreamento).");
+      toast.success(t("pages.manualPages.htmlCopied"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro ao copiar HTML.");
+      toast.error(e instanceof Error ? e.message : t("pages.manualPages.htmlCopyError"));
     } finally {
       setBusyId(null);
     }
@@ -188,7 +189,7 @@ export default function PresellManualPagesPage() {
       const data = await loadFresh(page.id);
       if (!data) return;
       if (!parsePresellBuilderPageDocument(data.content)) {
-        toast.error("Documento do editor em falta.");
+        toast.error(t("pages.manualPages.docMissing"));
         return;
       }
       const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
@@ -207,9 +208,9 @@ export default function PresellManualPagesPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(objectUrl);
-      toast.success("Ficheiro HTML descarregado.");
+      toast.success(t("pages.manualPages.htmlDownloaded"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro ao gerar HTML.");
+      toast.error(e instanceof Error ? e.message : t("pages.manualPages.htmlGenerateError"));
     } finally {
       setBusyId(null);
     }
@@ -222,7 +223,7 @@ export default function PresellManualPagesPage() {
       if (!data) return;
       const doc = parsePresellBuilderPageDocument(data.content);
       if (!doc) {
-        toast.error("Documento do editor em falta.");
+        toast.error(t("pages.manualPages.docMissing"));
         return;
       }
       const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
@@ -235,9 +236,9 @@ export default function PresellManualPagesPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast.success("JSON descarregado.");
+      toast.success(t("pages.manualPages.jsonDownloaded"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro ao exportar JSON.");
+      toast.error(e instanceof Error ? e.message : t("pages.manualPages.jsonExportError"));
     } finally {
       setBusyId(null);
     }
@@ -246,7 +247,7 @@ export default function PresellManualPagesPage() {
   if (!tenantKey) {
     return (
       <div className={APP_PAGE_SHELL}>
-        <PageHeader title={t("pages.manualPages.title")} description="Inicie sessão para ver as suas páginas." />
+        <PageHeader title={t("pages.manualPages.title")} description={t("pages.manualPages.signIn")} />
       </div>
     );
   }
@@ -254,7 +255,7 @@ export default function PresellManualPagesPage() {
   if (isLoading) {
     return (
       <div className={APP_PAGE_SHELL}>
-        <LoadingState message="A carregar páginas…" />
+        <LoadingState message={t("pages.manualPages.loading")} />
       </div>
     );
   }
@@ -262,7 +263,7 @@ export default function PresellManualPagesPage() {
   if (isError) {
     return (
       <div className={APP_PAGE_SHELL}>
-        <ErrorState message="Não foi possível carregar as páginas." onRetry={() => void refetch()} />
+        <ErrorState message={t("pages.manualPages.loadPagesError")} onRetry={() => void refetch()} />
       </div>
     );
   }
@@ -270,13 +271,13 @@ export default function PresellManualPagesPage() {
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title="Páginas criadas"
-        description="Editor manual por conta — lista só da sua sessão."
+        title={t("pages.manualPages.listTitle")}
+        description={t("pages.manualPages.listDesc")}
         actions={
           canWritePresells ? (
             <Button type="button" className="gap-2" onClick={() => navigate("/presell/builder")}>
               <LayoutGrid className="h-4 w-4" />
-              Novo no editor
+              {t("pages.manualPages.newInEditor")}
             </Button>
           ) : null
         }
@@ -284,16 +285,18 @@ export default function PresellManualPagesPage() {
 
       <div className="mt-6 flex flex-col gap-4">
         <div className="rounded-xl border border-border/50 bg-card/80 p-4 text-sm text-muted-foreground">
-          <p>Cada login vê só as suas páginas guardadas no servidor.</p>
+          <p>{t("pages.manualPages.sessionNote")}</p>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground shrink-0">
-            {filtered.length} página(s) manual(is)
-            {manualPages.length !== pages.length ? ` · ${pages.length} presell(s) no total` : ""}
+            {fill(t("pages.manualPages.count"), { n: filtered.length })}
+            {manualPages.length !== pages.length
+              ? fill(t("pages.manualPages.countTotal"), { n: pages.length })
+              : ""}
           </p>
           <Input
-            placeholder="Buscar por nome, slug ou ID"
+            placeholder={t("pages.manualPages.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full min-w-0 sm:max-w-sm"
@@ -302,13 +305,13 @@ export default function PresellManualPagesPage() {
 
         {filtered.length === 0 ? (
           <EmptyState
-            title={manualPages.length === 0 ? "Ainda não há páginas manuais" : "Nenhum resultado"}
+            title={manualPages.length === 0 ? t("pages.manualPages.emptyTitle") : t("pages.manualPages.noResults")}
             description={
               manualPages.length === 0
-                ? "Crie uma página no editor manual e guarde na conta — ela aparecerá aqui."
-                : "Ajuste o termo de busca."
+                ? t("pages.manualPages.emptyDesc")
+                : t("pages.manualPages.adjustSearch")
             }
-            actionLabel={manualPages.length === 0 && canWritePresells ? "Abrir editor manual" : undefined}
+            actionLabel={manualPages.length === 0 && canWritePresells ? t("pages.manualPages.openEditor") : undefined}
             onAction={manualPages.length === 0 && canWritePresells ? () => navigate("/presell/builder") : undefined}
           />
         ) : (
@@ -317,10 +320,10 @@ export default function PresellManualPagesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Página</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Link público</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Estado</th>
-                    <th className="text-right py-3 px-4 font-medium text-muted-foreground">Ações</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t("pages.manualPages.colPage")}</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t("pages.presells.colPublicLink")}</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t("common.status")}</th>
+                    <th className="text-right py-3 px-4 font-medium text-muted-foreground">{t("pages.manualPages.colActions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -343,7 +346,7 @@ export default function PresellManualPagesPage() {
                               onClick={() => handleCopyPublicLink(page)}
                               className="text-xs px-2 py-0.5 rounded bg-success/10 text-success font-medium hover:bg-success/20"
                             >
-                              {copiedId === page.id ? <Check className="h-3 w-3" /> : "Copiar link"}
+                              {copiedId === page.id ? <Check className="h-3 w-3" /> : t("pages.manualPages.copyLink")}
                             </button>
                           </div>
                         </td>
@@ -363,7 +366,7 @@ export default function PresellManualPagesPage() {
                                   : "bg-muted text-muted-foreground"
                               }`}
                             >
-                              {page.status === "published" ? "Publicada" : "Pausada"}
+                              {page.status === "published" ? t("common.published") : t("common.paused")}
                             </button>
                           ) : (
                             <span
@@ -373,7 +376,7 @@ export default function PresellManualPagesPage() {
                                   : "bg-muted text-muted-foreground"
                               }`}
                             >
-                              {page.status === "published" ? "Publicada" : "Pausada"}
+                              {page.status === "published" ? t("common.published") : t("common.paused")}
                             </span>
                           )}
                         </td>
@@ -384,7 +387,7 @@ export default function PresellManualPagesPage() {
                               target="_blank"
                               rel="noreferrer"
                               className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground inline-flex"
-                              title="Visualizar (abre o link público)"
+                              title={t("pages.manualPages.viewTitle")}
                             >
                               <Eye className="h-4 w-4" />
                             </a>
@@ -393,7 +396,7 @@ export default function PresellManualPagesPage() {
                                 type="button"
                                 onClick={() => handleEdit(page)}
                                 className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                                title="Editar no construtor"
+                                title={t("pages.manualPages.editTitle")}
                               >
                                 <Pencil className="h-4 w-4" />
                               </button>
@@ -404,7 +407,7 @@ export default function PresellManualPagesPage() {
                                   type="button"
                                   disabled={busy}
                                   className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50 inline-flex"
-                                  title="Exportar"
+                                  title={t("pages.manualPages.exportTitle")}
                                 >
                                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                                 </button>
@@ -412,15 +415,15 @@ export default function PresellManualPagesPage() {
                               <DropdownMenuContent align="end" className="min-w-[13rem]">
                                 <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => handleCopyHtml(page)}>
                                   <Code2 className="h-4 w-4" />
-                                  Copiar HTML
+                                  {t("pages.manualPages.copyHtml")}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => handleDownloadHtml(page)}>
                                   <Download className="h-4 w-4" />
-                                  Descarregar .html
+                                  {t("pages.manualPages.downloadHtml")}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => handleExportJson(page)}>
                                   <FileJson className="h-4 w-4" />
-                                  Descarregar .json
+                                  {t("pages.manualPages.downloadJson")}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -430,7 +433,7 @@ export default function PresellManualPagesPage() {
                                 onClick={() => handleDelete(page)}
                                 disabled={deleteMutation.isPending}
                                 className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
-                                title="Remover"
+                                title={t("pages.manualPages.removeTitle")}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>

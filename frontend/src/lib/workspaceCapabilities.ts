@@ -38,3 +38,25 @@ export function userCanWriteIntegrations(user: User | null | undefined): boolean
   const r = user.workspace_role ?? "owner";
   return r === "owner" || r === "admin" || r === "member";
 }
+
+/** Igual a `workspaceCanWriteCampaigns` no servidor. */
+export function userCanWriteCampaigns(user: User | null | undefined): boolean {
+  if (!user) return false;
+  if (hasExtra(user, WORKSPACE_EXTRA_PERMS.presells_write)) return true;
+  const r = user.workspace_role ?? "owner";
+  return r === "owner" || r === "admin" || r === "member";
+}
+
+/** Igual a `workspaceCanManageApiKeys` no servidor. */
+export function userCanManageApiKeys(user: User | null | undefined): boolean {
+  if (!user) return false;
+  const r = user.workspace_role ?? "owner";
+  return r === "owner" || r === "admin";
+}
+
+/** Igual a `workspaceCanReadIntegrationSecrets` no servidor. */
+export function userCanReadIntegrationSecrets(user: User | null | undefined): boolean {
+  if (!user) return false;
+  const r = user.workspace_role ?? "owner";
+  return r === "owner" || r === "admin" || r === "member";
+}

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { Check, Loader2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,8 +27,8 @@ export interface LivePlansContent {
   ctaColor?: string;
 }
 
-function formatPrice(cents: number, locale: string, currencySymbol: string): string {
-  if (cents <= 0) return "Grátis";
+function formatPrice(cents: number, locale: string, currencySymbol: string, freeLabel: string): string {
+  if (cents <= 0) return freeLabel;
   const value = (cents / 100).toLocaleString(locale, {
     minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
@@ -36,12 +37,12 @@ function formatPrice(cents: number, locale: string, currencySymbol: string): str
 }
 
 export function LivePlansWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
+  const { t } = useAppLocale();
   const c = widget.content as Partial<LivePlansContent>;
   const showHeader = c.showHeader !== false;
-  const sectionLabel = c.sectionLabel ?? "PLANOS";
-  const title = c.title ?? "Escolha o plano certo";
-  const subtitle =
-    c.subtitle ?? "Preços e limites vêm da base de dados — edite-os no admin em Planos.";
+  const sectionLabel = c.sectionLabel ?? t("pages.pageBuilder.livePlans.defaultSection");
+  const title = c.title ?? t("pages.pageBuilder.livePlans.defaultTitle");
+  const subtitle = c.subtitle ?? t("pages.pageBuilder.livePlans.defaultSubtitle");
   const accent = c.accentColor ?? "#38bdf8";
   const cardBg = c.cardBg ?? "#ffffff";
   const textColor = c.textColor ?? "#0f172a";
@@ -75,7 +76,7 @@ export function LivePlansWidget({ widget, device }: { widget: WidgetNode; device
 
   const handleSelect = async (plan: Plan) => {
     if (user && plan.type === userPlan?.plan_type) {
-      toast.info("Você já está neste plano.");
+      toast.info(t("pages.pageBuilder.livePlans.alreadyOnPlan"));
       return;
     }
     if (plan.price_cents > 0 && plan.checkout_url) {
@@ -84,11 +85,11 @@ export function LivePlansWidget({ widget, device }: { widget: WidgetNode; device
     }
     if (!user) {
       if (plan.price_cents === 0) {
-        toast.info("Crie uma conta ou entre para ativar o plano grátis.");
+        toast.info(t("pages.pageBuilder.livePlans.signInFree"));
         navigate("/auth");
         return;
       }
-      toast.error("O checkout deste plano ainda não está ligado. Contacte o suporte.");
+      toast.error(t("pages.pageBuilder.livePlans.checkoutUnlinked"));
       return;
     }
     const { data, error } = await plansService.subscribe(plan.id);
@@ -105,7 +106,7 @@ export function LivePlansWidget({ widget, device }: { widget: WidgetNode; device
       return;
     }
     await refreshUser();
-    toast.success("Plano atualizado com sucesso!");
+    toast.success(t("pages.pageBuilder.livePlans.planUpdated"));
   };
 
   return (
@@ -131,19 +132,20 @@ export function LivePlansWidget({ widget, device }: { widget: WidgetNode; device
 
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />A carregar planos…
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {t("pages.pageBuilder.livePlans.loading")}
           </div>
         ) : null}
 
         {isError ? (
           <p className="rounded-lg border border-dashed border-destructive/40 bg-destructive/5 p-4 text-center text-sm text-destructive">
-            Não foi possível carregar os planos.
+            {t("pages.pageBuilder.livePlans.loadError")}
           </p>
         ) : null}
 
         {!isLoading && !isError && plans.length === 0 ? (
           <p className="rounded-lg border border-dashed border-muted-foreground/40 bg-muted/20 p-4 text-center text-sm text-muted-foreground">
-            Sem planos na base de dados. Configure-os no admin → Planos.
+            {t("pages.pageBuilder.livePlans.empty")}
           </p>
         ) : null}
 
@@ -179,7 +181,7 @@ export function LivePlansWidget({ widget, device }: { widget: WidgetNode; device
                       className="absolute -top-3 left-1/2 -translate-x-1/2 border-0 text-white"
                       style={{ backgroundColor: accent }}
                     >
-                      {lb.badge_popular || "Mais popular"}
+                      {lb.badge_popular || t("pages.pageBuilder.defaults.mostPopular")}
                     </Badge>
                   ) : null}
                   <div className="mb-4 flex items-start gap-3">
@@ -189,15 +191,21 @@ export function LivePlansWidget({ widget, device }: { widget: WidgetNode; device
                     <div className="min-w-0">
                       <h3 className="text-lg font-bold">{plan.name}</h3>
                       {isCurrent ? (
-                        <p className="mt-0.5 text-xs font-medium opacity-70">Plano atual</p>
+                        <p className="mt-0.5 text-xs font-medium opacity-70">
+                          {t("pages.pageBuilder.livePlans.currentPlan")}
+                        </p>
                       ) : null}
                     </div>
                   </div>
                   <p className="mb-4 text-3xl font-extrabold tracking-tight">
-                    {formatPrice(plan.price_cents, locale, currency)}
+                    {formatPrice(plan.price_cents, locale, currency, t("pages.pageBuilder.livePlans.free"))}
                     {plan.price_cents > 0 ? (
                       <span className="ml-1 text-sm font-medium opacity-60">
-                        {plan.type === "annual" ? "/ano" : plan.type === "quarterly" ? "/trimestre" : "/mês"}
+                        {plan.type === "annual"
+                          ? t("pages.pageBuilder.livePlans.perYear")
+                          : plan.type === "quarterly"
+                            ? t("pages.pageBuilder.livePlans.perQuarter")
+                            : t("pages.pageBuilder.livePlans.perMonth")}
                       </span>
                     ) : null}
                   </p>
@@ -215,7 +223,7 @@ export function LivePlansWidget({ widget, device }: { widget: WidgetNode; device
                     onClick={() => void handleSelect(plan)}
                     disabled={isCurrent}
                   >
-                    {isCurrent ? "Plano atual" : cta}
+                    {isCurrent ? t("pages.pageBuilder.livePlans.currentPlan") : cta}
                   </Button>
                 </div>
               );

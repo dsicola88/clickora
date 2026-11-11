@@ -3,16 +3,16 @@ import type { SectionBackgroundOverlay, SectionNode, ShapeDividerConfig } from "
 
 /** Presets SVG para divisores de forma na secção. */
 export const SHAPE_DIVIDER_PRESETS = [
-  { value: "none", label: "Nenhum" },
-  { value: "waves", label: "Ondas" },
-  { value: "waves-brush", label: "Ondas (pincel)" },
-  { value: "curve", label: "Curva" },
-  { value: "curve-asym", label: "Curva assimétrica" },
-  { value: "tilt", label: "Inclinação" },
-  { value: "triangle", label: "Triângulo" },
-  { value: "triangle-asym", label: "Triângulo assimétrico" },
-  { value: "mountains", label: "Montanhas" },
-  { value: "drops", label: "Gotas" },
+  { value: "none", label: "None" },
+  { value: "waves", label: "Waves" },
+  { value: "waves-brush", label: "Waves (brush)" },
+  { value: "curve", label: "Curve" },
+  { value: "curve-asym", label: "Asymmetric curve" },
+  { value: "tilt", label: "Tilt" },
+  { value: "triangle", label: "Triangle" },
+  { value: "triangle-asym", label: "Asymmetric triangle" },
+  { value: "mountains", label: "Mountains" },
+  { value: "drops", label: "Drops" },
   { value: "zigzag", label: "Zigzag" },
 ] as const;
 

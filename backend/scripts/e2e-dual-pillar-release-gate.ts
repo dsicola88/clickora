@@ -13,6 +13,8 @@ const frontendRoot = path.resolve(root, "../frontend");
 
 const suites = [
   "src/lib/opsObservability.test.ts",
+  "src/lib/tenantPrisma.test.ts",
+  "src/lib/fieldEncryption.prodGuard.test.ts",
   "src/lib/appendClickIdToUrl.test.ts",
   "src/lib/affiliatePlatforms/parseAffiliatePostback.test.ts",
   "src/lib/clientIp.test.ts",

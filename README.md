@@ -12,6 +12,8 @@ Aplicação full-stack em produção:
 |--------|--------|----------------|------|
 | `frontend` + `backend` | Produto Clickora (incl. **anúncios** em `/tracking/dpilot`) | `backend/prisma` → Postgres Clickora (tabelas `paid_ads_*`, tenant por `userId`) | JWT + OAuth de anúncios no mesmo backend |
 
+> **Nota:** `build_dpa/` (se existir localmente) é legado do page-builder e está no `.gitignore` — não faz parte do produto. Qualidade: `npm run typecheck`, `npm run test:quality`, `npm run check:longevity`.
+
 **Modelo de dados:** o isolamento de paid media é por **utilizador dono** (`userId` nas tabelas `paid_ads_*`), alinhado ao tenant de faturação — ver `docs/PAID-ADS-ARCHITECTURE.md`.
 
 **Layout futuro (alvo opcional):**

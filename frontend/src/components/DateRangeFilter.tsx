@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import {
   fromYmd,
   PRESET_LABELS,
@@ -69,6 +70,7 @@ export function DateRangeFilter({
   className,
   triggerClassName,
 }: DateRangeFilterProps) {
+  const { t } = useAppLocale();
   const [open, setOpen] = useState(false);
   const [draftFrom, setDraftFrom] = useState(from);
   const [draftTo, setDraftTo] = useState(to);
@@ -117,11 +119,11 @@ export function DateRangeFilter({
   const commit = useCallback(
     (a: string, b: string) => {
       if (!a || !b) {
-        toast.error("Selecione data de início e de fim.");
+        toast.error(t("common.selectStartEnd"));
         return;
       }
       if (fromYmd(a) > fromYmd(b)) {
-        toast.error("A data de início não pode ser depois da data de fim.");
+        toast.error(t("common.startAfterEnd"));
         return;
       }
       const payload: ApplyPayload = { from: a, to: b };
@@ -131,7 +133,7 @@ export function DateRangeFilter({
       onApply(payload);
       setOpen(false);
     },
-    [compare, onApply],
+    [compare, onApply, t],
   );
 
   const applyPreset = (get: () => { from: string; to: string }, m: Mode) => {

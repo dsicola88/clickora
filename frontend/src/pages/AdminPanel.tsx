@@ -1,3 +1,4 @@
+import { fill, numberLocaleFor } from "@/i18n";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -66,6 +67,7 @@ function normalizeAdminTab(tab: string | null, isSuperAdmin: boolean): string {
 }
 
 export function AdminEntryRedirect() {
+  const { t } = useAppLocale();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { isAdmin, isSuperAdmin, loading } = useAuth();
@@ -86,22 +88,23 @@ export function AdminEntryRedirect() {
 
   if (loading) return <LoadingState />;
   if (!isAdmin) return null;
-  return <LoadingState message="A abrir o painel…" />;
+  return <LoadingState message={t("pages.admin.opening")} />;
 }
 
-function formatMoneyCents(cents: number) {
-  return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "USD" }).format(cents / 100);
+function formatMoneyCents(cents: number, locale: string) {
+  return new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(cents / 100);
 }
 
-function roleBadge(role: string) {
-  if (role === "super_admin") return { label: "Super admin", className: "bg-violet-600 hover:bg-violet-600 text-white" };
-  if (role === "admin") return { label: "Admin", className: "bg-primary/90 hover:bg-primary/90 text-primary-foreground" };
-  if (role === "moderator") return { label: "Moderador", className: "bg-amber-600/90 hover:bg-amber-600/90 text-white" };
-  return { label: "Utilizador", className: "" };
+function roleBadge(role: string, t: ReturnType<typeof useAppLocale>["t"]) {
+  if (role === "super_admin") return { label: t("pages.admin.roleSuper"), className: "bg-violet-600 hover:bg-violet-600 text-white" };
+  if (role === "admin") return { label: t("pages.admin.roleAdmin"), className: "bg-primary/90 hover:bg-primary/90 text-primary-foreground" };
+  if (role === "moderator") return { label: t("pages.admin.roleMod"), className: "bg-amber-600/90 hover:bg-amber-600/90 text-white" };
+  return { label: t("pages.admin.roleUser"), className: "" };
 }
 
 export default function AdminPanel() {
-  const { t } = useAppLocale();
+  const { t, locale } = useAppLocale();
+  const dateLocale = numberLocaleFor(locale);
   const { isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -149,7 +152,7 @@ export default function AdminPanel() {
     queryFn: async () => {
       const { data, error } = await adminService.getOverview();
       if (error) throw new Error(error);
-      if (!data) throw new Error("Resposta vazia");
+      if (!data) throw new Error(t("pages.admin.emptyResponse"));
       return data;
     },
     enabled: isAdmin,
@@ -170,7 +173,7 @@ export default function AdminPanel() {
     queryFn: async () => {
       const { data, error } = await adminService.getPlansLanding();
       if (error) throw new Error(error);
-      if (!data) throw new Error("Resposta vazia");
+      if (!data) throw new Error(t("pages.admin.emptyResponse"));
       return data;
     },
     enabled: isAdmin && isSuperAdmin && activeTab === "plans",
@@ -199,7 +202,7 @@ export default function AdminPanel() {
         toast.error(result.error);
         return;
       }
-      toast.success("Favicon publicado. O separador do browser atualiza em segundos.");
+      toast.success(t("pages.admin.toastFavicon"));
       queryClient.invalidateQueries({ queryKey: PUBLIC_BRANDING_KEY });
       window.dispatchEvent(new CustomEvent("clickora:branding"));
     },
@@ -212,7 +215,7 @@ export default function AdminPanel() {
         toast.error(result.error);
         return;
       }
-      toast.success("Favicon personalizado removido.");
+      toast.success(t("pages.admin.toastFaviconRemoved"));
       queryClient.invalidateQueries({ queryKey: PUBLIC_BRANDING_KEY });
       window.dispatchEvent(new CustomEvent("clickora:branding"));
     },
@@ -228,11 +231,11 @@ export default function AdminPanel() {
       return data;
     },
     onSuccess: () => {
-      toast.success("Contactos de suporte actualizados.");
+      toast.success(t("pages.admin.toastSupport"));
       queryClient.invalidateQueries({ queryKey: PUBLIC_BRANDING_KEY });
       window.dispatchEvent(new CustomEvent("clickora:branding"));
     },
-    onError: (e: Error) => toast.error(e.message || "Não foi possível guardar."),
+    onError: (e: Error) => toast.error(e.message || t("pages.admin.toastSaveFailed")),
   });
 
   const suspendMutation = useMutation({
@@ -242,9 +245,9 @@ export default function AdminPanel() {
     onSuccess: (_, { isSuspended }) => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
-      toast.success(isSuspended ? "Utilizador reativado" : "Utilizador suspenso");
+      toast.success(isSuspended ? t("pages.admin.toastUserOn") : t("pages.admin.toastUserOff"));
     },
-    onError: () => toast.error("Erro ao atualizar estado"),
+    onError: () => toast.error(t("pages.admin.toastStatusFailed")),
   });
 
   const updatePlanMutation = useMutation({
@@ -252,9 +255,9 @@ export default function AdminPanel() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
-      toast.success("Plano atualizado");
+      toast.success(t("pages.admin.toastPlanUpdated"));
     },
-    onError: () => toast.error("Erro ao alterar plano"),
+    onError: () => toast.error(t("pages.admin.toastPlanFailed")),
   });
 
   const invalidateAdmin = () => {
@@ -272,8 +275,8 @@ export default function AdminPanel() {
     navigate("/inicio");
     return null;
   }
-  if (isLoading) return <LoadingState message="A carregar administradores…" />;
-  if (isError) return <ErrorState message="Erro ao carregar dados do admin." onRetry={() => refetch()} />;
+  if (isLoading) return <LoadingState message={t("pages.admin.loadAdmins")} />;
+  if (isError) return <ErrorState message={t("pages.admin.loadError")} onRetry={() => refetch()} />;
 
   const nowRef = new Date();
   const in7dRef = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -326,10 +329,10 @@ export default function AdminPanel() {
           try {
             const { error } = await adminService.updateUserSubscription(subscriptionUser.user_id, payload);
             if (error) throw new Error(error);
-            toast.success("Datas da assinatura guardadas");
+            toast.success(t("pages.admin.toastDatesSaved"));
             invalidateAdmin();
           } catch (e: unknown) {
-            toast.error(e instanceof Error ? e.message : "Erro ao guardar");
+            toast.error(e instanceof Error ? e.message : t("pages.admin.toastSaveError"));
             throw e;
           } finally {
             setSubscriptionSaving(false);
@@ -349,9 +352,9 @@ export default function AdminPanel() {
           try {
             const { error } = await adminService.setUserPassword(passwordUser.user_id, newPassword);
             if (error) throw new Error(error);
-            toast.success("Senha redefinida");
+            toast.success(t("pages.admin.toastPasswordReset"));
           } catch (e: unknown) {
-            toast.error(e instanceof Error ? e.message : "Erro ao redefinir senha");
+            toast.error(e instanceof Error ? e.message : t("pages.admin.toastPasswordFailed"));
             throw e;
           } finally {
             setPasswordSaving(false);
@@ -362,10 +365,10 @@ export default function AdminPanel() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <ShieldAlert className="h-7 w-7 text-primary" />
-            Painel do sistema
+            {t("pages.admin.panelTitle")}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Visão global, assinantes, planos, aulas e personalização — {isSuperAdmin ? "super administrador" : "administrador"}.
+            {isSuperAdmin ? t("pages.admin.panelSubtitleSuper") : t("pages.admin.panelSubtitleAdmin")}
           </p>
         </div>
       </div>
@@ -375,7 +378,7 @@ export default function AdminPanel() {
           "grid w-full max-w-4xl gap-1 bg-muted/60 p-1 h-auto rounded-lg",
           isSuperAdmin ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : "grid-cols-2 sm:grid-cols-3",
         )}
-        aria-label="Secções do painel"
+        aria-label={t("pages.admin.sectionsAria")}
       >
         <NavLink
           to={`${ADMIN_BASE}/overview`}
@@ -387,7 +390,7 @@ export default function AdminPanel() {
           }
         >
           <Sparkles className="h-4 w-4" />
-          Visão geral
+          {t("pages.admin.tabOverview")}
         </NavLink>
         <NavLink
           to={`${ADMIN_BASE}/users`}
@@ -399,7 +402,7 @@ export default function AdminPanel() {
           }
         >
           <Users className="h-4 w-4" />
-          Assinantes
+          {t("pages.admin.tabUsers")}
         </NavLink>
         <NavLink
           to={`${ADMIN_BASE}/plans`}
@@ -411,7 +414,7 @@ export default function AdminPanel() {
           }
         >
           <CreditCard className="h-4 w-4" />
-          Planos
+          {t("pages.admin.tabPlans")}
         </NavLink>
         {isSuperAdmin && (
           <NavLink
@@ -424,7 +427,7 @@ export default function AdminPanel() {
             }
           >
             <ImageIcon className="h-4 w-4" />
-            Marca
+            {t("pages.admin.tabBrand")}
           </NavLink>
         )}
         {isSuperAdmin && (
@@ -438,7 +441,7 @@ export default function AdminPanel() {
             }
           >
             <GraduationCap className="h-4 w-4" />
-            Aulas
+            {t("pages.admin.tabLessons")}
           </NavLink>
         )}
       </nav>
@@ -447,7 +450,7 @@ export default function AdminPanel() {
         {activeTab === "overview" ? (
         <div className="space-y-6 mt-6">
           {overviewLoading || !overview ? (
-            <LoadingState message="A carregar métricas…" />
+            <LoadingState message={t("pages.admin.loadingMetrics")} />
           ) : (
             <>
               {overview.hotmart_plan_map && !overview.hotmart_plan_map.map_configured ? (
@@ -777,7 +780,7 @@ export default function AdminPanel() {
               </TableHeader>
               <TableBody>
                 {filtered.map((u) => {
-                  const rb = roleBadge(u.role);
+                  const rb = roleBadge(u.role, t);
                   const ends = u.sub_ends_at ? new Date(u.sub_ends_at) : null;
                   const expired =
                     u.ends_at_passed === true || (u.ends_at_passed === undefined && Boolean(ends && ends < new Date()));
@@ -1015,7 +1018,7 @@ export default function AdminPanel() {
                         <TableCell>
                           <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{p.type}</code>
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">{formatMoneyCents(p.price_cents)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatMoneyCents(p.price_cents, dateLocale)}</TableCell>
                         <TableCell className="text-right">{p.max_presell_pages ?? "—"}</TableCell>
                         <TableCell className="text-right">{p.max_clicks_per_month?.toLocaleString() ?? "—"}</TableCell>
                         <TableCell className="text-right tabular-nums">{p.max_custom_domains}</TableCell>

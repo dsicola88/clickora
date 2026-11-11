@@ -1,8 +1,9 @@
-# Clickora — PostgreSQL para desenvolvimento local
+# Clickora — stack local (Postgres + Redis). Nunca Railway.
 # Uso: docker compose up -d
-# Depois: npm run api:db:migrate && npm run api:db:seed
-# DATABASE_URL no backend/.env deve apontar para localhost:5434 (porta mapeada abaixo).
-# Nota: 5433 costuma estar ocupada por outros contentores Postgres na máquina do developer.
+# Depois (com DATABASE_URL local — ver scripts/local-staging.env.example):
+#   set -a && source scripts/local-staging.env && set +a
+#   npm run api:db:migrate:deploy && npm run api:db:seed
+# Nota: 5433 costuma estar ocupada por outros Postgres; usamos 5434.
 
 services:
   postgres:
@@ -21,6 +22,19 @@ services:
       test: ["CMD-SHELL", "pg_isready -U clickora -d clickora"]
       interval: 5s
       timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: clickora-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
       retries: 5
 
 volumes:

@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Globe, Loader2, Trash2, Star } from "lucide-react";
 import { useState } from "react";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +23,7 @@ import { CustomDomainSslBadge } from "@/components/settings/CustomDomainSslBadge
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 
 export function CustomDomainSettings() {
+  const { t } = useAppLocale();
   const { user } = useAuth();
   const tenantKey = tenantQueryKey(user);
   const queryClient = useQueryClient();
@@ -80,12 +83,12 @@ export function CustomDomainSettings() {
       const d = res.data;
       const mode = d?.pending_dns?.mode;
       if (mode === "vercel") {
-        toast.success("Domínio adicionado. Cole os valores do cartão no painel do domínio e clique em Verificar.");
+        toast.success(t("pages.settings.addedVercel"));
       } else {
-        toast.success("Domínio adicionado. Cole o valor do cartão no painel do domínio e verifique.");
+        toast.success(t("pages.settings.addedTxt"));
       }
     },
-    onError: () => toast.error("Não foi possível adicionar."),
+    onError: () => toast.error(t("pages.settings.addFailed")),
   });
 
   const verifyMutation = useMutation({
@@ -96,9 +99,9 @@ export function CustomDomainSettings() {
         return;
       }
       queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
-      toast.success("Domínio verificado.");
+      toast.success(t("pages.settings.verified"));
     },
-    onError: () => toast.error("Verificação falhou."),
+    onError: () => toast.error(t("pages.settings.verifyFailed")),
   });
 
   const defaultMutation = useMutation({
@@ -109,9 +112,9 @@ export function CustomDomainSettings() {
         return;
       }
       queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
-      toast.success("Domínio padrão atualizado.");
+      toast.success(t("pages.settings.defaultUpdated"));
     },
-    onError: () => toast.error("Não foi possível definir o padrão."),
+    onError: () => toast.error(t("pages.settings.defaultFailed")),
   });
 
   const removeMutation = useMutation({
@@ -123,9 +126,9 @@ export function CustomDomainSettings() {
       }
       queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
       queryClient.invalidateQueries({ queryKey: ["custom-domain-quota"] });
-      toast.success("Domínio removido.");
+      toast.success(t("pages.settings.removed"));
     },
-    onError: () => toast.error("Não foi possível remover."),
+    onError: () => toast.error(t("pages.settings.removeFailed")),
   });
 
   const rootPresellMutation = useMutation({
@@ -137,10 +140,10 @@ export function CustomDomainSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
       queryClient.invalidateQueries({ queryKey: ["public-custom-domain-root-presell"] });
-      toast.success("Presell na raiz do domínio atualizada.");
+      toast.success(t("pages.settings.rootUpdated"));
     },
     onError: (e: unknown) => {
-      const msg = e instanceof Error ? e.message : "Não foi possível guardar.";
+      const msg = e instanceof Error ? e.message : t("pages.settings.saveFailed");
       toast.error(msg);
     },
   });
@@ -159,10 +162,10 @@ export function CustomDomainSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
-      toast.success("Finalidade do domínio atualizada.");
+      toast.success(t("pages.settings.purposeUpdated"));
     },
     onError: (e: unknown) => {
-      toast.error(e instanceof Error ? e.message : "Não foi possível guardar a finalidade.");
+      toast.error(e instanceof Error ? e.message : t("pages.settings.purposeSaveFailed"));
     },
   });
 
@@ -174,9 +177,9 @@ export function CustomDomainSettings() {
         return;
       }
       queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
-      toast.success("Domínio de tracking padrão atualizado.");
+      toast.success(t("pages.settings.trackingDefaultUpdated"));
     },
-    onError: () => toast.error("Não foi possível definir o tracking padrão."),
+    onError: () => toast.error(t("pages.settings.trackingDefaultFailed")),
   });
 
   const copy = async (label: string, text: string) => {
@@ -184,9 +187,9 @@ export function CustomDomainSettings() {
       await navigator.clipboard.writeText(text);
       setCopiedField(label);
       setTimeout(() => setCopiedField(null), 2000);
-      toast.success("Copiado.");
+      toast.success(t("pages.settings.copied"));
     } catch {
-      toast.error("Não foi possível copiar.");
+      toast.error(t("pages.settings.copyFailed"));
     }
   };
 
@@ -197,23 +200,22 @@ export function CustomDomainSettings() {
           <Globe className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-lg font-semibold text-card-foreground">Os seus domínios</h3>
+          <h3 className="text-lg font-semibold text-card-foreground">{t("pages.settings.domainsTitle")}</h3>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Um domínio por campanha ou marca. Enquanto estiver <strong className="text-foreground font-medium">Pendente</strong>,
-            abra o cartão e cole Nome/Valor no site onde comprou o domínio. Quando ficar{" "}
-            <strong className="text-foreground font-medium">Pronto para anúncios</strong>, use esse link nos anúncios.
+            {t("pages.settings.domainsIntroA")} <strong className="text-foreground font-medium">{t("pages.settings.pendingWord")}</strong>,{" "}
+            {t("pages.settings.domainsIntroB")}{" "}
+            <strong className="text-foreground font-medium">{t("pages.settings.readyForAds")}</strong>, {t("pages.settings.domainsIntroC")}
           </p>
         </div>
       </div>
 
       <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground border border-border/50 rounded-lg p-4 bg-muted/20">
         <li>
-          Com estado <strong className="text-foreground font-medium">Pendente</strong>, copie Nome e Valor do cartão
-          para o painel do domínio (Hostinger, Cloudflare, etc.).
+          {t("pages.settings.stepPending")}
         </li>
-        <li>Guarde as alterações e aguarde alguns minutos.</li>
-        <li>Clique em «Verificar agora» no mesmo cartão.</li>
-        <li>Nas presells, escolha este domínio nos links públicos.</li>
+        <li>{t("pages.settings.stepSaveWait")}</li>
+        <li>{t("pages.settings.stepVerify")}</li>
+        <li>{t("pages.settings.stepPresells")}</li>
       </ol>
 
       {quota && !quota.can_add ? (
@@ -222,17 +224,17 @@ export function CustomDomainSettings() {
           role="status"
         >
           {quota.max_custom_domains === 0
-            ? "O seu plano não inclui domínio próprio."
-            : `Limite atingido (${quota.used}/${quota.max_custom_domains}). Remova um domínio abaixo para libertar um lugar.`}
+            ? t("pages.settings.planNoDomain")
+            : fill(t("pages.settings.quotaReached"), { used: quota.used, max: quota.max_custom_domains })}
         </div>
       ) : null}
 
       <div className="space-y-2">
-        <Label htmlFor="new-custom-hostname">Adicionar domínio</Label>
+        <Label htmlFor="new-custom-hostname">{t("pages.settings.addDomain")}</Label>
         <div className="flex flex-col sm:flex-row gap-2">
           <Input
             id="new-custom-hostname"
-            placeholder="www.seusite.com ou go.seusite.com"
+            placeholder={t("pages.settings.hostnamePlaceholder")}
             value={newHostname}
             onChange={(e) => setNewHostname(e.target.value)}
             disabled={createMutation.isPending || (quota != null && !quota.can_add)}
@@ -243,12 +245,12 @@ export function CustomDomainSettings() {
             onValueChange={(v) => setNewPurpose(v as "hosting" | "tracking" | "both")}
           >
             <SelectTrigger className="w-full sm:w-[11rem] shrink-0">
-              <SelectValue placeholder="Finalidade" />
+              <SelectValue placeholder={t("pages.settings.purpose")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="both">Lander + tracking</SelectItem>
-              <SelectItem value="hosting">Só lander</SelectItem>
-              <SelectItem value="tracking">Só tracking</SelectItem>
+              <SelectItem value="both">{t("pages.settings.purposeBoth")}</SelectItem>
+              <SelectItem value="hosting">{t("pages.settings.purposeHosting")}</SelectItem>
+              <SelectItem value="tracking">{t("pages.settings.purposeTracking")}</SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -258,26 +260,26 @@ export function CustomDomainSettings() {
             onClick={() => {
               const raw = newHostname.trim();
               if (!raw) {
-                toast.error("Indique o hostname.");
+                toast.error(t("pages.settings.hostnameRequired"));
                 return;
               }
               createMutation.mutate(raw);
             }}
           >
-            {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
+            {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.add")}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Sem https://. Use <strong className="text-foreground">Só tracking</strong> se quiser um domínio só para os links de rastreamento.
+          {t("pages.settings.purposeHintLead")} <strong className="text-foreground">{t("pages.settings.purposeTracking")}</strong> {t("pages.settings.purposeHintTail")}
         </p>
       </div>
 
       {isLoading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> A carregar…
+          <Loader2 className="h-4 w-4 animate-spin" /> {t("common.loading")}
         </div>
       ) : domains.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nenhum domínio ainda. Adicione um acima.</p>
+        <p className="text-sm text-muted-foreground">{t("pages.settings.emptyDomains")}</p>
       ) : (
         <div className="space-y-4">
           {domains.map((d) => {
@@ -299,18 +301,18 @@ export function CustomDomainSettings() {
                           : "bg-amber-500/15 text-amber-800 dark:text-amber-300"
                       }`}
                     >
-                      {normalizeDomainStatus(d.status) === "verified" ? "Confirmado" : "Pendente"}
+                      {normalizeDomainStatus(d.status) === "verified" ? t("pages.settings.confirmed") : t("pages.settings.pendingWord")}
                     </span>
                     {normalizeDomainStatus(d.status) === "verified" ? (
                       <CustomDomainSslBadge domain={d} tenantKey={tenantKey} />
                     ) : null}
                     {normalizeDomainStatus(d.status) === "verified" && d.is_default && (
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-500" /> Padrão lander
+                        <Star className="h-3 w-3 fill-amber-400 text-amber-500" /> {t("pages.settings.defaultLander")}
                       </span>
                     )}
                     {d.is_default_tracking && (d.purpose === "tracking" || d.purpose === "both" || !d.purpose) && (
-                      <span className="text-xs text-sky-700 dark:text-sky-400">Tracking padrão</span>
+                      <span className="text-xs text-sky-700 dark:text-sky-400">{t("pages.settings.defaultTracking")}</span>
                     )}
                     <Select
                       value={d.purpose ?? "both"}
@@ -325,9 +327,9 @@ export function CustomDomainSettings() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="both">Lander + track</SelectItem>
-                        <SelectItem value="hosting">Só lander</SelectItem>
-                        <SelectItem value="tracking">Só tracking</SelectItem>
+                        <SelectItem value="both">{t("pages.settings.purposeBothShort")}</SelectItem>
+                        <SelectItem value="hosting">{t("pages.settings.purposeHosting")}</SelectItem>
+                        <SelectItem value="tracking">{t("pages.settings.purposeTracking")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -343,7 +345,7 @@ export function CustomDomainSettings() {
                         disabled={defaultMutation.isPending}
                         onClick={() => defaultMutation.mutate(d.id)}
                       >
-                        Padrão lander
+                        {t("pages.settings.setDefaultLander")}
                       </Button>
                     )}
                     {normalizeDomainStatus(d.status) === "verified" &&
@@ -357,7 +359,7 @@ export function CustomDomainSettings() {
                         disabled={defaultTrackingMutation.isPending}
                         onClick={() => defaultTrackingMutation.mutate(d.id)}
                       >
-                        Padrão tracking
+                        {t("pages.settings.setDefaultTracking")}
                       </Button>
                     )}
                     {isPending && (
@@ -369,7 +371,7 @@ export function CustomDomainSettings() {
                         disabled={verifyMutation.isPending}
                         onClick={() => verifyMutation.mutate(d.id)}
                       >
-                        Verificar agora
+                        {t("pages.settings.verifyNow")}
                       </Button>
                     )}
                     <Button
@@ -379,7 +381,7 @@ export function CustomDomainSettings() {
                       className="text-destructive hover:text-destructive text-xs"
                       disabled={removeMutation.isPending}
                       onClick={() => {
-                        if (!confirm(`Remover ${d.hostname}?`)) return;
+                        if (!confirm(fill(t("pages.settings.removeConfirm"), { host: d.hostname }))) return;
                         removeMutation.mutate(d.id);
                       }}
                     >
@@ -394,8 +396,8 @@ export function CustomDomainSettings() {
                         <p className="text-muted-foreground leading-relaxed">{dns.note}</p>
                         <CustomDomainDnsTable
                           idPrefix={`${d.id}-pend-v`}
-                          title="Valores para colar no domínio"
-                          sourceNote="Cole estes valores no painel onde comprou o domínio."
+                          title={t("pages.settings.dnsPasteTitle")}
+                          sourceNote={t("pages.settings.dnsPasteNote")}
                           description={dns.cname.note}
                           rows={[
                             {
@@ -415,11 +417,8 @@ export function CustomDomainSettings() {
                         />
                         {dns.vercel_txt.length === 0 && (
                           <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-muted-foreground leading-relaxed">
-                            <p className="font-medium text-card-foreground mb-1">Basta a linha da tabela</p>
-                            <p>
-                              Guarde no painel do domínio, aguarde alguns minutos e clique em «Verificar agora».
-                              Se continuar pendente, actualize a página — pode aparecer um valor extra.
-                            </p>
+                            <p className="font-medium text-card-foreground mb-1">{t("pages.settings.dnsOneLineTitle")}</p>
+                            <p>{t("pages.settings.dnsOneLineBody")}</p>
                           </div>
                         )}
                       </>
@@ -427,12 +426,12 @@ export function CustomDomainSettings() {
                       <>
                         <p className="text-muted-foreground leading-relaxed">{dns.note}</p>
                         <ul className="list-disc pl-4 text-muted-foreground space-y-1 text-[11px] leading-relaxed">
-                          <li>No painel do domínio, adicione a linha abaixo (Nome e Valor).</li>
+                          <li>{t("pages.settings.dnsPanelHint")}</li>
                         </ul>
                         <CustomDomainDnsTable
                           idPrefix={`${d.id}-pend-d`}
-                          title="Valor para confirmar o domínio"
-                          sourceNote="Prova que o domínio é seu."
+                          title={t("pages.settings.dnsConfirmTitle")}
+                          sourceNote={t("pages.settings.dnsConfirmNote")}
                           rows={[
                             {
                               kind: "TXT",
@@ -450,8 +449,8 @@ export function CustomDomainSettings() {
                 {hostingHint && (
                   <CustomDomainDnsTable
                     idPrefix={`${d.id}-host`}
-                    title="Para o site abrir neste domínio"
-                    sourceNote="Se a página não abrir, cole também esta linha no painel do domínio."
+                    title={t("pages.settings.dnsHostingTitle")}
+                    sourceNote={t("pages.settings.dnsHostingNote")}
                     description={hostingHint.note}
                     rows={[
                       {
@@ -468,7 +467,7 @@ export function CustomDomainSettings() {
                   d.purpose !== "tracking" && (
                   <div className="space-y-2 pt-3 border-t border-border/40">
                     <Label className="text-xs font-medium text-card-foreground">
-                      Presell ao abrir <span className="font-mono text-[11px]">https://{d.hostname}/</span>
+                      {fill(t("pages.settings.rootPresell"), { url: `https://${d.hostname}/` })}
                     </Label>
                     <Select
                       value={d.root_presell_id ?? "__auto__"}
@@ -479,10 +478,10 @@ export function CustomDomainSettings() {
                       disabled={rootPresellMutation.isPending}
                     >
                       <SelectTrigger className="text-sm max-w-md">
-                        <SelectValue placeholder="Automático" />
+                        <SelectValue placeholder={t("pages.settings.rootAutoShort")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__auto__">Automático (última presell publicada atualizada)</SelectItem>
+                        <SelectItem value="__auto__">{t("pages.settings.rootAuto")}</SelectItem>
                         {presells
                           .filter((p) => p.custom_domain_id === d.id && p.status === "published")
                           .map((p) => (
@@ -493,8 +492,7 @@ export function CustomDomainSettings() {
                       </SelectContent>
                     </Select>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Com várias presells no mesmo domínio, escolhe qual aparece na raiz; sem escolha, usa-se a
-                      publicada alterada mais recentemente.
+                      {t("pages.settings.rootHint")}
                     </p>
                   </div>
                 )}

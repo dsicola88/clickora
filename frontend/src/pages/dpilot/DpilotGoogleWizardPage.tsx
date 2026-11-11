@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { parseDpilotLandingQuery, sanitizeLandingUrlForAdsFinal } from "@/lib/dpilotPresellHandoff";
 import { Check, CircleDashed, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,14 +38,14 @@ import {
   GOOGLE_WIZARD_OBJECTIVES,
 } from "./DpilotGoogleWizardCampaignSetup";
 
-const DPILOT_GOOGLE_CAMPAIGN_STEPS = [
-  { id: "dpilot-wiz-google-obj", label: "Objetivo e tipo" },
-  { id: "dpilot-wiz-google-offer", label: "Landing e oferta" },
-  { id: "dpilot-wiz-google-budget", label: "Orçamento e licitação" },
-  { id: "dpilot-wiz-google-geo", label: "Localização e idioma" },
-  { id: "dpilot-wiz-google-kw", label: "Palavras-chave" },
-  { id: "dpilot-wiz-google-signals", label: "Sinais do produto" },
-  { id: "dpilot-wiz-google-submit", label: "Gerar plano" },
+const DPILOT_GOOGLE_CAMPAIGN_STEP_IDS = [
+  "dpilot-wiz-google-obj",
+  "dpilot-wiz-google-offer",
+  "dpilot-wiz-google-budget",
+  "dpilot-wiz-google-geo",
+  "dpilot-wiz-google-kw",
+  "dpilot-wiz-google-signals",
+  "dpilot-wiz-google-submit",
 ] as const;
 
 const DEFAULT_LEADS_OBJECTIVE =
@@ -91,6 +93,7 @@ function Field({
 }
 
 export function DpilotGoogleWizardPage() {
+  const { t } = useAppLocale();
   const { projectId } = useDpilotPaid();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -423,17 +426,17 @@ export function DpilotGoogleWizardPage() {
       dailyBudgetUsd: Number(dailyBudget),
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Dados inválidos");
+      setError(parsed.error.issues[0]?.message ?? t("pages.dpilot.common.invalidData"));
       return;
     }
     const geoArr = geoTargets.map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 20);
     if (!geoArr.length) {
-      setError("Seleccione pelo menos uma localização (país).");
+      setError(t("pages.dpilot.common.selectCountry"));
       return;
     }
     const langArr = languageTargets.map((s) => s.trim().toLowerCase()).filter(Boolean).slice(0, 10);
     if (!langArr.length) {
-      setError("Selecione pelo menos um idioma dos anúncios.");
+      setError(t("pages.dpilot.google.wizard.selectLanguage"));
       return;
     }
     setSubmitting(true);
@@ -443,7 +446,7 @@ export function DpilotGoogleWizardPage() {
       if (optPauseUsd.trim() !== "") {
         const x = parseFloat(optPauseUsd.replace(",", "."));
         if (!Number.isFinite(x) || x <= 0) {
-          setError("Pausa automática USD: número positivo ou deixe vazio.");
+          setError(t("pages.dpilot.google.wizard.pauseUsd"));
           setSubmitting(false);
           return;
         }
@@ -452,7 +455,7 @@ export function DpilotGoogleWizardPage() {
       if (optPauseClicks.trim() !== "") {
         const x = parseInt(optPauseClicks.trim(), 10);
         if (!Number.isFinite(x) || x < 0 || x > 500) {
-          setError("Cliques mínimos: inteiro entre 0 e 500 ou vazio.");
+          setError(t("pages.dpilot.google.wizard.minClicks"));
           setSubmitting(false);
           return;
         }
@@ -462,7 +465,7 @@ export function DpilotGoogleWizardPage() {
       if (googleBiddingStrategy === "target_cpa") {
         const x = parseFloat(googleTargetCpaUsd.replace(",", "."));
         if (!Number.isFinite(x) || x <= 0) {
-          setError("CPA alvo: indique um valor USD positivo.");
+          setError(t("pages.dpilot.google.wizard.cpaInvalid"));
           setSubmitting(false);
           return;
         }
@@ -470,7 +473,7 @@ export function DpilotGoogleWizardPage() {
       if (googleBiddingStrategy === "target_roas") {
         const x = parseFloat(googleTargetRoas.replace(",", "."));
         if (!Number.isFinite(x) || x <= 0) {
-          setError("ROAS alvo: indique um número positivo (ex.: 3.5).");
+          setError(t("pages.dpilot.google.wizard.roasInvalid"));
           setSubmitting(false);
           return;
         }
@@ -528,35 +531,38 @@ export function DpilotGoogleWizardPage() {
 
       const { data, error: apiErr } = await paidAdsService.postGoogleCampaignPlan(projectId, body);
       if (apiErr || !data?.ok) {
-        const msg = apiErr || "Falha ao gerar plano";
+        const msg = apiErr || t("pages.dpilot.common.planFailed");
         setError(msg);
-        toast.error("Falha ao gerar plano", { description: msg });
+        toast.error(t("pages.dpilot.common.planFailed"), { description: msg });
         return;
       }
       const planGenNote =
         data.planSource === "manual"
-          ? " Plano Pesquisa manual (sem IA; estrutura editada no assistente)."
+          ? t("pages.dpilot.common.planNoteManual")
           : data.planSource === "deterministic"
-            ? " Modo de reserva: sem chamada ao modelo (regras fixas)."
-            : " Texto gerado com chamada ao modelo de IA.";
+            ? t("pages.dpilot.common.planNoteReserve")
+            : t("pages.dpilot.common.planNoteAi");
       if (data.autoApplied) {
-        toast.success("Plano aplicado pelo Autopilot", {
-          description: `Dentro dos guardrails — publicação no Google tentada.${planGenNote}`,
+        toast.success(t("pages.dpilot.google.wizard.autopilot"), {
+          description: fill(t("pages.dpilot.google.wizard.autopilotDesc"), { note: planGenNote }),
         });
       } else if (data.reasons && data.reasons.length > 0) {
-        toast.warning("Plano enviado para aprovação", {
-          description: `${data.reasons[0]?.message ?? "Ver guardrails e fila de aprovações."}${planGenNote}`,
+        toast.warning(t("pages.dpilot.google.wizard.needsApproval"), {
+          description: fill(t("pages.dpilot.common.reasonWithNote"), {
+            reason: data.reasons[0]?.message ?? t("pages.dpilot.google.wizard.needsApprovalFallback"),
+            note: planGenNote,
+          }),
         });
       } else {
-        toast.success("Plano gerado", {
-          description: `Rascunho e pedido criados. Consulte «Aprovações» para rever o pedido.${planGenNote}`,
+        toast.success(t("pages.dpilot.google.wizard.generated"), {
+          description: fill(t("pages.dpilot.google.wizard.generatedDesc"), { note: planGenNote }),
         });
       }
       navigate(`${base}/aprovacoes`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro inesperado";
+      const msg = err instanceof Error ? err.message : t("pages.dpilot.common.unexpectedError");
       setError(msg);
-      toast.error("Falha ao gerar plano", { description: msg });
+      toast.error(t("pages.dpilot.common.planFailed"), { description: msg });
     } finally {
       setSubmitting(false);
     }
@@ -581,8 +587,16 @@ export function DpilotGoogleWizardPage() {
     <Gate>
       <DpilotAdsCampaignWizardShell
         platform="google"
-        platformBadge="Google Ads · Pesquisa"
-        steps={[...DPILOT_GOOGLE_CAMPAIGN_STEPS]}
+        platformBadge={t("pages.dpilot.google.wizard.badge")}
+        steps={[
+          { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[0], label: t("pages.dpilot.google.wizard.navObjective") },
+          { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[1], label: t("pages.dpilot.google.wizard.navLanding") },
+          { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[2], label: t("pages.dpilot.google.wizard.navBudget") },
+          { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[3], label: t("pages.dpilot.google.wizard.navGeo") },
+          { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[4], label: t("pages.dpilot.google.wizard.navKeywords") },
+          { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[5], label: t("pages.dpilot.google.wizard.navSignals") },
+          { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[6], label: t("pages.dpilot.google.wizard.navGenerate") },
+        ]}
         subtitle={
           <>
             Assistente alinhado com o fluxo de <strong className="font-medium text-foreground">Pesquisa</strong> no Google Ads:
@@ -607,7 +621,7 @@ export function DpilotGoogleWizardPage() {
           </span>
         }
         backHref={`${base}/campanhas`}
-        backLabel="Voltar às campanhas"
+        backLabel={t("pages.dpilot.google.wizard.back")}
         readiness={<DpilotCampaignReadinessCard platform="google" />}
       >
         <DpilotAdsWizardFormPreviewSplit
@@ -631,8 +645,8 @@ export function DpilotGoogleWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-google-obj"
             platform="google"
-            stepLabel="Passo 1 de 7"
-            title="Objetivo e tipo de campanha"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 1, total: 7 })}
+            title={t("pages.dpilot.google.wizard.stepObjective")}
             description="Defina o raciocínio comercial e o posicionamento antes de destino, modo de construção e orçamento."
           >
             <DpilotGoogleWizardObjectiveStep objective={objective} onObjectiveChange={setObjective} />
@@ -643,8 +657,8 @@ export function DpilotGoogleWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-google-offer"
             platform="google"
-            stepLabel="Passo 2 de 7"
-            title="Landing e proposta de valor"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 2, total: 7 })}
+            title={t("pages.dpilot.google.wizard.stepLanding")}
             description="URL obrigatória; a extracção pode pré‑preencher a oferta — confirme factos antes de publicar. Neste passo escolhe também se a estrutura de Pesquisa é sugerida pela IA ou definida manualmente (cartão imediatamente abaixo)."
           >
             <Field
@@ -767,8 +781,8 @@ export function DpilotGoogleWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-google-budget"
             platform="google"
-            stepLabel="Passo 3 de 7"
-            title="Orçamento e licitação"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 3, total: 7 })}
+            title={t("pages.dpilot.google.wizard.stepBudget")}
             description="Combina gasto diário com estratégia de conversões ou cliques; estimativas são indicativas para o briefing."
           >
             <div className="grid gap-4 sm:grid-cols-2">
@@ -891,8 +905,8 @@ export function DpilotGoogleWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-google-geo"
             platform="google"
-            stepLabel="Passo 4 de 7"
-            title="Segmentação geo e idioma"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 4, total: 7 })}
+            title={t("pages.dpilot.google.wizard.stepGeo")}
             description="Áreas e idiomas alinhados à proposta — condicionam texto e dados de pesquisa no motor."
           >
             <div className="grid gap-4 sm:grid-cols-2">
@@ -922,8 +936,8 @@ export function DpilotGoogleWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-google-kw"
             platform="google"
-            stepLabel="Passo 5 de 7"
-            title="Palavras‑chave e protecção da campanha"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 5, total: 7 })}
+            title={t("pages.dpilot.google.wizard.stepKeywords")}
             description="Volumes, intenção e palavra-semente para o grupo; opcionalmente regras de pausa antes de despesa sem conversão."
           >
             {googleSearchPlanMode === "assistant" ? (
@@ -1000,8 +1014,8 @@ export function DpilotGoogleWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-google-signals"
             platform="google"
-            stepLabel="Passo 6 de 7"
-            title="Sinais opcionais do produto"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 6, total: 7 })}
+            title={t("pages.dpilot.google.wizard.stepSignals")}
             description="Só valores que pode sustentar; campos em branco não são inferidos pela IA."
           >
             <details
@@ -1107,8 +1121,8 @@ export function DpilotGoogleWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-google-submit"
             platform="google"
-            stepLabel="Passo 7 de 7"
-            title="Concluir e gerar plano"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 7, total: 7 })}
+            title={t("pages.dpilot.google.wizard.stepFinish")}
             description="Cria pedido técnico e rascunho; em Copilot, confirme em «Aprovações» antes de «Aplicar na rede»."
           >
             {error ? (
@@ -1120,7 +1134,7 @@ export function DpilotGoogleWizardPage() {
             <div className="flex flex-col gap-3 border-t border-border/80 pt-5 sm:flex-row sm:items-center sm:justify-end">
               <Button type="submit" size="lg" disabled={submitting} className="min-w-[200px] font-semibold">
                 <Sparkles className="mr-2 h-4 w-4" />
-                {submitting ? "A gerar plano…" : "Gerar plano"}
+                {submitting ? t("pages.dpilot.common.generatingPlan") : t("pages.dpilot.common.generatePlan")}
               </Button>
             </div>
           </DpilotWizardFormSection>

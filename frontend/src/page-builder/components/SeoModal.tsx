@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useBuilder } from "../store";
 import type { PageSeo } from "../types";
 import { Search, X, Globe2, FileImage } from "lucide-react";
@@ -9,6 +11,7 @@ const inputCls =
   "w-full rounded bg-editor-panel-2 border border-editor-border px-2 py-1.5 text-xs text-editor-fg placeholder:text-editor-fg-muted focus:outline-none focus:ring-1 focus:ring-editor-accent";
 
 export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useAppLocale();
   const doc = useBuilder((s) => s.doc);
   const updateSeo = useBuilder((s) => s.updateSeo);
   const updateName = useBuilder((s) => s.updateName);
@@ -34,11 +37,12 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
     onClose();
   };
 
-  const previewTitle = seo.title || name || "Título da página";
-  const previewDesc =
-    seo.description || "Adicione uma descrição para melhorar SEO e compartilhamento.";
+  const previewTitle = seo.title || name || t("pages.pageBuilder.seo.previewTitle");
+  const previewDesc = seo.description || t("pages.pageBuilder.seo.previewDesc");
   const previewUrl =
-    typeof window !== "undefined" ? `${window.location.origin}/p/sua-pagina` : "/p/sua-pagina";
+    typeof window !== "undefined"
+      ? `${window.location.origin}${t("pages.pageBuilder.seo.previewPath")}`
+      : t("pages.pageBuilder.seo.previewPath");
 
   return (
     <div
@@ -52,7 +56,7 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
         <header className="flex items-center justify-between border-b border-editor-border p-4">
           <div className="flex items-center gap-2">
             <Search className="h-5 w-5 text-editor-accent" />
-            <h2 className="text-base font-semibold">Configurações de SEO</h2>
+            <h2 className="text-base font-semibold">{t("pages.pageBuilder.seo.title")}</h2>
           </div>
           <button
             type="button"
@@ -66,35 +70,38 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
         <div className="editor-scrollbar grid flex-1 gap-5 overflow-y-auto p-5 md:grid-cols-2">
           <div className="space-y-4">
             <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-editor-fg-muted">
-              <Globe2 className="h-3.5 w-3.5" /> Geral
+              <Globe2 className="h-3.5 w-3.5" /> {t("pages.pageBuilder.seo.general")}
             </h3>
 
             <div>
-              <label className={labelCls}>Nome interno da página</label>
+              <label className={labelCls}>{t("pages.pageBuilder.seo.internalName")}</label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className={inputCls}
-                placeholder="Minha página"
+                placeholder={t("pages.pageBuilder.seo.internalPlaceholder")}
               />
             </div>
 
             <div>
               <label className={labelCls}>
-                Title (60 caracteres) — {(seo.title ?? "").length}
+                {fill(t("pages.pageBuilder.seo.titleLabel"), { max: 60, n: (seo.title ?? "").length })}
               </label>
               <input
                 value={seo.title ?? ""}
                 maxLength={70}
                 onChange={(e) => set("title", e.target.value)}
                 className={inputCls}
-                placeholder="Ex: Curso de Marketing — Resultados em 30 dias"
+                placeholder={t("pages.pageBuilder.seo.titlePlaceholder")}
               />
             </div>
 
             <div>
               <label className={labelCls}>
-                Meta description (160 caracteres) — {(seo.description ?? "").length}
+                {fill(t("pages.pageBuilder.seo.descriptionLabel"), {
+                  max: 160,
+                  n: (seo.description ?? "").length,
+                })}
               </label>
               <textarea
                 value={seo.description ?? ""}
@@ -102,38 +109,38 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
                 rows={3}
                 onChange={(e) => set("description", e.target.value)}
                 className={inputCls}
-                placeholder="Resumo curto e atrativo da página."
+                placeholder={t("pages.pageBuilder.seo.descriptionPlaceholder")}
               />
             </div>
 
             <div>
-              <label className={labelCls}>Palavras-chave (separadas por vírgula)</label>
+              <label className={labelCls}>{t("pages.pageBuilder.seo.keywords")}</label>
               <input
                 value={seo.keywords ?? ""}
                 onChange={(e) => set("keywords", e.target.value)}
                 className={inputCls}
-                placeholder="marketing, curso, vendas"
+                placeholder={t("pages.pageBuilder.seo.keywordsPlaceholder")}
               />
             </div>
 
             <h3 className="flex items-center gap-1.5 pt-2 text-xs font-semibold uppercase tracking-wider text-editor-fg-muted">
-              <FileImage className="h-3.5 w-3.5" /> Imagens
+              <FileImage className="h-3.5 w-3.5" /> {t("pages.pageBuilder.seo.images")}
             </h3>
 
             <div>
               <BuilderImageUrlField
-                label="Imagem de partilha (og:image)"
+                label={t("pages.pageBuilder.seo.ogImage")}
                 value={seo.ogImage ?? ""}
                 onChange={(v) => set("ogImage", v)}
-                placeholder="https://… ou Carregar do PC (recomendado 1200×630)"
+                placeholder={t("pages.pageBuilder.seo.ogPlaceholder")}
               />
               <p className="mt-1 text-[10px] text-editor-fg-muted">
-                Tamanho recomendado: 1200×630px. O upload grava na API (sessão iniciada).
+                {t("pages.pageBuilder.seo.ogHint")}
               </p>
             </div>
 
             <div>
-              <label className={labelCls}>Favicon (URL)</label>
+              <label className={labelCls}>{t("pages.pageBuilder.seo.favicon")}</label>
               <input
                 value={seo.favicon ?? ""}
                 onChange={(e) => set("favicon", e.target.value)}
@@ -143,12 +150,12 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
             </div>
 
             <div>
-              <label className={labelCls}>URL canônica (opcional)</label>
+              <label className={labelCls}>{t("pages.pageBuilder.seo.canonical")}</label>
               <input
                 value={seo.canonicalUrl ?? ""}
                 onChange={(e) => set("canonicalUrl", e.target.value)}
                 className={inputCls}
-                placeholder="https://seudominio.com/pagina"
+                placeholder={t("pages.pageBuilder.seo.canonicalPlaceholder")}
               />
             </div>
 
@@ -165,9 +172,9 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
                   className="mt-0.5 h-3.5 w-3.5 accent-editor-accent"
                 />
                 <span>
-                  Permitir indexação nos buscadores (Google, Bing, Edge)
+                  {t("pages.pageBuilder.seo.allowIndex")}
                   <span className="mt-0.5 block text-[11px] text-editor-fg-muted">
-                    Desligado por defeito — landers de ads e domínios de assinantes não devem aparecer na pesquisa.
+                    {t("pages.pageBuilder.seo.allowIndexHint")}
                   </span>
                 </span>
               </label>
@@ -176,7 +183,7 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
 
           <div className="space-y-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-editor-fg-muted">
-              Pré-visualização
+              {t("pages.pageBuilder.seo.preview")}
             </h3>
 
             {/* Google preview */}
@@ -202,7 +209,7 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
                 />
               ) : (
                 <div className="flex h-40 w-full items-center justify-center bg-gray-100 text-xs text-gray-400">
-                  Sem imagem (og:image)
+                  {t("pages.pageBuilder.seo.noImage")}
                 </div>
               )}
               <div className="space-y-1 p-3">
@@ -217,8 +224,9 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
             </div>
 
             <p className="text-[11px] text-editor-fg-muted">
-              Estas meta tags são aplicadas automaticamente na rota pública{" "}
-              <code className="rounded bg-editor-bg px-1">/p/seu-slug</code> e no HTML exportado.
+              {t("pages.pageBuilder.seo.metaBefore")}{" "}
+              <code className="rounded bg-editor-bg px-1">{t("pages.pageBuilder.seo.previewPath")}</code>{" "}
+              {t("pages.pageBuilder.seo.metaAfter")}
             </p>
           </div>
         </div>
@@ -229,14 +237,14 @@ export function SeoModal({ open, onClose }: { open: boolean; onClose: () => void
             onClick={onClose}
             className="rounded border border-editor-border bg-editor-panel-2 px-4 py-2 text-xs font-medium text-editor-fg hover:bg-editor-border"
           >
-            Cancelar
+            {t("common.cancel")}
           </button>
           <button
             type="button"
             onClick={handleSave}
             className="rounded bg-editor-accent px-4 py-2 text-xs font-medium text-editor-accent-fg hover:opacity-90"
           >
-            Salvar SEO
+            {t("pages.pageBuilder.seo.save")}
           </button>
         </footer>
       </div>

@@ -1,4 +1,5 @@
 import { nanoid } from "nanoid";
+import { readStoredAppLocale, translate } from "@/i18n";
 import type { PageDocument } from "./types";
 
 const INDEX_KEY = "clickora:page-builder:library-index:v2";
@@ -61,12 +62,17 @@ export function createLibraryEntry(name: string, doc: PageDocument): string {
   try {
     window.localStorage.setItem(DOC_PREFIX + id, JSON.stringify(copy));
   } catch {
-    throw new Error("Armazenamento cheio ou indisponível. Liberte entradas antigas na biblioteca.");
+    throw new Error(
+      translate(readStoredAppLocale(), "pages.pageBuilder.defaults.libraryStorageFull"),
+    );
   }
   const idx = readIndex();
   const meta: LibraryEntryMeta = {
     id,
-    name: name.trim() || copy.name || "Página sem título",
+    name:
+      name.trim() ||
+      copy.name ||
+      translate(readStoredAppLocale(), "pages.pageBuilder.defaults.emptyPageName"),
     updatedAt: copy.updatedAt,
   };
   writeIndex([meta, ...idx.entries.filter((e) => e.id !== id)]);

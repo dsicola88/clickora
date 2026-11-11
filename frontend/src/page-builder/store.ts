@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { readStoredAppLocale, translate } from "@/i18n";
 import type {
   ColumnNode,
   DeviceType,
@@ -155,13 +156,19 @@ function loadInitial(): PageDocument {
     /* ignore */
   }
   // Seed with a friendly starter section so the canvas isn't blank.
-  const doc = createEmptyPage("Minha primeira página");
+  const locale = readStoredAppLocale();
+  const doc = createEmptyPage(translate(locale, "pages.pageBuilder.defaults.seedPageName"));
   const section = createSection(1);
   const heading = createWidget("heading");
-  (heading.content as Record<string, unknown>).text = "Bem-vindo ao seu novo Page Builder";
+  (heading.content as Record<string, unknown>).text = translate(
+    locale,
+    "pages.pageBuilder.defaults.seedWelcome",
+  );
   const text = createWidget("text");
-  (text.content as Record<string, unknown>).html =
-    "<p>Arraste widgets do painel à esquerda para começar a construir. Clique em qualquer elemento para editá-lo no painel à direita.</p>";
+  (text.content as Record<string, unknown>).html = translate(
+    locale,
+    "pages.pageBuilder.defaults.seedIntroHtml",
+  );
   const button = createWidget("button");
   section.columns[0].widgets = [heading, text, button];
   doc.sections = [section];
@@ -183,7 +190,7 @@ export const useBuilder = create<BuilderState>((set, get) => {
   const initialDoc = loadInitial();
 
   /** Wrap a mutation with history snapshot + persistence. */
-  const mutate = (fn: (doc: PageDocument) => void, label = "Edição") => {
+  const mutate = (fn: (doc: PageDocument) => void, label = "history.edit") => {
     const prev = get().doc;
     const next = clone(prev);
     fn(next);
@@ -524,7 +531,7 @@ export const useBuilder = create<BuilderState>((set, get) => {
         if (!c) return;
         if (atIndex == null) c.widgets.push(w);
         else c.widgets.splice(atIndex, 0, w);
-      }, "Inserir elemento");
+      }, "history.insert");
       return w.id;
     },
     insertWidgetNode: (sectionId, columnId, widget, atIndex, containerId) =>
@@ -533,14 +540,14 @@ export const useBuilder = create<BuilderState>((set, get) => {
         if (!list) return;
         if (atIndex == null) list.push(widget);
         else list.splice(Math.max(0, Math.min(atIndex, list.length)), 0, widget);
-      }, "Inserir elemento"),
+      }, "history.insert"),
     removeWidget: (sectionId, columnId, widgetId) =>
       mutate((doc) => {
         const column = findColumn(doc, sectionId, columnId);
         const located = column ? locateWidget(column.widgets, widgetId) : null;
         if (!located) return;
         located.list.splice(located.index, 1);
-      }, "Eliminar elemento"),
+      }, "history.delete"),
     duplicateWidget: (sectionId, columnId, widgetId) =>
       mutate((doc) => {
         const column = findColumn(doc, sectionId, columnId);
@@ -548,7 +555,7 @@ export const useBuilder = create<BuilderState>((set, get) => {
         if (!located) return;
         const copy = reIdWidget(clone(located.list[located.index]), id);
         located.list.splice(located.index + 1, 0, copy);
-      }, "Duplicar elemento"),
+      }, "history.duplicate"),
     moveWidget: (from, to) =>
       mutate((doc) => {
         const fromCol = findColumn(doc, from.sectionId, from.columnId);
@@ -563,7 +570,7 @@ export const useBuilder = create<BuilderState>((set, get) => {
         let index = to.index;
         if (located.list === dest && located.index < index) index -= 1;
         dest.splice(Math.max(0, Math.min(index, dest.length)), 0, widget);
-      }, "Mover elemento"),
+      }, "history.move"),
     updateWidget: (sectionId, columnId, widgetId, patch) =>
       mutate((doc) => {
         const column = findColumn(doc, sectionId, columnId);
@@ -614,7 +621,7 @@ export const useBuilder = create<BuilderState>((set, get) => {
       const { history, historyLabels, doc, future, futureLabels, linkedLibraryId } = get();
       if (history.length === 0) return;
       const prev = history[history.length - 1];
-      const label = historyLabels[historyLabels.length - 1] ?? "Edição";
+      const label = historyLabels[historyLabels.length - 1] ?? "history.edit";
       persist(prev);
       if (linkedLibraryId) {
         syncLibraryDocument(linkedLibraryId, prev, true);
@@ -640,7 +647,7 @@ export const useBuilder = create<BuilderState>((set, get) => {
       set({
         doc: next,
         history: [...history, doc].slice(-HISTORY_LIMIT),
-        historyLabels: [...historyLabels, label ?? "Edição"].slice(-HISTORY_LIMIT),
+        historyLabels: [...historyLabels, label ?? "history.edit"].slice(-HISTORY_LIMIT),
         future: rest,
         futureLabels: restLabels,
         lastPersistedAt: Date.now(),
@@ -655,7 +662,7 @@ export const useBuilder = create<BuilderState>((set, get) => {
       let doc = state.doc;
       const target = Math.max(0, Math.min(keep, history.length));
       while (history.length > target) {
-        const label = historyLabels[historyLabels.length - 1] ?? "Edição";
+        const label = historyLabels[historyLabels.length - 1] ?? "history.edit";
         future = [doc, ...future].slice(0, HISTORY_LIMIT);
         futureLabels = [label, ...futureLabels].slice(0, HISTORY_LIMIT);
         doc = history[history.length - 1];
@@ -676,7 +683,7 @@ export const useBuilder = create<BuilderState>((set, get) => {
       const count = Math.max(0, Math.min(steps, future.length));
       for (let i = 0; i < count; i += 1) {
         const next = future[0];
-        const label = futureLabels[0] ?? "Edição";
+        const label = futureLabels[0] ?? "history.edit";
         future = future.slice(1);
         futureLabels = futureLabels.slice(1);
         history = [...history, doc].slice(-HISTORY_LIMIT);

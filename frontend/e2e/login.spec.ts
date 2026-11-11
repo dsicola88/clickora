@@ -7,9 +7,10 @@ import { test, expect } from "@playwright/test";
 test.describe("login e-mail/senha", () => {
   test("utilizador seed entra e sai de /auth", async ({ page }) => {
     await page.goto("/auth");
-    await page.getByLabel("E-mail").fill("danielclickora@gmail.com");
-    await page.getByLabel("Senha").fill("Dpa211088@");
-    await page.getByRole("button", { name: "Entrar", exact: true }).click();
+    // i18n (en default no Chromium de teste): ids #email/#password são estáveis.
+    await page.locator("#email").fill("danielclickora@gmail.com");
+    await page.locator("#password").fill("Dpa211088@");
+    await page.getByRole("button", { name: /^(Entrar|Continue|Sign in)$/i }).click();
     await page.waitForURL((url) => !url.pathname.includes("/auth"), { timeout: 20_000 });
     expect(page.url()).not.toContain("/auth");
   });

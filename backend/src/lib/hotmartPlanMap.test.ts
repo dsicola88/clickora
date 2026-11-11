@@ -28,10 +28,26 @@ describe("hotmartPlanMap", () => {
     assert.equal(r.source, "map");
   });
 
-  it("resolvePlanType miss → fallback", () => {
+  it("resolvePlanType miss com mapa → recusar activação (mapMissWithConfiguredMap)", () => {
     const r = resolvePlanType("x", "y");
     assert.equal(r.planType, "monthly");
     assert.equal(r.matched, false);
+    assert.equal(r.mapMissWithConfiguredMap, true);
+  });
+
+  it("resolvePlanType miss sem mapa → fallback compat", () => {
+    delete process.env.HOTMART_PLAN_MAP;
+    const r = resolvePlanType("x", "y");
+    assert.equal(r.planType, "monthly");
+    assert.equal(r.matched, false);
+    assert.equal(r.mapMissWithConfiguredMap, false);
+  });
+
+  it("ignora quarterly no mapa (plano removido)", () => {
+    process.env.HOTMART_PLAN_MAP = JSON.stringify({ bad: "quarterly", ok: "annual" });
+    const i = inspectHotmartPlanMapConfig();
+    assert.equal(i.map_entry_count, 1);
+    assert.deepEqual(i.map_keys, ["ok"]);
   });
 
   it("inspect mostra chaves sem secrets", () => {

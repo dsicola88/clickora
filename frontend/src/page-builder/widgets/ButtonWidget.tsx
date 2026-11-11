@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { useAppLocale } from "@/i18n";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
@@ -50,8 +51,9 @@ function buildEntranceKeyframes(kind: string): { name: string; css: string } | n
 }
 
 export function ButtonWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
+  const { t } = useAppLocale();
   const c = widget.content as Record<string, unknown>;
-  const text = (c.text as string) ?? "Botão";
+  const text = (c.text as string) ?? t("pages.pageBuilder.defaults.buttonFallback");
   const align = resolveResponsive(widget.styles.align, device);
   const css = stylesToCssWidgetContent(widget.styles, device);
   const sid = sanitizeClassId(widget.id);

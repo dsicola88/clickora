@@ -10,6 +10,7 @@ import {
   claimHotmartEvent,
   hotmartEventReceiptKey,
 } from "../lib/hotmartWebhookIdempotency";
+import { pickString } from "../lib/stringPrimitives";
 
 export { resolvePlanType } from "../lib/hotmartPlanMap";
 
@@ -26,15 +27,6 @@ type HotmartEventData = {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-}
-
-function pickString(...values: unknown[]): string | null {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-  return null;
 }
 
 /** Token enviado pela Hotmart (headers oficiais ou `Authorization: Bearer …`). */
@@ -288,6 +280,24 @@ export const webhookController = {
 
     const planResolution = resolvePlanType(payload.productCode, payload.offerCode);
     const planType = planResolution.planType;
+
+    /** Mapa presente mas oferta desconhecida: não sub-entregar (ex. anual→mensal). */
+    if (status === "active" && planResolution.mapMissWithConfiguredMap) {
+      console.error(
+        `[hotmart-webhook] CRITICAL plan_map_miss email=${payload.email} key=${planResolution.lookupKey ?? "-"} — entitlement NÃO activado`,
+      );
+      return res.status(200).json({
+        ok: true,
+        ignored: true,
+        reason: "plan_map_miss",
+        plan_type: planType,
+        plan_map_matched: false,
+        plan_map_source: planResolution.source,
+        ...(planResolution.lookupKey ? { plan_map_key: planResolution.lookupKey } : {}),
+        alert: "add_offer_to_hotmart_plan_map",
+      });
+    }
+
     const plan = await systemPrisma.plan.findFirst({ where: { type: planType } });
     if (!plan) {
       console.error(

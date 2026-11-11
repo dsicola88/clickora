@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +35,7 @@ type Props = {
 };
 
 function gateLabel(
+  t: ReturnType<typeof useAppLocale>["t"],
   gate: string | null | undefined,
   opts?: { warningCount?: number; notCheckedCount?: number },
 ): string {
@@ -40,19 +43,17 @@ function gateLabel(
     case "ready_for_review": {
       const w = opts?.warningCount ?? 0;
       const n = opts?.notCheckedCount ?? 0;
-      if (w > 0 || n > 0) {
-        return "Verificações internas concluídas — com avisos ou itens não verificados (não é aprovação Google/Microsoft)";
-      }
-      return "Verificações internas concluídas (não é aprovação Google/Microsoft)";
+      if (w > 0 || n > 0) return t("pages.presells.compliance.gateReadyWarnings");
+      return t("pages.presells.compliance.gateReady");
     }
     case "needs_review":
-      return "Revisão humana necessária";
+      return t("pages.presells.compliance.gateNeedsReview");
     case "blocked":
-      return "Foram detetados problemas que impedem a publicação";
+      return t("pages.presells.compliance.gateBlocked");
     case "checking":
-      return "Auditoria em curso";
+      return t("pages.presells.compliance.gateChecking");
     default:
-      return "Ainda não auditada";
+      return t("pages.presells.compliance.gateUnchecked");
   }
 }
 
@@ -70,6 +71,7 @@ function RuleRow({
   r: PresellComplianceResultDto;
   onDispute?: (ruleId: string) => void;
 }) {
+  const { t } = useAppLocale();
   return (
     <li className="rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm">
       <div className="flex items-start gap-2">
@@ -84,18 +86,21 @@ function RuleRow({
           <p className="text-xs text-muted-foreground">{r.evidence?.summary}</p>
           {r.status !== "PASS" ? (
             <p className="text-xs text-foreground/90">
-              <span className="font-medium">Correção: </span>
+              <span className="font-medium">{t("pages.presells.compliance.fixLabel")} </span>
               {r.remediation}
             </p>
           ) : null}
           {r.sourceIds?.length ? (
             <p className="text-[10px] text-muted-foreground">
-              Fontes: {r.sourceIds.join(", ")} · revisto {r.sourceReviewedAt}
+              {fill(t("pages.presells.compliance.sources"), {
+                sources: r.sourceIds.join(", "),
+                date: r.sourceReviewedAt,
+              })}
             </p>
           ) : null}
           {r.status === "FAIL" && onDispute ? (
             <Button type="button" variant="outline" size="sm" className="mt-1 h-7 text-xs" onClick={() => onDispute(r.ruleId)}>
-              Contestar falso positivo
+              {t("pages.presells.compliance.disputeFalsePositive")}
             </Button>
           ) : null}
         </div>
@@ -112,6 +117,7 @@ export function PresellAdsCompliancePanel({
   onAffiliateDisclosureChange,
   lockIdentityFromSource = false,
 }: Props) {
+  const { t } = useAppLocale();
   const { user } = useAuth();
   const qc = useQueryClient();
   const [disputeRuleId, setDisputeRuleId] = useState<string | null>(null);
@@ -130,7 +136,7 @@ export function PresellAdsCompliancePanel({
     enabled: Boolean(presellId),
     queryFn: async () => {
       const { data: body, error: err } = await presellService.getCompliance(presellId!);
-      if (err || !body) throw new Error(err || "Falha ao carregar conformidade");
+      if (err || !body) throw new Error(err || t("pages.presells.compliance.loadFail"));
       return body;
     },
   });
@@ -140,7 +146,7 @@ export function PresellAdsCompliancePanel({
     enabled: Boolean(presellId),
     queryFn: async () => {
       const { data: body, error: err } = await presellService.getAiQuota();
-      if (err || !body) throw new Error(err || "Falha ao carregar quota IA");
+      if (err || !body) throw new Error(err || t("pages.presells.compliance.quotaFail"));
       return body;
     },
     staleTime: 30_000,
@@ -149,11 +155,11 @@ export function PresellAdsCompliancePanel({
   const auditMutation = useMutation({
     mutationFn: async () => {
       const { data: body, error: err } = await presellService.runComplianceAudit(presellId!);
-      if (err || !body) throw new Error(err || "Falha na auditoria");
+      if (err || !body) throw new Error(err || t("pages.presells.compliance.auditFail"));
       return body;
     },
     onSuccess: () => {
-      toast.success("Auditoria concluída (verificações internas).");
+      toast.success(t("pages.presells.compliance.auditDone"));
       void qc.invalidateQueries({ queryKey: [...queryKey] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -164,14 +170,14 @@ export function PresellAdsCompliancePanel({
       const { data: body, error: err } = await presellService.generateReviewCopy(presellId!, {
         force,
       });
-      if (err || !body) throw new Error(err || "Falha ao gerar review");
+      if (err || !body) throw new Error(err || t("pages.presells.compliance.reviewFail"));
       return body;
     },
     onSuccess: (body) => {
       toast.success(
         body.copy.source === "llm"
-          ? "Review IA gravada. Reaudite antes de publicar."
-          : "Review determinística gravada (sem OpenAI ou fallback). Reaudite.",
+          ? t("pages.presells.compliance.reviewLlm")
+          : t("pages.presells.compliance.reviewDeterministic"),
       );
       void qc.invalidateQueries({ queryKey: [...queryKey] });
       void qc.invalidateQueries({ queryKey: [...quotaKey] });
@@ -179,7 +185,7 @@ export function PresellAdsCompliancePanel({
     },
     onError: (e: Error) => {
       if (/texto longo|force=true|CONTENT_EXISTS/i.test(e.message)) {
-        if (window.confirm("Já existe texto longo nesta página. Regenerar e substituir?")) {
+        if (window.confirm(t("pages.presells.compliance.replaceLongCopy"))) {
           generateMutation.mutate(true);
         }
         return;
@@ -194,12 +200,12 @@ export function PresellAdsCompliancePanel({
         presellId!,
         disapprovalText.trim(),
       );
-      if (err || !body) throw new Error(err || "Falha ao analisar reprovação");
+      if (err || !body) throw new Error(err || t("pages.presells.compliance.disapprovalFail"));
       return body;
     },
     onSuccess: (body) => {
       setDisapprovalHints(body.hints || []);
-      toast.success("Plano de correção gerado (orientativo).");
+      toast.success(t("pages.presells.compliance.fixPlanReady"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -209,7 +215,7 @@ export function PresellAdsCompliancePanel({
       const { data: body, error: err } = await presellService.spawnVariantPack(presellId!, {
         create_rotator: true,
       });
-      if (err || !body) throw new Error(err || "Falha ao criar pacote");
+      if (err || !body) throw new Error(err || t("pages.presells.compliance.packFail"));
 
       const packPages = [body.pages.landing, body.pages.review, body.pages.advertorial];
       for (const p of packPages) {
@@ -229,7 +235,7 @@ export function PresellAdsCompliancePanel({
       const byId = new Map(loaded.filter(Boolean).map((p) => [p!.id, p!] as const));
       const basePage = byId.get(presellId!) || loaded[0];
       if (!basePage) {
-        return { ...body, rotator_url: null as string | null, rotator_error: "Página base em falta" };
+        return { ...body, rotator_url: null as string | null, rotator_error: t("pages.presells.compliance.basePageMissing") };
       }
 
       const armFor = (p: { id: string }, label: string, order: number, weight: number) => {
@@ -268,12 +274,15 @@ export function PresellAdsCompliancePanel({
     onSuccess: (body) => {
       if (body.rotator_url) {
         toast.success(
-          `Pacote + rotador 33/33/34 prontos (${body.source}). Use o URL do rotador no anúncio.`,
+          fill(t("pages.presells.compliance.packReady"), { source: body.source }),
           { duration: 9000 },
         );
       } else {
         toast.warning(
-          `Pacote criado (${body.source}), mas o rotador falhou${body.rotator_error ? `: ${body.rotator_error}` : ""}. Publique/monte em Rotadores.`,
+          fill(t("pages.presells.compliance.packRotatorFail"), {
+            source: body.source,
+            detail: body.rotator_error ? `: ${body.rotator_error}` : "",
+          }),
           { duration: 10000 },
         );
       }
@@ -288,18 +297,18 @@ export function PresellAdsCompliancePanel({
   const decideMutation = useMutation({
     mutationFn: async () => {
       const auditId = data?.latest_audit?.id;
-      if (!auditId || !disputeRuleId) throw new Error("Auditoria ou regra em falta.");
+      if (!auditId || !disputeRuleId) throw new Error(t("pages.presells.compliance.decisionMissing"));
       const { data: body, error: err } = await presellService.submitComplianceDecision(presellId!, {
         audit_id: auditId,
         rule_id: disputeRuleId,
         decision: "override_pass",
         reason: disputeReason.trim(),
       });
-      if (err || !body) throw new Error(err || "Falha ao registar decisão");
+      if (err || !body) throw new Error(err || t("pages.presells.compliance.decisionFail"));
       return body;
     },
     onSuccess: () => {
-      toast.success("Decisão humana registada. Reauditoria aplicada.");
+      toast.success(t("pages.presells.compliance.decisionSaved"));
       setDisputeRuleId(null);
       setDisputeReason("");
       void qc.invalidateQueries({ queryKey: [...queryKey] });
@@ -333,7 +342,7 @@ export function PresellAdsCompliancePanel({
   if (!presellId) {
     return (
       <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-        Guarde a presell para executar a auditoria de conformidade publicitária.
+        {t("pages.presells.compliance.saveFirst")}
       </div>
     );
   }
@@ -344,11 +353,10 @@ export function PresellAdsCompliancePanel({
         <div className="space-y-1">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <ShieldCheck className="h-4 w-4" aria-hidden />
-            Conformidade publicitária
+            {t("pages.presells.compliance.title")}
           </h3>
           <p className="max-w-2xl text-xs text-muted-foreground">
-            Verificações internas do Clickora para Google Ads e Microsoft Advertising. A aprovação final depende da
-            plataforma publicitária — não há selo de aprovação nem garantia antibloqueio.
+            {t("pages.presells.compliance.intro")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -360,7 +368,7 @@ export function PresellAdsCompliancePanel({
             disabled={generateMutation.isPending}
             onClick={() => generateMutation.mutate(false)}
           >
-            Gerar review IA
+            {t("pages.presells.compliance.generateReview")}
           </Button>
           <Button
             type="button"
@@ -370,7 +378,7 @@ export function PresellAdsCompliancePanel({
             disabled={packMutation.isPending}
             onClick={() => packMutation.mutate()}
           >
-            Pacote 3 variantes
+            {t("pages.presells.compliance.triplePack")}
           </Button>
           <Button
             type="button"
@@ -381,24 +389,24 @@ export function PresellAdsCompliancePanel({
             onClick={() => auditMutation.mutate()}
           >
             <RefreshCw className={cn("h-3.5 w-3.5", auditMutation.isPending && "animate-spin")} />
-            Executar auditoria
+            {t("pages.presells.compliance.runAudit")}
           </Button>
         </div>
       </div>
 
       {aiQuota ? (
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Quota IA este mês:{" "}
-          <span className="tabular-nums text-foreground/90">
-            {aiQuota.used}
-            {aiQuota.limit == null ? "" : ` / ${aiQuota.limit}`}
-          </span>
-          {aiQuota.remaining != null ? ` · restam ${aiQuota.remaining}` : " · sem limite (admin)"}
-          {" · Trial 8 · Mensal 40 · Anual 120"}
-          {aiQuota.openai_configured
-            ? " · OpenAI activa (1 crédito por geração ou pacote 3)"
-            : " · OpenAI off — texto editorial seguro sem gastar quota"}
-          {" · máx. 20 pedidos / 15 min"}
+          {fill(t("pages.presells.compliance.quotaLine"), {
+            used: String(aiQuota.used),
+            limit: aiQuota.limit == null ? "" : ` / ${aiQuota.limit}`,
+            remaining:
+              aiQuota.remaining != null
+                ? fill(t("pages.presells.compliance.quotaRemaining"), { n: aiQuota.remaining })
+                : t("pages.presells.compliance.quotaAdmin"),
+            openai: aiQuota.openai_configured
+              ? t("pages.presells.compliance.quotaOn")
+              : t("pages.presells.compliance.quotaOff"),
+          })}
         </p>
       ) : null}
 
@@ -412,18 +420,18 @@ export function PresellAdsCompliancePanel({
         )}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-medium">{gateLabel(gate, gateOpts)}</p>
+          <p className="font-medium">{gateLabel(t, gate, gateOpts)}</p>
           {adsScore != null ? (
             <span className="text-xs font-semibold tabular-nums text-foreground">
-              Score Ads interno: {adsScore}/100
+              {fill(t("pages.presells.compliance.adsScore"), { n: adsScore })}
             </span>
           ) : null}
         </div>
         <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
-          <span>Google: {gateLabel(audit?.google_gate || data?.compliance_gate, gateOpts)}</span>
-          <span>Microsoft: {gateLabel(audit?.microsoft_gate || data?.compliance_gate, gateOpts)}</span>
+          <span>{fill(t("pages.presells.compliance.google"), { gate: gateLabel(t, audit?.google_gate || data?.compliance_gate, gateOpts) })}</span>
+          <span>{fill(t("pages.presells.compliance.microsoft"), { gate: gateLabel(t, audit?.microsoft_gate || data?.compliance_gate, gateOpts) })}</span>
           {data?.last_compliance_audit_at ? (
-            <span>Última auditoria: {new Date(data.last_compliance_audit_at).toLocaleString()}</span>
+            <span>{fill(t("pages.presells.compliance.lastAudit"), { when: new Date(data.last_compliance_audit_at).toLocaleString() })}</span>
           ) : null}
         </div>
       </div>
@@ -438,11 +446,10 @@ export function PresellAdsCompliancePanel({
           )}
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
-            Destino / domínio (HTTPS + redirects)
+            {t("pages.presells.compliance.destinationTitle")}
           </p>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-            Probe SSRF-safe do hoplink (DT-*). Sem Google Safe Browsing externo — HTTPS, ciclos,
-            open-redirect e bloqueio a crawlers.
+            {t("pages.presells.compliance.destinationBody")}
           </p>
           <ul className="mt-2 space-y-1">
             {destinationRules.map((r) => (
@@ -469,15 +476,15 @@ export function PresellAdsCompliancePanel({
 
       <div className="flex items-start justify-between gap-4 rounded-md border border-border/60 bg-muted/15 px-3 py-2.5">
         <div className="min-w-0 space-y-0.5">
-          <p className="text-sm font-medium">Rodapé de políticas / identidade</p>
+          <p className="text-sm font-medium">{t("pages.presells.compliance.footerTitle")}</p>
           <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Desligado: página limpa sem o bloco POLICIES. Ligado: mostra divulgação e contacto no rodapé.
+            {t("pages.presells.compliance.footerHint")}
           </p>
         </div>
         <Switch
           checked={isAffiliateTrustFooterEnabled(configSettings)}
           onCheckedChange={(v) => setField("showAffiliateTrustFooter", v)}
-          aria-label="Mostrar rodapé de políticas e identidade"
+          aria-label={t("pages.presells.compliance.footerAria")}
         />
       </div>
 
@@ -485,21 +492,21 @@ export function PresellAdsCompliancePanel({
       <div className="grid gap-3 sm:grid-cols-2">
         {lockIdentityFromSource ? (
           <div className="sm:col-span-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            Nicho white: nome e contacto vêm da página original do produto. No black, preencha a identidade real do afiliado/operador.
+            {t("pages.presells.compliance.whiteIdentity")}
           </div>
         ) : (
           <>
         <div className="space-y-1.5">
-          <Label htmlFor="compliance-business">Identidade / responsável</Label>
+          <Label htmlFor="compliance-business">{t("pages.presells.compliance.identityLabel")}</Label>
           <Input
             id="compliance-business"
             value={String(configSettings.businessName ?? "")}
             onChange={(e) => setField("businessName", e.target.value)}
-            placeholder="Nome real da empresa ou operador"
+            placeholder={t("pages.presells.compliance.identityPlaceholder")}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="compliance-email">Contacto</Label>
+          <Label htmlFor="compliance-email">{t("pages.presells.compliance.contactLabel")}</Label>
           <Input
             id="compliance-email"
             type="email"
@@ -511,7 +518,7 @@ export function PresellAdsCompliancePanel({
           </>
         )}
         <div className="space-y-1.5">
-          <Label htmlFor="compliance-privacy">Política de privacidade (URL)</Label>
+          <Label htmlFor="compliance-privacy">{t("pages.presells.compliance.privacyLabel")}</Label>
           <Input
             id="compliance-privacy"
             value={String(configSettings.privacyPolicyUrl ?? "")}
@@ -520,7 +527,7 @@ export function PresellAdsCompliancePanel({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="compliance-affiliate">Divulgação de afiliado</Label>
+          <Label htmlFor="compliance-affiliate">{t("pages.presells.compliance.disclosureLabel")}</Label>
           <Input
             id="compliance-affiliate"
             value={
@@ -531,21 +538,21 @@ export function PresellAdsCompliancePanel({
               onAffiliateDisclosureChange?.(e.target.value);
               setField("affiliateDisclosure", e.target.value);
             }}
-            placeholder="Texto visível de divulgação"
+            placeholder={t("pages.presells.compliance.disclosurePlaceholder")}
           />
         </div>
       </div>
       ) : null}
 
-      {isLoading ? <p className="text-xs text-muted-foreground">A carregar resultados…</p> : null}
+      {isLoading ? <p className="text-xs text-muted-foreground">{t("pages.presells.compliance.loadingResults")}</p> : null}
       {error ? (
-        <p className="text-xs text-destructive">{error instanceof Error ? error.message : "Erro"}</p>
+        <p className="text-xs text-destructive">{error instanceof Error ? error.message : t("pages.presells.compliance.errorGeneric")}</p>
       ) : null}
 
       {suggestions.length ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
-            Plano de correção sugerido
+            {t("pages.presells.compliance.suggestedPlan")}
           </p>
           <ul className="space-y-2">
             {suggestions.map((s) => (
@@ -561,7 +568,7 @@ export function PresellAdsCompliancePanel({
                 </p>
                 {s.requiresUserInput.length ? (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Precisa de si: {s.requiresUserInput.join(", ")}
+                    {fill(t("pages.presells.compliance.needsYou"), { items: s.requiresUserInput.join(", ") })}
                   </p>
                 ) : null}
                 {s.suggestedContentPatches.map((p, i) => (
@@ -582,15 +589,14 @@ export function PresellAdsCompliancePanel({
       ) : null}
 
       <div className="space-y-2 rounded-md border border-dashed border-border/70 bg-muted/10 p-3">
-        <p className="text-sm font-medium">Reprovação Google / Microsoft</p>
+        <p className="text-sm font-medium">{t("pages.presells.compliance.disapprovalTitle")}</p>
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Cole a mensagem da plataforma. Recebe um plano orientativo mapeado à Clickora — sem garantia de
-          aprovação.
+          {t("pages.presells.compliance.disapprovalHint")}
         </p>
         <Textarea
           value={disapprovalText}
           onChange={(e) => setDisapprovalText(e.target.value)}
-          placeholder="Cole aqui o texto da reprovação…"
+          placeholder={t("pages.presells.compliance.disapprovalPlaceholder")}
           rows={3}
         />
         <Button
@@ -600,7 +606,7 @@ export function PresellAdsCompliancePanel({
           disabled={disapprovalMutation.isPending || disapprovalText.trim().length < 8}
           onClick={() => disapprovalMutation.mutate()}
         >
-          Gerar plano de correção
+          {t("pages.presells.compliance.generatePlan")}
         </Button>
         {disapprovalHints.length ? (
           <ul className="space-y-2 pt-1">
@@ -620,7 +626,7 @@ export function PresellAdsCompliancePanel({
 
       {critical.length ? (
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-destructive">Problemas críticos</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-destructive">{t("pages.presells.compliance.critical")}</p>
           <ul className="space-y-2">
             {critical.map((r) => (
               <RuleRow key={r.ruleId} r={r} onDispute={setDisputeRuleId} />
@@ -631,7 +637,7 @@ export function PresellAdsCompliancePanel({
 
       {warnings.length ? (
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Avisos</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">{t("pages.presells.compliance.warnings")}</p>
           <ul className="space-y-2">
             {warnings.map((r) => (
               <RuleRow key={r.ruleId} r={r} />
@@ -643,7 +649,7 @@ export function PresellAdsCompliancePanel({
       {notChecked.length ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Ainda não verificadas
+            {t("pages.presells.compliance.notChecked")}
           </p>
           <ul className="space-y-2">
             {notChecked.map((r) => (
@@ -655,11 +661,11 @@ export function PresellAdsCompliancePanel({
 
       {disputeRuleId ? (
         <div className="space-y-2 rounded-md border border-border/70 bg-muted/20 p-3">
-          <p className="text-sm font-medium">Contestar {disputeRuleId}</p>
+          <p className="text-sm font-medium">{fill(t("pages.presells.compliance.disputeTitle"), { rule: disputeRuleId })}</p>
           <Textarea
             value={disputeReason}
             onChange={(e) => setDisputeReason(e.target.value)}
-            placeholder="Explique porque é um falso positivo (mín. 8 caracteres). A decisão fica auditada."
+            placeholder={t("pages.presells.compliance.disputePlaceholder")}
             rows={3}
           />
           <div className="flex flex-wrap gap-2">
@@ -669,10 +675,10 @@ export function PresellAdsCompliancePanel({
               disabled={decideMutation.isPending || disputeReason.trim().length < 8}
               onClick={() => decideMutation.mutate()}
             >
-              Registar decisão humana
+              {t("pages.presells.compliance.recordDecision")}
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => setDisputeRuleId(null)}>
-              Cancelar
+              {t("common.cancel")}
             </Button>
           </div>
         </div>
@@ -681,7 +687,7 @@ export function PresellAdsCompliancePanel({
       {data?.decisions?.length ? (
         <div className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Histórico de decisões
+            {t("pages.presells.compliance.history")}
           </p>
           <ul className="space-y-1 text-xs text-muted-foreground">
             {data.decisions.slice(0, 8).map((d) => (
@@ -695,7 +701,7 @@ export function PresellAdsCompliancePanel({
 
       <p className="text-[11px] text-muted-foreground">
         {data?.disclaimer ||
-          "A aprovação final depende da plataforma publicitária. Verificações internas concluídas ≠ anúncio aprovado."}
+          t("pages.presells.compliance.disclaimerFallback")}
       </p>
     </section>
   );

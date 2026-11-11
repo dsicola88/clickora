@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { SalesLandingPromos, SalesPromoPopup } from "@/lib/salesLandingPromos";
 import { toast } from "sonner";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 type Props = {
   promos: SalesLandingPromos;
@@ -34,6 +35,7 @@ function markShown(id: string) {
 }
 
 export function SalesLandingPromoOverlays({ promos, accentFallback = "#38bdf8" }: Props) {
+  const { t } = useAppLocale();
   const [stickyDismissed, setStickyDismissed] = useState(() => wasShown("sticky_bar"));
   const [activePopup, setActivePopup] = useState<SalesPromoPopup | null>(null);
 
@@ -203,8 +205,8 @@ export function SalesLandingPromoOverlays({ promos, accentFallback = "#38bdf8" }
                   className="h-8 gap-1.5"
                   onClick={() => {
                     void navigator.clipboard?.writeText(activePopup.discount_code!.trim()).then(
-                      () => toast.success("Código copiado"),
-                      () => toast.error("Não foi possível copiar"),
+                      () => toast.success(t("common.copyCode")),
+                      () => toast.error(t("common.copyFailedShort")),
                     );
                   }}
                 >

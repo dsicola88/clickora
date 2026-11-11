@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { usePageBuilderT } from "../usePageBuilderT";
 import { embedUrlWithPlayback, resolvePageBuilderVideoUrl } from "../videoEmbed";
 
 export interface StickyVideoContent {
@@ -17,6 +18,7 @@ export interface StickyVideoContent {
 }
 
 export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
+  const t = usePageBuilderT();
   const c = widget.content as Partial<StickyVideoContent>;
   const url = (c.url ?? "").trim();
   const position = c.position ?? "bottom-right";
@@ -79,7 +81,7 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
         lineHeight: 1.45,
       }}
     >
-      Cola um URL do YouTube ou Bunny (Conteúdo do widget).
+      {t("pages.pageBuilder.defaults.videoPasteHint")}
     </div>
   );
 
@@ -99,7 +101,7 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
         {showPip ? (
           <div style={{ width: "100%", height: "100%", background: "#0f172a" }} aria-hidden />
         ) : embedSrc ? (
-          iframe(embedSrc, "Vídeo")
+          iframe(embedSrc, t("pages.pageBuilder.chrome.names.video"))
         ) : (
           placeholder
         )}
@@ -119,11 +121,11 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
             background: "#000",
           }}
         >
-          {iframe(pipSrc, "Vídeo fixo")}
+          {iframe(pipSrc, t("pages.pageBuilder.chrome.names.stickyVideo"))}
           {showCloseButton ? (
             <button
               type="button"
-              aria-label="Fechar vídeo"
+              aria-label={t("pages.pageBuilder.defaults.closeVideo")}
               onClick={(e) => {
                 e.stopPropagation();
                 setClosed(true);

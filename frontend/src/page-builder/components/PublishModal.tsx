@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useBuilder } from "../store";
 import { publishPage, slugify } from "../published";
 import { downloadHtml } from "../export-html";
@@ -9,6 +10,7 @@ import { Save, Download, X, Check } from "lucide-react";
  * Does not publish to Clickora `/p/:id` (that path is real API presells).
  */
 export function PublishModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useAppLocale();
   const doc = useBuilder((s) => s.doc);
   const [slug, setSlug] = useState("");
   const [saved, setSaved] = useState(false);
@@ -45,7 +47,7 @@ export function PublishModal({ open, onClose }: { open: boolean; onClose: () => 
         <header className="flex items-center justify-between border-b border-editor-border p-4">
           <div className="flex items-center gap-2">
             <Save className="h-5 w-5 text-editor-accent" />
-            <h2 className="text-base font-semibold">Guardar rascunho local</h2>
+            <h2 className="text-base font-semibold">{t("pages.pageBuilder.publish.title")}</h2>
           </div>
           <button
             type="button"
@@ -59,7 +61,7 @@ export function PublishModal({ open, onClose }: { open: boolean; onClose: () => 
         <div className="space-y-5 p-5">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-editor-fg-muted">
-              Identificador do rascunho
+              {t("pages.pageBuilder.publish.slugLabel")}
             </label>
             <input
               value={slug}
@@ -68,10 +70,10 @@ export function PublishModal({ open, onClose }: { open: boolean; onClose: () => 
                 setSaved(false);
               }}
               className="w-full rounded border border-editor-border bg-editor-bg px-3 py-2 text-sm text-editor-fg outline-none"
-              placeholder="minha-pagina"
+              placeholder={t("pages.pageBuilder.publish.slugPlaceholder")}
             />
             <p className="mt-1.5 text-[11px] text-editor-fg-muted">
-              Letras minúsculas, números e hifens. Só para organização neste browser — não cria URL pública.
+              {t("pages.pageBuilder.publish.slugHint")}
             </p>
           </div>
 
@@ -79,11 +81,10 @@ export function PublishModal({ open, onClose }: { open: boolean; onClose: () => 
             <div className="rounded border border-editor-accent/30 bg-editor-accent/5 p-3">
               <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-editor-accent">
                 <Check className="h-3.5 w-3.5" />
-                Guardado neste browser
+                {t("pages.pageBuilder.publish.savedTitle")}
               </div>
               <p className="text-[11px] text-editor-fg-muted leading-relaxed">
-                Este editor standalone não publica no Clickora. Para uma lander pública use o builder
-                de presells, ou exporte HTML para hospedar noutro sítio.
+                {t("pages.pageBuilder.publish.savedBody")}
               </p>
             </div>
           )}
@@ -95,7 +96,7 @@ export function PublishModal({ open, onClose }: { open: boolean; onClose: () => 
               className="flex items-center justify-center gap-1.5 rounded bg-editor-accent px-4 py-2.5 text-sm font-medium text-editor-accent-fg hover:opacity-90"
             >
               <Save className="h-4 w-4" />
-              {saved ? "Guardar de novo" : "Guardar local"}
+              {saved ? t("pages.pageBuilder.publish.saveAgain") : t("pages.pageBuilder.publish.saveLocal")}
             </button>
             <button
               type="button"
@@ -103,14 +104,15 @@ export function PublishModal({ open, onClose }: { open: boolean; onClose: () => 
               className="flex items-center justify-center gap-1.5 rounded border border-editor-border bg-editor-panel-2 px-4 py-2.5 text-sm font-medium text-editor-fg hover:bg-editor-border"
             >
               <Download className="h-4 w-4" />
-              Exportar HTML
+              {t("pages.pageBuilder.publish.exportHtml")}
             </button>
           </div>
 
           <p className="text-[11px] text-editor-fg-muted">
-            <strong className="text-editor-fg">Guardar local</strong> só persiste neste browser.{" "}
-            <strong className="text-editor-fg">Exportar HTML</strong> baixa um ficheiro standalone.
-            Landers Clickora: use o builder de presells.
+            <strong className="text-editor-fg">{t("pages.pageBuilder.publish.noteSave")}</strong>{" "}
+            {t("pages.pageBuilder.publish.noteSaveTail")}{" "}
+            <strong className="text-editor-fg">{t("pages.pageBuilder.publish.noteExport")}</strong>{" "}
+            {t("pages.pageBuilder.publish.noteExportTail")}
           </p>
         </div>
       </div>

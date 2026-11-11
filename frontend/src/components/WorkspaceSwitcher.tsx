@@ -14,9 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 
 /** Troca o workspace activo (JWT). Só aparece se houver 2+ memberships. */
 export function WorkspaceSwitcher({ className }: { className?: string }) {
+  const { t } = useAppLocale();
   const { user, applySession } = useAuth();
   const qc = useQueryClient();
   /** Mantém a lista visível após qc.clear() (senão o switcher pisca/desaparece). */
@@ -52,7 +55,11 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
       );
       qc.clear();
       void qc.invalidateQueries({ queryKey: ["workspaces", "mine"] });
-      toast.success(`Workspace: ${data.user.workspace_name || data.user.workspace_id}`);
+      toast.success(
+        fill(t("pages.account.workspaceSwitched"), {
+          name: data.user.workspace_name || data.user.workspace_id,
+        }),
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });

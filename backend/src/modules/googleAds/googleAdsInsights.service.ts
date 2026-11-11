@@ -8,14 +8,9 @@ import {
   type GoogleAdsUserSettings,
 } from "./googleAds.service";
 import { googleAdsErrorText } from "./googleAdsApiErrors";
+import { onlyDigits } from "../../lib/stringPrimitives";
 
 const DIGITS_ONLY = /^\d+$/;
-
-function onlyDigits(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const d = raw.replace(/\D/g, "");
-  return d.length > 0 ? d : null;
-}
 
 function genderTypeLabel(t: unknown): string {
   const n = typeof t === "number" ? t : Number(t);

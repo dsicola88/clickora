@@ -19,10 +19,11 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useBuilder } from "../store";
 import type { WidgetType } from "../types";
 import { createWidget } from "../factory";
-import { WIDGET_REGISTRY } from "../widget-registry";
+import { WIDGET_NAME_KEY, WIDGET_REGISTRY } from "../widget-registry";
 import { EditorTopbar } from "./EditorTopbar";
 import { WidgetSidebar } from "./WidgetSidebar";
 import { Canvas } from "./Canvas";
@@ -65,6 +66,7 @@ const collisionDetection: CollisionDetection = (args) => {
 };
 
 export function PageEditor() {
+  const { t } = useAppLocale();
   const { id: routePresellId } = useParams<{ id?: string }>();
   const panelLayoutAutoSaveId = useMemo(
     () => `clickora-pb-panels:${routePresellId?.trim() || "new"}`,
@@ -157,14 +159,14 @@ export function PageEditor() {
       return;
     }
     if (data.source === "palette") {
-      setDragLabel(WIDGET_REGISTRY[data.widgetType]?.label ?? "Elemento");
+      setDragLabel(WIDGET_REGISTRY[data.widgetType] ? t(WIDGET_NAME_KEY[data.widgetType]) : t("pages.pageBuilder.element"));
       return;
     }
     const doc = useBuilder.getState().doc;
     const section = doc.sections.find((s) => s.id === data.sectionId);
     const column = section?.columns.find((c) => c.id === data.columnId);
     const widget = column?.widgets.find((w) => w.id === data.widgetId);
-    setDragLabel(widget ? (WIDGET_REGISTRY[widget.type]?.label ?? "Elemento") : "Elemento");
+    setDragLabel(widget ? t(WIDGET_NAME_KEY[widget.type]) : t("pages.pageBuilder.element"));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -275,7 +277,7 @@ export function PageEditor() {
           <WidgetSidebar />
         </ResizablePanel>
         <ResizableHandle
-          title="Arrastar para ajustar a largura dos painéis"
+          title={t("pages.pageBuilder.chrome.dragPanels")}
           className={EDITOR_RESIZE_HANDLE}
         />
         <ResizablePanel
@@ -287,7 +289,7 @@ export function PageEditor() {
           <Canvas />
         </ResizablePanel>
         <ResizableHandle
-          title="Arrastar para ajustar a largura dos painéis"
+          title={t("pages.pageBuilder.chrome.dragPanels")}
           className={EDITOR_RESIZE_HANDLE}
         />
         <ResizablePanel
@@ -305,7 +307,7 @@ export function PageEditor() {
           <StructureNavigator />
         </ResizablePanel>
         <ResizableHandle
-          title="Arrastar para ajustar a largura dos painéis"
+          title={t("pages.pageBuilder.chrome.dragPanels")}
           className={EDITOR_RESIZE_HANDLE}
         />
         <ResizablePanel

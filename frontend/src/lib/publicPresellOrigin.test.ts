@@ -73,7 +73,7 @@ describe("publicPresellOrigin hosting vs tracking", () => {
         is_default: true,
         vercel_domain_registered: true,
         https_ready: false,
-        ssl_state: "provisioning",
+        ssl_state: "ssl_provisioning",
       }),
     ];
     const url = getPublicPresellFullUrl(domains, "hv", { id: "page-ab", type: "tsl" });

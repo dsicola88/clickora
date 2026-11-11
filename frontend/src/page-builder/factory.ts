@@ -1,4 +1,5 @@
 import { nanoid } from "nanoid";
+import { readStoredAppLocale, translate, type MessageKey } from "@/i18n";
 import type {
   ColumnNode,
   PageDocument,
@@ -13,6 +14,11 @@ import type {
 } from "./types";
 
 export const id = (prefix = "") => `${prefix}${nanoid(8)}`;
+
+/** User-visible seed copy, resolved when the widget or popup is created. */
+function defaultText(key: MessageKey): string {
+  return translate(readStoredAppLocale(), key);
+}
 
 const r = <T,>(v: T): ResponsiveValue<T> => ({ desktop: v });
 
@@ -80,7 +86,7 @@ export function createSection(columnCount = 1): SectionNode {
 
 const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "styles">> = {
   heading: () => ({
-    content: { text: "Adicione seu título aqui", tag: "h2" },
+    content: { text: defaultText("pages.pageBuilder.defaults.headingText"), tag: "h2" },
     styles: {
       typography: rm(
         typography({ fontSize: 36, fontWeight: 700, lineHeight: 1.2 }),
@@ -93,7 +99,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   }),
   text: () => ({
     content: {
-      html: "<p>Edite este parágrafo. Use o painel de propriedades para alterar conteúdo, cores e tipografia. Construa páginas incríveis arrastando widgets.</p>",
+      html: defaultText("pages.pageBuilder.defaults.textHtml"),
     },
     styles: {
       typography: rm(
@@ -107,7 +113,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   image: () => ({
     content: {
       src: "",
-      alt: "Imagem",
+      alt: defaultText("pages.pageBuilder.defaults.imageAlt"),
       link: "",
     },
     styles: {
@@ -116,7 +122,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
     },
   }),
   button: () => ({
-    content: { text: "Clique aqui", href: "#", target: "_self" },
+    content: { text: defaultText("pages.pageBuilder.defaults.buttonText"), href: "#", target: "_self" },
     styles: {
       typography: rm(
         typography({ fontSize: 16, fontWeight: 600, textAlign: "center" }),
@@ -155,18 +161,32 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
     },
   }),
   html: () => ({
-    content: { code: "<div style=\"padding:20px;text-align:center\">HTML customizado</div>" },
+    content: { code: defaultText("pages.pageBuilder.defaults.htmlCustom") },
     styles: {},
   }),
   form: () => ({
     content: {
       fields: [
-        { id: id("f_"), type: "text", name: "name", label: "Nome", placeholder: "Seu nome", required: true },
-        { id: id("f_"), type: "email", name: "email", label: "E-mail", placeholder: "voce@email.com", required: true },
+        {
+          id: id("f_"),
+          type: "text",
+          name: "name",
+          label: defaultText("pages.pageBuilder.defaults.formNameLabel"),
+          placeholder: defaultText("pages.pageBuilder.defaults.formNamePlaceholder"),
+          required: true,
+        },
+        {
+          id: id("f_"),
+          type: "email",
+          name: "email",
+          label: defaultText("pages.pageBuilder.defaults.formEmailLabel"),
+          placeholder: defaultText("pages.pageBuilder.defaults.formEmailPlaceholder"),
+          required: true,
+        },
       ],
-      submitText: "Enviar",
-      successMessage: "Recebido! Em breve entraremos em contato.",
-      errorMessage: "Não foi possível enviar. Tente novamente.",
+      submitText: defaultText("pages.pageBuilder.defaults.formSubmit"),
+      successMessage: defaultText("pages.pageBuilder.defaults.formSuccess"),
+      errorMessage: defaultText("pages.pageBuilder.defaults.formError"),
       webhookUrl: "",
       redirectUrl: "",
       fieldGap: 12,
@@ -188,25 +208,25 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
         {
           id: id("t_"),
           name: "Ana Silva",
-          role: "CEO, Acme Inc.",
+          role: defaultText("pages.pageBuilder.defaults.testimonial1Role"),
           avatar: "",
-          quote: "Resultados surpreendentes. Em 30 dias dobramos nossas conversões.",
+          quote: defaultText("pages.pageBuilder.defaults.testimonial1Quote"),
           rating: 5,
         },
         {
           id: id("t_"),
           name: "Carlos Mendes",
-          role: "Diretor de Marketing",
+          role: defaultText("pages.pageBuilder.defaults.testimonial2Role"),
           avatar: "",
-          quote: "Ferramenta indispensável. Recomendo para qualquer time de growth.",
+          quote: defaultText("pages.pageBuilder.defaults.testimonial2Quote"),
           rating: 5,
         },
         {
           id: id("t_"),
           name: "Joana Costa",
-          role: "Founder, Studio J",
+          role: defaultText("pages.pageBuilder.defaults.testimonial3Role"),
           avatar: "",
-          quote: "Atendimento perfeito e produto excelente. Vale cada centavo.",
+          quote: defaultText("pages.pageBuilder.defaults.testimonial3Quote"),
           rating: 5,
         },
       ],
@@ -227,18 +247,18 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       items: [
         {
           id: id("q_"),
-          question: "Como funciona o processo?",
-          answer: "<p>É simples: você se cadastra, configura sua página e começa a vender em minutos.</p>",
+          question: defaultText("pages.pageBuilder.defaults.faq1Q"),
+          answer: defaultText("pages.pageBuilder.defaults.faq1A"),
         },
         {
           id: id("q_"),
-          question: "Posso cancelar quando quiser?",
-          answer: "<p>Sim! Sem fidelidade e sem multa. Cancele com um clique.</p>",
+          question: defaultText("pages.pageBuilder.defaults.faq2Q"),
+          answer: defaultText("pages.pageBuilder.defaults.faq2A"),
         },
         {
           id: id("q_"),
-          question: "Vocês oferecem suporte?",
-          answer: "<p>Suporte humano por chat e e-mail, todos os dias da semana.</p>",
+          question: defaultText("pages.pageBuilder.defaults.faq3Q"),
+          answer: defaultText("pages.pageBuilder.defaults.faq3A"),
         },
       ],
       allowMultiple: false,
@@ -258,7 +278,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       showLabels: true,
       showDays: true,
-      expiredMessage: "A oferta expirou!",
+      expiredMessage: defaultText("pages.pageBuilder.defaults.countdownExpired"),
       digitBg: "#0f172a",
       digitColor: "#ffffff",
       labelColor: "#475569",
@@ -315,9 +335,13 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   },
   animatedHeadline: () => ({
     content: {
-      prefix: "Construa páginas",
-      rotatingWords: ["incríveis", "rápidas", "que vendem"],
-      suffix: "em minutos.",
+      prefix: defaultText("pages.pageBuilder.defaults.animatedPrefix"),
+      rotatingWords: [
+        defaultText("pages.pageBuilder.defaults.animatedWord1"),
+        defaultText("pages.pageBuilder.defaults.animatedWord2"),
+        defaultText("pages.pageBuilder.defaults.animatedWord3"),
+      ],
+      suffix: defaultText("pages.pageBuilder.defaults.animatedSuffix"),
       animation: "fade",
       intervalMs: 2200,
       tag: "h2",
@@ -335,9 +359,9 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   }),
   livePlans: () => ({
     content: {
-      sectionLabel: "PLANOS",
-      title: "Escolha o plano certo",
-      subtitle: "Preços e limites vêm da base de dados — edite-os no admin em Planos.",
+      sectionLabel: defaultText("pages.pageBuilder.defaults.livePlansLabel"),
+      title: defaultText("pages.pageBuilder.defaults.livePlansTitle"),
+      subtitle: defaultText("pages.pageBuilder.defaults.livePlansSubtitle"),
       showHeader: true,
       accentColor: "#38bdf8",
       cardBg: "#ffffff",
@@ -351,20 +375,20 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   }),
   priceTable: () => ({
     content: {
-      badge: "Mais popular",
+      badge: defaultText("pages.pageBuilder.defaults.mostPopular"),
       title: "Pro",
-      subtitle: "Para quem quer crescer",
+      subtitle: defaultText("pages.pageBuilder.defaults.priceSubtitle"),
       currency: "R$",
       price: "97",
-      period: "/mês",
+      period: defaultText("pages.pageBuilder.livePlans.perMonth"),
       features: [
-        { id: id("pf_"), text: "Tudo do plano Básico", included: true },
-        { id: id("pf_"), text: "Páginas ilimitadas", included: true },
-        { id: id("pf_"), text: "Suporte prioritário", included: true },
-        { id: id("pf_"), text: "Domínio customizado", included: true },
-        { id: id("pf_"), text: "API de integração", included: false },
+        { id: id("pf_"), text: defaultText("pages.pageBuilder.defaults.featureAllBasic"), included: true },
+        { id: id("pf_"), text: defaultText("pages.pageBuilder.defaults.featureUnlimitedPages"), included: true },
+        { id: id("pf_"), text: defaultText("pages.pageBuilder.defaults.featurePrioritySupport"), included: true },
+        { id: id("pf_"), text: defaultText("pages.pageBuilder.defaults.featureCustomDomain"), included: true },
+        { id: id("pf_"), text: defaultText("pages.pageBuilder.defaults.featureApi"), included: false },
       ],
-      ctaText: "Assinar Pro",
+      ctaText: defaultText("pages.pageBuilder.defaults.ctaSubscribePro"),
       ctaHref: "#",
       highlighted: true,
       cardBg: "#ffffff",
@@ -380,11 +404,11 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   }),
   ctaBox: () => ({
     content: {
-      title: "Pronto para transformar seu negócio?",
-      description: "Junte-se a mais de 10.000 clientes satisfeitos e veja resultados em dias.",
-      primaryText: "Começar agora",
+      title: defaultText("pages.pageBuilder.defaults.ctaTitle"),
+      description: defaultText("pages.pageBuilder.defaults.ctaDescription"),
+      primaryText: defaultText("pages.pageBuilder.defaults.ctaPrimary"),
       primaryHref: "#",
-      secondaryText: "Falar com vendas",
+      secondaryText: defaultText("pages.pageBuilder.defaults.ctaSecondary"),
       secondaryHref: "#",
       layout: "centered",
       background: "#0f172a",
@@ -401,15 +425,14 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   }),
   flipBox: () => ({
     content: {
-      frontTitle: "Recurso incrível",
-      frontSubtitle: "Passe o mouse para ver",
+      frontTitle: defaultText("pages.pageBuilder.defaults.flipFrontTitle"),
+      frontSubtitle: defaultText("pages.pageBuilder.defaults.flipFrontSubtitle"),
       frontIcon: "✨",
       frontBg: "#1f2937",
       frontTextColor: "#ffffff",
-      backTitle: "Saiba mais",
-      backDescription:
-        "Aqui você descreve em detalhes esse recurso e mostra os benefícios para o usuário.",
-      backCtaText: "Explorar",
+      backTitle: defaultText("pages.pageBuilder.defaults.flipBackTitle"),
+      backDescription: defaultText("pages.pageBuilder.defaults.flipBackDescription"),
+      backCtaText: defaultText("pages.pageBuilder.defaults.flipBackCta"),
       backCtaHref: "#",
       backBg: "#e63946",
       backTextColor: "#ffffff",
@@ -427,10 +450,10 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   progressTracker: () => ({
     content: {
       items: [
-        { id: id("pb_"), label: "Design", value: 90 },
-        { id: id("pb_"), label: "Desenvolvimento", value: 75 },
-        { id: id("pb_"), label: "Marketing", value: 60 },
-        { id: id("pb_"), label: "Vendas", value: 85 },
+        { id: id("pb_"), label: defaultText("pages.pageBuilder.defaults.progressDesign"), value: 90 },
+        { id: id("pb_"), label: defaultText("pages.pageBuilder.defaults.progressDev"), value: 75 },
+        { id: id("pb_"), label: defaultText("pages.pageBuilder.defaults.progressMarketing"), value: 60 },
+        { id: id("pb_"), label: defaultText("pages.pageBuilder.defaults.progressSales"), value: 85 },
       ],
       variant: "bar",
       showPercent: true,
@@ -449,8 +472,8 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   alert: () => ({
     content: {
       variant: "info",
-      title: "Informação importante",
-      message: "<p>Use este bloco para destacar avisos, garantias ou políticas sem perder conversões.</p>",
+      title: defaultText("pages.pageBuilder.defaults.alertTitle"),
+      message: defaultText("pages.pageBuilder.defaults.alertMessage"),
       showIcon: true,
       dismissible: false,
       borderRadius: 10,
@@ -464,18 +487,18 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       tabs: [
         {
           id: id("tab_"),
-          label: "Benefícios",
-          html: "<p>Liste aqui os principais benefícios do produto ou serviço.</p>",
+          label: defaultText("pages.pageBuilder.defaults.tabBenefits"),
+          html: defaultText("pages.pageBuilder.defaults.tabBenefitsHtml"),
         },
         {
           id: id("tab_"),
-          label: "Como funciona",
-          html: "<p>Explique o processo em passos simples para reduzir dúvidas.</p>",
+          label: defaultText("pages.pageBuilder.defaults.tabHow"),
+          html: defaultText("pages.pageBuilder.defaults.tabHowHtml"),
         },
         {
           id: id("tab_"),
-          label: "Garantia",
-          html: "<p>Reforce garantia, suporte e formas de contacto.</p>",
+          label: defaultText("pages.pageBuilder.defaults.tabGuarantee"),
+          html: defaultText("pages.pageBuilder.defaults.tabGuaranteeHtml"),
         },
       ],
       tabBg: "#f1f5f9",
@@ -516,22 +539,22 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
         {
           id: id("il_"),
           iconName: "check",
-          title: "Entrega rápida",
-          description: "<p>Receba em poucos dias com rastreamento.</p>",
+          title: defaultText("pages.pageBuilder.defaults.iconListFastTitle"),
+          description: defaultText("pages.pageBuilder.defaults.iconListFastDesc"),
           href: "",
         },
         {
           id: id("il_"),
           iconName: "shield",
-          title: "Compra segura",
-          description: "<p>Pagamento encriptado e dados protegidos.</p>",
+          title: defaultText("pages.pageBuilder.defaults.iconListSecureTitle"),
+          description: defaultText("pages.pageBuilder.defaults.iconListSecureDesc"),
           href: "",
         },
         {
           id: id("il_"),
           iconName: "headphones",
-          title: "Suporte humano",
-          description: "<p>Equipa disponível para ajudar quando precisar.</p>",
+          title: defaultText("pages.pageBuilder.defaults.iconListSupportTitle"),
+          description: defaultText("pages.pageBuilder.defaults.iconListSupportDesc"),
           href: "",
         },
       ],
@@ -563,8 +586,8 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
     content: {
       side: "right",
       width: 340,
-      buttonLabel: "Menu",
-      html: "<h3>Painel</h3><p>Links, contacto ou oferta.</p><p><a href=\"#\">Ir para oferta</a></p>",
+      buttonLabel: defaultText("pages.pageBuilder.defaults.offCanvasButton"),
+      html: defaultText("pages.pageBuilder.defaults.offCanvasHtml"),
       panelBg: "#0f172a",
       panelColor: "#f8fafc",
       buttonBg: "#e63946",
@@ -576,7 +599,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   shareButtons: () => ({
     content: {
       networks: ["whatsapp", "facebook", "twitter", "copy"],
-      text: "Confira isto",
+      text: defaultText("pages.pageBuilder.defaults.shareText"),
       url: "",
       buttonBg: "#0f172a",
       buttonColor: "#ffffff",
@@ -589,7 +612,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   }),
   tableOfContents: () => ({
     content: {
-      title: "Índice",
+      title: defaultText("pages.pageBuilder.defaults.tocTitle"),
       auto: true,
       items: [],
       linkColor: "#0f172a",
@@ -665,7 +688,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   phoneCall: () => ({
     content: {
       number: "+351910000000",
-      displayText: "Ligar agora",
+      displayText: defaultText("pages.pageBuilder.defaults.phoneCallText"),
       variant: "button",
       bg: "#10b981",
       color: "#ffffff",
@@ -693,9 +716,9 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   navMenu: () => ({
     content: {
       items: [
-        { id: id("nav_"), label: "Início", href: "#" },
-        { id: id("nav_"), label: "Benefícios", href: "#beneficios" },
-        { id: id("nav_"), label: "Contacto", href: "#contato" },
+        { id: id("nav_"), label: defaultText("pages.pageBuilder.defaults.navHome"), href: "#" },
+        { id: id("nav_"), label: defaultText("pages.pageBuilder.defaults.navBenefits"), href: "#beneficios" },
+        { id: id("nav_"), label: defaultText("pages.pageBuilder.defaults.navContact"), href: "#contato" },
       ],
       layout: "horizontal",
       align: "center",
@@ -723,7 +746,11 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   }),
   ticker: () => ({
     content: {
-      items: ["Envio seguro", "Garantia", "Pagamento protegido"],
+      items: [
+        defaultText("pages.pageBuilder.defaults.tickerShip"),
+        defaultText("pages.pageBuilder.defaults.tickerGuarantee"),
+        defaultText("pages.pageBuilder.defaults.tickerPay"),
+      ],
       speed: 25,
       direction: "left",
       separator: "•",
@@ -741,9 +768,9 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       iconColor: "#e63946",
       iconBg: "#fef2f2",
       iconShape: "circle",
-      title: "Benefício principal",
-      description: "Explique em uma frase o valor para o visitante.",
-      ctaText: "Saber mais",
+      title: defaultText("pages.pageBuilder.defaults.infoBoxTitle"),
+      description: defaultText("pages.pageBuilder.defaults.infoBoxDesc"),
+      ctaText: defaultText("pages.pageBuilder.defaults.infoBoxCta"),
       ctaHref: "#",
       layout: "stacked",
       align: "center",
@@ -758,9 +785,9 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   imageBox: () => ({
     content: {
       src: "",
-      alt: "Imagem",
-      title: "Caixa com imagem",
-      description: "Título + imagem + texto numa caixa.",
+      alt: defaultText("pages.pageBuilder.defaults.imageAlt"),
+      title: defaultText("pages.pageBuilder.defaults.imageBoxTitle"),
+      description: defaultText("pages.pageBuilder.defaults.imageBoxDesc"),
       href: "",
       titleColor: "#0f172a",
       descColor: "#64748b",
@@ -777,7 +804,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       color: "#f59e0b",
       emptyColor: "#e5e7eb",
       showScore: true,
-      title: "Avaliação dos clientes",
+      title: defaultText("pages.pageBuilder.defaults.starRatingTitle"),
     },
     styles: {
       align: r("left" as const),
@@ -791,7 +818,7 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       durationMs: 1600,
       prefix: "",
       suffix: "+",
-      title: "Clientes satisfeitos",
+      title: defaultText("pages.pageBuilder.defaults.counterTitle"),
       numberColor: "#0f172a",
       titleColor: "#64748b",
     },
@@ -844,7 +871,7 @@ export function createWidget(type: WidgetType): WidgetNode {
   };
 }
 
-export function createEmptyPage(name = "Página sem título"): PageDocument {
+export function createEmptyPage(name = defaultText("pages.pageBuilder.defaults.emptyPageName")): PageDocument {
   return {
     id: id("page_"),
     name,
@@ -855,7 +882,7 @@ export function createEmptyPage(name = "Página sem título"): PageDocument {
   };
 }
 
-export function createPagePopup(name = "Novo popup"): PagePopup {
+export function createPagePopup(name = defaultText("pages.pageBuilder.popups.new")): PagePopup {
   return {
     id: id("pop_"),
     name,
@@ -876,9 +903,9 @@ export function createPagePopup(name = "Novo popup"): PagePopup {
     offsetYPx: 16,
     borderRadiusPx: 16,
     zIndex: 99990,
-    title: "Oferta especial",
-    html: "<p>Adicione a sua mensagem aqui.</p>",
-    ctaLabel: "Quero saber mais",
+    title: defaultText("pages.pageBuilder.defaults.popupTitle"),
+    html: `<p>${defaultText("pages.pageBuilder.defaults.popupBody")}</p>`,
+    ctaLabel: defaultText("pages.pageBuilder.defaults.popupCta"),
     ctaHref: "#",
     background: "#ffffff",
     textColor: "#0f172a",

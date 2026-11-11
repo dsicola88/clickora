@@ -19,6 +19,7 @@ import {
 } from "../overlay-placement";
 import { usePresellPublicLocale } from "@/lib/presellPublicLocale";
 import { useInlineEdit } from "../inline-edit";
+import { usePageBuilderT } from "../usePageBuilderT";
 
 export interface CookieBannerContent {
   title: string;
@@ -118,6 +119,7 @@ function defaultPositionForVariant(variant: "modal" | "corner" | "bar"): Overlay
 }
 
 export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
+  const t = usePageBuilderT();
   const c = widget.content as Partial<CookieBannerContent>;
   const pageLanguage = usePresellPublicLocale();
   const commit = useInlineEdit();
@@ -274,7 +276,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       {showCloseX && !inBuilder ? (
         <button
           type="button"
-          aria-label="Fechar"
+          aria-label={t("common.close")}
           onClick={dismiss}
           style={{
             position: "absolute",

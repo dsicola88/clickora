@@ -10,12 +10,7 @@ import {
   isGoogleAdsMetricsReadyForUser,
 } from "../googleAds/googleAds.service";
 import { sumPersistedKeywordCosts } from "./costSync.service";
-
-function onlyDigits(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const d = raw.replace(/\D/g, "");
-  return d.length > 0 ? d : null;
-}
+import { onlyDigits } from "../../lib/stringPrimitives";
 
 async function revenueByKeyword(userId: string, from: Date, to: Date): Promise<Map<string, number>> {
   const rows = await systemPrisma.$queryRaw<Array<{ keyword: string; revenue: unknown }>>(Prisma.sql`

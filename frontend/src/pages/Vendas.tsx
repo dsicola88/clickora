@@ -35,7 +35,7 @@ import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { analyticsService } from "@/services/analyticsService";
 import { rangeLast30Days } from "@/lib/dateRangePresets";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
-import { fill } from "@/i18n";
+import { fill, numberLocaleFor } from "@/i18n";
 import {
   PRO_PAGE_SHELL,
   ProPageHeader,
@@ -53,29 +53,29 @@ import {
   ProTotalStat,
 } from "@/components/enterprise/ProShell";
 
-function money(n: number | null | undefined, currency = "USD") {
+function money(n: number | null | undefined, currency = "USD", locale = "pt-PT") {
   if (n == null || !Number.isFinite(n)) return "—";
   const cur = currency && /^[A-Z]{3}$/i.test(currency) ? currency.toUpperCase() : "USD";
   try {
-    return n.toLocaleString("pt-PT", { style: "currency", currency: cur, maximumFractionDigits: 2 });
+    return n.toLocaleString(locale, { style: "currency", currency: cur, maximumFractionDigits: 2 });
   } catch {
     return `${n.toFixed(2)} ${cur}`;
   }
 }
 
-function pct(n: number | null | undefined) {
+function pct(n: number | null | undefined, locale = "pt-PT") {
   if (n == null || !Number.isFinite(n)) return "—";
-  return `${n.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`;
+  return `${n.toLocaleString(locale, { maximumFractionDigits: 2 })}%`;
 }
 
-function xNum(n: number | null | undefined) {
+function xNum(n: number | null | undefined, locale = "pt-PT") {
   if (n == null || !Number.isFinite(n)) return "—";
-  return `${n.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}x`;
+  return `${n.toLocaleString(locale, { maximumFractionDigits: 2 })}x`;
 }
 
-function int(n: number | null | undefined) {
+function int(n: number | null | undefined, locale = "pt-PT") {
   if (n == null || !Number.isFinite(n)) return "—";
-  return n.toLocaleString("pt-PT");
+  return n.toLocaleString(locale);
 }
 
 const STAGE_TONE: Record<string, string> = {
@@ -87,7 +87,8 @@ const STAGE_TONE: Record<string, string> = {
 
 /** Funil alinhado a GET /analytics/funnel — mesmas regras KPI que Resultados. */
 export default function Vendas() {
-  const { t } = useAppLocale();
+  const { t, locale } = useAppLocale();
+  const numLocale = numberLocaleFor(locale);
   const initial = useMemo(() => rangeLast30Days(), []);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
@@ -132,7 +133,7 @@ export default function Vendas() {
   if (isLoading && !data) {
     return (
       <div className={PRO_PAGE_SHELL}>
-        <LoadingState message="A carregar funil…" />
+        <LoadingState message={t("pages.funnel.loading")} />
       </div>
     );
   }
@@ -141,7 +142,7 @@ export default function Vendas() {
     return (
       <div className={PRO_PAGE_SHELL}>
         <ErrorState
-          message={error instanceof Error ? error.message : "Não foi possível carregar o funil."}
+          message={error instanceof Error ? error.message : t("pages.funnel.loadError")}
           onRetry={() => void refetch()}
         />
       </div>
@@ -285,32 +286,35 @@ export default function Vendas() {
           <ProKpiCell
             key={s.id}
             label={s.label}
-            value={int(s.count)}
+            value={int(s.count, numLocale)}
             hint={
               s.rate_from_previous != null
-                ? `${pct(s.rate_from_previous)} da etapa anterior · ${pct(s.rate_from_top)} do topo`
+                ? fill(t("pages.funnel.fromPreviousTop"), {
+                    prev: pct(s.rate_from_previous, numLocale),
+                    top: pct(s.rate_from_top, numLocale),
+                  })
                 : s.rate_from_top != null
-                  ? `${pct(s.rate_from_top)} do topo`
+                  ? fill(t("pages.funnel.fromTop"), { top: pct(s.rate_from_top, numLocale) })
                   : undefined
             }
           />
         ))}
-        <ProKpiCell label={t("common.revenue")} value={money(roi.revenue, currency)} />
+        <ProKpiCell label={t("common.revenue")} value={money(roi.revenue, currency, numLocale)} />
         <ProKpiCell
           label={t("common.cost")}
-          value={money(roi.spend, currency)}
+          value={money(roi.spend, currency, numLocale)}
           hint={spendOk ? spendLabel : t("pages.funnel.noSync")}
           tone={spendOk ? undefined : "muted"}
         />
         <ProKpiCell
           label={t("common.profit")}
-          value={money(roi.profit, currency)}
+          value={money(roi.profit, currency, numLocale)}
           tone={roi.profit == null ? "muted" : roi.profit >= 0 ? "positive" : "negative"}
         />
         <ProKpiCell
           label={t("pages.results.kpiRoi")}
-          value={roi.roi_pct != null ? pct(roi.roi_pct) : "—"}
-          hint={roi.roas != null ? `ROAS ${xNum(roi.roas)}` : undefined}
+          value={roi.roi_pct != null ? pct(roi.roi_pct, numLocale) : "—"}
+          hint={roi.roas != null ? `ROAS ${xNum(roi.roas, numLocale)}` : undefined}
           tone={roi.roi_pct == null ? "muted" : roi.roi_pct >= 0 ? "positive" : "negative"}
         />
       </ProKpiGrid>
@@ -329,9 +333,9 @@ export default function Vendas() {
                     <div className="flex items-baseline justify-between gap-2 text-sm">
                       <span className="font-medium text-foreground">{s.label}</span>
                       <span className="tabular-nums text-muted-foreground">
-                        {int(s.count)}
+                        {int(s.count, numLocale)}
                         {s.rate_from_previous != null ? (
-                          <span className="ml-2 text-[11px]">→ {pct(s.rate_from_previous)}</span>
+                          <span className="ml-2 text-[11px]">→ {pct(s.rate_from_previous, numLocale)}</span>
                         ) : null}
                       </span>
                     </div>
@@ -356,29 +360,29 @@ export default function Vendas() {
             <div className="mb-4 grid grid-cols-3 gap-2">
               <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("pages.funnel.labelPaid")}</p>
-                <p className="text-lg font-semibold tabular-nums">{int(traffic.paid_sales)}</p>
+                <p className="text-lg font-semibold tabular-nums">{int(traffic.paid_sales, numLocale)}</p>
                 <p className="text-[11px] text-muted-foreground">
-                  {pct(traffic.paid_pct)} · {money(traffic.paid_revenue, currency)}
+                  {pct(traffic.paid_pct, numLocale)} · {money(traffic.paid_revenue, currency, numLocale)}
                 </p>
               </div>
               <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Sem ID do clique</p>
-                <p className="text-lg font-semibold tabular-nums">{int(traffic.paid_untracked_sales)}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("pages.funnel.noClickId")}</p>
+                <p className="text-lg font-semibold tabular-nums">{int(traffic.paid_untracked_sales, numLocale)}</p>
                 <p className="text-[11px] text-muted-foreground">
-                  {pct(traffic.paid_untracked_pct)} · {money(traffic.paid_untracked_revenue, currency)}
+                  {pct(traffic.paid_untracked_pct, numLocale)} · {money(traffic.paid_untracked_revenue, currency, numLocale)}
                 </p>
               </div>
               <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("pages.funnel.labelOrganic")}</p>
-                <p className="text-lg font-semibold tabular-nums">{int(traffic.organic_sales)}</p>
+                <p className="text-lg font-semibold tabular-nums">{int(traffic.organic_sales, numLocale)}</p>
                 <p className="text-[11px] text-muted-foreground">
-                  {pct(traffic.organic_pct)} · {money(traffic.organic_revenue, currency)}
+                  {pct(traffic.organic_pct, numLocale)} · {money(traffic.organic_revenue, currency, numLocale)}
                 </p>
               </div>
             </div>
           </div>
           {chartSeries.length === 0 ? (
-            <ProEmpty title="Sem série diária de vendas." />
+            <ProEmpty title={t("pages.funnel.emptySalesSeries")} />
           ) : (
             <div className="h-56 px-2 pb-4">
               <ResponsiveContainer width="100%" height="100%">
@@ -401,7 +405,7 @@ export default function Vendas() {
                   <Area
                     type="monotone"
                     dataKey="paid"
-                    name="Pago"
+                    name={t("pages.funnel.labelPaid")}
                     stroke="hsl(172 66% 38%)"
                     fill="hsl(172 66% 38%)"
                     fillOpacity={0.25}
@@ -410,7 +414,7 @@ export default function Vendas() {
                   <Area
                     type="monotone"
                     dataKey="ads_sem_id"
-                    name="Sem ID do clique"
+                    name={t("pages.funnel.noClickId")}
                     stroke="hsl(38 88% 50%)"
                     fill="hsl(38 88% 50%)"
                     fillOpacity={0.2}
@@ -419,7 +423,7 @@ export default function Vendas() {
                   <Area
                     type="monotone"
                     dataKey="organic"
-                    name="Orgânico"
+                    name={t("pages.funnel.labelOrganic")}
                     stroke="hsl(28 92% 48%)"
                     fill="hsl(28 92% 48%)"
                     fillOpacity={0.2}
@@ -432,9 +436,9 @@ export default function Vendas() {
         </ProPanel>
       </div>
 
-      <ProPanel title="Volume diário" description="Impressões, cliques, checkouts e vendas">
+      <ProPanel title={t("pages.funnel.volumeTitle")} description={t("pages.funnel.volumeDesc")}>
         {chartSeries.length === 0 ? (
-          <ProEmpty title="Sem dados diários no período." />
+          <ProEmpty title={t("pages.funnel.emptyDaily")} />
         ) : (
           <div className="h-64 px-2 py-4">
             <ResponsiveContainer width="100%" height="100%">
@@ -457,7 +461,7 @@ export default function Vendas() {
                 <Area
                   type="monotone"
                   dataKey="impressions"
-                  name="Impressões"
+                  name={t("common.impressions")}
                   stroke={STAGE_TONE.impressions}
                   fill={STAGE_TONE.impressions}
                   fillOpacity={0.15}
@@ -466,7 +470,7 @@ export default function Vendas() {
                 <Area
                   type="monotone"
                   dataKey="clicks"
-                  name="Cliques"
+                  name={t("common.clicks")}
                   stroke={STAGE_TONE.clicks}
                   fill={STAGE_TONE.clicks}
                   fillOpacity={0.2}
@@ -475,7 +479,7 @@ export default function Vendas() {
                 <Area
                   type="monotone"
                   dataKey="checkouts"
-                  name="Checkouts"
+                  name={t("common.checkouts")}
                   stroke={STAGE_TONE.checkouts}
                   fill={STAGE_TONE.checkouts}
                   fillOpacity={0.2}
@@ -484,7 +488,7 @@ export default function Vendas() {
                 <Area
                   type="monotone"
                   dataKey="sales"
-                  name="Vendas"
+                  name={t("common.sales")}
                   stroke={STAGE_TONE.sales}
                   fill={STAGE_TONE.sales}
                   fillOpacity={0.25}
@@ -497,30 +501,30 @@ export default function Vendas() {
       </ProPanel>
 
       <ProPanel
-        title="Por palavra-chave"
-        description="Custo e retorno só quando há sync de custos Google Ads do período"
+        title={t("pages.funnel.keywordsTitle")}
+        description={t("pages.funnel.keywordsDesc")}
         actions={
           <Link to="/integracoes" className="text-[11px] font-medium text-primary hover:underline">
-            Integrações
+            {t("nav.integrations")}
           </Link>
         }
       >
         {(data.keywords ?? []).length === 0 ? (
-          <ProEmpty title="Sem cliques com palavra-chave no período." />
+          <ProEmpty title={t("pages.funnel.emptyKeywords")} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border/70 text-left">
-                  <ProReportTh align="left">Palavra-chave</ProReportTh>
-                  <ProReportTh>Cliques</ProReportTh>
-                  <ProReportTh>Checkouts</ProReportTh>
-                  <ProReportTh>Vendas</ProReportTh>
-                  <ProReportTh>Receita</ProReportTh>
-                  <ProReportTh>Custo</ProReportTh>
-                  <ProReportTh>Lucro</ProReportTh>
-                  <ProReportTh>Retorno</ProReportTh>
-                  <ProReportTh>CVR</ProReportTh>
+                  <ProReportTh align="left">{t("common.keyword")}</ProReportTh>
+                  <ProReportTh>{t("common.clicks")}</ProReportTh>
+                  <ProReportTh>{t("common.checkouts")}</ProReportTh>
+                  <ProReportTh>{t("common.sales")}</ProReportTh>
+                  <ProReportTh>{t("common.revenue")}</ProReportTh>
+                  <ProReportTh>{t("common.cost")}</ProReportTh>
+                  <ProReportTh>{t("common.profit")}</ProReportTh>
+                  <ProReportTh>{t("pages.results.colRoi")}</ProReportTh>
+                  <ProReportTh>{t("pages.results.colCvr")}</ProReportTh>
                 </tr>
               </thead>
               <tbody>
@@ -535,20 +539,20 @@ export default function Vendas() {
                         {row.keyword}
                       </button>
                     </ProReportTd>
-                    <ProReportTd>{int(row.clicks)}</ProReportTd>
-                    <ProReportTd>{int(row.checkouts)}</ProReportTd>
-                    <ProReportTd>{int(row.sales)}</ProReportTd>
-                    <ProReportTd>{money(row.revenue, currency)}</ProReportTd>
-                    <ProReportTd>{money(row.cost, currency)}</ProReportTd>
+                    <ProReportTd>{int(row.clicks, numLocale)}</ProReportTd>
+                    <ProReportTd>{int(row.checkouts, numLocale)}</ProReportTd>
+                    <ProReportTd>{int(row.sales, numLocale)}</ProReportTd>
+                    <ProReportTd>{money(row.revenue, currency, numLocale)}</ProReportTd>
+                    <ProReportTd>{money(row.cost, currency, numLocale)}</ProReportTd>
                     <ProReportTd
                       tone={row.profit == null ? "muted" : row.profit >= 0 ? "positive" : "negative"}
                     >
-                      {money(row.profit, currency)}
+                      {money(row.profit, currency, numLocale)}
                     </ProReportTd>
                     <ProReportTd>
-                      {row.roi_pct != null ? pct(row.roi_pct) : row.roas != null ? xNum(row.roas) : "—"}
+                      {row.roi_pct != null ? pct(row.roi_pct, numLocale) : row.roas != null ? xNum(row.roas, numLocale) : "—"}
                     </ProReportTd>
-                    <ProReportTd>{pct(row.cvr)}</ProReportTd>
+                    <ProReportTd>{pct(row.cvr, numLocale)}</ProReportTd>
                   </tr>
                 ))}
               </tbody>
@@ -556,12 +560,12 @@ export default function Vendas() {
           </div>
         )}
         <ProTotalsBar>
-          <ProTotalStat label={t("common.clicks")} value={int(stages.find((s) => s.id === "clicks")?.count)} />
-          <ProTotalStat label={t("common.sales")} value={int(stages.find((s) => s.id === "sales")?.count)} />
-          <ProTotalStat label={t("common.revenue")} value={money(roi.revenue, currency)} />
-          <ProTotalStat label="CPA" value={money(roi.cpa, currency)} />
-          <ProTotalStat label="EPC" value={money(roi.epc, currency)} />
-          <ProTotalStat label="CVR" value={pct(roi.conversion_rate)} />
+          <ProTotalStat label={t("common.clicks")} value={int(stages.find((s) => s.id === "clicks")?.count, numLocale)} />
+          <ProTotalStat label={t("common.sales")} value={int(stages.find((s) => s.id === "sales")?.count, numLocale)} />
+          <ProTotalStat label={t("common.revenue")} value={money(roi.revenue, currency, numLocale)} />
+          <ProTotalStat label="CPA" value={money(roi.cpa, currency, numLocale)} />
+          <ProTotalStat label="EPC" value={money(roi.epc, currency, numLocale)} />
+          <ProTotalStat label="CVR" value={pct(roi.conversion_rate, numLocale)} />
         </ProTotalsBar>
       </ProPanel>
     </div>

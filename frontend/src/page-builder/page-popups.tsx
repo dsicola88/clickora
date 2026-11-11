@@ -6,6 +6,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { usePageBuilderT } from "./usePageBuilderT";
 import type { PageDocument, PagePopup } from "./types";
 import {
   buildOverlayEntranceAnimation,
@@ -69,7 +70,9 @@ function PopupCard({
   const href = (popup.ctaHref ?? "").trim();
   const label = (popup.ctaLabel ?? "").trim();
   const radius = Math.max(0, popup.borderRadiusPx ?? (mode === "bar" ? 0 : 16));
+  const t = usePageBuilderT();
   const showClose = popup.showCloseButton !== false;
+  const closeLabel = t("common.close");
   const isBar = mode === "bar" || position === "top" || position === "bottom";
   const isSide = position === "left" || position === "right";
 
@@ -99,7 +102,7 @@ function PopupCard({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Fechar"
+          aria-label={closeLabel}
           style={{
             position: "absolute",
             top: 10,

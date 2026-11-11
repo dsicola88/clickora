@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ImageIcon, Loader2, Music2, Sparkles, Upload, X } from "lucide-react";
 import { toast } from "sonner";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,14 +74,14 @@ const TIKTOK_BIDDING_OPTIONS: { value: TiktokBiddingStrategy; label: string; hin
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/quicktime"];
 const MAX_BYTES = 25 * 1024 * 1024;
 
-const DPILOT_TIKTOK_CAMPAIGN_STEPS = [
-  { id: "dpilot-wiz-tiktok-offer", label: "Destino e público" },
-  { id: "dpilot-wiz-tiktok-obj", label: "Objetivo e orçamento" },
-  { id: "dpilot-wiz-tiktok-bidding", label: "Licitação" },
-  { id: "dpilot-wiz-tiktok-target", label: "Segmentação" },
-  { id: "dpilot-wiz-tiktok-creative", label: "Criativo" },
-  { id: "dpilot-wiz-tiktok-compliance", label: "Conformidade" },
-  { id: "dpilot-wiz-tiktok-submit", label: "Gerar plano" },
+const DPILOT_TIKTOK_CAMPAIGN_STEP_IDS = [
+  "dpilot-wiz-tiktok-offer",
+  "dpilot-wiz-tiktok-obj",
+  "dpilot-wiz-tiktok-bidding",
+  "dpilot-wiz-tiktok-target",
+  "dpilot-wiz-tiktok-creative",
+  "dpilot-wiz-tiktok-compliance",
+  "dpilot-wiz-tiktok-submit",
 ] as const;
 
 const schema = z.object({
@@ -93,6 +95,7 @@ const schema = z.object({
 });
 
 export function DpilotTiktokWizardPage() {
+  const { t } = useAppLocale();
   const { projectId } = useDpilotPaid();
   const navigate = useNavigate();
   const base = `/tracking/dpilot/p/${projectId}`;
@@ -122,11 +125,15 @@ export function DpilotTiktokWizardPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!ALLOWED_MIME.includes(file.type)) {
-      toast.error("Formato não suportado", { description: "Use JPEG, PNG, WebP, MP4 ou MOV." });
+      toast.error(t("pages.dpilot.common.unsupportedFormat"), {
+        description: t("pages.dpilot.common.unsupportedFormatDesc"),
+      });
       return;
     }
     if (file.size > MAX_BYTES) {
-      toast.error("Ficheiro demasiado grande", { description: "Máximo 25MB." });
+      toast.error(t("pages.dpilot.common.fileTooLarge"), {
+        description: t("pages.dpilot.common.fileTooLargeDesc"),
+      });
       return;
     }
     setUploading(true);
@@ -150,17 +157,19 @@ export function DpilotTiktokWizardPage() {
         setVideoPreview(null);
         setVideoName(null);
         setVideoIsVideo(false);
-        toast.error("Falha no envio", { description: upErr || "Tente de novo num instante." });
+        toast.error(t("pages.dpilot.tiktok.uploadFailed"), {
+          description: upErr || t("pages.dpilot.common.tryAgainSoon"),
+        });
         return;
       }
       setVideoPath(data.path);
-      toast.success("Ficheiro carregado", { description: "Referência guardada no servidor para o plano." });
+      toast.success(t("pages.dpilot.tiktok.uploaded"), { description: t("pages.dpilot.tiktok.uploadedDesc") });
     } catch {
       setVideoPath(null);
       setVideoPreview(null);
       setVideoName(null);
       setVideoIsVideo(false);
-      toast.error("Falha ao processar o ficheiro");
+      toast.error(t("pages.dpilot.common.fileProcessFailed"));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -190,28 +199,28 @@ export function DpilotTiktokWizardPage() {
       ageMax: Number(ageMax),
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Dados inválidos");
+      setError(parsed.error.issues[0]?.message ?? t("pages.dpilot.common.invalidData"));
       return;
     }
     if (parsed.data.ageMax < parsed.data.ageMin) {
-      setError("Idade máxima deve ser maior ou igual à idade mínima");
+      setError(t("pages.dpilot.common.ageOrder"));
       return;
     }
     if (!complianceAck) {
-      setError("Confirme a declaração de conformidade com as políticas do TikTok Ads.");
+      setError(t("pages.dpilot.tiktok.complianceRequired"));
       return;
     }
 
     const geoArr = geoTargets.map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 20);
     if (!geoArr.length) {
-      setError("Selecione pelo menos uma localização (país).");
+      setError(t("pages.dpilot.common.selectCountry"));
       return;
     }
 
     if (tiktokBiddingStrategy === "bid_cap_usd") {
       const cap = parseFloat(tiktokBidAmountUsd.replace(",", "."));
       if (!Number.isFinite(cap) || cap <= 0) {
-        setError("Indique um valor USD positivo para o teto de licitação.");
+        setError(t("pages.dpilot.tiktok.bidInvalid"));
         return;
       }
     }
@@ -235,33 +244,36 @@ export function DpilotTiktokWizardPage() {
           : {}),
       });
       if (apiErr || !data?.ok) {
-        const msg = apiErr || "Falha ao gerar plano";
+        const msg = apiErr || t("pages.dpilot.common.planFailed");
         setError(msg);
-        toast.error("Falha ao gerar plano", { description: msg });
+        toast.error(t("pages.dpilot.common.planFailed"), { description: msg });
         return;
       }
       const planGenNote =
         data.planSource === "deterministic"
-          ? " Modo de reserva: sem chamada ao modelo (regras fixas)."
-          : " Texto gerado com chamada ao modelo de IA.";
+          ? t("pages.dpilot.common.planNoteReserve")
+          : t("pages.dpilot.common.planNoteAi");
       if (data.autoApplied) {
-        toast.success("Campanha TikTok — autopilot", {
-          description: `Publicação automática tentada na conta ligada (dentro dos limites).${planGenNote}`,
+        toast.success(t("pages.dpilot.tiktok.autopilot"), {
+          description: fill(t("pages.dpilot.tiktok.autopilotDesc"), { note: planGenNote }),
         });
       } else if (data.reasons && data.reasons.length > 0) {
-        toast.warning("Campanha TikTok — revisão necessária", {
-          description: `${data.reasons[0]?.message ?? "Consulte os motivos nos pedidos em «Aprovações»."}${planGenNote}`,
+        toast.warning(t("pages.dpilot.tiktok.review"), {
+          description: fill(t("pages.dpilot.common.reasonWithNote"), {
+            reason: data.reasons[0]?.message ?? t("pages.dpilot.tiktok.reviewFallback"),
+            note: planGenNote,
+          }),
         });
       } else {
-        toast.success("Campanha TikTok criada", {
-          description: `Rascunho e pedido criados. Consulte «Aprovações» para rever e usar «Aplicar na rede» quando adequado.${planGenNote}`,
+        toast.success(t("pages.dpilot.tiktok.created"), {
+          description: fill(t("pages.dpilot.tiktok.createdDesc"), { note: planGenNote }),
         });
       }
       navigate(`${base}/aprovacoes`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      const msg = err instanceof Error ? err.message : t("pages.dpilot.common.unknownError");
       setError(msg);
-      toast.error("Falha ao gerar plano", { description: msg });
+      toast.error(t("pages.dpilot.common.planFailed"), { description: msg });
     } finally {
       setSubmitting(false);
     }
@@ -273,8 +285,16 @@ export function DpilotTiktokWizardPage() {
     <Gate>
       <DpilotAdsCampaignWizardShell
         platform="tiktok"
-        platformBadge="TikTok Ads · Campanhas e grupos API v1.3"
-        steps={[...DPILOT_TIKTOK_CAMPAIGN_STEPS]}
+        platformBadge={t("pages.dpilot.tiktok.badge")}
+        steps={[
+          { id: DPILOT_TIKTOK_CAMPAIGN_STEP_IDS[0], label: t("pages.dpilot.tiktok.navOffer") },
+          { id: DPILOT_TIKTOK_CAMPAIGN_STEP_IDS[1], label: t("pages.dpilot.tiktok.navObjective") },
+          { id: DPILOT_TIKTOK_CAMPAIGN_STEP_IDS[2], label: t("pages.dpilot.tiktok.navBidding") },
+          { id: DPILOT_TIKTOK_CAMPAIGN_STEP_IDS[3], label: t("pages.dpilot.tiktok.navTargeting") },
+          { id: DPILOT_TIKTOK_CAMPAIGN_STEP_IDS[4], label: t("pages.dpilot.tiktok.navCreative") },
+          { id: DPILOT_TIKTOK_CAMPAIGN_STEP_IDS[5], label: t("pages.dpilot.tiktok.navCompliance") },
+          { id: DPILOT_TIKTOK_CAMPAIGN_STEP_IDS[6], label: t("pages.dpilot.tiktok.navGenerate") },
+        ]}
         subtitle={
           <>
             Fluxo paralelo ao <strong className="font-medium text-foreground">Ads Manager</strong>: objectivos de campanha
@@ -288,7 +308,7 @@ export function DpilotTiktokWizardPage() {
           </>
         }
         backHref={`${base}/tiktok`}
-        backLabel="Voltar ao TikTok Ads"
+        backLabel={t("pages.dpilot.tiktok.back")}
         readiness={<DpilotCampaignReadinessCard platform="tiktok" />}
       >
         <DpilotAdsWizardFormPreviewSplit
@@ -309,8 +329,8 @@ export function DpilotTiktokWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-tiktok-offer"
             platform="tiktok"
-            stepLabel="Passo 1 de 7"
-            title="Destino e contexto criativo"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 1, total: 7 })}
+            title={t("pages.dpilot.tiktok.stepDestination")}
             description="Landing, mensagem principal e público esperado para alinhar formato vertical e texto gerado por IA."
           >
             <div className="grid gap-2">
@@ -364,8 +384,8 @@ export function DpilotTiktokWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-tiktok-obj"
             platform="tiktok"
-            stepLabel="Passo 2 de 7"
-            title="Objetivo e investimento diário"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 2, total: 7 })}
+            title={t("pages.dpilot.tiktok.stepObjective")}
             description="Selecciona o tipo de resultado da campanha e o gasto médio previsto por dia na moeda configurada na conta."
           >
             <div className="grid gap-4 sm:grid-cols-2">
@@ -403,8 +423,8 @@ export function DpilotTiktokWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-tiktok-bidding"
             platform="tiktok"
-            stepLabel="Passo 3 de 7"
-            title="Licitação do grupo de anúncios"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 3, total: 7 })}
+            title={t("pages.dpilot.tiktok.stepBidding")}
             description="Bid automático TikTok ou teto monetário quando a API do plano assim o aplicar ao grupo."
           >
             <div className="space-y-3 rounded-lg border border-border/80 bg-muted/25 p-4 dark:bg-muted/15">
@@ -443,8 +463,8 @@ export function DpilotTiktokWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-tiktok-target"
             platform="tiktok"
-            stepLabel="Passo 4 de 7"
-            title="Mercado e idade"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 4, total: 7 })}
+            title={t("pages.dpilot.tiktok.stepMarket")}
             description="Ao menos uma região; faixa etária coerente com políticas TikTok Ads e com o próprio criativo."
           >
             <GoogleAdsCountriesSelect
@@ -488,8 +508,8 @@ export function DpilotTiktokWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-tiktok-creative"
             platform="tiktok"
-            stepLabel="Passo 5 de 7"
-            title="Criativo inicial (recomendado)"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 5, total: 7 })}
+            title={t("pages.dpilot.tiktok.stepCreative")}
             description="Vídeo vertical 9:16 funciona melhor; o ficheiro é enviado para a biblioteca do advertiser e usado no anúncio criado pela API."
           >
             <div className="grid gap-2">
@@ -538,8 +558,8 @@ export function DpilotTiktokWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-tiktok-compliance"
             platform="tiktok"
-            stepLabel="Passo 6 de 7"
-            title="Regras do TikTok Ads"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 6, total: 7 })}
+            title={t("pages.dpilot.tiktok.stepRules")}
             description="Conversões e medição frequentemente dependem de pixel/app e de regras de conteúdo por sector."
           >
             <div className="grid gap-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-4 dark:bg-amber-500/10">
@@ -576,8 +596,8 @@ export function DpilotTiktokWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-tiktok-submit"
             platform="tiktok"
-            stepLabel="Passo 7 de 7"
-            title="Gerar plano técnico"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 7, total: 7 })}
+            title={t("pages.dpilot.tiktok.stepGenerate")}
             description="Plano registado neste workspace; só entra ao vivo quando a fila autorizar alterações na conta."
           >
             {error ? (
@@ -596,7 +616,7 @@ export function DpilotTiktokWizardPage() {
                 ) : (
                   <Sparkles className="mr-2 h-4 w-4" />
                 )}
-                {submitting ? "A gerar plano…" : "Gerar plano"}
+                {submitting ? t("pages.dpilot.common.generatingPlan") : t("pages.dpilot.common.generatePlan")}
               </Button>
             </div>
           </DpilotWizardFormSection>

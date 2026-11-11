@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +11,7 @@ import type { AdminPlanRow } from "@/types/api";
 import { adminService } from "@/services/adminService";
 import { toast } from "sonner";
 import { formatPlanPrice, mergeWithDefaultLabels } from "@/lib/planDisplayLabels";
-import { freeTextEmbedsNumericQuota, NUMERIC_QUOTA_IN_FREE_TEXT } from "@/lib/planCommercialText";
+import { freeTextEmbedsNumericQuota } from "@/lib/planCommercialText";
 
 type Props = {
   plan: AdminPlanRow;
@@ -19,6 +21,7 @@ type Props = {
 };
 
 export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
+  const { t } = useAppLocale();
   const lb = mergeWithDefaultLabels(priceLabels ?? undefined);
   const [name, setName] = useState(plan.name);
   const [priceInput, setPriceInput] = useState((plan.price_cents / 100).toFixed(2));
@@ -76,7 +79,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
   const save = async () => {
     const parsed = parseFloat(priceInput.replace(",", "."));
     if (Number.isNaN(parsed) || parsed < 0) {
-      toast.error("Preço inválido");
+      toast.error(t("pages.admin.plan.invalidPrice"));
       return;
     }
     const price_cents = Math.round(parsed * 100);
@@ -84,7 +87,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
     if (maxPages.trim() !== "") {
       const n = parseInt(maxPages, 10);
       if (Number.isNaN(n) || n < 0) {
-        toast.error("Max. presells inválido");
+        toast.error(t("pages.admin.plan.invalidPages"));
         return;
       }
       max_presell_pages = n;
@@ -93,21 +96,21 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
     if (maxClicks.trim() !== "") {
       const n = parseInt(maxClicks, 10);
       if (Number.isNaN(n) || n < 0) {
-        toast.error("Max. cliques inválido");
+        toast.error(t("pages.admin.plan.invalidClicks"));
         return;
       }
       max_clicks_per_month = n;
     }
     const mcd = parseInt(maxCustomDomains, 10);
     if (Number.isNaN(mcd) || mcd < 0 || mcd > 50) {
-      toast.error("Máx. domínios personalizados: número entre 0 e 50");
+      toast.error(t("pages.admin.plan.invalidDomains"));
       return;
     }
     let max_presell_ai_generations: number | null = null;
     if (maxPresellAi.trim() !== "") {
       const n = parseInt(maxPresellAi, 10);
       if (Number.isNaN(n) || n < 0 || n > 10_000) {
-        toast.error("Máx. gerações IA: número entre 0 e 10000 (vazio = padrão do tipo)");
+        toast.error(t("pages.admin.plan.invalidAi"));
         return;
       }
       max_presell_ai_generations = n;
@@ -116,7 +119,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
     if (maxWorkspaceMembers.trim() !== "") {
       const n = parseInt(maxWorkspaceMembers, 10);
       if (Number.isNaN(n) || n < 0 || n > 500) {
-        toast.error("Máx. membros: número entre 0 e 500 (vazio = padrão do tipo / ilimitado no anual)");
+        toast.error(t("pages.admin.plan.invalidMembers"));
         return;
       }
       max_workspace_members = n;
@@ -125,7 +128,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
     if (maxTrafficRotators.trim() !== "") {
       const n = parseInt(maxTrafficRotators, 10);
       if (Number.isNaN(n) || n < 0 || n > 10_000) {
-        toast.error("Máx. rotadores: número entre 0 e 10000 (vazio = padrão do tipo / ilimitado no anual)");
+        toast.error(t("pages.admin.plan.invalidRotators"));
         return;
       }
       max_traffic_rotators = n;
@@ -136,11 +139,11 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
       .map((s) => s.trim())
       .filter(Boolean);
     if (features.some((line) => freeTextEmbedsNumericQuota(line))) {
-      toast.error(NUMERIC_QUOTA_IN_FREE_TEXT);
+      toast.error(t("pages.admin.plan.numericQuota"));
       return;
     }
     if (plan.type !== "free_trial" && price_cents === 0) {
-      toast.error("Um plano pago não pode ficar a zero. Preço zero só no plano grátis.");
+      toast.error(t("pages.admin.plan.paidZero"));
       return;
     }
 
@@ -165,7 +168,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
         toast.error(error);
         return;
       }
-      toast.success("Plano atualizado");
+      toast.success(t("pages.admin.plan.updated"));
       onSaved();
     } finally {
       setLoading(false);
@@ -180,17 +183,17 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
           <code className="text-xs font-normal bg-muted px-2 py-0.5 rounded">{plan.type}</code>
         </CardTitle>
         <CardDescription>
-          Pré-visualização: {formatPlanPrice(plan.price_cents, lb)} · a moeda na página pública segue a landing /planos
+          {fill(t("pages.admin.plan.preview"), { price: formatPlanPrice(plan.price_cents, lb) })}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor={`n-${plan.id}`}>Nome comercial</Label>
+            <Label htmlFor={`n-${plan.id}`}>{t("pages.admin.plan.commercialName")}</Label>
             <Input id={`n-${plan.id}`} value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`p-${plan.id}`}>Preço mostrado na página</Label>
+            <Label htmlFor={`p-${plan.id}`}>{t("pages.admin.plan.priceShown")}</Label>
             <Input
               id={`p-${plan.id}`}
               inputMode="decimal"
@@ -198,12 +201,11 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
               onChange={(e) => setPriceInput(e.target.value)}
             />
             <p className="text-[11px] text-muted-foreground leading-snug">
-              Este valor só muda o preço escrito no cartão. A Hotmart continua a cobrar o preço da oferta do botão.
-              Quem já tem o plano permanece nele, pelo valor contratado na Hotmart. Preço zero só é permitido no plano grátis.
+              {t("pages.admin.plan.priceHint")}
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`mp-${plan.id}`}>Máx. páginas (vazio = sem máximo, 0 = nenhuma página nova)</Label>
+            <Label htmlFor={`mp-${plan.id}`}>{t("pages.admin.plan.maxPages")}</Label>
             <Input
               id={`mp-${plan.id}`}
               placeholder="—"
@@ -212,7 +214,7 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`mc-${plan.id}`}>Quota de cliques no mês (vazio = sem quota, 0 = quota zero)</Label>
+            <Label htmlFor={`mc-${plan.id}`}>{t("pages.admin.plan.clicksQuota")}</Label>
             <Input
               id={`mc-${plan.id}`}
               placeholder="—"
@@ -220,12 +222,11 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
               onChange={(e) => setMaxClicks(e.target.value)}
             />
             <p className="text-[11px] text-muted-foreground leading-snug">
-              Vazio e zero não são a mesma coisa. Vazio não tem máximo. Zero marca a quota como ultrapassada e o anúncio continua.
-              Mudar páginas, cliques, domínios ou interruptores aplica-se logo a quem já tem este plano. O que já foi criado não é apagado.
+              {t("pages.admin.plan.quotaHint")}
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`mcd-${plan.id}`}>Máx. domínios próprios</Label>
+            <Label htmlFor={`mcd-${plan.id}`}>{t("pages.admin.plan.maxDomains")}</Label>
             <Input
               id={`mcd-${plan.id}`}
               inputMode="numeric"
@@ -233,87 +234,85 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
               onChange={(e) => setMaxCustomDomains(e.target.value)}
             />
             <p className="text-[11px] text-muted-foreground leading-snug">
-              0 = sem domínio próprio. Aplica-se de imediato ao adicionar domínios (não apaga os já criados).
+              {t("pages.admin.plan.maxDomainsHint")}
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`mai-${plan.id}`}>Máx. gerações IA review / mês</Label>
+            <Label htmlFor={`mai-${plan.id}`}>{t("pages.admin.plan.maxAi")}</Label>
             <Input
               id={`mai-${plan.id}`}
               inputMode="numeric"
-              placeholder="Padrão do tipo (8 / 40 / 120)"
+              placeholder={t("pages.admin.plan.maxAiPlaceholder")}
               value={maxPresellAi}
               onChange={(e) => setMaxPresellAi(e.target.value)}
             />
             <p className="text-[11px] text-muted-foreground leading-snug">
-              Só conta OpenAI aplicada (não preview nem texto determinístico). Vazio = padrão do tipo; 0 = só
-              determinístico. Pacote 3 variantes = 1 crédito.
+              {t("pages.admin.plan.maxAiHint")}
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`mwm-${plan.id}`}>Máx. membros no workspace</Label>
+            <Label htmlFor={`mwm-${plan.id}`}>{t("pages.admin.plan.maxMembers")}</Label>
             <Input
               id={`mwm-${plan.id}`}
               inputMode="numeric"
-              placeholder="Padrão (1 / 5 / ∞)"
+              placeholder={t("pages.admin.plan.maxMembersPlaceholder")}
               value={maxWorkspaceMembers}
               onChange={(e) => setMaxWorkspaceMembers(e.target.value)}
             />
             <p className="text-[11px] text-muted-foreground leading-snug">
-              Inclui o dono. Vazio = padrão do tipo (Starter 1, Mensal 5, Anual sem máximo). Não remove quem já
-              está; só bloqueia novos convites.
+              {t("pages.admin.plan.maxMembersHint")}
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`mtr-${plan.id}`}>Máx. rotadores de tráfego</Label>
+            <Label htmlFor={`mtr-${plan.id}`}>{t("pages.admin.plan.maxRotators")}</Label>
             <Input
               id={`mtr-${plan.id}`}
               inputMode="numeric"
-              placeholder="Padrão (3 / 25 / ∞)"
+              placeholder={t("pages.admin.plan.maxRotatorsPlaceholder")}
               value={maxTrafficRotators}
               onChange={(e) => setMaxTrafficRotators(e.target.value)}
             />
             <p className="text-[11px] text-muted-foreground leading-snug">
-              Vazio = padrão do tipo. Não apaga rotadores existentes; só impede criar novos acima do teto.
+              {t("pages.admin.plan.maxRotatorsHint")}
             </p>
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`f-${plan.id}`}>Texto extra do cartão, uma linha por frase</Label>
+          <Label htmlFor={`f-${plan.id}`}>{t("pages.admin.plan.extraText")}</Label>
           <Textarea
             id={`f-${plan.id}`}
             rows={6}
             value={featuresText}
             onChange={(e) => setFeaturesText(e.target.value)}
             className="resize-y font-mono text-sm"
-            placeholder="Ex.: Analytics completo&#10;Suporte prioritário"
+            placeholder={t("pages.admin.plan.extraPlaceholder")}
           />
           <p className="text-[11px] text-muted-foreground leading-snug">
-            Não escreva aqui quantas páginas, cliques ou domínios. Esses números estão nos campos acima e mudam no cartão quando os alterar.
+            {t("pages.admin.plan.extraHint")}
           </p>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`cta-${plan.id}`}>Texto do botão (opcional)</Label>
+          <Label htmlFor={`cta-${plan.id}`}>{t("pages.admin.plan.cta")}</Label>
           <Input
             id={`cta-${plan.id}`}
-            placeholder="Vazio = usar textos globais (grátis / upgrade / plano atual)"
+            placeholder={t("pages.admin.plan.ctaPlaceholder")}
             value={ctaLabel}
             onChange={(e) => setCtaLabel(e.target.value)}
           />
         </div>
         <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2">
           <Label htmlFor={`br-${plan.id}`} className="cursor-pointer">
-            Branding nas presells
+            {t("pages.admin.plan.branding")}
           </Label>
           <Switch id={`br-${plan.id}`} checked={hasBranding} onCheckedChange={setHasBranding} />
         </div>
         <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2">
           <div className="pr-3">
             <Label htmlFor={`wh-${plan.id}`} className="cursor-pointer">
-              Webhook de afiliados (Plataformas)
+              {t("pages.admin.plan.webhook")}
             </Label>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-              Postback HTTP para fechar vendas com o clique. Desligado = URL e chamadas recusadas para contas neste plano.
+              {t("pages.admin.plan.webhookHint")}
             </p>
           </div>
           <Switch id={`wh-${plan.id}`} checked={affiliateWebhook} onCheckedChange={setAffiliateWebhook} />
@@ -321,23 +320,20 @@ export function PlanEditorCard({ plan, onSaved, priceLabels }: Props) {
         <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2">
           <div className="pr-3">
             <Label htmlFor={`dp-${plan.id}`} className="cursor-pointer">
-              Anúncios (Google, Meta, TikTok)
+              {t("pages.admin.plan.ads")}
             </Label>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-              Ligar ou desligar por plano: acesso a <span className="font-mono">/tracking/dpilot</span> e API{' '}
-              <span className="font-mono">/paid/*</span> para Google, Meta e TikTok — independente das outras linhas (presells,
-              cliques, domínios). O utilizador só vê o módulo se o plano actual tiver esta opção activa (além da assinatura
-              válida).
+              {t("pages.admin.plan.adsHint")}
             </p>
           </div>
           <Switch id={`dp-${plan.id}`} checked={dpilotAds} onCheckedChange={setDpilotAds} />
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
           <Button type="button" variant="outline" size="sm" onClick={reset} disabled={loading}>
-            Repor
+            {t("pages.admin.plan.reset")}
           </Button>
           <Button type="button" size="sm" onClick={save} disabled={loading || !name.trim()}>
-            {loading ? "A guardar…" : "Guardar plano"}
+            {loading ? t("common.saving") : t("pages.admin.plan.savePlan")}
           </Button>
         </div>
       </CardContent>

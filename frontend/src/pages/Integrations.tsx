@@ -34,6 +34,7 @@ import { playSaleChime, saleChimeEnabled, setSaleChimeEnabled } from "@/lib/sale
 import { useAuth } from "@/contexts/AuthContext";
 import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL } from "@/lib/googleAdsOfflineImport";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 function SectionShell({
   accent,
@@ -66,6 +67,7 @@ function SectionShell({
 }
 
 export default function Integrations() {
+  const { t } = useAppLocale();
   const queryClient = useQueryClient();
   const apiBase = getApiBaseUrl();
   const { user, isSuperAdmin, isAdmin } = useAuth();
@@ -116,7 +118,7 @@ export default function Integrations() {
     queryFn: async () => {
       const { data, error: err } = await integrationsService.getTelegramSettings();
       if (err) throw new Error(err);
-      if (!data) throw new Error("Resposta vazia");
+      if (!data) throw new Error(t("pages.integrations.emptyResponse"));
       return data;
     },
   });
@@ -143,7 +145,7 @@ export default function Integrations() {
       return data;
     },
     onSuccess: async () => {
-      toast.success("Definições Telegram guardadas.");
+      toast.success(t("pages.integrations.telegramSaved"));
       setTelegramTokenDraft("");
       await queryClient.invalidateQueries({ queryKey: ["integrations-telegram"] });
     },
@@ -159,7 +161,7 @@ export default function Integrations() {
       return data;
     },
     onSuccess: async () => {
-      toast.success("Token do bot removido.");
+      toast.success(t("pages.integrations.telegramTokenCleared"));
       await queryClient.invalidateQueries({ queryKey: ["integrations-telegram"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -171,7 +173,7 @@ export default function Integrations() {
       if (err) throw new Error(err);
       return data;
     },
-    onSuccess: () => toast.success("Mensagem de teste enviada. Verifique o Telegram."),
+    onSuccess: () => toast.success(t("pages.integrations.telegramTestSent")),
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -180,7 +182,7 @@ export default function Integrations() {
     queryFn: async () => {
       const { data, error: err } = await integrationsService.getWebPushConfig();
       if (err) throw new Error(err);
-      if (!data) throw new Error("Resposta vazia");
+      if (!data) throw new Error(t("pages.integrations.emptyResponse"));
       return data;
     },
   });
@@ -217,7 +219,7 @@ export default function Integrations() {
       return r;
     },
     onSuccess: async () => {
-      toast.success("Notificações ativadas neste dispositivo.");
+      toast.success(t("pages.integrations.pushOn"));
       setLocalPushOn(true);
       await queryClient.invalidateQueries({ queryKey: ["integrations-web-push"] });
     },
@@ -231,7 +233,7 @@ export default function Integrations() {
       return r;
     },
     onSuccess: async () => {
-      toast.success("Subscrição removida.");
+      toast.success(t("pages.integrations.pushOff"));
       setLocalPushOn(false);
       await queryClient.invalidateQueries({ queryKey: ["integrations-web-push"] });
     },
@@ -244,7 +246,7 @@ export default function Integrations() {
       if (err) throw new Error(err);
       return data;
     },
-    onSuccess: () => toast.success("Se estiver tudo certo, deve aparecer uma notificação de teste."),
+    onSuccess: () => toast.success(t("pages.integrations.pushTest")),
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -253,37 +255,32 @@ export default function Integrations() {
     navigator.clipboard.writeText(csvUploadUrl);
     setCopiedCsv(true);
     setTimeout(() => setCopiedCsv(false), 2000);
-    toast.success("URL copiada.");
+    toast.success(t("pages.integrations.urlCopied"));
   };
 
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
         centered
-        title="Integrações"
+        title={t("pages.integrations.title")}
         description={
-          isAdmin
-            ? "Telegram, Web Push, CSV Google Ads e mais (admin)."
-            : "Alertas e ligações úteis."
+          isAdmin ? t("pages.integrations.legacyAdminDesc") : t("pages.integrations.legacyUserDesc")
         }
       />
 
       <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border/60 bg-muted/15 px-4 py-4 sm:px-5 space-y-3">
-        <p className="text-sm font-medium text-foreground">Outras ligações no dclickora</p>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Postbacks em <strong className="font-medium text-foreground/90">Plataformas</strong>; ferramentas e macros em{" "}
-          <strong className="font-medium text-foreground/90">Ferramentas de rastreio</strong>.
-        </p>
+        <p className="text-sm font-medium text-foreground">{t("pages.integrations.otherLinksTitle")}</p>
+        <p className="text-sm text-muted-foreground leading-relaxed">{t("pages.integrations.otherLinksBody")}</p>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <Button variant="outline" size="sm" className="justify-between gap-2 sm:flex-1" asChild>
             <Link to="/tracking/tools">
-              Abrir ferramentas de rastreio
+              {t("pages.integrations.openTracking")}
               <ArrowRight className="h-4 w-4 shrink-0 opacity-70" />
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="justify-between gap-2 sm:flex-1" asChild>
             <Link to="/tracking/plataformas">
-              Abrir Plataformas
+              {t("nav.networkSales")}
               <ArrowRight className="h-4 w-4 shrink-0 opacity-70" />
             </Link>
           </Button>
@@ -292,8 +289,7 @@ export default function Integrations() {
 
       {intLocked ? (
         <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90 mb-4 max-w-3xl mx-auto">
-          O seu papel neste workspace não permite <strong>alterar integrações</strong> (Telegram, push, testes). Pode consultar;
-          peça permissão de membro ou a permissão extra «integrations:write» ao administrador.
+          {t("pages.integrations.readOnly")}
         </div>
       ) : null}
 
@@ -306,10 +302,9 @@ export default function Integrations() {
                   <Bell className="h-5 w-5" />
                 </span>
                 <div>
-                  <p className="font-semibold text-foreground">Notificações no telemóvel ou no computador</p>
+                  <p className="font-semibold text-foreground">{t("pages.integrations.pushTitle")}</p>
                   <p className="text-sm text-muted-foreground">
-                    Aviso quando entra uma venda — <strong className="font-medium text-foreground/90">no computador ou no
-                    telemóvel</strong> (Chrome, Edge, Safari…). Não precisa de instalar app: use o browser e os botões abaixo.
+                    {t("pages.integrations.pushLead")}
                   </p>
                 </div>
               </div>
@@ -317,26 +312,21 @@ export default function Integrations() {
             <AccordionContent className="px-5 pb-5 pt-2 space-y-4">
               {webPushLoading || !webPush ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                  <Loader2 className="h-4 w-4 animate-spin" /> A carregar…
+                  <Loader2 className="h-4 w-4 animate-spin" /> {t("pages.integrations.loadingShort")}
                 </div>
               ) : (
                 <>
                   <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-3 space-y-2">
-                    <p className="text-sm font-medium text-foreground">Passos para si (assinante)</p>
+                    <p className="text-sm font-medium text-foreground">{t("pages.integrations.stepsTitle")}</p>
                     <ol className="text-sm text-muted-foreground space-y-2 list-decimal pl-5 marker:text-foreground/80">
                       <li>
-                        Toque em <strong className="font-medium text-foreground/90">Ativar neste dispositivo</strong>. Se o
-                        browser perguntar, aceite as notificações — não precisa de configurar o telemóvel noutro sítio.
+                        {t("pages.integrations.stepAccept")}
                       </li>
                       <li>
-                        Quando uma <strong className="font-medium text-foreground/90">venda for aprovada</strong>, o aviso
-                        chega com o site fechado. Não é preciso estar na dclickora nem no Google. O e-mail da mesma venda
-                        configura-se em Postback.
+                        {t("pages.integrations.stepSale")}
                       </li>
                       <li>
-                        Pode usar <strong className="font-medium text-foreground/90">Testar</strong> para confirmar. Em alguns{" "}
-                        <strong className="font-medium text-foreground/90">iPhones</strong> o Safari pode pedir o site no ecrã
-                        inicial — continua a ser só no browser.
+                        {t("pages.integrations.stepIphone")}
                       </li>
                     </ol>
                   </div>
@@ -345,34 +335,34 @@ export default function Integrations() {
                     <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-3 py-2.5 text-sm text-muted-foreground leading-relaxed">
                       {isSuperAdmin ? (
                         <>
-                          Se os logs mostrarem a chave <strong className="font-medium text-foreground/90">privada</strong> em falta
-                          no Railway, crie <strong className="font-medium text-foreground/90">uma</strong> variável{" "}
-                          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">VAPID_KEYS_JSON</code> com o JSON numa linha:{" "}
+                          {t("pages.integrations.adminVapid")}{" "}
+                          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">VAPID_KEYS_JSON</code>{" "}
+                          {t("pages.integrations.adminJsonLine")}{" "}
                           <code className="rounded bg-muted px-1 py-0.5 text-[10px] break-all">
                             {`{"public":"…","private":"…"}`}
                           </code>{" "}
-                          (valores do <code className="rounded bg-muted px-1 py-0.5 text-[11px]">npx web-push generate-vapid-keys</code>
-                          ). Depois <strong className="font-medium text-foreground/90">Redeploy</strong>. Confirme também{" "}
-                          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">VAPID_SUBJECT</code> e o serviço{" "}
+                          {t("pages.integrations.adminValuesFrom")}{" "}
+                          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">npx web-push generate-vapid-keys</code>
+                          ). {t("pages.integrations.adminRedeploy")}{" "}
+                          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">VAPID_SUBJECT</code>{" "}
+                          {t("pages.integrations.adminService")}{" "}
                           <strong className="font-medium text-foreground/90">clickora</strong> (API).{" "}
                           <Link to="/admin" className="font-medium text-primary hover:underline">
-                            Painel do sistema → Visão geral
+                            {t("pages.integrations.adminPanel")}
                           </Link>
                           .
                         </>
                       ) : (
                         <>
-                          Esta opção <strong className="font-medium text-foreground/90">ainda não está ativa</strong> na
-                          plataforma. Os passos acima aplicam-se quando estiver disponível — os botões abaixo ativam-se nessa
-                          altura. Se precisar de ajuda, contacte o suporte.
+                          {t("pages.integrations.pushNotLive")}
                         </>
                       )}
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      Aparelhos ligados nesta conta:{" "}
-                      <span className="font-medium text-foreground">{webPush.subscription_count}</span> (cada telemóvel ou
-                      computador conta à parte).
+                      {t("pages.integrations.devicesLinked")}{" "}
+                      <span className="font-medium text-foreground">{webPush.subscription_count}</span>{" "}
+                      {t("pages.integrations.subCountTail")}
                     </p>
                   )}
 
@@ -390,7 +380,7 @@ export default function Integrations() {
                       ) : (
                         <Bell className="h-4 w-4" />
                       )}
-                      Ativar neste dispositivo
+                      {t("pages.integrations.activateDevice")}
                     </Button>
                     <Button
                       type="button"
@@ -404,7 +394,7 @@ export default function Integrations() {
                       {deactivateWebPush.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : null}
-                      Desativar neste dispositivo
+                      {t("pages.integrations.deactivateDevice")}
                     </Button>
                     <Button
                       type="button"
@@ -414,18 +404,15 @@ export default function Integrations() {
                       onClick={() => testWebPush.mutate()}
                     >
                       {testWebPush.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      Testar
+                      {t("pages.integrations.testShort")}
                     </Button>
                   </div>
 
                   <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-3 space-y-3">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="text-sm font-medium text-foreground">Som de venda</p>
-                        <p className="text-sm text-muted-foreground">
-                          Com o aviso push (ou a app aberta), toca o som escolhido em Plataformas → Som da venda. Já vem
-                          ligado neste aparelho.
-                        </p>
+                        <p className="text-sm font-medium text-foreground">{t("pages.integrations.saleChime")}</p>
+                        <p className="text-sm text-muted-foreground">{t("pages.integrations.saleChimeDesc")}</p>
                       </div>
                       <Switch
                         checked={saleChimeOn}
@@ -434,7 +421,7 @@ export default function Integrations() {
                           setSaleChimeEnabled(on);
                           setSaleChimeOn(on);
                         }}
-                        aria-label="Som de venda"
+                        aria-label={t("pages.integrations.saleChime")}
                       />
                     </div>
                     <Button
@@ -444,11 +431,11 @@ export default function Integrations() {
                       disabled={intLocked || !saleChimeOn}
                       onClick={() => {
                         void playSaleChime().then((ok) => {
-                          if (!ok) toast.error("O browser bloqueou o som. Clique outra vez em Ouvir agora.");
+                          if (!ok) toast.error(t("pages.integrations.saleChimeBlocked"));
                         });
                       }}
                     >
-                      Ouvir agora
+                      {t("pages.integrations.saleChimeListen")}
                     </Button>
                   </div>
                 </>
@@ -465,9 +452,9 @@ export default function Integrations() {
                   <CloudUpload className="h-5 w-5" />
                 </span>
                 <div>
-                  <p className="font-semibold text-foreground">Google Ads — enviar vendas</p>
+                  <p className="font-semibold text-foreground">{t("pages.integrations.googleSendTitle")}</p>
                   <p className="text-sm text-muted-foreground">
-                    Endereço para enviar as vendas ao Google Ads.
+                    {t("pages.integrations.googleSendBody")}
                   </p>
                 </div>
               </div>
@@ -476,24 +463,24 @@ export default function Integrations() {
               <p className="text-sm text-muted-foreground">
                 {isAdmin ? (
                   <>
-                    Cole esta URL no Google Ads como origem HTTPS de upload. A API de cliques e o script de tracking estão no{" "}
+                    {t("pages.integrations.googlePaste")}{" "}
                     <Link
                       to="/integracoes/google-ads"
                       className="font-medium text-primary inline-flex items-center gap-1 hover:underline"
                     >
-                      Integrações → Google Ads
+                      {t("pages.integrations.googleLink")}
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                     .
                   </>
                 ) : (
                   <>
-                    Cole esta URL no Google Ads como origem de upload (HTTPS). O mesmo script e resumo estão no{" "}
+                    {t("pages.integrations.googlePasteShort")}{" "}
                     <Link
                       to="/integracoes/google-ads"
                       className="font-medium text-primary inline-flex items-center gap-1 hover:underline"
                     >
-                      Integrações → Google Ads
+                      {t("pages.integrations.googleLink")}
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                     .
@@ -502,12 +489,12 @@ export default function Integrations() {
               </p>
 
               <div className="space-y-2">
-                <Label htmlFor="csv-url">URL de upload (HTTPS)</Label>
+                <Label htmlFor="csv-url">{t("pages.integrations.uploadUrl")}</Label>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                   <Input
                     id="csv-url"
                     readOnly
-                    value={csvUploadUrl || "A carregar…"}
+                    value={csvUploadUrl || t("pages.integrations.loadingShort")}
                     className="font-mono text-xs sm:text-sm bg-muted/30"
                   />
                   <Button
@@ -518,20 +505,19 @@ export default function Integrations() {
                     onClick={handleCopyCsv}
                   >
                     {copiedCsv ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    Copiar
+                    {t("pages.integrations.copy")}
                   </Button>
                 </div>
               </div>
 
               <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-5">
                 <li>
-                  O ficheiro das vendas para o Google Ads gera-se em{" "}
-                  <strong className="text-foreground/90">Meu rastreamento</strong> ou em{" "}
-                  <strong className="text-foreground/90">Relatórios → Conversões</strong>, com o nome exacto da acção em
-                  Conversões na conta Google.
+                  {t("pages.integrations.csvWhere")}{" "}
+                  <strong className="text-foreground/90">{t("pages.integrations.csvReports")}</strong>
+                  {t("pages.integrations.csvName")}
                 </li>
-                <li>Esta URL serve para enviar dados <em>para</em> o dclickora (POST), não substitui o ficheiro do assistente de importação do Google.</li>
-                <li>Use apenas a URL fornecida; abri-la no browser pode não ser o fluxo que o Google espera.</li>
+                <li>{t("pages.integrations.csvPost")}</li>
+                <li>{t("pages.integrations.csvBrowser")}</li>
                 <li>
                   Formato e requisitos:{" "}
                   <a
@@ -540,7 +526,7 @@ export default function Integrations() {
                     rel="noopener noreferrer"
                     className="text-primary underline underline-offset-2 hover:text-primary/90"
                   >
-                    documentação Google
+                    {t("pages.integrations.googleDocs")}
                   </a>
                   .
                 </li>
@@ -558,7 +544,7 @@ export default function Integrations() {
                 </span>
                 <div>
                   <p className="font-semibold text-foreground">Discord</p>
-                  <p className="text-sm text-muted-foreground">Webhooks para o seu servidor (pré-visualização).</p>
+                  <p className="text-sm text-muted-foreground">{t("pages.integrations.webhooksPreview")}</p>
                 </div>
               </div>
             </AccordionTrigger>
@@ -566,15 +552,14 @@ export default function Integrations() {
               <p className="text-sm text-muted-foreground">
                 {isAdmin ? (
                   <>
-                    O envio automático para Discord ainda não está ligado ao backend. Pode guardar o URL localmente para quando a funcionalidade
-                    estiver disponível.
+                    {t("pages.integrations.discordSoon")}
                   </>
                 ) : (
-                  <>O Discord estará disponível numa próxima atualização. Pode guardar o URL localmente se quiser.</>
+                  <>{t("pages.integrations.discordLater")}</>
                 )}
               </p>
               <div className="space-y-2">
-                <Label htmlFor="discord-hook">Webhook URL</Label>
+                <Label htmlFor="discord-hook">{t("pages.integrations.webhookUrl")}</Label>
                 <Input
                   id="discord-hook"
                   placeholder="https://discord.com/api/webhooks/…"
@@ -586,9 +571,9 @@ export default function Integrations() {
                 type="button"
                 variant="outline"
                 className="gap-2"
-                onClick={() => toast.message("Rascunho guardado apenas neste dispositivo.")}
+                onClick={() => toast.message(t("pages.integrations.draftLocal"))}
               >
-                <Save className="h-4 w-4" /> Guardar rascunho
+                <Save className="h-4 w-4" /> {t("pages.integrations.saveDraft")}
               </Button>
             </AccordionContent>
           </SectionShell>
@@ -604,7 +589,7 @@ export default function Integrations() {
                 <div>
                   <p className="font-semibold text-foreground">Telegram</p>
                   <p className="text-sm text-muted-foreground">
-                    Já ativo no servidor — vendas, alertas de postback e opcionalmente novos cliques.
+                    {t("pages.integrations.telegramLive")}
                   </p>
                 </div>
               </div>
@@ -612,68 +597,51 @@ export default function Integrations() {
             <AccordionContent className="px-5 pb-5 pt-2 space-y-5">
               {telegramLoading || !telegram ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                  <Loader2 className="h-4 w-4 animate-spin" /> A carregar…
+                  <Loader2 className="h-4 w-4 animate-spin" /> {t("pages.integrations.loadingShort")}
                 </div>
               ) : (
                 <>
                   <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-3 space-y-3">
-                    <p className="text-sm font-medium text-foreground">Passo a passo</p>
+                    <p className="text-sm font-medium text-foreground">{t("pages.integrations.stepByStep")}</p>
                     <p className="text-sm text-muted-foreground">
-                      Sim — já pode usar. Depois de guardar o token e o Chat ID, o servidor do dclickora envia as
-                      notificações para o Telegram (não precisa de mais software no seu computador).
+                      {t("pages.integrations.telegramReadyBody")}
                     </p>
                     <ol className="text-sm text-muted-foreground space-y-2.5 list-decimal pl-5 marker:text-foreground/80">
                       <li className="pl-1">
-                        No Telegram, abra uma conversa com{" "}
-                        <span className="font-medium text-foreground/90">@BotFather</span> e envie o comando{" "}
-                        <code className="rounded bg-muted px-1 py-0.5 text-xs">/newbot</code>. Escolha um nome e um
-                        username que termine em <code className="rounded bg-muted px-1 py-0.5 text-xs">bot</code>.
+                        {t("pages.integrations.botFatherNew")}
                       </li>
                       <li className="pl-1">
-                        Quando o BotFather mostrar o <strong className="font-medium text-foreground/90">token</strong>{" "}
-                        (números e letras, tipo <code className="rounded bg-muted px-1 py-0.5 text-xs">123456789:ABC…</code>
-                        ), copie-o e cole no campo «Token do bot» abaixo.
+                        {t("pages.integrations.botTokenPaste")}
                       </li>
                       <li className="pl-1">
-                        Para o bot poder enviar-lhe mensagens, envie primeiro{" "}
-                        <span className="font-medium text-foreground/90">qualquer mensagem ao seu bot</span> no Telegram
-                        (abra o bot pelo link que o BotFather deu e toque em Iniciar ou escreva «olá»).
+                        {t("pages.integrations.botFatherHint")} {t("pages.integrations.botFatherStart")}
                       </li>
                       <li className="pl-1">
-                        Obtenha o <strong className="font-medium text-foreground/90">Chat ID</strong>: no Telegram, use o
-                        bot <span className="font-medium text-foreground/90">@userinfobot</span> ou{" "}
-                        <span className="font-medium text-foreground/90">@RawDataBot</span> — ele responde com o seu ID
-                        (número). Para um <strong className="font-medium text-foreground/90">grupo</strong>, adicione o
-                        seu bot ao grupo, envie uma mensagem no grupo e use o mesmo tipo de bot de ID ou consulte o ID do
-                        grupo (costuma ser negativo, ex.{" "}
-                        <code className="rounded bg-muted px-1 py-0.5 text-xs">-100…</code>).
+                        {t("pages.integrations.chatIdHow")} {t("pages.integrations.chatIdGroup")}
                       </li>
                       <li className="pl-1">
-                        Cole o Chat ID no campo abaixo, escolha que alertas quer (vendas, erros de postback, cliques) e
-                        clique em <strong className="font-medium text-foreground/90">Guardar</strong>.
+                        {t("pages.integrations.saveAlerts")}
                       </li>
                       <li className="pl-1">
-                        Use <strong className="font-medium text-foreground/90">Testar integração</strong> para confirmar
-                        que recebe uma mensagem de teste. Se não chegar nada, confira o token, o Chat ID e se já falou com
-                        o bot pelo menos uma vez.
+                        {t("pages.integrations.testHint")}
                       </li>
                     </ol>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2 sm:col-span-2">
-                      <Label htmlFor="tg-token">Token do bot</Label>
+                      <Label htmlFor="tg-token">{t("pages.integrations.botTokenLabel")}</Label>
                       <Input
                         id="tg-token"
                         type="password"
                         autoComplete="off"
-                        placeholder={telegram.has_bot_token ? "•••• token guardado — cole um novo para substituir" : "123456:ABC…"}
+                        placeholder={telegram.has_bot_token ? t("pages.integrations.tokenPlaceholder") : "123456:ABC…"}
                         value={telegramTokenDraft}
                         readOnly={intLocked}
                         onChange={(e) => setTelegramTokenDraft(e.target.value)}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Crie um bot com @BotFather. O token não é mostrado depois de guardado.
+                        {t("pages.integrations.tokenHint")}
                       </p>
                     </div>
                     <div className="space-y-2 sm:col-span-2">
@@ -689,17 +657,17 @@ export default function Integrations() {
                   </div>
 
                   <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 space-y-3">
-                    <p className="text-sm font-medium text-foreground">Notificações</p>
+                    <p className="text-sm font-medium text-foreground">{t("pages.integrations.notifyTitle")}</p>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-sm text-muted-foreground">Nova venda (conversão registada)</span>
+                      <span className="text-sm text-muted-foreground">{t("pages.integrations.notifySale")}</span>
                       <Switch checked={notifySale} disabled={intLocked} onCheckedChange={setNotifySale} />
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-sm text-muted-foreground">Problema no postback (clique inválido ou sem ID)</span>
+                      <span className="text-sm text-muted-foreground">{t("pages.integrations.notifyPostback")}</span>
                       <Switch checked={notifyPostback} disabled={intLocked} onCheckedChange={setNotifyPostback} />
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-sm text-muted-foreground">Novo clique (pode gerar muito tráfego)</span>
+                      <span className="text-sm text-muted-foreground">{t("pages.integrations.notifyClick")}</span>
                       <Switch checked={notifyClick} disabled={intLocked} onCheckedChange={setNotifyClick} />
                     </div>
                   </div>
@@ -712,7 +680,7 @@ export default function Integrations() {
                       onClick={() => saveTelegram.mutate()}
                     >
                       {saveTelegram.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      Guardar
+                      {t("pages.integrations.save")}
                     </Button>
                     <Button
                       type="button"
@@ -722,7 +690,7 @@ export default function Integrations() {
                       onClick={() => testTelegram.mutate()}
                     >
                       {testTelegram.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      Testar integração
+                      {t("pages.integrations.test")}
                     </Button>
                     {telegram.has_bot_token ? (
                       <Button
@@ -732,15 +700,15 @@ export default function Integrations() {
                         disabled={intLocked || clearTelegramToken.isPending}
                         onClick={() => clearTelegramToken.mutate()}
                       >
-                        Remover token
+                        {t("pages.integrations.removeToken")}
                       </Button>
                     ) : null}
                   </div>
 
                   {telegram.telegram_configured ? (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400">Telegram configurado e pronto a enviar.</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">{t("pages.integrations.telegramReady")}</p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Preencha token e Chat ID e guarde para ativar os alertas.</p>
+                    <p className="text-xs text-muted-foreground">{t("pages.integrations.fillToEnable")}</p>
                   )}
                 </>
               )}

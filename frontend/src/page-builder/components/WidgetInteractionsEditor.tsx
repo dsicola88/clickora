@@ -1,25 +1,10 @@
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import type { WidgetInteraction, WidgetInteractionAction, WidgetInteractionTrigger, WidgetNode } from "../types";
 import { createWidgetInteraction } from "../factory";
 import { SelectField, TextField } from "./PropertyControls";
 import { Plus, Trash2 } from "lucide-react";
 
-const TRIGGER_OPTS: Array<{ value: WidgetInteractionTrigger; label: string }> = [
-  { value: "click", label: "Clique" },
-  { value: "hover", label: "Hover (passar o rato)" },
-];
-
-const ACTION_OPTS: Array<{ value: WidgetInteractionAction; label: string }> = [
-  { value: "openUrl", label: "Abrir URL" },
-  { value: "scrollTo", label: "Ir para âncora / ID" },
-  { value: "openPopup", label: "Abrir popup" },
-  { value: "show", label: "Mostrar elemento" },
-  { value: "hide", label: "Ocultar elemento" },
-  { value: "toggle", label: "Alternar visibilidade" },
-];
-
-/**
- * Interações por widget (clique/hover → acção).
- */
+/** Per-widget interactions (click/hover → action). */
 export function WidgetInteractionsEditor({
   widget,
   onChange,
@@ -27,7 +12,21 @@ export function WidgetInteractionsEditor({
   widget: WidgetNode;
   onChange: (interactions: WidgetInteraction[]) => void;
 }) {
+  const { t } = useAppLocale();
   const list = widget.interactions ?? [];
+
+  const triggerOpts = [
+    { value: "click" as const, label: t("pages.pageBuilder.chrome.interactions.click") },
+    { value: "hover" as const, label: t("pages.pageBuilder.chrome.interactions.hover") },
+  ];
+  const actionOpts = [
+    { value: "openUrl" as const, label: t("pages.pageBuilder.chrome.interactions.openUrl") },
+    { value: "scrollTo" as const, label: t("pages.pageBuilder.chrome.interactions.scrollTo") },
+    { value: "openPopup" as const, label: t("pages.pageBuilder.chrome.interactions.openPopup") },
+    { value: "show" as const, label: t("pages.pageBuilder.chrome.interactions.showEl") },
+    { value: "hide" as const, label: t("pages.pageBuilder.chrome.interactions.hideEl") },
+    { value: "toggle" as const, label: t("pages.pageBuilder.chrome.interactions.toggle") },
+  ];
 
   const patchAt = (index: number, partial: Partial<WidgetInteraction>) => {
     const next = list.map((ix, i) => (i === index ? { ...ix, ...partial } : ix));
@@ -38,7 +37,7 @@ export function WidgetInteractionsEditor({
     <div className="border-b border-editor-border p-3">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h4 className="text-[11px] font-semibold uppercase tracking-wider text-editor-fg-muted">
-          Interações
+          {t("pages.pageBuilder.chrome.interactions.title")}
         </h4>
         <button
           type="button"
@@ -46,14 +45,14 @@ export function WidgetInteractionsEditor({
           className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-editor-accent hover:bg-editor-panel-2"
         >
           <Plus className="h-3 w-3" />
-          Adicionar
+          {t("common.add")}
         </button>
       </div>
       <p className="mb-3 text-[10px] leading-relaxed text-editor-fg-muted">
-        Clique ou hover neste elemento dispara uma acção (URL, popup, mostrar/ocultar outro ID).
+        {t("pages.pageBuilder.chrome.interactions.hint")}
       </p>
       {list.length === 0 ? (
-        <p className="text-[11px] text-editor-fg-muted">Sem interações.</p>
+        <p className="text-[11px] text-editor-fg-muted">{t("pages.pageBuilder.chrome.interactions.empty")}</p>
       ) : (
         <div className="space-y-4">
           {list.map((ix, index) => (
@@ -66,21 +65,21 @@ export function WidgetInteractionsEditor({
                   type="button"
                   onClick={() => onChange(list.filter((_, i) => i !== index))}
                   className="rounded p-0.5 text-editor-fg-muted hover:text-red-400"
-                  title="Remover"
+                  title={t("common.remove")}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
               <SelectField
-                label="Quando"
+                label={t("pages.pageBuilder.chrome.interactions.when")}
                 value={ix.trigger}
-                options={TRIGGER_OPTS}
+                options={triggerOpts}
                 onChange={(v) => patchAt(index, { trigger: v as WidgetInteractionTrigger })}
               />
               <SelectField
-                label="Acção"
+                label={t("pages.pageBuilder.chrome.interactions.action")}
                 value={ix.action}
-                options={ACTION_OPTS}
+                options={actionOpts}
                 onChange={(v) => patchAt(index, { action: v as WidgetInteractionAction })}
               />
               {ix.action === "openUrl" ? (
@@ -92,11 +91,11 @@ export function WidgetInteractionsEditor({
                     placeholder="https://…"
                   />
                   <SelectField
-                    label="Nova janela"
+                    label={t("pages.pageBuilder.widgets.opt.newWindow")}
                     value={ix.openInNewTab ? "yes" : "no"}
                     options={[
-                      { value: "no", label: "Não" },
-                      { value: "yes", label: "Sim" },
+                      { value: "no", label: t("common.no") },
+                      { value: "yes", label: t("common.yes") },
                     ]}
                     onChange={(v) => patchAt(index, { openInNewTab: v === "yes" })}
                   />
@@ -105,14 +104,18 @@ export function WidgetInteractionsEditor({
                 <TextField
                   label={
                     ix.action === "openPopup"
-                      ? "ID do popup"
+                      ? t("pages.pageBuilder.chrome.interactions.popupId")
                       : ix.action === "scrollTo"
-                        ? "ID / âncora (sem #)"
-                        : "ID do elemento alvo (cssId)"
+                        ? t("pages.pageBuilder.chrome.interactions.anchorId")
+                        : t("pages.pageBuilder.chrome.interactions.targetId")
                   }
                   value={ix.targetId ?? ""}
                   onChange={(v) => patchAt(index, { targetId: v })}
-                  placeholder={ix.action === "openPopup" ? "pop_…" : "meu-bloco"}
+                  placeholder={
+                    ix.action === "openPopup"
+                      ? t("pages.pageBuilder.chrome.interactions.popupPh")
+                      : t("pages.pageBuilder.chrome.interactions.targetPh")
+                  }
                 />
               )}
             </div>

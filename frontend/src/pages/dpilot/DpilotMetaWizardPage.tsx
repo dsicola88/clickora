@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ImageIcon, Loader2, Sparkles, Upload, X } from "lucide-react";
 import { toast } from "sonner";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { z } from "zod";
 import { DpilotAdsCampaignWizardShell } from "./DpilotAdsCampaignWizardShell";
 import { DpilotAdsWizardFormPreviewSplit } from "./DpilotAdsWizardFormPreviewSplit";
@@ -98,14 +100,14 @@ const MAX_BYTES = 25 * 1024 * 1024;
 /** IDs de Página no Graph são numéricos. */
 const PAGE_ID_RE = /^\d{5,25}$/;
 
-const DPILOT_META_CAMPAIGN_STEPS = [
-  { id: "dpilot-wiz-meta-offer", label: "Destino e público" },
-  { id: "dpilot-wiz-meta-obj", label: "Objetivo e orçamento" },
-  { id: "dpilot-wiz-meta-bidding", label: "Licitação" },
-  { id: "dpilot-wiz-meta-target", label: "Segmentação e posicionamentos" },
-  { id: "dpilot-wiz-meta-creative", label: "Criativo" },
-  { id: "dpilot-wiz-meta-compliance", label: "Conformidade" },
-  { id: "dpilot-wiz-meta-submit", label: "Gerar plano" },
+const DPILOT_META_CAMPAIGN_STEP_IDS = [
+  "dpilot-wiz-meta-offer",
+  "dpilot-wiz-meta-obj",
+  "dpilot-wiz-meta-bidding",
+  "dpilot-wiz-meta-target",
+  "dpilot-wiz-meta-creative",
+  "dpilot-wiz-meta-compliance",
+  "dpilot-wiz-meta-submit",
 ] as const;
 
 const schema = z.object({
@@ -124,6 +126,7 @@ const schema = z.object({
 });
 
 export function DpilotMetaWizardPage() {
+  const { t } = useAppLocale();
   const { projectId } = useDpilotPaid();
   const navigate = useNavigate();
   const base = `/tracking/dpilot/p/${projectId}`;
@@ -166,7 +169,7 @@ export function DpilotMetaWizardPage() {
       if (!active) return;
       setPagesLoading(false);
       if (apiErr || !data) {
-        setPagesError(apiErr || "Não foi possível listar as Páginas da conta Meta ligada.");
+        setPagesError(apiErr || t("pages.dpilot.meta.pagesListFailed"));
         return;
       }
       setPagesError(null);
@@ -177,7 +180,7 @@ export function DpilotMetaWizardPage() {
     return () => {
       active = false;
     };
-  }, [projectId]);
+  }, [projectId, t]);
 
   /** Guarda a escolha na ligação do projeto para reutilização nas publicações seguintes. */
   const persistPageSelection = (value: string) => {
@@ -188,7 +191,7 @@ export function DpilotMetaWizardPage() {
       .selectMetaPage(projectId, { pageId: next, ...(name ? { pageName: name } : {}) })
       .then(({ error: apiErr }) => {
         if (apiErr) {
-          toast.error("Não foi possível guardar a Página", { description: apiErr });
+          toast.error(t("pages.dpilot.meta.pageSaveFailed"), { description: apiErr });
         }
       });
   };
@@ -210,11 +213,15 @@ export function DpilotMetaWizardPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!ALLOWED_MIME.includes(file.type)) {
-      toast.error("Formato não suportado", { description: "Use JPEG, PNG, WebP, MP4 ou MOV." });
+      toast.error(t("pages.dpilot.common.unsupportedFormat"), {
+        description: t("pages.dpilot.common.unsupportedFormatDesc"),
+      });
       return;
     }
     if (file.size > MAX_BYTES) {
-      toast.error("Ficheiro demasiado grande", { description: "Máximo 25MB." });
+      toast.error(t("pages.dpilot.common.fileTooLarge"), {
+        description: t("pages.dpilot.common.fileTooLargeDesc"),
+      });
       return;
     }
     setUploading(true);
@@ -238,17 +245,19 @@ export function DpilotMetaWizardPage() {
         setAssetPreview(null);
         setAssetName(null);
         setAssetIsVideo(false);
-        toast.error("Falha no envio do criativo", { description: upErr || "Tente de novo num instante." });
+        toast.error(t("pages.dpilot.meta.uploadFailed"), {
+          description: upErr || t("pages.dpilot.common.tryAgainSoon"),
+        });
         return;
       }
       setAssetPath(data.path);
-      toast.success("Criativo carregado", { description: "O ficheiro foi guardado e será usado no plano." });
+      toast.success(t("pages.dpilot.meta.uploaded"), { description: t("pages.dpilot.meta.uploadedDesc") });
     } catch {
       setAssetPath(null);
       setAssetPreview(null);
       setAssetName(null);
       setAssetIsVideo(false);
-      toast.error("Falha ao processar o ficheiro");
+      toast.error(t("pages.dpilot.common.fileProcessFailed"));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -280,32 +289,32 @@ export function DpilotMetaWizardPage() {
       ageMax: Number(ageMax),
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Dados inválidos");
+      setError(parsed.error.issues[0]?.message ?? t("pages.dpilot.common.invalidData"));
       return;
     }
     if (parsed.data.ageMax < parsed.data.ageMin) {
-      setError("Idade máxima deve ser maior ou igual à idade mínima");
+      setError(t("pages.dpilot.common.ageOrder"));
       return;
     }
     if (!complianceAck) {
-      setError("Confirme a declaração de conformidade com as políticas do Meta antes de continuar.");
+      setError(t("pages.dpilot.meta.complianceRequired"));
       return;
     }
     if (categories.length > 0 && parsed.data.ageMin < 18) {
-      setError("Categorias especiais exigem idade mínima de 18 anos. Ajuste a faixa etária.");
+      setError(t("pages.dpilot.meta.specialAge"));
       return;
     }
 
     const geoArr = geoTargets.map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 20);
     if (!geoArr.length) {
-      setError("Selecione pelo menos uma localização (país).");
+      setError(t("pages.dpilot.common.selectCountry"));
       return;
     }
 
     if (metaBiddingStrategy === "bid_cap_usd" || metaBiddingStrategy === "cost_cap_usd") {
       const cap = parseFloat(metaBidAmountUsd.replace(",", "."));
       if (!Number.isFinite(cap) || cap <= 0) {
-        setError("Indique um valor USD positivo para o limite ou cost cap.");
+        setError(t("pages.dpilot.meta.bidInvalid"));
         return;
       }
     }
@@ -334,33 +343,36 @@ export function DpilotMetaWizardPage() {
           : {}),
       });
       if (apiErr || !data?.ok) {
-        const msg = apiErr || "Falha ao gerar plano";
+        const msg = apiErr || t("pages.dpilot.common.planFailed");
         setError(msg);
-        toast.error("Falha ao gerar plano", { description: msg });
+        toast.error(t("pages.dpilot.common.planFailed"), { description: msg });
         return;
       }
       const planGenNote =
         data.planSource === "deterministic"
-          ? " Modo de reserva: sem chamada ao modelo (regras fixas)."
-          : " Texto gerado com chamada ao modelo de IA.";
+          ? t("pages.dpilot.common.planNoteReserve")
+          : t("pages.dpilot.common.planNoteAi");
       if (data.autoApplied) {
-        toast.success("Campanha Meta — autopilot", {
-          description: `Publicação automática tentada na conta ligada (dentro dos limites).${planGenNote}`,
+        toast.success(t("pages.dpilot.meta.autopilot"), {
+          description: fill(t("pages.dpilot.meta.autopilotDesc"), { note: planGenNote }),
         });
       } else if (data.reasons && data.reasons.length > 0) {
-        toast.warning("Campanha Meta — revisão necessária", {
-          description: `${data.reasons[0]?.message ?? "Consulte os motivos nos pedidos em «Aprovações»."}${planGenNote}`,
+        toast.warning(t("pages.dpilot.meta.review"), {
+          description: fill(t("pages.dpilot.common.reasonWithNote"), {
+            reason: data.reasons[0]?.message ?? t("pages.dpilot.meta.reviewFallback"),
+            note: planGenNote,
+          }),
         });
       } else {
-        toast.success("Campanha Meta criada", {
-          description: `Rascunho e pedido criados. Consulte «Aprovações» para rever e usar «Aplicar na rede» quando adequado.${planGenNote}`,
+        toast.success(t("pages.dpilot.meta.created"), {
+          description: fill(t("pages.dpilot.meta.createdDesc"), { note: planGenNote }),
         });
       }
       navigate(`${base}/aprovacoes`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      const msg = err instanceof Error ? err.message : t("pages.dpilot.common.unknownError");
       setError(msg);
-      toast.error("Falha ao gerar plano", { description: msg });
+      toast.error(t("pages.dpilot.common.planFailed"), { description: msg });
     } finally {
       setSubmitting(false);
     }
@@ -374,8 +386,16 @@ export function DpilotMetaWizardPage() {
     <Gate>
       <DpilotAdsCampaignWizardShell
         platform="meta"
-        platformBadge="Meta Ads · Fluxo Advantage+ simplificado"
-        steps={[...DPILOT_META_CAMPAIGN_STEPS]}
+        platformBadge={t("pages.dpilot.meta.badge")}
+        steps={[
+          { id: DPILOT_META_CAMPAIGN_STEP_IDS[0], label: t("pages.dpilot.meta.navOffer") },
+          { id: DPILOT_META_CAMPAIGN_STEP_IDS[1], label: t("pages.dpilot.meta.navObjective") },
+          { id: DPILOT_META_CAMPAIGN_STEP_IDS[2], label: t("pages.dpilot.meta.navBidding") },
+          { id: DPILOT_META_CAMPAIGN_STEP_IDS[3], label: t("pages.dpilot.meta.navTargeting") },
+          { id: DPILOT_META_CAMPAIGN_STEP_IDS[4], label: t("pages.dpilot.meta.navCreative") },
+          { id: DPILOT_META_CAMPAIGN_STEP_IDS[5], label: t("pages.dpilot.meta.navCompliance") },
+          { id: DPILOT_META_CAMPAIGN_STEP_IDS[6], label: t("pages.dpilot.meta.navGenerate") },
+        ]}
         subtitle={
           <>
             Estrutura alinhada ao <strong className="font-medium text-foreground">Gestor de anúncios</strong>: destino,
@@ -391,7 +411,7 @@ export function DpilotMetaWizardPage() {
           </>
         }
         backHref={`${base}/meta`}
-        backLabel="Voltar ao Meta"
+        backLabel={t("pages.dpilot.meta.back")}
         readiness={<DpilotCampaignReadinessCard platform="meta" />}
       >
         <DpilotAdsWizardFormPreviewSplit
@@ -412,8 +432,8 @@ export function DpilotMetaWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-meta-offer"
             platform="meta"
-            stepLabel="Passo 1 de 7"
-            title="Destino e mensagem"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 1, total: 7 })}
+            title={t("pages.dpilot.meta.stepDestination")}
             description="Página promotora, URL da oferta, proposta de valor e notas de público para o conjunto e criativos gerados."
           >
             <div className="grid gap-2">
@@ -432,7 +452,7 @@ export function DpilotMetaWizardPage() {
               {pagesLoading ? (
                 <div className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  A carregar as Páginas da conta ligada…
+                  {t("pages.dpilot.meta.loadingPages")}
                 </div>
               ) : pages.length > 0 ? (
                 <select
@@ -442,12 +462,12 @@ export function DpilotMetaWizardPage() {
                   className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                   required
                 >
-                  <option value="">Selecione a Página…</option>
+                  <option value="">{t("pages.dpilot.meta.selectPage")}</option>
                   {pages.map((p) => (
                     <option key={p.id} value={p.id} disabled={!p.can_advertise}>
                       {p.name}
                       {p.category ? ` · ${p.category}` : ""}
-                      {p.can_advertise ? "" : " · sem permissão para anunciar"}
+                      {p.can_advertise ? "" : t("pages.dpilot.meta.noAdvertise")}
                     </option>
                   ))}
                 </select>
@@ -465,12 +485,12 @@ export function DpilotMetaWizardPage() {
               <p className="text-[11px] text-muted-foreground">
                 Os anúncios com ligação são publicados por uma Página.{" "}
                 {pagesError
-                  ? `${pagesError} Indique o ID manualmente para continuar.`
+                  ? `${pagesError}${t("pages.dpilot.meta.manualIdSuffix")}`
                   : "A escolha fica guardada na ligação Meta do projeto."}
               </p>
               {pageId.trim() && !pageIdValid ? (
                 <p className="text-[11px] text-destructive">
-                  Use o ID numérico da Página (apenas dígitos).
+                  {t("pages.dpilot.meta.pageIdInvalid")}
                 </p>
               ) : null}
             </div>
@@ -515,8 +535,8 @@ export function DpilotMetaWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-meta-obj"
             platform="meta"
-            stepLabel="Passo 2 de 7"
-            title="Objetivo e investimento diário"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 2, total: 7 })}
+            title={t("pages.dpilot.meta.stepObjective")}
             description={
               <>
                 Equivalente aos resultados{" "}
@@ -561,8 +581,8 @@ export function DpilotMetaWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-meta-bidding"
             platform="meta"
-            stepLabel="Passo 3 de 7"
-            title="Licitação do conjunto"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 3, total: 7 })}
+            title={t("pages.dpilot.meta.stepBidding")}
             description="LOWEST_COST, bid cap ou cost cap conforme objectivo — valores em USD comunicados ao plano técnico."
           >
             <div className="space-y-3 rounded-lg border border-border/80 bg-muted/25 p-4 dark:bg-muted/15">
@@ -603,8 +623,8 @@ export function DpilotMetaWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-meta-target"
             platform="meta"
-            stepLabel="Passo 4 de 7"
-            title="Geografia, idade e posicionamentos"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 4, total: 7 })}
+            title={t("pages.dpilot.meta.stepGeo")}
             description="Localização obrigatória; refine demografia e placements cobertos pela campanha."
           >
             <GoogleAdsCountriesSelect
@@ -666,8 +686,8 @@ export function DpilotMetaWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-meta-creative"
             platform="meta"
-            stepLabel="Passo 5 de 7"
-            title="Criativo inicial"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 5, total: 7 })}
+            title={t("pages.dpilot.meta.stepCreative")}
             description="Opcional neste fluxo — imagem ou vídeo é enviado ao servidor antes do pedido IA / API."
           >
             <div className="grid gap-2">
@@ -716,8 +736,8 @@ export function DpilotMetaWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-meta-compliance"
             platform="meta"
-            stepLabel="Passo 6 de 7"
-            title="Regras e políticas da Meta"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 6, total: 7 })}
+            title={t("pages.dpilot.meta.stepPolicies")}
             description="Declare categorias especiais quando aplicável; confirme leitura das políticas de anúncios."
           >
             <div className="grid gap-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-4 dark:bg-amber-500/10">
@@ -773,8 +793,8 @@ export function DpilotMetaWizardPage() {
           <DpilotWizardFormSection
             id="dpilot-wiz-meta-submit"
             platform="meta"
-            stepLabel="Passo 7 de 7"
-            title="Gerar plano técnico"
+            stepLabel={fill(t("pages.dpilot.common.step"), { n: 7, total: 7 })}
+            title={t("pages.dpilot.meta.stepGenerate")}
             description="Criação do rascunho e entrada na fila; publicação apenas após revisão quando o modo da conta assim o exigir."
           >
             {error ? (
@@ -793,7 +813,7 @@ export function DpilotMetaWizardPage() {
                 ) : (
                   <Sparkles className="mr-2 h-4 w-4" />
                 )}
-                {submitting ? "A gerar plano…" : "Gerar plano"}
+                {submitting ? t("pages.dpilot.common.generatingPlan") : t("pages.dpilot.common.generatePlan")}
               </Button>
             </div>
           </DpilotWizardFormSection>

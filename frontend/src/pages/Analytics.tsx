@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill, numberLocaleFor, type MessageKey } from "@/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, BarChart3, Bot, Building2, Link2, RefreshCw, Settings2, TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -43,16 +44,13 @@ function isGoogleInsightTab(s: string | undefined): s is GoogleInsightTab {
 }
 
 function AnalyticsSectionNav() {
+  const { t } = useAppLocale();
   const loc = useLocation();
   const onGoogle = loc.pathname.includes(`${ANALYTICS_BASE}/google-ads`);
 
   return (
-    <nav className="mb-6 space-y-3" aria-label="Secções de analytics">
-      <p className="text-sm text-muted-foreground">
-        Cada bloco tem URL próprio para favoritos. Google Ads inclui três relatórios API no mesmo intervalo de datas;
-        no painel Google Ads use o filtro <strong className="font-medium text-foreground">Campanha</strong> para ver só
-        uma campanha nos três separadores; há resumo agregado, conversões e CTR por linha.
-      </p>
+    <nav className="mb-6 space-y-3" aria-label={t("pages.analytics.navAria")}>
+      <p className="text-sm text-muted-foreground">{t("pages.analytics.navHint")}</p>
       <div className="flex flex-wrap gap-2">
         <NavLink
           to={`${ANALYTICS_BASE}/presells`}
@@ -65,7 +63,7 @@ function AnalyticsSectionNav() {
             )
           }
         >
-          Presells (dclickora)
+          {t("pages.analytics.presellsTab")}
         </NavLink>
         <NavLink
           to={`${ANALYTICS_BASE}/google-ads/keywords`}
@@ -78,16 +76,16 @@ function AnalyticsSectionNav() {
             )
           }
         >
-          Google Ads
+          {t("pages.analytics.googleTab")}
         </NavLink>
       </div>
       {onGoogle ? (
         <div className="flex flex-wrap gap-2 border-t border-border/60 pt-3">
           {(
             [
-              { seg: "keywords" as const, label: "Palavras-chave" },
-              { seg: "search_terms" as const, label: "Termos de pesquisa" },
-              { seg: "demographics" as const, label: "Demografia" },
+              { seg: "keywords" as const, label: t("common.keyword") },
+              { seg: "search_terms" as const, label: t("pages.analytics.searchTerms") },
+              { seg: "demographics" as const, label: t("pages.analytics.demographics") },
             ] as const
           ).map(({ seg, label }) => (
             <NavLink
@@ -111,17 +109,20 @@ function AnalyticsSectionNav() {
   );
 }
 
-function deviceDisplayLabel(device: string | null | undefined): string {
+function deviceDisplayLabel(
+  device: string | null | undefined,
+  tr: (key: MessageKey) => string,
+): string {
   if (!device) return "—";
   switch (device.toLowerCase().trim()) {
     case "desktop":
-      return "Computador";
+      return tr("pages.results.deviceDesktop");
     case "mobile":
-      return "Telemóvel";
+      return tr("pages.results.deviceMobile");
     case "tablet":
-      return "Tablet";
+      return tr("pages.results.deviceTablet");
     case "bot":
-      return "Bot";
+      return tr("pages.analytics.deviceBot");
     default:
       return device;
   }
@@ -180,29 +181,31 @@ function rowMatchesCampaignFilter(rowCampaign: string, filterNorm: string): bool
   return (rowCampaign ?? "").trim() === filterNorm;
 }
 
-function formatCostFromMicros(micros: number): string {
+function formatCostFromMicros(micros: number, locale: string): string {
   if (!micros) return "—";
-  return (micros / 1_000_000).toLocaleString("pt-PT", {
+  return (micros / 1_000_000).toLocaleString(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
 
 /** CTR agregado (cliques ÷ impressões) — igual ao raciocínio do Google Ads. */
-function formatCtrPct(impressions: number, clicks: number): string {
+function formatCtrPct(impressions: number, clicks: number, locale: string): string {
   if (impressions <= 0) return "—";
   const pct = (clicks / impressions) * 100;
-  return `${pct.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  return `${pct.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 }
 
 /** Conversões com atribuição da conta (podem ser fraccionárias). */
-function formatConversions(n: number | undefined): string {
+function formatConversions(n: number | undefined, locale: string): string {
   const v = n ?? 0;
   if (Math.abs(v) < 1e-9) return "—";
-  return v.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return v.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function PresellsAnalyticsBody() {
+  const { t, locale } = useAppLocale();
+  const numLocale = numberLocaleFor(locale);
   const { data: summaryData, isLoading, isError, refetch } = useQuery({
     queryKey: ["analytics-summary"],
     queryFn: async () => {
@@ -223,14 +226,14 @@ function PresellsAnalyticsBody() {
     },
   });
 
-  if (isLoading) return <LoadingState message="Carregando analytics..." />;
-  if (isError) return <ErrorState message="Erro ao carregar analytics." onRetry={() => refetch()} />;
+  if (isLoading) return <LoadingState message={t("pages.analytics.loading")} />;
+  if (isError) return <ErrorState message={t("pages.analytics.loadError")} onRetry={() => refetch()} />;
 
   if (!summaryData || summaryData.length === 0) {
     return (
       <EmptyState
-        title="Sem dados de analytics"
-        description="Dados quando houver tráfego nas presells."
+        title={t("pages.analytics.emptyTitle")}
+        description={t("pages.analytics.emptyDesc")}
         icon={<BarChart3 className="h-8 w-8 text-muted-foreground" />}
       />
     );
@@ -252,14 +255,14 @@ function PresellsAnalyticsBody() {
         <div className="bg-card rounded-xl p-5 shadow-card border border-border/50">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="h-5 w-5 text-primary" />
-            <h2 className="font-semibold text-card-foreground">Resumo</h2>
+            <h2 className="font-semibold text-card-foreground">{t("pages.analytics.summary")}</h2>
           </div>
           <div className="space-y-5">
             {[
-              { label: "Total de Cliques", value: totalClicks.toLocaleString() },
-              { label: "Total de Impressões", value: totalImpressions.toLocaleString() },
-              { label: "CTR Médio", value: `${avgCtr.toFixed(2)}%` },
-              { label: "Páginas Ativas", value: String(summaryData.length) },
+              { label: t("pages.analytics.totalClicks"), value: totalClicks.toLocaleString() },
+              { label: t("pages.analytics.totalImpressions"), value: totalImpressions.toLocaleString() },
+              { label: t("pages.analytics.avgCtr"), value: `${avgCtr.toFixed(2)}%` },
+              { label: t("pages.analytics.activePages"), value: String(summaryData.length) },
             ].map((item) => (
               <div
                 key={item.label}
@@ -275,7 +278,7 @@ function PresellsAnalyticsBody() {
         <div className="lg:col-span-2 bg-card rounded-xl p-5 shadow-card border border-border/50">
           <div className="flex items-center gap-2 mb-4">
             <BarChart3 className="h-5 w-5 text-primary" />
-            <h2 className="font-semibold text-card-foreground">Performance por Página</h2>
+            <h2 className="font-semibold text-card-foreground">{t("pages.analytics.performance")}</h2>
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -290,12 +293,12 @@ function PresellsAnalyticsBody() {
                     borderRadius: "0.5rem",
                   }}
                 />
-                <Bar dataKey="cliques" fill="hsl(172 66% 38%)" radius={[4, 4, 0, 0]} name="Cliques" />
+                <Bar dataKey="cliques" fill="hsl(172 66% 38%)" radius={[4, 4, 0, 0]} name={t("common.clicks")} />
                 <Bar
                   dataKey="impressoes"
                   fill="hsl(28 92% 48% / 0.4)"
                   radius={[4, 4, 0, 0]}
-                  name="Impressões"
+                  name={t("common.impressions")}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -306,34 +309,33 @@ function PresellsAnalyticsBody() {
       <div className="bg-card rounded-xl p-5 shadow-card border border-border/50 mt-6">
         <div className="flex items-center gap-2 mb-4">
           <Bot className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold text-card-foreground">Últimos cliques</h2>
+          <h2 className="font-semibold text-card-foreground">{t("pages.analytics.lastClicks")}</h2>
         </div>
         <p className="text-xs text-muted-foreground mb-4">
-          Inclui IP, país e tipo de dispositivo. Tráfego automático (crawlers, pré-visualizações) aparece como{" "}
+          {t("pages.analytics.lastClicksHint")}{" "}
           <Badge variant="secondary" className="mx-0.5">
-            bot
-          </Badge>{" "}
-          com etiqueta.
+            {t("pages.analytics.deviceBot")}
+          </Badge>
         </p>
         {!recentClicks?.length ? (
-          <p className="text-sm text-muted-foreground">Sem cliques registados ainda.</p>
+          <p className="text-sm text-muted-foreground">{t("pages.analytics.noClicksYet")}</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border/60">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30 text-left text-xs text-muted-foreground">
-                  <th className="py-2.5 px-3 font-medium">Data</th>
+                  <th className="py-2.5 px-3 font-medium">{t("pages.blacklist.colWhen")}</th>
                   <th className="py-2.5 px-3 font-medium">IP</th>
-                  <th className="py-2.5 px-3 font-medium">País</th>
-                  <th className="py-2.5 px-3 font-medium">Dispositivo</th>
-                  <th className="py-2.5 px-3 font-medium">Tipo</th>
+                  <th className="py-2.5 px-3 font-medium">{t("pages.analytics.colCountry")}</th>
+                  <th className="py-2.5 px-3 font-medium">{t("pages.results.thDevice")}</th>
+                  <th className="py-2.5 px-3 font-medium">{t("pages.reports.typeLegend")}</th>
                 </tr>
               </thead>
               <tbody>
                 {recentClicks.map((ev) => (
                   <tr key={ev.id} className="border-b border-border/40 last:border-0">
                     <td className="py-2 px-3 text-xs whitespace-nowrap">
-                      {new Date(ev.created_at).toLocaleString("pt-PT")}
+                      {new Date(ev.created_at).toLocaleString(numLocale)}
                     </td>
                     <td className="py-2 px-3 font-mono text-[11px]">{ev.ip_address || "—"}</td>
                     <td className="py-2 px-3 text-xs">
@@ -344,7 +346,7 @@ function PresellsAnalyticsBody() {
                         <span>{countryDisplayLabel(ev.country)}</span>
                       </span>
                     </td>
-                    <td className="py-2 px-3 text-xs">{deviceDisplayLabel(ev.device)}</td>
+                    <td className="py-2 px-3 text-xs">{deviceDisplayLabel(ev.device, t)}</td>
                     <td className="py-2 px-3">
                       {ev.is_bot ? (
                         <span className="inline-flex items-center gap-1 flex-wrap">
@@ -371,6 +373,8 @@ function PresellsAnalyticsBody() {
 }
 
 function GoogleAdsInsightsPanel() {
+  const { t, locale } = useAppLocale();
+  const numLocale = numberLocaleFor(locale);
   const initial = useMemo(() => defaultDateRange(), []);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
@@ -390,7 +394,7 @@ function GoogleAdsInsightsPanel() {
     queryFn: async () => {
       const { data: d, error: err, errorCode } = await analyticsService.getGoogleAdsInsights({ from, to });
       if (err) throw new GoogleAdsInsightsRequestError(err, errorCode ?? null);
-      if (!d) throw new GoogleAdsInsightsRequestError("Resposta vazia", null);
+      if (!d) throw new GoogleAdsInsightsRequestError(t("pages.analytics.loadFail"), null);
       return d;
     },
     retry: 1,
@@ -398,7 +402,7 @@ function GoogleAdsInsightsPanel() {
 
   const insightErr = error instanceof GoogleAdsInsightsRequestError ? error : null;
   const errCode = insightErr?.errorCode ?? null;
-  const errMsg = error instanceof Error ? error.message : "Erro ao carregar.";
+  const errMsg = error instanceof Error ? error.message : t("pages.analytics.loadFail");
   const softUnavailable =
     isError &&
     (isGoogleAdsInsightsUnavailableCode(errCode) || (errCode == null && isGoogleAdsReportingSetupMessage(errMsg)));
@@ -466,7 +470,7 @@ function GoogleAdsInsightsPanel() {
         <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:min-w-0">
             <div className="space-y-1.5 w-full min-w-0 sm:max-w-md">
-              <Label className="text-xs font-medium text-muted-foreground">Período</Label>
+              <Label className="text-xs font-medium text-muted-foreground">{t("common.period")}</Label>
               <DateRangeFilter
                 from={from}
                 to={to}
@@ -485,22 +489,22 @@ function GoogleAdsInsightsPanel() {
               disabled={isFetching}
             >
               <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-              Atualizar relatórios
+              {t("pages.analytics.refreshReports")}
             </Button>
             {data && uniqueCampaigns.length > 0 ? (
               <div className="space-y-1.5 w-full min-w-0 sm:max-w-[min(100%,20rem)] lg:max-w-xs">
                 <Label htmlFor="ga-insights-campaign" className="text-xs font-medium text-muted-foreground">
-                  Campanha
+                  {t("pages.analytics.campaign")}
                 </Label>
                 <Select
                   value={campaignFilterNorm ? campaignFilterNorm : GOOGLE_ADS_ALL_CAMPAIGNS}
                   onValueChange={(v) => setCampaignFilter(v === GOOGLE_ADS_ALL_CAMPAIGNS ? "" : v)}
                 >
                   <SelectTrigger id="ga-insights-campaign" className="w-full">
-                    <SelectValue placeholder="Todas as campanhas" />
+                    <SelectValue placeholder={t("pages.analytics.allCampaigns")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={GOOGLE_ADS_ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
+                    <SelectItem value={GOOGLE_ADS_ALL_CAMPAIGNS}>{t("pages.analytics.allCampaigns")}</SelectItem>
                     {uniqueCampaigns.map((c) => (
                       <SelectItem key={c} value={c}>
                         <span className="line-clamp-2 break-words text-left" title={c}>
@@ -515,21 +519,14 @@ function GoogleAdsInsightsPanel() {
           </div>
         </div>
         <p className="mt-4 text-xs text-muted-foreground leading-relaxed max-w-3xl">
-          Com a integração Google Ads ativa na sua conta, estes relatórios mostram dados em tempo real via{" "}
-          <span className="text-foreground/90 font-medium">Google Ads API</span> (palavras-chave, termos de pesquisa e
-          demografia) para o intervalo selecionado — incluindo <strong className="font-medium text-foreground">CTR</strong> e{" "}
-          <strong className="font-medium text-foreground">conversões</strong>{" "}
-          (atribuição da conta). Use o filtro <strong className="font-medium text-foreground">Campanha</strong> para focar
-          numa campanha: vê um <strong className="font-medium text-foreground">resumo</strong> e tabelas só dessa campanha.
-          configuração faz-se em{" "}
+          {t("pages.analytics.googleIntro")}{" "}
           <Link to="/integracoes/google-ads" className="text-primary font-medium underline underline-offset-2">
-            Integrações → Google Ads
+            {t("pages.trackingTools.googleAdsLink")}
           </Link>
-          . Até <span className="text-foreground/90 font-medium">2000</span> linhas por relatório após agregação no período.
         </p>
       </div>
 
-      {isLoading ? <LoadingState message="A carregar Google Ads…" /> : null}
+      {isLoading ? <LoadingState message={t("pages.analytics.loadingGoogle")} /> : null}
       {isError && softUnavailable ? (
         <div
           className="rounded-xl border border-amber-500/25 bg-amber-500/5 dark:bg-amber-500/10 p-5 sm:p-6 max-w-2xl"
@@ -549,19 +546,17 @@ function GoogleAdsInsightsPanel() {
               <div>
                 <h3 className="text-sm font-semibold text-foreground">
                   {errCode === "google_ads_platform_not_configured"
-                    ? "O custo do Google Ads ainda não está disponível"
+                    ? t("pages.analytics.unavailableCost")
                     : errCode === "google_ads_oauth_required"
-                      ? "Ligue a sua conta Google"
+                      ? t("pages.analytics.connectAccount")
                       : errCode === "google_ads_customer_id_required"
-                        ? "Indique o número da conta"
-                        : "Falta ligar o Google Ads"}
+                        ? t("pages.analytics.needCustomer")
+                        : t("pages.analytics.needLink")}
                 </h3>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{errMsg}</p>
                 {errCode === "google_ads_platform_not_configured" ? (
                   <p className="mt-3 text-[11px] text-muted-foreground leading-relaxed">
-                    O Google Ads ainda não está ligado nesta conta. Em{" "}
-                    <strong className="text-foreground/90">Integrações → Google Ads</strong> complete a ligação; se
-                    continuar a falhar, contacte o suporte.
+                    {t("pages.analytics.platformHint")}
                   </p>
                 ) : null}
               </div>
@@ -572,7 +567,7 @@ function GoogleAdsInsightsPanel() {
                   className="gap-2 w-full sm:w-auto"
                 >
                   <Link to="/integracoes/google-ads">
-                    {errCode === "google_ads_platform_not_configured" ? "Abrir Google Ads" : "Ir para Google Ads"}
+                    {errCode === "google_ads_platform_not_configured" ? t("pages.analytics.openGoogle") : t("pages.analytics.goGoogle")}
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </Link>
                 </Button>
@@ -583,7 +578,7 @@ function GoogleAdsInsightsPanel() {
       ) : null}
       {isError && !softUnavailable ? (
         <Alert variant="destructive" className="max-w-2xl">
-          <AlertTitle>Não foi possível obter os dados</AlertTitle>
+          <AlertTitle>{t("pages.analytics.dataFail")}</AlertTitle>
           <AlertDescription className="text-sm">{errMsg}</AlertDescription>
         </Alert>
       ) : null}
@@ -591,58 +586,58 @@ function GoogleAdsInsightsPanel() {
       {data ? (
         <>
           <p className="text-[11px] text-muted-foreground">
-            Sincronizado: {new Date(data.synced_at).toLocaleString("pt-PT")} · Período pedido: {data.period.from} →{" "}
-            {data.period.to}
+            {fill(t("pages.analytics.synced"), {
+              when: new Date(data.synced_at).toLocaleString(numLocale),
+              from: data.period.from,
+              to: data.period.to,
+            })}
           </p>
 
           {campaignFilterNorm && googleAdsCampaignPulse ? (
             <div
               className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3 dark:bg-emerald-500/10"
               role="region"
-              aria-label="Resumo da campanha filtrada"
+              aria-label={t("pages.analytics.summaryAria")}
             >
               <p className="text-xs font-semibold text-foreground">
-                Resumo · <span className="text-emerald-800 dark:text-emerald-200">{campaignFilterNorm}</span>
+                {t("pages.analytics.summary")} · <span className="text-emerald-800 dark:text-emerald-200">{campaignFilterNorm}</span>
               </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">
-                Totais das <strong className="font-medium text-foreground">palavras-chave</strong> desta campanha no
-                período — visão dclickora para comparar campanhas sem repetir o layout do Ads Manager.
-              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">{t("pages.analytics.summaryHint")}</p>
               <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 text-[13px]">
                 <div>
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Impressões</dt>
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{t("common.impressions")}</dt>
                   <dd className="font-semibold tabular-nums text-foreground">
-                    {googleAdsCampaignPulse.impressions.toLocaleString("pt-PT")}
+                    {googleAdsCampaignPulse.impressions.toLocaleString(numLocale)}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Cliques</dt>
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{t("common.clicks")}</dt>
                   <dd className="font-semibold tabular-nums text-foreground">
-                    {googleAdsCampaignPulse.clicks.toLocaleString("pt-PT")}
+                    {googleAdsCampaignPulse.clicks.toLocaleString(numLocale)}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">CTR</dt>
                   <dd className="font-semibold tabular-nums text-foreground">
                     {googleAdsCampaignPulse.impressions > 0
-                      ? `${googleAdsCampaignPulse.ctrPct.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+                      ? `${googleAdsCampaignPulse.ctrPct.toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
                       : "—"}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Conversões</dt>
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{t("pages.reports.eventConversion")}</dt>
                   <dd className="font-semibold tabular-nums text-foreground">
-                    {formatConversions(googleAdsCampaignPulse.conversions)}
+                    {formatConversions(googleAdsCampaignPulse.conversions, numLocale)}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Custo*</dt>
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{t("common.cost")}*</dt>
                   <dd className="font-semibold tabular-nums text-foreground">
-                    {formatCostFromMicros(googleAdsCampaignPulse.cost_micros)}
+                    {formatCostFromMicros(googleAdsCampaignPulse.cost_micros, numLocale)}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Custo / conv.</dt>
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{t("pages.analytics.costPerConv")}</dt>
                   <dd className="font-semibold tabular-nums text-foreground">
                     {googleAdsCampaignPulse.cpa != null
                       ? googleAdsCampaignPulse.cpa.toLocaleString("pt-PT", {
@@ -663,27 +658,27 @@ function GoogleAdsInsightsPanel() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/30 text-left text-xs text-muted-foreground">
-                        <th className="py-2.5 px-3 font-medium">Campanha</th>
-                        <th className="py-2.5 px-3 font-medium">Grupo</th>
-                        <th className="py-2.5 px-3 font-medium">Palavra-chave</th>
-                        <th className="py-2.5 px-3 font-medium text-right">Impressões</th>
-                        <th className="py-2.5 px-3 font-medium text-right">Cliques</th>
+                        <th className="py-2.5 px-3 font-medium">{t("pages.analytics.campaign")}</th>
+                        <th className="py-2.5 px-3 font-medium">{t("pages.results.thAdgroup")}</th>
+                        <th className="py-2.5 px-3 font-medium">{t("common.keyword")}</th>
+                        <th className="py-2.5 px-3 font-medium text-right">{t("common.impressions")}</th>
+                        <th className="py-2.5 px-3 font-medium text-right">{t("common.clicks")}</th>
                         <th className="py-2.5 px-3 font-medium text-right">CTR</th>
                         <th className="py-2.5 px-3 font-medium text-right">Conv.</th>
-                        <th className="py-2.5 px-3 font-medium text-right">Custo*</th>
+                        <th className="py-2.5 px-3 font-medium text-right">{t("common.cost")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.keywords.rows.length === 0 ? (
                         <tr>
                           <td colSpan={8} className="py-8 text-center text-muted-foreground text-sm">
-                            Sem linhas neste período (ou sem palavras com impressões).
+                            {t("pages.analytics.emptyKeywords")}
                           </td>
                         </tr>
                       ) : filteredKeywordRows.length === 0 ? (
                         <tr>
                           <td colSpan={8} className="py-8 text-center text-muted-foreground text-sm">
-                            Nenhuma linha para a campanha «{campaignFilterNorm}» neste período.
+                            {fill(t("pages.analytics.emptyCampaign"), { campaign: campaignFilterNorm })}
                           </td>
                         </tr>
                       ) : (
@@ -696,11 +691,11 @@ function GoogleAdsInsightsPanel() {
                               {r.ad_group}
                             </td>
                             <td className="py-2 px-3 font-medium">{r.keyword}</td>
-                            <td className="py-2 px-3 text-right tabular-nums">{r.impressions.toLocaleString("pt-PT")}</td>
-                            <td className="py-2 px-3 text-right tabular-nums">{r.clicks.toLocaleString("pt-PT")}</td>
-                            <td className="py-2 px-3 text-right tabular-nums">{formatCtrPct(r.impressions, r.clicks)}</td>
-                            <td className="py-2 px-3 text-right tabular-nums">{formatConversions(r.conversions)}</td>
-                            <td className="py-2 px-3 text-right tabular-nums">{formatCostFromMicros(r.cost_micros)}</td>
+                            <td className="py-2 px-3 text-right tabular-nums">{r.impressions.toLocaleString(numLocale)}</td>
+                            <td className="py-2 px-3 text-right tabular-nums">{r.clicks.toLocaleString(numLocale)}</td>
+                            <td className="py-2 px-3 text-right tabular-nums">{formatCtrPct(r.impressions, r.clicks, numLocale)}</td>
+                            <td className="py-2 px-3 text-right tabular-nums">{formatConversions(r.conversions, numLocale)}</td>
+                            <td className="py-2 px-3 text-right tabular-nums">{formatCostFromMicros(r.cost_micros, numLocale)}</td>
                           </tr>
                         ))
                       )}
@@ -709,15 +704,11 @@ function GoogleAdsInsightsPanel() {
                 </div>
               ) : (
                 <Alert variant="destructive">
-                  <AlertTitle>Palavras-chave</AlertTitle>
+                  <AlertTitle>{t("common.keyword")}</AlertTitle>
                   <AlertDescription className="text-sm">{data.keywords.error}</AlertDescription>
                 </Alert>
               )}
-              <p className="text-[10px] text-muted-foreground mt-2">
-                *Custo na moeda da conta (micros → valor). <strong className="font-medium text-foreground">Conv.</strong>{" "}
-                e <strong className="font-medium text-foreground">CTR</strong> usam os mesmos critérios da API Google
-                (atribuição de conversões = modelo da conta).
-              </p>
+              <p className="text-[10px] text-muted-foreground mt-2">{t("pages.analytics.ctrNote")}</p>
             </div>
           ) : insight === "search_terms" ? (
             <div className="mt-4">
@@ -726,27 +717,27 @@ function GoogleAdsInsightsPanel() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/30 text-left text-xs text-muted-foreground">
-                        <th className="py-2.5 px-3 font-medium">Campanha</th>
-                        <th className="py-2.5 px-3 font-medium">Grupo</th>
-                        <th className="py-2.5 px-3 font-medium">Termo de pesquisa</th>
-                        <th className="py-2.5 px-3 font-medium text-right">Impressões</th>
-                        <th className="py-2.5 px-3 font-medium text-right">Cliques</th>
+                        <th className="py-2.5 px-3 font-medium">{t("pages.analytics.campaign")}</th>
+                        <th className="py-2.5 px-3 font-medium">{t("pages.results.thAdgroup")}</th>
+                        <th className="py-2.5 px-3 font-medium">{t("pages.analytics.searchTerm")}</th>
+                        <th className="py-2.5 px-3 font-medium text-right">{t("common.impressions")}</th>
+                        <th className="py-2.5 px-3 font-medium text-right">{t("common.clicks")}</th>
                         <th className="py-2.5 px-3 font-medium text-right">CTR</th>
                         <th className="py-2.5 px-3 font-medium text-right">Conv.</th>
-                        <th className="py-2.5 px-3 font-medium text-right">Custo*</th>
+                        <th className="py-2.5 px-3 font-medium text-right">{t("common.cost")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.search_terms.rows.length === 0 ? (
                         <tr>
                           <td colSpan={8} className="py-8 text-center text-muted-foreground text-sm">
-                            Sem termos de pesquisa neste período.
+                            {t("pages.analytics.emptyTerms")}
                           </td>
                         </tr>
                       ) : filteredSearchTermRows.length === 0 ? (
                         <tr>
                           <td colSpan={8} className="py-8 text-center text-muted-foreground text-sm">
-                            Nenhum termo para a campanha «{campaignFilterNorm}» neste período.
+                            {fill(t("pages.analytics.emptyTermsCampaign"), { campaign: campaignFilterNorm })}
                           </td>
                         </tr>
                       ) : (
@@ -759,11 +750,11 @@ function GoogleAdsInsightsPanel() {
                               {r.ad_group}
                             </td>
                             <td className="py-2 px-3">{r.search_term}</td>
-                            <td className="py-2 px-3 text-right tabular-nums">{r.impressions.toLocaleString("pt-PT")}</td>
-                            <td className="py-2 px-3 text-right tabular-nums">{r.clicks.toLocaleString("pt-PT")}</td>
-                            <td className="py-2 px-3 text-right tabular-nums">{formatCtrPct(r.impressions, r.clicks)}</td>
-                            <td className="py-2 px-3 text-right tabular-nums">{formatConversions(r.conversions)}</td>
-                            <td className="py-2 px-3 text-right tabular-nums">{formatCostFromMicros(r.cost_micros)}</td>
+                            <td className="py-2 px-3 text-right tabular-nums">{r.impressions.toLocaleString(numLocale)}</td>
+                            <td className="py-2 px-3 text-right tabular-nums">{r.clicks.toLocaleString(numLocale)}</td>
+                            <td className="py-2 px-3 text-right tabular-nums">{formatCtrPct(r.impressions, r.clicks, numLocale)}</td>
+                            <td className="py-2 px-3 text-right tabular-nums">{formatConversions(r.conversions, numLocale)}</td>
+                            <td className="py-2 px-3 text-right tabular-nums">{formatCostFromMicros(r.cost_micros, numLocale)}</td>
                           </tr>
                         ))
                       )}
@@ -772,12 +763,12 @@ function GoogleAdsInsightsPanel() {
                 </div>
               ) : (
                 <Alert variant="destructive">
-                  <AlertTitle>Termos de pesquisa</AlertTitle>
+                  <AlertTitle>{t("pages.analytics.searchTerms")}</AlertTitle>
                   <AlertDescription className="text-sm">{data.search_terms.error}</AlertDescription>
                 </Alert>
               )}
               <p className="text-[10px] text-muted-foreground mt-2">
-                *Custo na moeda da conta. CTR e conversões como em palavras-chave (API Google).
+                {t("pages.analytics.costNote")}
               </p>
             </div>
           ) : insight === "demographics" ? (
@@ -785,16 +776,16 @@ function GoogleAdsInsightsPanel() {
               {data.demographics.ok ? (
                 <div className="grid gap-6 md:grid-cols-2">
                   <div>
-                    <h3 className="text-sm font-semibold mb-2">Género</h3>
+                    <h3 className="text-sm font-semibold mb-2">{t("pages.analytics.gender")}</h3>
                     <div className="overflow-x-auto rounded-lg border border-border/60 bg-card">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b bg-muted/30 text-left text-xs text-muted-foreground">
-                            <th className="py-2 px-3 font-medium">Campanha</th>
-                            <th className="py-2 px-3 font-medium">Grupo</th>
+                            <th className="py-2 px-3 font-medium">{t("pages.analytics.campaign")}</th>
+                            <th className="py-2 px-3 font-medium">{t("pages.results.thAdgroup")}</th>
                             <th className="py-2 px-3 font-medium">Segmento</th>
-                            <th className="py-2 px-3 font-medium text-right">Impr.</th>
-                            <th className="py-2 px-3 font-medium text-right">Cliques</th>
+                            <th className="py-2 px-3 font-medium text-right">{t("common.impressions")}</th>
+                            <th className="py-2 px-3 font-medium text-right">{t("common.clicks")}</th>
                             <th className="py-2 px-3 font-medium text-right">CTR</th>
                             <th className="py-2 px-3 font-medium text-right">Conv.</th>
                           </tr>
@@ -803,13 +794,13 @@ function GoogleAdsInsightsPanel() {
                           {data.demographics.gender.length === 0 ? (
                             <tr>
                               <td colSpan={7} className="py-6 text-center text-muted-foreground text-xs">
-                                Sem dados de género (ou conta sem segmentação).
+                                {t("pages.analytics.emptyGender")}
                               </td>
                             </tr>
                           ) : filteredDemoGenderRows.length === 0 ? (
                             <tr>
                               <td colSpan={7} className="py-6 text-center text-muted-foreground text-xs">
-                                Sem dados de género para «{campaignFilterNorm}» neste período.
+                                {fill(t("pages.analytics.emptyGenderCampaign"), { campaign: campaignFilterNorm })}
                               </td>
                             </tr>
                           ) : (
@@ -822,10 +813,10 @@ function GoogleAdsInsightsPanel() {
                                   {r.ad_group}
                                 </td>
                                 <td className="py-2 px-3">{r.segment_label}</td>
-                                <td className="py-2 px-3 text-right tabular-nums">{r.impressions.toLocaleString("pt-PT")}</td>
-                                <td className="py-2 px-3 text-right tabular-nums">{r.clicks.toLocaleString("pt-PT")}</td>
-                                <td className="py-2 px-3 text-right tabular-nums">{formatCtrPct(r.impressions, r.clicks)}</td>
-                                <td className="py-2 px-3 text-right tabular-nums">{formatConversions(r.conversions)}</td>
+                                <td className="py-2 px-3 text-right tabular-nums">{r.impressions.toLocaleString(numLocale)}</td>
+                                <td className="py-2 px-3 text-right tabular-nums">{r.clicks.toLocaleString(numLocale)}</td>
+                                <td className="py-2 px-3 text-right tabular-nums">{formatCtrPct(r.impressions, r.clicks, numLocale)}</td>
+                                <td className="py-2 px-3 text-right tabular-nums">{formatConversions(r.conversions, numLocale)}</td>
                               </tr>
                             ))
                           )}
@@ -834,16 +825,16 @@ function GoogleAdsInsightsPanel() {
                     </div>
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold mb-2">Idade</h3>
+                    <h3 className="text-sm font-semibold mb-2">{t("pages.analytics.age")}</h3>
                     <div className="overflow-x-auto rounded-lg border border-border/60 bg-card">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b bg-muted/30 text-left text-xs text-muted-foreground">
-                            <th className="py-2 px-3 font-medium">Campanha</th>
-                            <th className="py-2 px-3 font-medium">Grupo</th>
-                            <th className="py-2 px-3 font-medium">Faixa</th>
-                            <th className="py-2 px-3 font-medium text-right">Impr.</th>
-                            <th className="py-2 px-3 font-medium text-right">Cliques</th>
+                            <th className="py-2 px-3 font-medium">{t("pages.analytics.campaign")}</th>
+                            <th className="py-2 px-3 font-medium">{t("pages.results.thAdgroup")}</th>
+                            <th className="py-2 px-3 font-medium">{t("pages.analytics.ageBand")}</th>
+                            <th className="py-2 px-3 font-medium text-right">{t("common.impressions")}</th>
+                            <th className="py-2 px-3 font-medium text-right">{t("common.clicks")}</th>
                             <th className="py-2 px-3 font-medium text-right">CTR</th>
                             <th className="py-2 px-3 font-medium text-right">Conv.</th>
                           </tr>
@@ -852,13 +843,13 @@ function GoogleAdsInsightsPanel() {
                           {data.demographics.age.length === 0 ? (
                             <tr>
                               <td colSpan={7} className="py-6 text-center text-muted-foreground text-xs">
-                                Sem dados de idade.
+                                {t("pages.analytics.emptyAge")}
                               </td>
                             </tr>
                           ) : filteredDemoAgeRows.length === 0 ? (
                             <tr>
                               <td colSpan={7} className="py-6 text-center text-muted-foreground text-xs">
-                                Sem dados de idade para «{campaignFilterNorm}» neste período.
+                                {fill(t("pages.analytics.noAge"), { campaign: campaignFilterNorm })}
                               </td>
                             </tr>
                           ) : (
@@ -871,10 +862,10 @@ function GoogleAdsInsightsPanel() {
                                   {r.ad_group}
                                 </td>
                                 <td className="py-2 px-3">{r.segment_label}</td>
-                                <td className="py-2 px-3 text-right tabular-nums">{r.impressions.toLocaleString("pt-PT")}</td>
-                                <td className="py-2 px-3 text-right tabular-nums">{r.clicks.toLocaleString("pt-PT")}</td>
-                                <td className="py-2 px-3 text-right tabular-nums">{formatCtrPct(r.impressions, r.clicks)}</td>
-                                <td className="py-2 px-3 text-right tabular-nums">{formatConversions(r.conversions)}</td>
+                                <td className="py-2 px-3 text-right tabular-nums">{r.impressions.toLocaleString(numLocale)}</td>
+                                <td className="py-2 px-3 text-right tabular-nums">{r.clicks.toLocaleString(numLocale)}</td>
+                                <td className="py-2 px-3 text-right tabular-nums">{formatCtrPct(r.impressions, r.clicks, numLocale)}</td>
+                                <td className="py-2 px-3 text-right tabular-nums">{formatConversions(r.conversions, numLocale)}</td>
                               </tr>
                             ))
                           )}
@@ -885,7 +876,7 @@ function GoogleAdsInsightsPanel() {
                 </div>
               ) : (
                 <Alert variant="destructive">
-                  <AlertTitle>Demografia</AlertTitle>
+                  <AlertTitle>{t("pages.analytics.demographics")}</AlertTitle>
                   <AlertDescription className="text-sm">{data.demographics.error}</AlertDescription>
                 </Alert>
               )}

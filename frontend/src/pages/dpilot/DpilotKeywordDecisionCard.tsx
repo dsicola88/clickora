@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, Ban, CheckCircle2, Loader2, Search, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -121,6 +123,7 @@ export function DpilotKeywordDecisionCard({
   googleAdsConnected?: boolean | null;
   connectionsPageHref?: string;
 }) {
+  const { t } = useAppLocale();
   const [draft, setDraft] = useState("");
   const [insight, setInsight] = useState<DpilotKeywordInsight | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -192,20 +195,20 @@ export function DpilotKeywordDecisionCard({
   const runInsight = async () => {
     const kw = draft.trim();
     if (kw.length < 2) {
-      toast.error("Indica uma palavra-chave.");
+      toast.error(t("pages.dpilot.keyword.enterKeyword"));
       return;
     }
     if (!primaryCountryCode && plannerCountryCodes.length === 0) {
-      toast.error("Selecciona pelo menos um país de segmentação acima.");
+      toast.error(t("pages.dpilot.keyword.selectCountry"));
       return;
     }
     if (requireGoogleAdsConnection && googleAdsConnected !== true) {
       if (googleAdsConnected === false) {
-        toast.error("Liga a conta Google Ads ao projecto", {
-          description: "Sem OAuth a API Keyword Ideas não devolve pesquisas reais na Google.",
+        toast.error(t("pages.dpilot.keyword.connectTitle"), {
+          description: t("pages.dpilot.keyword.connectDesc"),
         });
       } else {
-        toast.message("A verificar ligação Google Ads…");
+        toast.message(t("pages.dpilot.keyword.checking"));
       }
       return;
     }
@@ -220,21 +223,21 @@ export function DpilotKeywordDecisionCard({
       const a = parseMonthControlValue(customRange.start);
       const b = parseMonthControlValue(customRange.end);
       if (!a || !b) {
-        toast.error("Intervalo inválido", { description: "Usa AAAA-MM no início e no fim." });
+        toast.error(t("pages.dpilot.keyword.rangeInvalid"), { description: t("pages.dpilot.keyword.rangeFormat") });
         return;
       }
       if (a.y * 100 + a.m > b.y * 100 + b.m) {
-        toast.error("Intervalo inválido", { description: "O início deve ser anterior ou igual ao fim." });
+        toast.error(t("pages.dpilot.keyword.rangeInvalid"), { description: t("pages.dpilot.keyword.rangeOrder") });
         return;
       }
       if (monthSpan(a, b) > 48) {
-        toast.error("Intervalo demasiado largo", { description: "Máximo 48 meses (limite do servidor)." });
+        toast.error(t("pages.dpilot.keyword.rangeWide"), { description: t("pages.dpilot.keyword.rangeWideDesc") });
         return;
       }
       const now = new Date();
       const cur = monthIndex(now.getFullYear(), now.getMonth() + 1);
       if (monthIndex(a.y, a.m) > cur || monthIndex(b.y, b.m) > cur) {
-        toast.error("Datas no futuro", { description: "O intervalo só pode ir até ao mês corrente (métricas históricas)." });
+        toast.error(t("pages.dpilot.keyword.futureDates"), { description: t("pages.dpilot.keyword.futureDatesDesc") });
         return;
       }
       metricsPayload = {
@@ -265,7 +268,9 @@ export function DpilotKeywordDecisionCard({
         ...metricsPayload,
       });
       if (error || !data?.ok) {
-        toast.error("Não foi possível analisar", { description: error ?? "Erro desconhecido" });
+        toast.error(t("pages.dpilot.keyword.analyzeFailed"), {
+          description: error ?? t("pages.dpilot.common.unknownError"),
+        });
         return;
       }
       setInsight({
@@ -295,11 +300,11 @@ export function DpilotKeywordDecisionCard({
   const metricsBadge =
     insight?.metrics_source === "google_ads" ? (
       <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/[0.08] font-normal text-emerald-800 dark:text-emerald-200">
-        Dados: pesquisas Google (Keyword Ideas)
+        {t("pages.dpilot.keyword.dataGoogle")}
       </Badge>
     ) : (
       <Badge variant="outline" className="font-normal text-muted-foreground">
-        Dados: Estimativa inteligente
+        {t("pages.dpilot.keyword.dataEstimate")}
       </Badge>
     );
 
@@ -325,30 +330,22 @@ export function DpilotKeywordDecisionCard({
         <div>
           <p className="flex items-center gap-2 text-xs font-semibold text-foreground">
             <Search className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" aria-hidden />
-            Análise de palavra-chave
+            {t("pages.dpilot.keyword.title")}
           </p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {requireGoogleAdsConnection ? (
-              <>
-                <strong className="font-medium text-foreground/90">Volumes oficiais de pesquisa na Google</strong> (Rede de
-                Pesquisa — API Keyword Ideas / Planner), agregados por{" "}
-                <span className="font-medium text-foreground/90">
-                  {geoSummaryLabel || countryLabel(primaryCountryCode)}
-                </span>
-                {plannerCountryCodes.length > 1 ? ` (${plannerCountryCodes.length} países)` : ""}. Este passo só analisa
-                com conta Google Ads ligada. Janela temporal abaixo.
-              </>
-            ) : (
-              <>
-                Com Google Ads ligado:{" "}
-                <strong className="font-medium text-foreground/90">pesquisas mensais na Google</strong> via Keyword
-                Ideas (não Semrush), por{" "}
-                <span className="font-medium text-foreground/90">
-                  {geoSummaryLabel || countryLabel(primaryCountryCode)}
-                </span>
-                {plannerCountryCodes.length > 1 ? ` (${plannerCountryCodes.length} países)` : ""}. Sem ligação: estimativa
-                interna (não reflete pesquisas reais na Google). Janela temporal abaixo.
-              </>
+            {fill(
+              t(
+                requireGoogleAdsConnection
+                  ? "pages.dpilot.keyword.helpConnected"
+                  : "pages.dpilot.keyword.helpOptional",
+              ),
+              {
+                geo: geoSummaryLabel || countryLabel(primaryCountryCode),
+                extra:
+                  plannerCountryCodes.length > 1
+                    ? fill(t("pages.dpilot.keyword.countriesExtra"), { n: plannerCountryCodes.length })
+                    : "",
+              },
             )}
           </p>
         </div>
@@ -356,35 +353,35 @@ export function DpilotKeywordDecisionCard({
           {insight ? metricsBadge : null}
           {committedKeyword ? (
             <Badge variant="secondary" className="max-w-[220px] truncate font-normal" title={committedKeyword}>
-              Campanha: {committedKeyword}
+              {fill(t("pages.dpilot.keyword.campaignBadge"), { keyword: committedKeyword })}
             </Badge>
           ) : null}
         </div>
       </div>
 
       {requireGoogleAdsConnection && googleAdsConnected === null ? (
-        <p className="text-[11px] text-muted-foreground">A verificar ligação Google Ads ao projecto…</p>
+        <p className="text-[11px] text-muted-foreground">{t("pages.dpilot.keyword.checkingProject")}</p>
       ) : null}
       {requireGoogleAdsConnection && googleAdsConnected === false ? (
         <div className="rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-2.5 py-2 text-[11px] leading-snug text-amber-950 dark:text-amber-100">
-          <p className="font-medium text-foreground">Conta Google Ads necessária</p>
+          <p className="font-medium text-foreground">{t("pages.dpilot.keyword.needAccount")}</p>
           <p className="mt-1 text-muted-foreground">
-            Os volumes vêm da API Keyword Ideas (pesquisas reais na Google). Abre{" "}
+            {t("pages.dpilot.keyword.needAccountBefore")}{" "}
             {connectionsPageHref ? (
               <Link to={connectionsPageHref} className="font-medium text-foreground underline underline-offset-2">
-                Ligações
+                {t("pages.dpilot.keyword.connections")}
               </Link>
             ) : (
-              "Ligações"
+              t("pages.dpilot.keyword.connections")
             )}{" "}
-            e liga o projecto.
+            {t("pages.dpilot.keyword.needAccountAfter")}
           </p>
         </div>
       ) : null}
 
       <div className="space-y-1.5">
         <Label htmlFor="kw-decision-draft" className="text-xs font-medium">
-          Palavra-chave
+          {t("pages.dpilot.keyword.label")}
         </Label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input
@@ -403,7 +400,7 @@ export function DpilotKeywordDecisionCard({
             onClick={runInsight}
           >
             {loadingInsight ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
-            Analisar
+            {t("pages.dpilot.keyword.analyze")}
           </Button>
         </div>
       </div>
@@ -619,7 +616,7 @@ export function DpilotKeywordDecisionCard({
                     : "border-sky-500/25 bg-sky-500/[0.06]")
               }
             >
-              <span className="font-medium text-foreground">CPC do plano vs. keyword</span>
+              <span className="font-medium text-foreground">{t("pages.dpilot.keyword.cpcVs")}</span>
               <p className="mt-1 text-muted-foreground">
                 Teu CPC indicativo: <span className="tabular-nums text-foreground">${userCpcUsd.toFixed(2)}</span> · CPC
                 médio (análise):{" "}
@@ -644,12 +641,12 @@ export function DpilotKeywordDecisionCard({
             variant="secondary"
             onClick={() => {
               onCommitKeyword(insight.keyword);
-              toast.success("Palavra-chave aplicada ao plano", {
-                description: "Será usada ao gerar o plano Search (keywords + orientação dos anúncios).",
+              toast.success(t("pages.dpilot.keyword.applied"), {
+                description: t("pages.dpilot.keyword.appliedDesc"),
               });
             }}
           >
-            Usar e otimizar campanha com esta keyword
+            {t("pages.dpilot.keyword.useKeyword")}
           </Button>
         </div>
       ) : null}

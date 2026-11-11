@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { Button } from "@/components/ui/button";
 import { paidAdsService, type CampaignRow } from "@/services/paidAdsService";
 import { optimizerFlagsHint } from "@/lib/paidAdsUi";
@@ -29,6 +31,7 @@ export function DpilotCreativeSwapActions({
   campaign: CampaignRow;
   reload: () => void;
 }) {
+  const { t } = useAppLocale();
   const hint = optimizerFlagsHint(campaign.optimizer_flags);
   const supportsMessageRecs =
     campaign.platform === "meta_ads" || campaign.platform === "google_ads";
@@ -40,7 +43,7 @@ export function DpilotCreativeSwapActions({
     void paidAdsService.previewCreativeSwap(projectId, campaign.id).then(({ data, error }) => {
       if (error || !data) {
         setPreview({
-          detail: error || "Não foi possível pré-visualizar o próximo passo.",
+          detail: error || t("pages.dpilot.creative.previewFailed"),
           next_action: null,
           rankLine: null,
         });
@@ -54,16 +57,24 @@ export function DpilotCreativeSwapActions({
         if (winner && loser) {
           const wCtr = winner.ctr != null ? `${(winner.ctr * 100).toFixed(2)}%` : "—";
           const lCtr = loser.ctr != null ? `${(loser.ctr * 100).toFixed(2)}%` : "—";
-          rankLine = `Rede: vencedor «${winner.label}» (CTR ${wCtr}) · perdedor «${loser.label}» (CTR ${lCtr})`;
+          rankLine = fill(t("pages.dpilot.creative.rankWinner"), {
+            winner: winner.label,
+            wCtr,
+            loser: loser.label,
+            lCtr,
+          });
         } else if (winner) {
-          rankLine = `Rede: «${winner.label}» é a única variante elegível (≥ ${r.min_impressions} imp.).`;
+          rankLine = fill(t("pages.dpilot.creative.rankOnly"), {
+            label: winner.label,
+            min: r.min_impressions,
+          });
         } else if (data.ranking_error) {
-          rankLine = `Ranking: ${data.ranking_error}`;
+          rankLine = fill(t("pages.dpilot.creative.rankError"), { error: data.ranking_error });
         } else {
           rankLine = r.note;
         }
       } else if (data.ranking_error) {
-        rankLine = `Ranking: ${data.ranking_error}`;
+        rankLine = fill(t("pages.dpilot.creative.rankError"), { error: data.ranking_error });
       }
 
       setPreview({
@@ -74,7 +85,7 @@ export function DpilotCreativeSwapActions({
         rankLine,
       });
     });
-  }, [hint, projectId, campaign.id]);
+  }, [hint, projectId, campaign.id, t]);
 
   useEffect(() => {
     loadPreview();
@@ -101,8 +112,8 @@ export function DpilotCreativeSwapActions({
           disabled={busy != null || !canPublish}
           title={
             canPublish
-              ? `Publicar «${preview?.next_action?.label ?? ""}»`
-              : "Sem rascunho por publicar — use «Sugerir mensagens» ou crie uma variante no assistente."
+              ? fill(t("pages.dpilot.creative.publishTitle"), { label: preview?.next_action?.label ?? "" })
+              : t("pages.dpilot.creative.noDraftTitle")
           }
           onClick={() => {
             setBusy("apply");
@@ -115,7 +126,10 @@ export function DpilotCreativeSwapActions({
                 }
                 if (data?.apply_error) {
                   toast.warning(
-                    `Pedido criado (${data.change_request_status}): ${data.apply_error}`,
+                    fill(t("pages.dpilot.creative.requestCreated"), {
+                      status: data.change_request_status,
+                      error: data.apply_error,
+                    }),
                   );
                   // Flag stays set on failed apply — refresh preview only so retry remains available.
                   loadPreview();
@@ -123,8 +137,10 @@ export function DpilotCreativeSwapActions({
                 }
                 toast.success(
                   data?.change_request_status === "pending"
-                    ? "Pedido na fila de aprovações — reveja em Aprovações."
-                    : `Criativo enfileirado (${data?.change_request_status ?? "ok"}).`,
+                    ? t("pages.dpilot.creative.queued")
+                    : fill(t("pages.dpilot.creative.enqueued"), {
+                        status: data?.change_request_status ?? "ok",
+                      }),
                 );
                 reload();
               })
@@ -132,7 +148,7 @@ export function DpilotCreativeSwapActions({
           }}
         >
           {busy === "apply" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" aria-hidden /> : null}
-          Publicar variante
+          {t("pages.dpilot.creative.publish")}
         </Button>
         {supportsMessageRecs ? (
           <Button
@@ -155,13 +171,11 @@ export function DpilotCreativeSwapActions({
                     toast.warning(data.llm_error);
                   }
                   if (n > 0) {
-                    toast.success(
-                      `${n} rascunho(s) de mensagem criados — pode publicar a variante.`,
-                    );
+                    toast.success(fill(t("pages.dpilot.creative.draftsCreated"), { n }));
                   } else if (data?.persist_detail) {
                     toast.message(data.persist_detail);
                   } else if (!data?.llm_error) {
-                    toast.message(data?.detail ?? "Sem novas variantes distintas.");
+                    toast.message(data?.detail ?? t("pages.dpilot.creative.noNewVariants"));
                   }
                   loadPreview();
                   if (n > 0) reload();
@@ -170,7 +184,7 @@ export function DpilotCreativeSwapActions({
             }}
           >
             {busy === "recs" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" aria-hidden /> : null}
-            Sugerir mensagens
+            {t("pages.dpilot.creative.suggest")}
           </Button>
         ) : null}
         <Button
@@ -188,14 +202,14 @@ export function DpilotCreativeSwapActions({
                   toast.error(error);
                   return;
                 }
-                toast.success("Sugestão marcada como tratada.");
+                toast.success(t("pages.dpilot.creative.dismissed"));
                 reload();
               })
               .finally(() => setBusy(null));
           }}
         >
           {busy === "dismiss" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" aria-hidden /> : null}
-          Tratado
+          {t("pages.dpilot.creative.handled")}
         </Button>
       </div>
     </div>

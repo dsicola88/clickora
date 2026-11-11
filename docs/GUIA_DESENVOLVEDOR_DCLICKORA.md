@@ -80,7 +80,7 @@ docs/             # operação e produto (ver INDICE)
 | Rotas autenticadas de produto: `authenticate` + `tenantIsolation` + `requireActiveSubscription` | Padrão actual |
 | Paid: + `requireDpilotPlan` onde aplicável | Gate de feature |
 | Mutações sensíveis: preferir `systemPrisma` **depois** de validar ownership | Evita AND inválido no `update`/`delete` por `id` |
-| Novos modelos com `userId`: acrescentar a `USER_ID_MODELS` em `tenantPrisma.ts` | Cliente tenant passa a filtrar |
+| Novos modelos com `userId`: acrescentar a `USER_ID_MODELS` **ou** a `USER_ID_MODELS_INTENTIONAL_EXCLUSIONS` | O teste `tenantPrisma.test.ts` falha se o schema divergir |
 | Paid updates: usar `updateMany({ where: { id, userId } })` ou ownership prévia | IDOR |
 | Não devolver segredos OAuth nos DTOs | `paid/api-mappers.ts` |
 | Tokens paid: `storePaidToken` / `loadPaidToken` | `paid/tokenSecrets.ts` |
@@ -90,6 +90,11 @@ docs/             # operação e produto (ver INDICE)
 ## 5. Testes
 
 ```bash
+# Qualidade (raiz) — unit + paid + longevity soft + vitest frontend
+npm run test:quality
+npm run typecheck
+npm run check:longevity   # lista ficheiros >1200 linhas (aviso; não falha por defeito)
+
 # Backend unitários (lista explícita em package.json)
 cd backend && npm run test:unit
 
@@ -106,6 +111,34 @@ cd frontend && npm run build
 # Playwright (app a correr + credenciais de teste)
 cd frontend && npm run test:e2e
 ```
+
+### Longevidade (sem quebrar produto)
+
+- CI (`.github/workflows/dual-pillar-gate.yml`) corre dual-pillar **e** `test:unit` + `test:paid` + `typecheck` + guard soft de ficheiros grandes.
+- Novo modelo Prisma com `userId` → decidir tenant vs exclusão intencional; o teste de partição bloqueia drift.
+- Preferir partir ficheiros >~1200 linhas antes de acrescentar lógica (ver `npm run check:longevity`).
+- `build_dpa/` é legado local (está no `.gitignore`); não é o produto — trabalhar só em `frontend/` + `backend/`.
+
+### Staging local (Postgres + Redis — nunca Railway)
+
+```bash
+docker compose up -d   # postgres :5434 + redis :6379
+# Exportar env LOCAL (não editar backend/.env se apontar para Railway):
+set -a && source scripts/local-staging.env.example && set +a
+cd backend && npx prisma migrate deploy && npx prisma db seed
+# API local (override ganha ao .env Railway):
+DATABASE_URL=… REDIS_URL=… PORT=3011 node dist/server.js
+# Gates:
+LOAD_TEST_BASE_URL=http://127.0.0.1:3011 ALLOW_MUTATING_LOAD_TEST=1 \
+  LOAD_TEST_EMAIL=… LOAD_TEST_EMAIL_B=… LOAD_TEST_PASSWORD=… \
+  node --import tsx scripts/load-smoke-safe.ts
+  node --import tsx scripts/security-isolation-suite.ts
+  node --import tsx scripts/load-realistic-suite.ts   # VUs locais
+# Playwright (API :3001 + Vite :5174 com o mesmo DATABASE_URL local):
+cd frontend && npx playwright test e2e/login.spec.ts
+```
+
+Script orquestrador: `bash scripts/run-local-staging-gates.sh`
 
 ### Carga (nunca produção)
 

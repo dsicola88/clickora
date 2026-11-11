@@ -1,4 +1,5 @@
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill, numberLocaleFor } from "@/i18n";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, ExternalLink, ChevronDown } from "lucide-react";
@@ -27,9 +28,9 @@ import {
   ProInlineLink,
 } from "@/components/enterprise/ProShell";
 
-function money(n: number | null | undefined) {
+function money(n: number | null | undefined, locale: string) {
   if (n == null || !Number.isFinite(n)) return "—";
-  return n.toLocaleString("pt-PT", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+  return n.toLocaleString(locale, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 }
 
 function statusLabel(s: string, t: (k: import("@/i18n").MessageKey) => string) {
@@ -40,7 +41,8 @@ function statusLabel(s: string, t: (k: import("@/i18n").MessageKey) => string) {
 }
 
 export default function CampaignDetailPage() {
-  const { t } = useAppLocale();
+  const { t, locale } = useAppLocale();
+  const numLocale = numberLocaleFor(locale);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -70,7 +72,7 @@ export default function CampaignDetailPage() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["campaigns", id] });
-      toast.success("Campanha activa");
+      toast.success(t("pages.campaignDetail.activated"));
     },
   });
 
@@ -85,7 +87,7 @@ export default function CampaignDetailPage() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["campaigns"] });
       setSpendDraft(null);
-      toast.success("Gasto actualizado");
+      toast.success(t("pages.campaignDetail.spendUpdated"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -117,12 +119,12 @@ export default function CampaignDetailPage() {
 
   const copyLink = async () => {
     if (!trackedUrl) {
-      toast.error("Associe uma presell publicada para copiar o link.");
+      toast.error(t("pages.campaignDetail.needPresell"));
       return;
     }
     await navigator.clipboard.writeText(trackedUrl);
     setCopied(true);
-    toast.success("Link copiado");
+    toast.success(t("pages.campaignDetail.linkCopied"));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -140,19 +142,22 @@ export default function CampaignDetailPage() {
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
         title={campaign.name}
-        subtitle={`${campaign.traffic_source}${campaign.country ? ` · ${campaign.country}` : ""} · stats por utm_campaign slug`}
+        subtitle={fill(t("pages.campaignDetail.subtitleStats"), {
+          source: campaign.traffic_source,
+          country: campaign.country ? ` · ${campaign.country}` : "",
+        })}
         meta={
           <>
             <ProStatusDot ok={campaign.status === "active"} label={statusLabel(campaign.status, t)} />
             <span className="font-mono tabular-nums">
               {from} → {to}
             </span>
-            <span>UTC</span>
+            <span>{t("common.universalTime")}</span>
           </>
         }
         actions={
           <Button variant="outline" size="sm" asChild>
-            <Link to="/campanhas">Todas as campanhas</Link>
+            <Link to="/campanhas">{t("pages.campaignDetail.allCampaigns")}</Link>
           </Button>
         }
       />
@@ -169,7 +174,7 @@ export default function CampaignDetailPage() {
         />
         {campaign.status !== "active" ? (
           <Button size="sm" onClick={() => activate.mutate()} disabled={activate.isPending}>
-            Activar
+            {t("pages.campaignDetail.activate")}
           </Button>
         ) : null}
         <Button
@@ -180,67 +185,69 @@ export default function CampaignDetailPage() {
           disabled={!trackedUrl}
         >
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-          Copiar link anúncio
+          {t("pages.campaignDetail.copyAdLink")}
         </Button>
       </ProToolbar>
 
       <ProKpiGrid>
         <ProKpiCell label={t("common.clicks")} value={String(stats?.clicks ?? 0)} />
         <ProKpiCell label={t("common.sales")} value={String(stats?.conversions ?? 0)} />
-        <ProKpiCell label={t("common.revenue")} value={money(stats?.revenue)} />
+        <ProKpiCell label={t("common.revenue")} value={money(stats?.revenue, numLocale)} />
         <ProKpiCell
           label="CVR"
-          value={`${(stats?.conversion_rate ?? 0).toLocaleString("pt-PT", { maximumFractionDigits: 2 })}%`}
+          value={`${(stats?.conversion_rate ?? 0).toLocaleString(numLocale, { maximumFractionDigits: 2 })}%`}
         />
-        <ProKpiCell label="Gasto manual" value={money(campaign.spend_amount)} hint="Lifetime / ficha — fora do ROAS de conta" />
         <ProKpiCell
-          label="Lucro (período)"
-          value={money(profit)}
+          label={t("pages.campaignDetail.manualSpend")}
+          value={money(campaign.spend_amount, numLocale)}
+          hint={t("pages.campaignDetail.manualSpendHint")}
+        />
+        <ProKpiCell
+          label={t("pages.campaignDetail.periodProfit")}
+          value={money(profit, numLocale)}
           tone={profit != null && profit < 0 ? "negative" : profit != null && profit > 0 ? "positive" : "muted"}
-          hint="Requer custo sync por campanha"
+          hint={t("pages.campaignDetail.periodProfitHint")}
         />
         <ProKpiCell
           label="ROAS"
-          value={roas != null ? `${roas.toLocaleString("pt-PT", { maximumFractionDigits: 2 })}x` : "—"}
-          hint="Só com sync; manual não entra"
+          value={roas != null ? `${roas.toLocaleString(numLocale, { maximumFractionDigits: 2 })}x` : "—"}
+          hint={t("pages.campaignDetail.roasHint")}
         />
-        <ProKpiCell label="EPC" value={money(stats?.epc)} />
+        <ProKpiCell label="EPC" value={money(stats?.epc, numLocale)} />
       </ProKpiGrid>
 
       <Tabs defaultValue="operacao">
         <TabsList className="h-auto flex-wrap gap-1 bg-card border border-border/70 p-1">
-          <TabsTrigger value="operacao">Operação</TabsTrigger>
-          <TabsTrigger value="presell">Presell</TabsTrigger>
-          <TabsTrigger value="tracking">Rastreio</TabsTrigger>
+          <TabsTrigger value="operacao">{t("pages.campaignDetail.tabOps")}</TabsTrigger>
+          <TabsTrigger value="presell">{t("pages.campaignDetail.tabPresell")}</TabsTrigger>
+          <TabsTrigger value="tracking">{t("pages.campaignDetail.tabTracking")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="operacao" className="mt-4 space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
-            <ProPanel title="Link do anúncio" description="Presell pública + UTMs da campanha.">
+            <ProPanel title={t("pages.campaignDetail.adLink")} description={t("pages.campaignDetail.adLinkDesc")}>
               <div className="space-y-3 px-4 py-4">
                 {campaign.offer_url ? (
                   <p className="text-xs break-all">
-                    <span className="text-muted-foreground">Oferta: </span>
+                    <span className="text-muted-foreground">{t("pages.campaignDetail.offer")} </span>
                     <span className="font-mono">{campaign.offer_url}</span>
                   </p>
                 ) : (
-                  <p className="text-xs text-amber-600">Sem URL de oferta na ficha.</p>
+                  <p className="text-xs text-amber-600">{t("pages.campaignDetail.noOfferUrl")}</p>
                 )}
                 {trackedUrl ? (
                   <p className="text-[11px] font-mono text-muted-foreground break-all rounded-md border border-border/50 bg-muted/30 p-3">
                     {trackedUrl}
                   </p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Associe uma presell publicada para gerar o link rastreável.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t("pages.campaignDetail.needPublished")}</p>
                 )}
               </div>
             </ProPanel>
 
             <ProPanel
-              title="Gasto manual"
-              description="Valor acumulado na ficha — não entra no lucro/ROAS do período. Os resultados da conta usam só custo sincronizado (Google Ads)."
+              title={t("pages.campaignDetail.manualSpendTitle")}
+              description={t("pages.campaignDetail.manualSpendDesc")}
             >
               <div className="space-y-3 px-4 py-4">
                 <div className="flex flex-wrap gap-2 items-end">
@@ -270,18 +277,20 @@ export default function CampaignDetailPage() {
                       }
                       const n = Number(raw.replace(",", "."));
                       if (!Number.isFinite(n) || n < 0) {
-                        toast.error("Gasto inválido");
+                        toast.error(t("pages.campaignDetail.spendInvalid"));
                         return;
                       }
                       saveSpend.mutate(n);
                     }}
                   >
-                    Guardar
+                    {t("common.save")}
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Preferível: sync em <ProInlineLink to="/integracoes/automizer">Automizer & custos</ProInlineLink>{" "}
-                  e leitura em <ProInlineLink to="/resultados">Resultados</ProInlineLink>.
+                  {t("pages.campaignDetail.preferSync")}{" "}
+                  <ProInlineLink to="/integracoes/automizer">{t("pages.automizer.title")}</ProInlineLink>{" "}
+                  {t("pages.campaignDetail.andRead")}{" "}
+                  <ProInlineLink to="/resultados">{t("pages.googleAds.results")}</ProInlineLink>.
                 </p>
               </div>
             </ProPanel>
@@ -296,32 +305,32 @@ export default function CampaignDetailPage() {
                   ok={campaign.presell.status === "published"}
                   label={
                     campaign.presell.status === "published"
-                      ? "Publicada"
+                      ? t("pages.campaignDetail.published")
                       : campaign.presell.status === "draft"
-                        ? "Rascunho"
+                        ? t("pages.campaignDetail.draft")
                         : campaign.presell.status === "paused"
-                          ? "Pausada"
+                          ? t("pages.campaignDetail.paused")
                           : campaign.presell.status
                   }
                 />
                 <Button size="sm" asChild>
-                  <Link to="/presells">Gerir Presells</Link>
+                  <Link to="/presells">{t("pages.campaignDetail.managePresells")}</Link>
                 </Button>
                 {campaign.presell.status === "published" ? (
                   <Button variant="outline" size="sm" asChild>
                     <a href={`/p/${campaign.presell.id}`} target="_blank" rel="noreferrer">
-                      Abrir pública
+                      {t("pages.campaignDetail.openPublic")}
                     </a>
                   </Button>
                 ) : null}
               </div>
             </ProPanel>
           ) : (
-            <ProPanel title="Presell">
+            <ProPanel title={t("pages.campaignDetail.tabPresell")}>
               <div className="flex flex-col items-start gap-3 px-4 py-8">
-                <p className="text-sm text-muted-foreground">Ainda sem presell ligada.</p>
+                <p className="text-sm text-muted-foreground">{t("pages.campaignDetail.noPresell")}</p>
                 <Button size="sm" onClick={() => navigate("/presells/nova")}>
-                  Criar presell
+                  {t("common.createPresell")}
                 </Button>
               </div>
             </ProPanel>
@@ -329,13 +338,13 @@ export default function CampaignDetailPage() {
         </TabsContent>
 
         <TabsContent value="tracking" className="mt-4">
-          <ProPanel title="Pipeline" description="Clique → redirect → postback → conversão.">
+          <ProPanel title={t("pages.campaignDetail.pipeline")} description={t("pages.campaignDetail.pipelineDesc")}>
             <ul className="divide-y divide-border/50 text-sm">
               {[
-                ["Estado", "Activo (automático no clique)"],
-                ["Parâmetros do anúncio", "Aplicados ao copiar o link"],
-                ["Click ID", "Inserido no redirect para a oferta"],
-                ["Vendas da rede", "Via Integrações → Postback"],
+                [t("pages.campaignDetail.rowStatus"), t("pages.campaignDetail.rowStatusValue")],
+                [t("pages.campaignDetail.rowParams"), t("pages.campaignDetail.rowParamsValue")],
+                [t("pages.campaignDetail.rowClickId"), t("pages.campaignDetail.rowClickIdValue")],
+                [t("pages.campaignDetail.rowNetwork"), t("pages.campaignDetail.rowNetworkValue")],
               ].map(([k, v]) => (
                 <li key={k} className="flex justify-between gap-4 px-4 py-2.5">
                   <span className="text-xs text-muted-foreground">{k}</span>
@@ -345,26 +354,26 @@ export default function CampaignDetailPage() {
             </ul>
             <div className="flex flex-wrap gap-2 border-t border-border/60 px-4 py-3">
               <Button variant="outline" size="sm" asChild>
-                <Link to="/integracoes/postback">Postback</Link>
+                <Link to="/integracoes/postback">{t("pages.campaignDetail.postback")}</Link>
               </Button>
               <Button variant="outline" size="sm" asChild>
                 <Link to={`/tracking/url-builder?utm_campaign=${encodeURIComponent(campaign.name)}`}>
-                  Construtor de URL <ExternalLink className="ml-1 h-3 w-3" />
+                  {t("pages.campaignDetail.urlBuilder")} <ExternalLink className="ml-1 h-3 w-3" />
                 </Link>
               </Button>
               <Collapsible open={advOpen} onOpenChange={setAdvOpen}>
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-1">
-                    Avançado
+                    {t("pages.campaignDetail.advanced")}
                     <ChevronDown className={`h-4 w-4 transition-transform ${advOpen ? "rotate-180" : ""}`} />
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-2 flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" asChild>
-                    <Link to="/integracoes">Hub integrações</Link>
+                    <Link to="/integracoes">{t("pages.campaignDetail.integrationsHub")}</Link>
                   </Button>
                   <Button variant="outline" size="sm" asChild>
-                    <Link to="/configuracoes?avancado=1">Diagnóstico</Link>
+                    <Link to="/configuracoes?avancado=1">{t("pages.campaignDetail.diagnostics")}</Link>
                   </Button>
                 </CollapsibleContent>
               </Collapsible>

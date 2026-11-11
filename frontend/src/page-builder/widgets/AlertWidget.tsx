@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { usePageBuilderT } from "../usePageBuilderT";
 import { InlinePlain } from "../inline-edit";
 import { AlertCircle, CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
 
@@ -41,6 +42,7 @@ const VARIANT_STYLES: Record<
 };
 
 export function AlertWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
+  const t = usePageBuilderT();
   const c = widget.content as Record<string, unknown>;
   const variant = (["info", "success", "warning", "danger"].includes(c.variant as string)
     ? c.variant
@@ -109,7 +111,7 @@ export function AlertWidget({ widget, device }: { widget: WidgetNode; device: De
           <button
             type="button"
             onClick={() => setDismissed(true)}
-            aria-label="Fechar aviso"
+            aria-label={t("pages.pageBuilder.defaults.closeAlert")}
             style={{
               flexShrink: 0,
               border: "none",

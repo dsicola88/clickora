@@ -34,6 +34,7 @@ import { AFFILIATE_PLATFORMS, EXTRA_OFFER_PLATFORMS } from "@/lib/marketingPlatf
 import { ReportDimensionStrip } from "@/components/ReportDimensionStrip";
 import { downloadTextCsv, reportRowsToCsv } from "@/lib/reportRowsCsv";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill, numberLocaleFor, type MessageKey } from "@/i18n";
 import {
   collectDatacenterIpsForGoogleAdsExclusion,
   formatGoogleAdsIpExclusionList,
@@ -69,34 +70,38 @@ function CountryCell({ code }: { code: string }) {
   );
 }
 
-function eventTypeLabel(t: string | undefined, meta?: Record<string, unknown>) {
-  if (t === "lead") {
+function eventTypeLabel(
+  kind: string | undefined,
+  tr: (key: MessageKey) => string,
+  meta?: Record<string, unknown>,
+) {
+  if (kind === "lead") {
     const step = typeof meta?.funnel_step === "string" ? meta.funnel_step : "";
-    if (step === "checkout") return "Checkout";
-    if (step === "lander") return "Lander / VSL";
-    return "Lead";
+    if (step === "checkout") return tr("pages.reports.eventCheckout");
+    if (step === "lander") return tr("pages.reports.eventLander");
+    return tr("pages.reports.eventLead");
   }
-  switch (t) {
+  switch (kind) {
     case "impression":
-      return "Impressão";
+      return tr("pages.reports.eventImpression");
     case "click":
-      return "Clique";
+      return tr("pages.reports.eventClick");
     case "conversion":
     case "sale":
-      return "Conversão";
+      return tr("pages.reports.eventConversion");
     case "pageview":
-      return "Pageview";
+      return tr("pages.reports.eventPageview");
     default:
-      return t || "—";
+      return kind || "—";
   }
 }
 
-function dimCell(value: string | null | undefined, isMacro?: boolean) {
+function dimCell(value: string | null | undefined, isMacro: boolean | undefined, macroTitle: string) {
   const v = (value || "").trim();
   if (!v) return "—";
   if (isMacro) {
     return (
-      <span className="font-mono text-amber-700 dark:text-amber-400" title="Macro não substituída — teste manual ou clique fora do Ads">
+      <span className="font-mono text-amber-700 dark:text-amber-400" title={macroTitle}>
         {v}
       </span>
     );
@@ -109,8 +114,8 @@ function defaultDateRange() {
   return rangeToday();
 }
 
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("pt-PT");
+function formatDateTime(iso: string, locale: string) {
+  return new Date(iso).toLocaleString(locale);
 }
 
 function originFromEvent(e: TrackingEvent) {
@@ -155,11 +160,11 @@ function paidTrafficArgs(e: TrackingEvent) {
   };
 }
 
-function paidLabel(e: TrackingEvent) {
+function paidLabel(e: TrackingEvent, tr: (key: MessageKey) => string) {
   const resolved = e.traffic_type || resolveTrafficType(paidTrafficArgs(e));
-  if (resolved === "paid") return "Pago";
-  if (resolved === "paid_untracked") return "Sem ID do clique";
-  return "Orgânico";
+  if (resolved === "paid") return tr("pages.funnel.labelPaid");
+  if (resolved === "paid_untracked") return tr("pages.reports.noClickId");
+  return tr("pages.funnel.labelOrganic");
 }
 
 function paidTypeTitle(e: TrackingEvent, visitorKind: ClickVisitorKind) {
@@ -220,7 +225,8 @@ function triggerCsvDownload(blob: Blob, fallbackName: string, serverFilename: st
 }
 
 export default function Relatorios() {
-  const { t } = useAppLocale();
+  const { t, locale } = useAppLocale();
+  const numLocale = numberLocaleFor(locale);
   const { tab: tabParam } = useParams<{ tab: string }>();
   const navigate = useNavigate();
   const tab: RelatorioTab = isRelatorioTab(tabParam) ? tabParam : "acessos";
@@ -250,15 +256,15 @@ export default function Relatorios() {
     mutationFn: async (ip: string) => {
       const { error } = await integrationsService.addBlacklist({
         ip,
-        reason: "Bloqueio manual a partir dos relatórios",
+        reason: t("pages.reports.blockReason"),
       });
       if (error) throw new Error(error);
     },
     onSuccess: () => {
-      toast.success("IP adicionado à blacklist (bloqueio manual).");
+      toast.success(t("pages.reports.ipBlocked"));
       void queryClient.invalidateQueries({ queryKey: ["integrations-blacklist"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Não foi possível bloquear o IP."),
+    onError: (e: Error) => toast.error(e.message || t("pages.reports.ipBlockFail")),
   });
   const [exporting, setExporting] = useState<
     null | "impression" | "click" | "conversions" | "no-gclid" | "google-ads"
@@ -282,14 +288,14 @@ export default function Relatorios() {
         if (useFilteredView) {
           const cols = [
             { key: "ip", header: "IP" },
-            { key: "eventLabel", header: "Evento" },
-            { key: "keyword", header: "Keyword" },
-            { key: "device", header: "Dispositivo" },
-            { key: "country", header: "País" },
-            { key: "type", header: "Tipo" },
-            { key: "status", header: "Situação" },
-            { key: "origin", header: "Origem" },
-            { key: "lastAccess", header: "Quando" },
+            { key: "eventLabel", header: t("pages.reports.colEvent") },
+            { key: "keyword", header: t("common.keyword") },
+            { key: "device", header: t("pages.results.thDevice") },
+            { key: "country", header: t("pages.reports.colCountry") },
+            { key: "type", header: t("pages.reports.typeLegend") },
+            { key: "status", header: t("pages.reports.filterSituation") },
+            { key: "origin", header: t("pages.results.thSource") },
+            { key: "lastAccess", header: t("pages.automizer.when") },
           ];
           const csv = reportRowsToCsv(filtered as unknown as Record<string, unknown>[], cols);
           const sit = situationFilter !== "all" ? `_${situationFilter}` : "";
@@ -297,7 +303,7 @@ export default function Relatorios() {
             `tracking-events_${kind === "impression" ? "impressions" : "clicks"}_${applied.from}_${applied.to}${sit}_filtrado.csv`,
             csv,
           );
-          toast.success(`Exportadas ${filtered.length} linhas filtradas.`);
+          toast.success(fill(t("pages.reports.exportedRows"), { n: filtered.length }));
           return;
         }
         const { data, filename, error } = await analyticsService.downloadEventsCsv({
@@ -307,7 +313,7 @@ export default function Relatorios() {
           include_bots: true,
         });
         if (error || !data) {
-          toast.error(error || "Não foi possível exportar.");
+          toast.error(error || t("pages.reports.exportFail"));
           return;
         }
         triggerCsvDownload(
@@ -315,7 +321,7 @@ export default function Relatorios() {
           `tracking-events_${kind === "impression" ? "impressions" : "clicks"}_${applied.from}_${applied.to}.csv`,
           filename,
         );
-        toast.success("Ficheiro descarregado.");
+        toast.success(t("pages.reports.fileDownloaded"));
         return;
       }
       const { data, filename, error } = await analyticsService.downloadConversionsCsv({
@@ -324,7 +330,7 @@ export default function Relatorios() {
         missing_gclid: kind === "no-gclid",
       });
       if (error || !data) {
-        toast.error(error || "Não foi possível exportar.");
+        toast.error(error || t("pages.reports.exportFail"));
         return;
       }
       triggerCsvDownload(
@@ -334,9 +340,9 @@ export default function Relatorios() {
           : `conversions_${applied.from}_${applied.to}.csv`,
         filename,
       );
-      toast.success("Ficheiro descarregado.");
+      toast.success(t("pages.reports.fileDownloaded"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível exportar.");
+      toast.error(err instanceof Error ? err.message : t("pages.reports.exportFail"));
     } finally {
       setExporting(null);
     }
@@ -345,11 +351,11 @@ export default function Relatorios() {
   const handleExportGoogleAds = async () => {
     const name = googleAdsConversionName.trim();
     if (!name) {
-      toast.error("Indique o nome da conversão tal como está em Google Ads → Conversões.");
+      toast.error(t("pages.reports.googleNameRequired"));
       return;
     }
     if (selectedConversionIds.length === 0) {
-      toast.error("Seleccione pelo menos uma venda com clique do Google.");
+      toast.error(t("pages.reports.googleSelectSale"));
       return;
     }
     setExporting("google-ads");
@@ -361,7 +367,7 @@ export default function Relatorios() {
         conversion_ids: selectedConversionIds,
       });
       if (error || !data) {
-        toast.error(error || "Não foi possível exportar.");
+        toast.error(error || t("pages.reports.exportFail"));
         return;
       }
       triggerCsvDownload(
@@ -369,9 +375,9 @@ export default function Relatorios() {
         `google-ads-offline-gclid_${applied.from}_${applied.to}_selecao.csv`,
         filename,
       );
-      toast.success("Ficheiro pronto. Importe em Google Ads → Conversões → importar por cliques.");
+      toast.success(t("pages.reports.googleFileReady"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível exportar.");
+      toast.error(err instanceof Error ? err.message : t("pages.reports.exportFail"));
     } finally {
       setExporting(null);
     }
@@ -503,13 +509,13 @@ export default function Relatorios() {
 
   const applyDateRange = (from: string, to: string, compare?: { from: string; to: string }) => {
     if (!from || !to) {
-      toast.error("Selecione data inicial e final.");
+      toast.error(t("pages.reports.dateRequired"));
       return;
     }
     const a = new Date(from);
     const b = new Date(to);
     if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime()) || a > b) {
-      toast.error("Intervalo de datas inválido.");
+      toast.error(t("pages.reports.dateInvalid"));
       return;
     }
     setStartDate(from);
@@ -558,7 +564,7 @@ export default function Relatorios() {
         (typeof meta.utm_term === "string" ? meta.utm_term : "") ||
         (typeof meta.keyword === "string" ? meta.keyword : "") ||
         "";
-      const dt = formatDateTime(e.created_at);
+      const dt = formatDateTime(e.created_at, numLocale);
       const utmCamp = e.utm_campaign || e.campaign || "";
       const utmCont = e.utm_content || (typeof meta.utm_content === "string" ? meta.utm_content : "");
       const regionParts = [e.region, e.city].filter((x) => typeof x === "string" && x.trim());
@@ -570,7 +576,7 @@ export default function Relatorios() {
       return {
         id: e.id,
         ip: e.ip_address || "—",
-        eventLabel: eventTypeLabel(e.event_type, meta),
+        eventLabel: eventTypeLabel(e.event_type, t, meta),
         keyword: keyword.trim() || "—",
         keywordMacro: Boolean(e.utm_term_macro),
         utm_campaign: utmCamp?.trim() || "—",
@@ -581,7 +587,7 @@ export default function Relatorios() {
         browser: e.browser || "—",
         os: e.os || "—",
         origin: originFromEvent(e),
-        type: paidLabel(e),
+        type: paidLabel(e, t),
         typeKind: e.traffic_type || resolveTrafficType(paidTrafficArgs(e)),
         typeTitle: paidTypeTitle(e, q.kind),
         country: e.country || "—",
@@ -604,7 +610,7 @@ export default function Relatorios() {
         (typeof meta.utm_term === "string" ? meta.utm_term : "") ||
         (typeof meta.keyword === "string" ? meta.keyword : "") ||
         "";
-      const dt = formatDateTime(e.created_at);
+      const dt = formatDateTime(e.created_at, numLocale);
       const utmCamp = e.utm_campaign || e.campaign || "";
       const utmCont = e.utm_content || (typeof meta.utm_content === "string" ? meta.utm_content : "");
       const regionParts = [e.region, e.city].filter((x) => typeof x === "string" && x.trim());
@@ -616,7 +622,7 @@ export default function Relatorios() {
       return {
         id: e.id,
         ip: e.ip_address || "—",
-        eventLabel: eventTypeLabel(e.event_type),
+        eventLabel: eventTypeLabel(e.event_type, t),
         clickId: e.id,
         keyword: keyword.trim() || "—",
         keywordMacro: Boolean(e.utm_term_macro),
@@ -628,7 +634,7 @@ export default function Relatorios() {
         browser: e.browser || "—",
         os: e.os || "—",
         origin: originFromEvent(e),
-        type: paidLabel(e),
+        type: paidLabel(e, t),
         typeKind: e.traffic_type || resolveTrafficType(paidTrafficArgs(e)),
         typeTitle: paidTypeTitle(e, quality.kind),
         country: e.country || "—",
@@ -650,18 +656,18 @@ export default function Relatorios() {
   const copyDatacenterIpsForGoogleAds = async () => {
     if (datacenterIpsForAds.length === 0) {
       toast.message(t("pages.reports.emptyServerIps"), {
-        description: "Filtra Situação = Cloud ou alarga as datas.",
+        description: t("pages.reports.emptyServerIpsHint"),
       });
       return;
     }
     const text = formatGoogleAdsIpExclusionList(datacenterIpsForAds);
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(`${datacenterIpsForAds.length} IP(s) copiados`, {
-        description: "Cola em Google Ads → Campanha → Exclusões de IP (um por linha).",
+      toast.success(fill(t("pages.reports.ipsCopied"), { n: datacenterIpsForAds.length }), {
+        description: t("pages.reports.ipsCopiedHint"),
       });
     } catch {
-      toast.error("Não foi possível copiar. Descarrega o CSV e filtra Situação = Cloud.");
+      toast.error(t("pages.reports.copyFail"));
     }
   };
 
@@ -891,7 +897,7 @@ export default function Relatorios() {
       const label =
         (r.utm_campaign && r.utm_campaign.trim()) ||
         (r.postback_campaign && r.postback_campaign.trim()) ||
-        "(sem campanha)";
+        t("pages.reports.noCampaign");
       const cur = m.get(label) || { count: 0, revenue: 0, currency: r.currency || "USD" };
       cur.count += 1;
       if (r.commission != null && Number.isFinite(r.commission)) cur.revenue += r.commission;
@@ -904,19 +910,19 @@ export default function Relatorios() {
   }, [conversionRowsFiltered]);
 
   const syncLabel = (sync: string | null) => {
-    if (sync === "sent") return { ok: true, text: "Enviado" };
-    if (sync === "restated") return { ok: true, text: "Valor actualizado" };
-    if (sync === "retracted") return { ok: true, text: "Anulado no Ads" };
-    if (!sync || sync === "skipped_pending") return { ok: false, text: "Pendente" };
+    if (sync === "sent") return { ok: true, text: t("pages.reports.syncSent") };
+    if (sync === "restated") return { ok: true, text: t("pages.reports.syncRestated") };
+    if (sync === "retracted") return { ok: true, text: t("pages.reports.syncRetracted") };
+    if (!sync || sync === "skipped_pending") return { ok: false, text: t("pages.reports.syncPending") };
     if (sync === "skipped_no_fbclid") return { ok: false, text: t("pages.reports.noMetaId") };
     if (sync === "skipped_no_ttclid") return { ok: false, text: t("pages.reports.noTiktokId") };
     if (sync === "skipped_no_gclid") return { ok: false, text: t("pages.reports.noGoogleId") };
-    if (sync === "skipped_disabled") return { ok: false, text: "Desligado" };
-    if (sync === "skipped_no_config") return { ok: false, text: "Conta por ligar" };
-    if (sync === "skipped_direct_upload") return { ok: true, text: "Envio directo" };
-    if (sync === "skipped_ads_direct") return { ok: true, text: "Via rede de ads" };
-    if (sync === "skipped_offline_csv_import") return { ok: true, text: "Import CSV" };
-    if (sync === "failed") return { ok: false, text: "Erro API" };
+    if (sync === "skipped_disabled") return { ok: false, text: t("pages.reports.syncOff") };
+    if (sync === "skipped_no_config") return { ok: false, text: t("pages.reports.syncNeedAccount") };
+    if (sync === "skipped_direct_upload") return { ok: true, text: t("pages.reports.syncDirect") };
+    if (sync === "skipped_ads_direct") return { ok: true, text: t("pages.reports.viaAds") };
+    if (sync === "skipped_offline_csv_import") return { ok: true, text: t("pages.reports.syncCsv") };
+    if (sync === "failed") return { ok: false, text: t("pages.reports.apiError") };
     return { ok: false, text: sync };
   };
 
@@ -937,20 +943,20 @@ export default function Relatorios() {
     if (dashQuery.isLoading) {
       return (
         <div className="rounded-xl border border-border/60 bg-muted/15 p-4 text-sm text-muted-foreground">
-          A carregar quota de cliques…
+          {t("pages.reports.loadingQuota")}
         </div>
       );
     }
     if (!q) return null;
-    const maxLabel = q.max == null ? "ilimitado" : q.max.toLocaleString("pt-PT");
+    const maxLabel = q.max == null ? t("pages.reports.unlimited") : q.max.toLocaleString(numLocale);
     const pct = q.percent;
     const over = Boolean(q.over_limit);
     return (
       <div className="rounded-xl border border-border/60 bg-muted/15 p-4 text-sm">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <p className="font-medium text-foreground/90">
-            Cliques este mês:{" "}
-            <span className="tabular-nums">{q.used.toLocaleString("pt-PT")}</span>
+            {t("pages.reports.clicksThisMonth")}{" "}
+            <span className="tabular-nums">{q.used.toLocaleString(numLocale)}</span>
             <span className="text-muted-foreground font-normal"> / {maxLabel}</span>
           </p>
           {pct != null ? (
@@ -965,11 +971,11 @@ export default function Relatorios() {
             />
           </div>
         ) : (
-          <p className="mt-1 text-xs text-muted-foreground">Sem teto no plano actual.</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("pages.reports.noPlanCap")}</p>
         )}
         {over ? (
           <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-            Soft-cap: o tracking continua a aceitar cliques (os anúncios não param). Faça upgrade do plano para manter a margem.
+            {t("pages.reports.softCap")}
           </p>
         ) : null}
       </div>
@@ -978,9 +984,11 @@ export default function Relatorios() {
 
   const TimezoneAlert = () => (
     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
-      Horas no teu fuso ({currentTime}). País = de quem visitou.{" "}
-      <span className="text-foreground/80 font-medium">Tipo</span>: Pago / Sem ID do clique / Orgânico.{" "}
-      <span className="text-foreground/80 font-medium">Situação</span>: Real / Robot / Cloud.
+      {fill(t("pages.reports.hoursHint"), { time: currentTime })}{" "}
+      <span className="text-foreground/80 font-medium">{t("pages.reports.typeLegend")}</span>
+      {t("pages.reports.typeLegendBody")}{" "}
+      <span className="text-foreground/80 font-medium">{t("pages.reports.situationLegend")}</span>
+      {t("pages.reports.situationLegendBody")}
     </div>
   );
 
@@ -996,7 +1004,7 @@ export default function Relatorios() {
         {showSituation ? (
           <>
           <div className="space-y-2 min-w-[180px]">
-            <Label>Situação</Label>
+            <Label>{t("pages.reports.filterSituation")}</Label>
             <Select
               value={situationFilter}
               onValueChange={(v) => {
@@ -1005,11 +1013,11 @@ export default function Relatorios() {
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Situação" />
+                <SelectValue placeholder={t("pages.reports.filterSituation")} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">
-                  Todas ({situationCounts.real + situationCounts.bot + situationCounts.datacenter})
+                  {t("common.all")} ({situationCounts.real + situationCounts.bot + situationCounts.datacenter})
                 </SelectItem>
                 <SelectItem value="real">Real ({situationCounts.real})</SelectItem>
                 <SelectItem value="bot">Robot ({situationCounts.bot})</SelectItem>
@@ -1018,7 +1026,7 @@ export default function Relatorios() {
             </Select>
           </div>
           <div className="space-y-2 min-w-[180px]">
-            <Label>Tipo</Label>
+            <Label>{t("pages.reports.filterType")}</Label>
             <Select
               value={trafficTypeFilter}
               onValueChange={(v) => {
@@ -1027,17 +1035,17 @@ export default function Relatorios() {
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Tipo" />
+                <SelectValue placeholder={t("pages.reports.filterType")} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">
-                  Todos ({trafficTypeCounts.paid + trafficTypeCounts.paid_untracked + trafficTypeCounts.organic})
+                  {t("common.all")} ({trafficTypeCounts.paid + trafficTypeCounts.paid_untracked + trafficTypeCounts.organic})
                 </SelectItem>
-                <SelectItem value="paid">Pago ({trafficTypeCounts.paid})</SelectItem>
+                <SelectItem value="paid">{t("pages.funnel.labelPaid")} ({trafficTypeCounts.paid})</SelectItem>
                 <SelectItem value="paid_untracked">
-                  Sem ID do clique ({trafficTypeCounts.paid_untracked})
+                  {t("pages.reports.noClickId")} ({trafficTypeCounts.paid_untracked})
                 </SelectItem>
-                <SelectItem value="organic">Orgânico ({trafficTypeCounts.organic})</SelectItem>
+                <SelectItem value="organic">{t("pages.funnel.labelOrganic")} ({trafficTypeCounts.organic})</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1046,13 +1054,13 @@ export default function Relatorios() {
         {showPlatformGclid ? (
           <>
             <div className="space-y-2 min-w-[180px]">
-              <Label>Plataforma</Label>
+              <Label>{t("pages.reports.platform")}</Label>
               <Select value={platform} onValueChange={setPlatform}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Plataforma" />
+                  <SelectValue placeholder={t("pages.reports.platform")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
-                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="all">{t("common.all")}</SelectItem>
                   {RELATORIO_PLATFORM_OPTIONS.map((label) => (
                     <SelectItem key={label} value={platformFilterValue(label)}>
                       {label}
@@ -1062,9 +1070,9 @@ export default function Relatorios() {
               </Select>
             </div>
             <div className="space-y-2 flex-1 min-w-[160px]">
-              <Label>Filtrar por texto (clique, palavra-chave)</Label>
+              <Label>{t("pages.reports.filterText")}</Label>
               <Input
-                placeholder="Opcional"
+                placeholder={t("common.optional")}
                 value={gclidFilter}
                 onChange={(e) => setGclidFilter(e.target.value)}
               />
@@ -1072,7 +1080,7 @@ export default function Relatorios() {
           </>
         ) : null}
         <div className="space-y-2 flex-1 min-w-[220px] max-w-sm">
-          <Label>Período</Label>
+          <Label>{t("common.period")}</Label>
           <DateRangeFilter
             from={startDate}
             to={endDate}
@@ -1081,7 +1089,7 @@ export default function Relatorios() {
           />
         </div>
         <Button type="button" variant="outline" className="gap-2" onClick={handleReset}>
-          <RotateCcw className="h-4 w-4" /> Redefinir
+          <RotateCcw className="h-4 w-4" /> {t("pages.reports.reset")}
         </Button>
       </div>
     </div>
@@ -1100,12 +1108,10 @@ export default function Relatorios() {
       {(tab === "cliques" || tab === "acessos") && trafficTypeCounts.paid_untracked > 0 ? (
         <div className="mb-4 rounded-xl border border-amber-500/35 bg-amber-500/[0.07] px-4 py-3 text-sm text-foreground">
           <p className="font-medium text-amber-950 dark:text-amber-100">
-            {trafficTypeCounts.paid_untracked} visita(s) sem ID do clique neste período
+            {fill(t("pages.reports.untrackedVisits"), { n: trafficTypeCounts.paid_untracked })}
           </p>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-            A campanha aparece, mas falta o ID do clique do Google. Confirma: Configurações da conta → Codificação
-            automática = Sim; cola a URL que a Clickora gera (não abras o link de teste no browser). Linhas Cloud
-            (Google) costumam ser robots — não são compradores. Filtra Tipo = Sem ID do clique para rever.
+            {t("pages.reports.untrackedBanner")}
           </p>
         </div>
       ) : null}
@@ -1113,16 +1119,16 @@ export default function Relatorios() {
       {compareRange && (tab === "cliques" || tab === "acessos") ? (
         <div className="mb-4 rounded-xl border border-border/60 bg-muted/15 px-4 py-3 text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">
           <span>
-            Comparar{" "}
+            {t("pages.reports.compare")}{" "}
             <span className="font-mono tabular-nums text-foreground/80">
               {compareRange.from} → {compareRange.to}
             </span>
           </span>
           {tab === "cliques" ? (
             <span className="tabular-nums">
-              Cliques (amostra ≤500): {clickRows.length} vs {compareClicksQuery.data?.length ?? "…"}
+              {fill(t("pages.reports.clicksSample"), { a: clickRows.length, b: compareClicksQuery.data?.length ?? "…" })}
               {compareClicksQuery.isError ? (
-                <span className="ml-1 text-amber-800 dark:text-amber-300"> · erro ao comparar</span>
+                <span className="ml-1 text-amber-800 dark:text-amber-300">{t("pages.reports.compareError")}</span>
               ) : compareClicksQuery.data ? (
                 <span className="ml-1 text-foreground/90">
                   (
@@ -1133,9 +1139,9 @@ export default function Relatorios() {
             </span>
           ) : (
             <span className="tabular-nums">
-              Acessos (amostra ≤500): {impressionRows.length} vs {compareImpressionsQuery.data?.length ?? "…"}
+              {fill(t("pages.reports.visitsSample"), { a: impressionRows.length, b: compareImpressionsQuery.data?.length ?? "…" })}
               {compareImpressionsQuery.isError ? (
-                <span className="ml-1 text-amber-800 dark:text-amber-300"> · erro ao comparar</span>
+                <span className="ml-1 text-amber-800 dark:text-amber-300">{t("pages.reports.compareError")}</span>
               ) : compareImpressionsQuery.data ? (
                 <span className="ml-1 text-foreground/90">
                   (
@@ -1146,7 +1152,7 @@ export default function Relatorios() {
             </span>
           )}
           <span className="w-full text-[10px] opacity-80">
-            Delta baseado nas linhas carregadas (máx. 500). Para totais exactos use Resultados / P&amp;L.
+            {t("pages.reports.deltaHint")}
           </span>
         </div>
       ) : null}
@@ -1154,20 +1160,20 @@ export default function Relatorios() {
       <Tabs value={tab} onValueChange={(v) => navigate(`/resultados/relatorios/${v}`)}>
         <TabsList className="bg-card border border-border flex flex-wrap h-auto gap-1 p-1 w-full justify-start sm:w-auto">
           <TabsTrigger value="acessos" className="shrink-0">
-            Acessos
+            {t("pages.reports.tabVisits")}
           </TabsTrigger>
           <TabsTrigger value="cliques" className="shrink-0">
-            Cliques
+            {t("pages.reports.tabClicks")}
           </TabsTrigger>
           <TabsTrigger value="conversoes" className="shrink-0">
-            Conversões
+            {t("pages.reports.tabSales")}
           </TabsTrigger>
           <TabsTrigger
             value="sem-gclid"
-            title="Vendas sem ID do clique do Google — não enviadas ao Google Ads"
+            title={t("pages.reports.noGoogleSales")}
             className="shrink-0 max-w-[200px] sm:max-w-none text-left leading-tight"
           >
-            Sem ID Google
+            {t("pages.reports.tabNoGoogle")}
             {noGclidAlertCount > 0 ? (
               <span className="ml-1.5 inline-flex min-w-[1.25rem] justify-center rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-amber-900 dark:text-amber-200">
                 {noGclidAlertCount}
@@ -1179,10 +1185,8 @@ export default function Relatorios() {
         <TabsContent value="acessos" className="mt-6 space-y-4">
           <UsageLimitBar />
           <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-            <strong className="font-medium text-foreground/90">Colunas:</strong> Evento = abertura da página ou{" "}
-            <em>Checkout</em>. Tipo: <em>Pago</em> = anúncio com ID; <em>Sem ID do clique</em> = campanha sem ID
-            completo. Situação: <em>Real</em> / <em>Robot</em> / <em>Cloud</em> (só análise — não muda a página).
-            País é o do visitante.
+            <strong className="font-medium text-foreground/90">{t("pages.reports.colsLead")}</strong>{" "}
+            {t("pages.reports.colsBody")}
           </p>
           <TimezoneAlert />
           <DateFilters showSituation />
@@ -1209,7 +1213,7 @@ export default function Relatorios() {
                     <SelectItem value="100">100</SelectItem>
                   </SelectContent>
                 </Select>
-                <span className="text-sm text-muted-foreground">por página</span>
+                <span className="text-sm text-muted-foreground">{t("pages.reports.perPage")}</span>
                 <Button
                   type="button"
                   variant="outline"
@@ -1223,19 +1227,19 @@ export default function Relatorios() {
                   }
                   title={
                     impressionsQuery.isSuccess && !canExportImpressions
-                      ? "Não há acessos neste período."
+                      ? t("pages.reports.emptyVisits")
                       : undefined
                   }
                   onClick={() => void handleExportCsv("impression")}
                 >
                   <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  {exporting === "impression" ? "A descarregar…" : "Descarregar"}
+                  {exporting === "impression" ? t("pages.reports.downloading") : t("pages.reports.download")}
                 </Button>
               </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Filtrar tabela…"
+                  placeholder={t("pages.reports.filterTable")}
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);
@@ -1246,10 +1250,10 @@ export default function Relatorios() {
               </div>
             </div>
             {impressionsQuery.isLoading ? (
-              <LoadingState message="A carregar impressões…" />
+              <LoadingState message={t("pages.reports.loadingImpressions")} />
             ) : impressionsQuery.isError ? (
               <ErrorState
-                message="Erro ao carregar acessos."
+                message={t("pages.reports.errorVisits")}
                 onRetry={() => impressionsQuery.refetch()}
               />
             ) : (
@@ -1260,61 +1264,61 @@ export default function Relatorios() {
                       <tr className="border-b border-border bg-muted/30">
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">IP</th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Evento
+                          {t("pages.reports.colEvent")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Palavra chave
+                          {t("common.keyword")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Campanha
+                          {t("pages.reports.colCampaign")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Anúncio
+                          {t("pages.reports.colAd")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Data
+                          {t("pages.reports.colDate")}
                         </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground" title="Sistema e navegador">
-                          Dispositivo
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground" title={t("pages.reports.deviceTitle")}>
+                          {t("pages.results.thDevice")}
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Em eventos Checkout (aviso da rede): link da oferta do clique atribuído, se existir."
+                          title={t("pages.reports.checkoutTitle")}
                         >
                           Checkout Page
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Origem
+                          {t("pages.results.thSource")}
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Pago = anúncio com ID do clique. Não prova que é pessoa."
+                          title={t("pages.reports.paidTitle")}
                         >
-                          Tipo
+                          {t("pages.reports.typeLegend")}
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Real = pessoa; Robot = robot; Cloud = servidor."
+                          title={t("pages.reports.situationTitle")}
                         >
-                          Situação
+                          {t("pages.reports.filterSituation")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          País
+                          {t("pages.reports.colCountry")}
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Estado ou região quando o lookup geo do IP traz esse detalhe; nem sempre há dados — país na coluna ao lado."
+                          title={t("pages.reports.regionTitle")}
                         >
-                          Estado / região
+                          {t("pages.reports.colRegion")}
                         </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">Ação</th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">{t("pages.automizer.action")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {accessDisplay.slice.length === 0 ? (
                         <tr>
                           <td colSpan={14} className="py-12 text-center text-sm text-muted-foreground">
-                            Nenhum registo a mostrar neste intervalo.
+                            {t("pages.reports.emptyRange")}
                           </td>
                         </tr>
                       ) : (
@@ -1332,12 +1336,12 @@ export default function Relatorios() {
                                 {row.id.slice(0, 8)}…
                               </span>
                             </td>
-                            <td className="py-2.5 px-3 text-xs">{dimCell(row.keyword === "—" ? "" : row.keyword, row.keywordMacro)}</td>
+                            <td className="py-2.5 px-3 text-xs">{dimCell(row.keyword === "—" ? "" : row.keyword, row.keywordMacro, t("pages.reports.macroTitle"))}</td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[140px] truncate">
                               {row.utm_campaign}
                             </td>
                             <td className="py-2.5 px-3 text-xs max-w-[140px] truncate">
-                              {dimCell(row.utm_content === "—" ? "" : row.utm_content, row.contentMacro)}
+                              {dimCell(row.utm_content === "—" ? "" : row.utm_content, row.contentMacro, t("pages.reports.macroTitle"))}
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs whitespace-nowrap">
                               {row.lastAccess}
@@ -1382,12 +1386,12 @@ export default function Relatorios() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
-                                  title="Bloquear este IP (blacklist manual)"
+                                  title={t("pages.reports.blockIpTitle")}
                                   disabled={blockIpMutation.isPending}
                                   onClick={() => {
                                     if (
                                       window.confirm(
-                                        `Bloquear ${row.ip} na blacklist? O link da oferta deixa de abrir para este IP.`,
+                                        fill(t("pages.reports.blockIpConfirm"), { ip: row.ip }),
                                       )
                                     ) {
                                       blockIpMutation.mutate(row.ip);
@@ -1409,8 +1413,12 @@ export default function Relatorios() {
                 <div className="p-3 border-t border-border flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span>
                     {accessDisplay.total === 0
-                      ? "Nenhum registo"
-                      : `Mostrando ${(accessDisplay.page - 1) * pageSize + 1}–${Math.min(accessDisplay.page * pageSize, accessDisplay.total)} de ${accessDisplay.total}`}
+                      ? t("pages.reports.noRows")
+                      : fill(t("pages.reports.showingRange"), {
+                        from: (accessDisplay.page - 1) * pageSize + 1,
+                        to: Math.min(accessDisplay.page * pageSize, accessDisplay.total),
+                        total: accessDisplay.total,
+                      })}
                   </span>
                   <div className="flex gap-1">
                     <Button
@@ -1420,7 +1428,7 @@ export default function Relatorios() {
                       className="h-7 text-xs"
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
-                      Anterior
+                      {t("common.previous")}
                     </Button>
                     <Button size="sm" className="h-7 text-xs gradient-primary border-0 text-primary-foreground">
                       {accessDisplay.page} / {accessDisplay.pages}
@@ -1432,7 +1440,7 @@ export default function Relatorios() {
                       className="h-7 text-xs"
                       onClick={() => setPage((p) => Math.min(accessDisplay.pages, p + 1))}
                     >
-                      Próximo
+                      {t("common.next")}
                     </Button>
                   </div>
                 </div>
@@ -1450,10 +1458,9 @@ export default function Relatorios() {
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
               <span className="text-sm text-muted-foreground min-w-0 flex-1">
-                Cliques no período.{" "}
+                {t("pages.reports.clicksInPeriod")}{" "}
                 <span className="text-foreground/80">
-                  Checkout = link da oferta. Tipo = anúncio. Situação = Real / Bot / Cloud.
-                  Pago + Cloud ≠ comprador.
+                  {t("pages.reports.clicksLegend")} {t("pages.reports.paidCloud")}
                 </span>
               </span>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
@@ -1463,11 +1470,11 @@ export default function Relatorios() {
                   size="sm"
                   className="h-8 gap-1.5 text-xs shrink-0 w-full sm:w-auto justify-center"
                   disabled={clicksQuery.isLoading || clicksQuery.isError}
-                  title="Copia IPs Cloud para excluir no Google Ads"
+                  title={t("pages.reports.copyIpsTitle")}
                   onClick={() => void copyDatacenterIpsForGoogleAds()}
                 >
                   <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  Copiar IPs para o Google
+                  {t("pages.reports.copyIps")}
                   {datacenterIpsForAds.length > 0 ? ` (${datacenterIpsForAds.length})` : ""}
                 </Button>
                 <Button
@@ -1479,17 +1486,17 @@ export default function Relatorios() {
                     exportBusy || clicksQuery.isLoading || clicksQuery.isError || !canExportClicks
                   }
                   title={
-                    clicksQuery.isSuccess && !canExportClicks ? "Não há cliques neste período." : undefined
+                    clicksQuery.isSuccess && !canExportClicks ? t("pages.reports.emptyClicks") : undefined
                   }
                   onClick={() => void handleExportCsv("click")}
                 >
                   <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  {exporting === "click" ? "A descarregar…" : "Descarregar"}
+                  {exporting === "click" ? t("pages.reports.downloading") : t("pages.reports.download")}
                 </Button>
                 <div className="relative flex-1 sm:flex-initial min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Filtrar tabela…"
+                    placeholder={t("pages.reports.filterTable")}
                     value={searchTerm}
                     onChange={(e) => {
                       setSearchTerm(e.target.value);
@@ -1501,9 +1508,9 @@ export default function Relatorios() {
               </div>
             </div>
             {clicksQuery.isLoading ? (
-              <LoadingState message="A carregar cliques…" />
+              <LoadingState message={t("pages.reports.loadingClicks")} />
             ) : clicksQuery.isError ? (
-              <ErrorState message="Erro ao carregar cliques." onRetry={() => clicksQuery.refetch()} />
+              <ErrorState message={t("pages.reports.errorClicks")} onRetry={() => clicksQuery.refetch()} />
             ) : (
               <>
                 <div className="overflow-x-auto">
@@ -1512,61 +1519,61 @@ export default function Relatorios() {
                       <tr className="border-b border-border bg-muted/30">
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">IP</th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Clique
+                          {t("pages.reports.eventClick")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Palavra chave
+                          {t("common.keyword")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Campanha
+                          {t("pages.reports.colCampaign")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Anúncio
+                          {t("pages.reports.colAd")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Data
+                          {t("pages.reports.colDate")}
                         </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground" title="Sistema e navegador">
-                          Dispositivo
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground" title={t("pages.reports.deviceTitle")}>
+                          {t("pages.results.thDevice")}
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Hoplink (URL da oferta) gravado no redirect do clique. Não é o contador Checkout Visitors do BuyGoods — esse só existe no painel da rede."
+                          title={t("pages.reports.hoplinkTitle")}
                         >
                           Checkout Page
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Origem
+                          {t("pages.results.thSource")}
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Pago = anúncio com ID do clique. Não prova que é pessoa."
+                          title={t("pages.reports.paidTitle")}
                         >
-                          Tipo
+                          {t("pages.reports.typeLegend")}
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Real = pessoa; Robot = robot; Cloud = servidor."
+                          title={t("pages.reports.situationTitle")}
                         >
-                          Situação
+                          {t("pages.reports.filterSituation")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          País
+                          {t("pages.reports.colCountry")}
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Estado ou região quando o lookup geo do IP traz esse detalhe; nem sempre há dados — país na coluna ao lado."
+                          title={t("pages.reports.regionTitle")}
                         >
-                          Estado / região
+                          {t("pages.reports.colRegion")}
                         </th>
-                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">Ação</th>
+                        <th className="text-left py-3 px-3 font-medium text-muted-foreground">{t("pages.automizer.action")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {clickDisplay.slice.length === 0 ? (
                         <tr>
                           <td colSpan={14} className="py-12 text-center text-sm text-muted-foreground">
-                            Nenhum registo a mostrar neste intervalo.
+                            {t("pages.reports.emptyRange")}
                           </td>
                         </tr>
                       ) : (
@@ -1581,12 +1588,12 @@ export default function Relatorios() {
                             <td className="py-2.5 px-3 font-mono text-xs max-w-[160px] truncate" title={row.clickId}>
                               {row.clickId}
                             </td>
-                            <td className="py-2.5 px-3 text-xs">{dimCell(row.keyword === "—" ? "" : row.keyword, row.keywordMacro)}</td>
+                            <td className="py-2.5 px-3 text-xs">{dimCell(row.keyword === "—" ? "" : row.keyword, row.keywordMacro, t("pages.reports.macroTitle"))}</td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs max-w-[140px] truncate">
                               {row.utm_campaign}
                             </td>
                             <td className="py-2.5 px-3 text-xs max-w-[140px] truncate">
-                              {dimCell(row.utm_content === "—" ? "" : row.utm_content, row.contentMacro)}
+                              {dimCell(row.utm_content === "—" ? "" : row.utm_content, row.contentMacro, t("pages.reports.macroTitle"))}
                             </td>
                             <td className="py-2.5 px-3 text-muted-foreground text-xs whitespace-nowrap">
                               {row.lastAccess}
@@ -1631,12 +1638,12 @@ export default function Relatorios() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
-                                  title="Bloquear este IP (blacklist manual)"
+                                  title={t("pages.reports.blockIpTitle")}
                                   disabled={blockIpMutation.isPending}
                                   onClick={() => {
                                     if (
                                       window.confirm(
-                                        `Bloquear ${row.ip} na blacklist? O link da oferta deixa de abrir para este IP.`,
+                                        fill(t("pages.reports.blockIpConfirm"), { ip: row.ip }),
                                       )
                                     ) {
                                       blockIpMutation.mutate(row.ip);
@@ -1658,8 +1665,12 @@ export default function Relatorios() {
                 <div className="p-3 border-t border-border flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span>
                     {clickDisplay.total === 0
-                      ? "Nenhum registo"
-                      : `Mostrando ${(clickDisplay.page - 1) * pageSize + 1}–${Math.min(clickDisplay.page * pageSize, clickDisplay.total)} de ${clickDisplay.total}`}
+                      ? t("pages.reports.noRows")
+                      : fill(t("pages.reports.showingRange"), {
+                        from: (clickDisplay.page - 1) * pageSize + 1,
+                        to: Math.min(clickDisplay.page * pageSize, clickDisplay.total),
+                        total: clickDisplay.total,
+                      })}
                   </span>
                   <div className="flex gap-1">
                     <Button
@@ -1669,7 +1680,7 @@ export default function Relatorios() {
                       className="h-7 text-xs"
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
-                      Anterior
+                      {t("common.previous")}
                     </Button>
                     <Button size="sm" className="h-7 text-xs gradient-primary border-0 text-primary-foreground">
                       {clickDisplay.page} / {clickDisplay.pages}
@@ -1681,7 +1692,7 @@ export default function Relatorios() {
                       className="h-7 text-xs"
                       onClick={() => setPage((p) => Math.min(clickDisplay.pages, p + 1))}
                     >
-                      Próximo
+                      {t("common.next")}
                     </Button>
                   </div>
                 </div>
@@ -1697,18 +1708,18 @@ export default function Relatorios() {
           {conversionByCampaign.length > 0 ? (
             <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
               <div className="border-b border-border bg-muted/20 px-4 py-3">
-                <p className="text-sm font-medium text-foreground">Resumo por campanha (período filtrado)</p>
+                <p className="text-sm font-medium text-foreground">{t("pages.reports.summaryTitle")}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Usa o nome da campanha do anúncio. Se não houver, usa o nome enviado pela rede.
+                  {t("pages.reports.summaryHint")}
                 </p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/30">
-                      <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Campanha</th>
-                      <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Vendas</th>
-                      <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Comissão total</th>
+                      <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">{t("pages.reports.colCampaign")}</th>
+                      <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">{t("common.sales")}</th>
+                      <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">{t("pages.reports.colCommissionTotal")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1719,7 +1730,7 @@ export default function Relatorios() {
                         </td>
                         <td className="py-2 px-3 text-right tabular-nums">{row.count}</td>
                         <td className="py-2 px-3 text-right tabular-nums font-medium text-success">
-                          {row.revenue.toLocaleString("pt-BR", {
+                          {row.revenue.toLocaleString(numLocale, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}{" "}
@@ -1736,7 +1747,7 @@ export default function Relatorios() {
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col gap-3 lg:flex-row lg:justify-between lg:items-start">
               <p className="text-sm text-muted-foreground min-w-0 w-full lg:flex-1 lg:pr-4">
-                Conversões aprovadas no período. O descarregar inclui o período completo; os filtros só alteram a lista.
+                {t("pages.reports.approvedHint")}
               </p>
               <div className="flex flex-col gap-3 w-full lg:w-auto lg:min-w-0 lg:max-w-xl xl:max-w-2xl lg:shrink-0">
                 <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
@@ -1753,18 +1764,18 @@ export default function Relatorios() {
                     }
                     title={
                       conversionsQuery.isSuccess && !canExportConversionsReport
-                        ? "Não há conversões neste período."
+                        ? t("pages.reports.emptyConversions")
                         : undefined
                     }
                     onClick={() => void handleExportCsv("conversions")}
                   >
                     <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    {exporting === "conversions" ? "A descarregar…" : "Descarregar"}
+                    {exporting === "conversions" ? t("pages.reports.downloading") : t("pages.reports.download")}
                   </Button>
                   <div className="relative flex-1 sm:flex-initial min-w-0">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Filtrar tabela…"
+                      placeholder={t("pages.reports.filterTable")}
                       value={searchTerm}
                       onChange={(e) => {
                         setSearchTerm(e.target.value);
@@ -1778,35 +1789,32 @@ export default function Relatorios() {
                   <div className="flex flex-col gap-2 pt-3 border-t border-border/60 sm:flex-row sm:flex-wrap sm:items-end">
                     <div className="flex-1 min-w-[min(100%,240px)] space-y-1">
                       <Label htmlFor="rel-google-ads-conv-name" className="text-xs">
-                        Nome da conversão no Google Ads
+                        {t("pages.reports.googleConvName")}
                       </Label>
                       <Input
                         id="rel-google-ads-conv-name"
-                        placeholder="Igual ao nome em Google Ads → Conversões"
+                        placeholder={t("pages.reports.googleConvPlaceholder")}
                         value={googleAdsConversionName}
                         onChange={(e) => setGoogleAdsConversionName(e.target.value)}
                         className="h-8 text-xs"
                       />
                       <ul className="mt-2 space-y-1.5 text-[11px] text-muted-foreground leading-snug list-disc pl-4 marker:text-muted-foreground/70">
                         <li>
-                          O nome é obrigatório e tem de ser o mesmo que em{" "}
-                          <span className="text-foreground/85">Ferramentas → Medição → Conversões</span> (maiúsculas
-                          e espaços contam).
+                          {t("pages.reports.googleNameHint")}{" "}
+                          <span className="text-foreground/85">{t("pages.reports.googleNamePath")}</span>{" "}
+                          {t("pages.reports.googleNameTail")}
                         </li>
+                        <li>{t("pages.reports.googleTimeHint")}</li>
                         <li>
-                          A <span className="text-foreground/85">data e hora</span> de cada conversão entram no ficheiro
-                          automaticamente em UTC (coluna Conversion Time).
-                        </li>
-                        <li>
-                          A acção na sua conta tem de estar configurada para{" "}
-                          <span className="text-foreground/85">importação por cliques</span> (offline).{" "}
+                          {t("pages.reports.googleActionHint")}{" "}
+                          <span className="text-foreground/85">{t("pages.reports.googleClickImport")}</span>.{" "}
                           <a
                             href={GOOGLE_ADS_OFFLINE_CLICK_IMPORT_HELP_URL}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-primary underline underline-offset-2 hover:text-primary/90"
                           >
-                            Guia oficial do Google
+                            {t("pages.reports.googleGuide")}
                           </a>
                         </li>
                       </ul>
@@ -1824,22 +1832,22 @@ export default function Relatorios() {
                       onClick={() => void handleExportGoogleAds()}
                     >
                       <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                      {exporting === "google-ads" ? "A gerar…" : "Ficheiro para Google Ads"}
+                      {exporting === "google-ads" ? t("pages.reports.generating") : t("pages.reports.googleFile")}
                     </Button>
                   </div>
                 ) : null}
                 {!conversionsQuery.isLoading && conversionsQuery.isSuccess && !periodHasGclidConversions ? (
                   <p className="text-xs text-muted-foreground pt-3 border-t border-border/60">
-                    Neste período não há vendas com clique do Google. O ficheiro manual não se aplica a estas linhas.
+                    {t("pages.reports.noGoogleSales")}
                   </p>
                 ) : null}
               </div>
             </div>
             {conversionsQuery.isLoading ? (
-              <LoadingState message="A carregar conversões…" />
+              <LoadingState message={t("pages.reports.loadingConversions")} />
             ) : conversionsQuery.isError ? (
               <ErrorState
-                message="Erro ao carregar conversões."
+                message={t("pages.reports.errorConversions")}
                 onRetry={() => conversionsQuery.refetch()}
               />
             ) : (
@@ -1849,46 +1857,46 @@ export default function Relatorios() {
                     <thead>
                       <tr className="border-b border-border bg-muted/30">
                         <th className="w-10 py-3 px-2 text-center font-medium text-muted-foreground">
-                          <span className="sr-only">Seleccionar</span>
+                          <span className="sr-only">{t("pages.reports.select")}</span>
                           <Checkbox
                             checked={allConvPageSelected}
                             disabled={convPageSelectableIds.length === 0 || exportBusy}
                             onCheckedChange={() => toggleConvPageSelection()}
-                            aria-label="Seleccionar as vendas com clique do Google nesta página"
+                            aria-label={t("pages.reports.selectPageSales")}
                           />
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Data
+                          {t("pages.reports.colDate")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Clique
+                          {t("pages.reports.eventClick")}
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Hoplink do clique atribuído. Diferente do contador Checkout Visitors do BuyGoods."
+                          title={t("pages.reports.hoplinkShort")}
                         >
                           Checkout Page
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Origem (fonte/meio/campanha)
+                          {t("pages.reports.colOrigin")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Campanha
+                          {t("pages.reports.colCampaign")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Anúncio (utm_content)
+                          {t("pages.reports.colAdContent")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Palavra-chave
+                          {t("common.keyword")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Campanha (plataforma)
+                          {t("pages.reports.colPlatformCampaign")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Comissão
+                          {t("pages.reports.colCommission")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Plataforma
+                          {t("pages.reports.platform")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Sync Google Ads
@@ -1905,14 +1913,14 @@ export default function Relatorios() {
                       {convDisplay.slice.length === 0 ? (
                         <tr>
                           <td colSpan={14} className="py-12 text-center text-sm text-muted-foreground">
-                            Nenhum registo a mostrar neste intervalo.
+                            {t("pages.reports.emptyRange")}
                           </td>
                         </tr>
                       ) : (
                         convDisplay.slice.map((row) => {
                           const s = syncLabel(row.google_ads_sync);
                           const m = syncLabel(row.meta_capi_sync);
-                          const t = syncLabel(row.tiktok_events_sync);
+                          const tiktokSync = syncLabel(row.tiktok_events_sync);
                           return (
                             <tr
                               key={row.id}
@@ -1924,8 +1932,8 @@ export default function Relatorios() {
                                   disabled={!row.gclid?.trim() || exportBusy}
                                   title={
                                     row.gclid?.trim()
-                                      ? "Incluir no ficheiro para o Google Ads"
-                                      : "Esta venda não tem clique do Google"
+                                      ? t("pages.reports.includeInFile")
+                                      : t("pages.reports.noGoogleClick")
                                   }
                                   onCheckedChange={(v) => {
                                     if (!row.gclid?.trim()) return;
@@ -1938,13 +1946,13 @@ export default function Relatorios() {
                                   }}
                                   aria-label={
                                     row.gclid?.trim()
-                                      ? "Seleccionar venda para o ficheiro do Google Ads"
-                                      : "Venda sem clique do Google"
+                                      ? t("pages.reports.selectSale")
+                                      : t("pages.reports.saleNoClick")
                                   }
                                 />
                               </td>
                               <td className="py-2.5 px-3 text-muted-foreground text-xs whitespace-nowrap">
-                                {formatDateTime(row.created_at)}
+                                {formatDateTime(row.created_at, numLocale)}
                               </td>
                               <td className="py-2.5 px-3 font-mono text-xs text-primary max-w-[200px] truncate">
                                 {row.click_id}
@@ -1995,10 +2003,10 @@ export default function Relatorios() {
                                 <span
                                   title={row.tiktok_events_sync_error || undefined}
                                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                    t.ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                                    tiktokSync.ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                                   }`}
                                 >
-                                  {t.text}
+                                  {tiktokSync.text}
                                 </span>
                               </td>
                             </tr>
@@ -2011,8 +2019,12 @@ export default function Relatorios() {
                 <div className="p-3 border-t border-border flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span>
                     {convDisplay.total === 0
-                      ? "Nenhum registo"
-                      : `Mostrando ${(convDisplay.page - 1) * pageSize + 1}–${Math.min(convDisplay.page * pageSize, convDisplay.total)} de ${convDisplay.total}`}
+                      ? t("pages.reports.noRows")
+                      : fill(t("pages.reports.showingRange"), {
+                        from: (convDisplay.page - 1) * pageSize + 1,
+                        to: Math.min(convDisplay.page * pageSize, convDisplay.total),
+                        total: convDisplay.total,
+                      })}
                   </span>
                   <div className="flex gap-1">
                     <Button
@@ -2022,7 +2034,7 @@ export default function Relatorios() {
                       className="h-7 text-xs"
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
-                      Anterior
+                      {t("common.previous")}
                     </Button>
                     <Button size="sm" className="h-7 text-xs gradient-primary border-0 text-primary-foreground">
                       {convDisplay.page} / {convDisplay.pages}
@@ -2034,7 +2046,7 @@ export default function Relatorios() {
                       className="h-7 text-xs"
                       onClick={() => setPage((p) => Math.min(convDisplay.pages, p + 1))}
                     >
-                      Próximo
+                      {t("common.next")}
                     </Button>
                   </div>
                 </div>
@@ -2050,7 +2062,7 @@ export default function Relatorios() {
           <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
             <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
               <span className="text-sm text-muted-foreground min-w-0 flex-1">
-                Vendas sem ID do clique do Google (não foram enviadas ao Google Ads).
+                {t("pages.reports.noGoogleHint")}
               </span>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
                 <Button
@@ -2066,18 +2078,18 @@ export default function Relatorios() {
                   }
                   title={
                     noGclidQuery.isSuccess && !canExportNoGclid
-                      ? "Não há vendas sem clique do Google neste período."
+                      ? t("pages.reports.emptyNoGoogle")
                       : undefined
                   }
                   onClick={() => void handleExportCsv("no-gclid")}
                 >
                   <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  {exporting === "no-gclid" ? "A descarregar…" : "Descarregar"}
+                  {exporting === "no-gclid" ? t("pages.reports.downloading") : t("pages.reports.download")}
                 </Button>
                 <div className="relative flex-1 sm:flex-initial min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Filtrar tabela…"
+                    placeholder={t("pages.reports.filterTable")}
                     value={searchTerm}
                     onChange={(e) => {
                       setSearchTerm(e.target.value);
@@ -2089,10 +2101,10 @@ export default function Relatorios() {
               </div>
             </div>
             {noGclidQuery.isLoading ? (
-              <LoadingState message="A carregar conversões…" />
+              <LoadingState message={t("pages.reports.loadingConversions")} />
             ) : noGclidQuery.isError ? (
               <ErrorState
-                message="Erro ao carregar conversões."
+                message={t("pages.reports.errorConversions")}
                 onRetry={() => noGclidQuery.refetch()}
               />
             ) : (
@@ -2102,37 +2114,37 @@ export default function Relatorios() {
                     <thead>
                       <tr className="border-b border-border bg-muted/30">
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Data
+                          {t("pages.reports.colDate")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Clique
+                          {t("pages.reports.eventClick")}
                         </th>
                         <th
                           className="text-left py-3 px-3 font-medium text-muted-foreground"
-                          title="Hoplink do clique atribuído. Diferente do contador Checkout Visitors do BuyGoods."
+                          title={t("pages.reports.hoplinkShort")}
                         >
                           Checkout Page
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Origem
+                          {t("pages.results.thSource")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Campanha
+                          {t("pages.reports.colCampaign")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Anúncio
+                          {t("pages.reports.colAd")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Palavra-chave
+                          {t("common.keyword")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Campanha (plataforma)
+                          {t("pages.reports.colPlatformCampaign")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Comissão
+                          {t("pages.reports.colCommission")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
-                          Plataforma
+                          {t("pages.reports.platform")}
                         </th>
                         <th className="text-left py-3 px-3 font-medium text-muted-foreground">
                           Sync Google Ads
@@ -2149,7 +2161,7 @@ export default function Relatorios() {
                       {noGclidDisplay.slice.length === 0 ? (
                         <tr>
                           <td colSpan={13} className="py-12 text-center text-sm text-muted-foreground">
-                            Nenhum registo a mostrar neste intervalo.
+                            {t("pages.reports.emptyRange")}
                           </td>
                         </tr>
                       ) : (
@@ -2163,7 +2175,7 @@ export default function Relatorios() {
                             className="border-b border-border/50 hover:bg-muted/20 transition-colors"
                           >
                             <td className="py-2.5 px-3 text-muted-foreground text-xs whitespace-nowrap">
-                              {formatDateTime(row.created_at)}
+                              {formatDateTime(row.created_at, numLocale)}
                             </td>
                             <td className="py-2.5 px-3 font-mono text-xs max-w-[180px] truncate">{row.click_id}</td>
                             <td className="py-2.5 px-3">
@@ -2217,8 +2229,12 @@ export default function Relatorios() {
                 <div className="p-3 border-t border-border flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span>
                     {noGclidDisplay.total === 0
-                      ? "Nenhum registo"
-                      : `Mostrando ${(noGclidDisplay.page - 1) * pageSize + 1}–${Math.min(noGclidDisplay.page * pageSize, noGclidDisplay.total)} de ${noGclidDisplay.total}`}
+                      ? t("pages.reports.noRows")
+                      : fill(t("pages.reports.showingRange"), {
+                        from: (noGclidDisplay.page - 1) * pageSize + 1,
+                        to: Math.min(noGclidDisplay.page * pageSize, noGclidDisplay.total),
+                        total: noGclidDisplay.total,
+                      })}
                   </span>
                   <div className="flex gap-1">
                     <Button
@@ -2228,7 +2244,7 @@ export default function Relatorios() {
                       className="h-7 text-xs"
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
-                      Anterior
+                      {t("common.previous")}
                     </Button>
                     <Button size="sm" className="h-7 text-xs gradient-primary border-0 text-primary-foreground">
                       {noGclidDisplay.page} / {noGclidDisplay.pages}
@@ -2240,7 +2256,7 @@ export default function Relatorios() {
                       className="h-7 text-xs"
                       onClick={() => setPage((p) => Math.min(noGclidDisplay.pages, p + 1))}
                     >
-                      Próximo
+                      {t("common.next")}
                     </Button>
                   </div>
                 </div>

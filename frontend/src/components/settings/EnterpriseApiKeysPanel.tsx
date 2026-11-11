@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { fill, numberLocaleFor } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { enterpriseService, type ApiKeyRow } from "@/services/enterpriseService";
 import { Button } from "@/components/ui/button";
@@ -9,11 +11,13 @@ import { ProPanel } from "@/components/enterprise/ProShell";
 import { getResolvedPublicApiBaseUrl } from "@/config/publicApiUrl";
 import { toast } from "sonner";
 import { Copy, Key, Loader2, Plus, Trash2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { userCanManageApiKeys } from "@/lib/workspaceCapabilities";
 
-function formatDate(iso: string | null) {
+function formatDate(iso: string | null, locale: string) {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleString("pt-PT");
+    return new Date(iso).toLocaleString(locale);
   } catch {
     return iso;
   }
@@ -27,6 +31,10 @@ function scopesLabel(scopes: unknown) {
 }
 
 export function EnterpriseApiKeysPanel() {
+  const { t, locale } = useAppLocale();
+  const dateLocale = numberLocaleFor(locale);
+  const { user } = useAuth();
+  const canManageKeys = userCanManageApiKeys(user);
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [scopeRead, setScopeRead] = useState(true);
@@ -42,16 +50,17 @@ export function EnterpriseApiKeysPanel() {
       if (error) throw new Error(error);
       return data ?? [];
     },
+    enabled: canManageKeys,
   });
 
   const createMut = useMutation({
     mutationFn: async () => {
       const trimmed = name.trim();
-      if (!trimmed) throw new Error("Indique um nome para a chave.");
+      if (!trimmed) throw new Error(t("pages.settings.keyNameRequired"));
       const scopes: Array<"read" | "write"> = [];
       if (scopeRead) scopes.push("read");
       if (scopeWrite) scopes.push("write");
-      if (scopes.length === 0) throw new Error("Escolha pelo menos um scope (read e/ou write).");
+      if (scopes.length === 0) throw new Error(t("pages.settings.scopeRequired"));
       const { data, error } = await enterpriseService.createApiKey(trimmed, scopes);
       if (error) throw new Error(error);
       return data!;
@@ -61,7 +70,7 @@ export function EnterpriseApiKeysPanel() {
       setName("");
       qc.invalidateQueries({ queryKey: ["enterprise-api-keys"] });
       qc.invalidateQueries({ queryKey: ["enterprise-onboarding"] });
-      toast.success("API key criada. Guarde-a agora — não volta a ser mostrada.");
+      toast.success(t("pages.settings.keyCreated"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -74,7 +83,7 @@ export function EnterpriseApiKeysPanel() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["enterprise-api-keys"] });
       qc.invalidateQueries({ queryKey: ["enterprise-onboarding"] });
-      toast.success("API key revogada.");
+      toast.success(t("pages.settings.keyRevoked"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -82,9 +91,9 @@ export function EnterpriseApiKeysPanel() {
   const copyKey = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Copiado.");
+      toast.success(t("common.copied"));
     } catch {
-      toast.error("Não foi possível copiar.");
+      toast.error(t("pages.settings.copyFailed"));
     }
   };
 
@@ -92,33 +101,41 @@ export function EnterpriseApiKeysPanel() {
     ? `curl -sS -H "Authorization: Bearer ${createdPlain}" \\\n  "${apiBase}/analytics/funnel"`
     : `curl -sS -H "Authorization: Bearer ck_live_…" \\\n  "${apiBase}/analytics/dashboard"`;
 
+  if (!canManageKeys) {
+    return (
+      <ProPanel title={t("pages.settings.apiTitle")} description={t("pages.settings.apiDesc")}>
+        <p className="px-4 pb-4 text-sm text-muted-foreground">{t("pages.presells.noPermissionDesc")}</p>
+      </ProPanel>
+    );
+  }
+
   return (
     <ProPanel
-      title="API keys (B2B)"
-      description="Integrações server-to-server. Scopes: read = GET (dashboard, funil, campanhas, rotadores, presells); write = criar/editar. Gestão de chaves e MFA só na sessão da app."
+      title={t("pages.settings.apiTitle")}
+      description={t("pages.settings.apiDesc")}
     >
       <div className="space-y-4 px-4 pb-4">
         {createdPlain ? (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
-            <p className="text-xs font-medium text-foreground">Nova chave (copie agora):</p>
+            <p className="text-xs font-medium text-foreground">{t("pages.settings.newKey")}</p>
             <code className="block break-all rounded bg-background/80 border border-border/60 px-2 py-1.5 text-xs font-mono">
               {createdPlain}
             </code>
             <div className="flex flex-wrap gap-2">
               <Button type="button" size="sm" variant="secondary" className="gap-1" onClick={() => void copyKey(createdPlain)}>
-                <Copy className="h-3.5 w-3.5" /> Copiar chave
+                <Copy className="h-3.5 w-3.5" /> {t("pages.settings.copyKey")}
               </Button>
               <Button type="button" size="sm" variant="ghost" onClick={() => setCreatedPlain(null)}>
-                Fechar aviso
+                {t("pages.settings.dismissNotice")}
               </Button>
             </div>
             <div className="space-y-1 pt-1">
-              <p className="text-[11px] text-muted-foreground">Exemplo (funil):</p>
+              <p className="text-[11px] text-muted-foreground">{t("pages.settings.curlExample")}</p>
               <pre className="overflow-x-auto rounded border border-border/60 bg-background/80 p-2 text-[10px] font-mono leading-relaxed whitespace-pre-wrap">
                 {curlExample}
               </pre>
               <Button type="button" size="sm" variant="outline" className="gap-1" onClick={() => void copyKey(curlExample)}>
-                <Copy className="h-3.5 w-3.5" /> Copiar curl
+                <Copy className="h-3.5 w-3.5" /> {t("pages.settings.copyCurl")}
               </Button>
             </div>
           </div>
@@ -127,12 +144,12 @@ export function EnterpriseApiKeysPanel() {
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <div className="space-y-1.5 flex-1">
-              <Label htmlFor="api-key-name">Nome</Label>
+              <Label htmlFor="api-key-name">{t("pages.settings.keyName")}</Label>
               <Input
                 id="api-key-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ex.: CRM produção"
+                placeholder={t("pages.settings.keyNamePlaceholder")}
                 maxLength={80}
               />
             </div>
@@ -143,7 +160,7 @@ export function EnterpriseApiKeysPanel() {
               onClick={() => createMut.mutate()}
             >
               {createMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Criar chave
+              {t("pages.settings.createKey")}
             </Button>
           </div>
           <div className="flex flex-wrap gap-4">
@@ -151,21 +168,21 @@ export function EnterpriseApiKeysPanel() {
               <Checkbox checked={scopeRead} onCheckedChange={(v) => setScopeRead(v === true)} />
               <span>
                 <span className="font-medium">read</span>
-                <span className="text-muted-foreground text-xs ml-1">GET analytics / campanhas / rotadores</span>
+                <span className="text-muted-foreground text-xs ml-1">{t("pages.settings.scopeReadHint")}</span>
               </span>
             </label>
             <label className="flex items-center gap-2 text-sm text-foreground">
               <Checkbox checked={scopeWrite} onCheckedChange={(v) => setScopeWrite(v === true)} />
               <span>
                 <span className="font-medium">write</span>
-                <span className="text-muted-foreground text-xs ml-1">POST/PATCH/DELETE (inclui read)</span>
+                <span className="text-muted-foreground text-xs ml-1">{t("pages.settings.scopeWriteHint")}</span>
               </span>
             </label>
           </div>
         </div>
 
         <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 space-y-1.5">
-          <p className="text-[11px] font-medium text-foreground">Endpoints com API key</p>
+          <p className="text-[11px] font-medium text-foreground">{t("pages.settings.endpointsTitle")}</p>
           <ul className="text-[11px] text-muted-foreground space-y-0.5 font-mono">
             <li>GET {apiBase}/analytics/dashboard</li>
             <li>GET {apiBase}/analytics/funnel</li>
@@ -180,10 +197,10 @@ export function EnterpriseApiKeysPanel() {
 
         {isLoading ? (
           <p className="text-xs text-muted-foreground flex items-center gap-2">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> A carregar…
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("pages.settings.loadingKeys")}
           </p>
         ) : keys.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Ainda não tem API keys activas.</p>
+          <p className="text-xs text-muted-foreground">{t("pages.settings.noKeys")}</p>
         ) : (
           <ul className="divide-y divide-border/60 rounded-lg border border-border/60 overflow-hidden">
             {keys.map((k: ApiKeyRow) => (
@@ -194,8 +211,12 @@ export function EnterpriseApiKeysPanel() {
                     {k.name}
                   </p>
                   <p className="text-[11px] text-muted-foreground font-mono">
-                    {k.key_prefix}… · {scopesLabel(k.scopes)} · criada {formatDate(k.created_at)}
-                    {k.last_used_at ? ` · último uso ${formatDate(k.last_used_at)}` : ""}
+                    {fill(t("pages.settings.keyMeta"), {
+                      prefix: k.key_prefix,
+                      scopes: scopesLabel(k.scopes),
+                      created: formatDate(k.created_at, dateLocale),
+                    })}
+                    {k.last_used_at ? fill(t("pages.settings.lastUsed"), { date: formatDate(k.last_used_at, dateLocale) }) : ""}
                   </p>
                 </div>
                 <Button
@@ -205,11 +226,11 @@ export function EnterpriseApiKeysPanel() {
                   className="gap-1 text-destructive hover:text-destructive shrink-0"
                   disabled={revokeMut.isPending}
                   onClick={() => {
-                    if (window.confirm(`Revogar a chave «${k.name}»?`)) revokeMut.mutate(k.id);
+                    if (window.confirm(fill(t("pages.settings.revokeConfirm"), { name: k.name }))) revokeMut.mutate(k.id);
                   }}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Revogar
+                  {t("pages.settings.revoke")}
                 </Button>
               </li>
             ))}

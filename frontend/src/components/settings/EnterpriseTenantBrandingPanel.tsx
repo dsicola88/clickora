@@ -11,11 +11,13 @@ import { ProPanel } from "@/components/enterprise/ProShell";
 import { toast } from "sonner";
 import { Loader2, Palette } from "lucide-react";
 import { readBrandKitPro, writeBrandKitPro } from "@/lib/brandKitPro";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 /**
  * White-label do tenant — disponível quando o plano tem `has_branding === false` (Pro).
  */
 export function EnterpriseTenantBrandingPanel() {
+  const { t } = useAppLocale();
   const { userPlan } = useAuth();
   const qc = useQueryClient();
   const canWhiteLabel = userPlan?.has_branding === false;
@@ -78,7 +80,7 @@ export function EnterpriseTenantBrandingPanel() {
       }
       qc.invalidateQueries({ queryKey: ["enterprise-tenant-branding"] });
       qc.invalidateQueries({ queryKey: ["enterprise-onboarding"] });
-      toast.success("Marca guardada.");
+      toast.success(t("pages.settings.brandSaved"));
     },
     onError: (e: Error) => toast.error(e.message),
   });

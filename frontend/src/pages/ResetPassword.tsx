@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,6 +13,7 @@ import { toast } from "sonner";
 import { resetPasswordSchema, type ResetPasswordForm } from "@/lib/validations";
 
 export default function ResetPassword() {
+  const { t } = useAppLocale();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
@@ -33,10 +35,10 @@ export default function ResetPassword() {
     try {
       const { error } = await authService.updatePassword(token, values.password);
       if (error) throw new Error(error);
-      toast.success("Senha atualizada com sucesso!");
+      toast.success(t("auth.resetSuccess"));
       navigate("/auth");
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Erro ao atualizar senha";
+      const message = error instanceof Error ? error.message : t("auth.resetFailed");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -47,9 +49,9 @@ export default function ResetPassword() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="text-center">
-          <h1 className="text-xl font-bold text-foreground mb-2">Link inválido</h1>
-          <p className="text-muted-foreground mb-4">Este link de recuperação expirou ou é inválido.</p>
-          <Button onClick={() => navigate("/auth")}>Voltar ao login</Button>
+          <h1 className="text-xl font-bold text-foreground mb-2">{t("auth.invalidLinkTitle")}</h1>
+          <p className="text-muted-foreground mb-4">{t("auth.invalidLinkBody")}</p>
+          <Button onClick={() => navigate("/auth")}>{t("auth.backToLogin")}</Button>
         </div>
       </div>
     );
@@ -62,11 +64,11 @@ export default function ResetPassword() {
           <div className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-1.5 rounded-full text-sm font-medium mb-4">
             <Zap className="h-4 w-4" /> dclickora
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Nova senha</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("auth.newPasswordTitle")}</h1>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} className="bg-card border border-border rounded-2xl p-6 space-y-4 shadow-card">
           <div className="space-y-2">
-            <Label htmlFor="password">Nova senha</Label>
+            <Label htmlFor="password">{t("auth.newPassword")}</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -80,7 +82,7 @@ export default function ResetPassword() {
             <FieldError message={errors.password?.message} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirmar senha</Label>
+            <Label htmlFor="confirmPassword">{t("auth.confirmPassword")}</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -94,7 +96,7 @@ export default function ResetPassword() {
             <FieldError message={errors.confirmPassword?.message} />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Atualizando..." : "Atualizar senha"}
+            {loading ? t("auth.updating") : t("auth.updatePassword")}
           </Button>
         </form>
       </div>

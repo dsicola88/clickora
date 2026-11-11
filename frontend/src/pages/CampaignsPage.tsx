@@ -18,6 +18,8 @@ import {
 } from "@/components/enterprise/ProShell";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { fill } from "@/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { userCanWriteCampaigns } from "@/lib/workspaceCapabilities";
 
 function money(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "—";
@@ -28,6 +30,8 @@ export default function CampaignsPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { t } = useAppLocale();
+  const { user } = useAuth();
+  const canWrite = userCanWriteCampaigns(user);
 
   const statusLabel = (s: string) => {
     if (s === "active") return t("pages.campaigns.statusActive");
@@ -66,9 +70,11 @@ export default function CampaignsPage() {
     return (
       <EmptyState
         title={t("pages.campaigns.emptyTitle")}
-        description={t("pages.campaigns.emptyDesc")}
-        actionLabel={t("pages.campaigns.createPresellAction")}
-        onAction={() => navigate("/presells/nova")}
+        description={
+          canWrite ? t("pages.campaigns.emptyDesc") : t("pages.presells.noPermissionDesc")
+        }
+        actionLabel={canWrite ? t("pages.campaigns.createPresellAction") : undefined}
+        onAction={canWrite ? () => navigate("/presells/nova") : undefined}
         icon={<Megaphone className="h-8 w-8 text-muted-foreground" />}
       />
     );
@@ -80,10 +86,12 @@ export default function CampaignsPage() {
         title={t("pages.campaigns.title")}
         subtitle={t("pages.campaigns.subtitle")}
         actions={
-          <Button size="sm" className="gap-1.5" onClick={() => navigate("/presells/nova")}>
-            <Plus className="h-4 w-4" />
-            {t("pages.campaigns.create")}
-          </Button>
+          canWrite ? (
+            <Button size="sm" className="gap-1.5" onClick={() => navigate("/presells/nova")}>
+              <Plus className="h-4 w-4" />
+              {t("pages.campaigns.create")}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -130,17 +138,19 @@ export default function CampaignsPage() {
                 </ProTd>
                 <ProTd align="right">{money(c.stats?.epc)}</ProTd>
                 <ProTd align="right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                    title={t("pages.campaigns.deleteTitle")}
-                    onClick={() => {
-                      if (confirm(fill(t("pages.campaigns.deleteConfirm"), { name: c.name }))) del.mutate(c.id);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canWrite ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      title={t("pages.campaigns.deleteTitle")}
+                      onClick={() => {
+                        if (confirm(fill(t("pages.campaigns.deleteConfirm"), { name: c.name }))) del.mutate(c.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  ) : null}
                 </ProTd>
               </tr>
             ))}

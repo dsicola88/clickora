@@ -22,7 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { toast } from "sonner";
 import { integrationsService } from "@/services/integrationsService";
 import { useAuth } from "@/contexts/AuthContext";
-import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
+import { userCanReadIntegrationSecrets, userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import {
@@ -46,11 +46,13 @@ import { currentPhonePushSupport, hasLocalWebPushSubscription, subscribeToWebPus
 import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
 import { PostbackMacroChecklist } from "@/components/PostbackMacroChecklist";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 
 export default function Plataformas() {
   const { t } = useAppLocale();
   const { user, refreshUser, isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
   const intLocked = !userCanWriteIntegrations(user);
+  const canReadSecrets = userCanReadIntegrationSecrets(user);
   /** Reservado a planos com flag no admin; super_admin ignora para suporte. */
   const hookPlanDenied =
     !isSuperAdmin && Boolean(user?.plan && user.plan.affiliate_webhook_enabled === false);
@@ -74,11 +76,11 @@ export default function Plataformas() {
     refetch,
   } = useQuery({
     queryKey: ["integrations-affiliate-webhook-info"],
-    enabled: !authLoading && !hookPlanDenied,
+    enabled: !authLoading && !hookPlanDenied && canReadSecrets,
     queryFn: async () => {
       const { data, error: err } = await integrationsService.getAffiliateWebhookInfo();
       if (err) throw new Error(err);
-      if (!data) throw new Error("Resposta vazia");
+      if (!data) throw new Error(t("pages.networkSales.emptyResponse"));
       return data;
     },
   });
@@ -118,13 +120,13 @@ export default function Plataformas() {
     mutationFn: async () => {
       const trimmed = emailField.trim();
       if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-        throw new Error("E-mail inválido.");
+        throw new Error(t("pages.networkSales.invalidEmail"));
       }
       const { error: err } = await integrationsService.patchNotificationEmail(trimmed, chime);
       if (err) throw new Error(err);
     },
     onSuccess: async () => {
-      toast.success("E-mail e som de venda guardados.");
+      toast.success(t("pages.networkSales.saved"));
       await queryClient.invalidateQueries({ queryKey: ["integrations-affiliate-webhook-info"] });
       await refreshUser();
     },
@@ -138,7 +140,11 @@ export default function Plataformas() {
       return data;
     },
     onSuccess: (data) => {
-      toast.success(`E-mail de teste enviado para ${data?.sent_to ?? "o destino configurado"}.`);
+      toast.success(
+        fill(t("pages.networkSales.testEmail"), {
+          to: data?.sent_to ?? t("pages.networkSales.testEmailFallback"),
+        }),
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -150,7 +156,7 @@ export default function Plataformas() {
     },
     onSuccess: () => {
       setPhonePushOn(true);
-      toast.success("Este telemóvel passa a mostrar a venda no ecrã, mesmo com o browser fechado.");
+      toast.success(t("pages.networkSales.phoneOn"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -161,7 +167,7 @@ export default function Plataformas() {
       if (err) throw new Error(err);
     },
     onSuccess: () => {
-      toast.success("Aviso enviado. Pode fechar o browser: o cartão fica no telemóvel.");
+      toast.success(t("pages.networkSales.phoneTest"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -178,9 +184,9 @@ export default function Plataformas() {
     if (!displayHookUrl) return;
     navigator.clipboard.writeText(displayHookUrl);
     setCopied(true);
-    toast.success("URL do webhook copiada!");
+    toast.success(t("pages.networkSales.hookCopied"));
     setTimeout(() => setCopied(false), 2000);
-  }, [displayHookUrl]);
+  }, [displayHookUrl, t]);
 
   /** Exemplo alinhado à plataforma escolhida (macros + parâmetros que o servidor lê). */
   const examplePostbackUrl = useMemo(() => {
@@ -204,7 +210,7 @@ export default function Plataformas() {
     if (!examplePostbackUrl) return;
     navigator.clipboard.writeText(examplePostbackUrl);
     setCopiedExample(true);
-    toast.success("URL de aviso copiada!");
+    toast.success(t("pages.networkSales.noticeCopied"));
     setTimeout(() => setCopiedExample(false), 2000);
   }, [examplePostbackUrl]);
 
@@ -218,34 +224,54 @@ export default function Plataformas() {
       void navigator.clipboard.writeText(text);
       setCopiedFunnel(kind);
       const msgs = {
-        checkout: `Pixel HTML Checkout — cole em: ${funnelGuide.panelPath}`,
-        lander: `Pixel HTML Lander — cole em: ${funnelGuide.panelPath}`,
-        checkout_event: `URL Event Checkout — postback tipo Event em ${selected}`,
+        checkout: fill(t("pages.networkSales.pixelCheckout"), { path: funnelGuide.panelPath }),
+        lander: fill(t("pages.networkSales.pixelLander"), { path: funnelGuide.panelPath }),
+        checkout_event: fill(t("pages.networkSales.pixelEvent"), { platform: selected }),
       } as const;
       toast.success(msgs[kind]);
       setTimeout(() => setCopiedFunnel(null), 2000);
     },
-    [checkoutEventUrl, funnelAssets?.checkout_html, funnelAssets?.lander_html, funnelGuide.panelPath, selected],
+    [checkoutEventUrl, funnelAssets?.checkout_html, funnelAssets?.lander_html, funnelGuide.panelPath, selected, t],
   );
 
   const testPostback = useMutation({
     mutationFn: async () => {
       const { data, error } = await integrationsService.testAffiliatePostback(selected);
       if (error) throw new Error(error);
-      if (!data) throw new Error("Resposta vazia");
+      if (!data) throw new Error(t("pages.networkSales.emptyResponse"));
       return data;
     },
     onSuccess: (data) => {
       if (data.ok) {
-        toast.success(data.message || "Ligação OK");
+        toast.success(data.message || t("pages.networkSales.linkOk"));
       } else {
-        toast.error(data.error || data.message || "Teste falhou");
+        toast.error(data.error || data.message || t("pages.networkSales.testFailed"));
       }
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (authLoading) return <LoadingState message="A carregar sessão…" />;
+  if (authLoading) return <LoadingState message={t("pages.networkSales.loadingSession")} />;
+
+  if (!canReadSecrets) {
+    return (
+      <div className={PRO_PAGE_SHELL}>
+        <ProPageHeader
+          title={t("pages.networkSales.title")}
+          subtitle={t("pages.networkSales.subtitleShort")}
+        />
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-4 py-4 text-sm text-foreground">
+          <p className="flex items-center gap-2 font-medium">
+            <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+            {t("pages.presells.noPermission")}
+          </p>
+          <p className="mt-2 text-muted-foreground text-xs leading-relaxed">
+            {t("pages.networkSales.readOnly")}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (hookPlanDenied) {
     return (
@@ -257,30 +283,30 @@ export default function Plataformas() {
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-4 py-4 text-sm text-foreground space-y-2">
           <p className="flex items-center gap-2 font-medium">
             <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
-            O aviso de vendas da rede não está activo no seu plano
+            {t("pages.networkSales.planOff")}
           </p>
           <p className="text-muted-foreground leading-relaxed text-xs">
-            O endereço e as instruções por rede estão nos planos que incluem esta função.
+            {t("pages.networkSales.planOffHint")}
           </p>
           <Button variant="secondary" size="sm" asChild>
-            <Link to="/planos">Ver planos e preços</Link>
+            <Link to="/planos">{t("pages.conversions.viewPlans")}</Link>
           </Button>
         </div>
       </div>
     );
   }
 
-  if (isLoading) return <LoadingState message="Carregando integrações..." />;
+  if (isLoading) return <LoadingState message={t("pages.networkSales.loading")} />;
   if (isError) {
     return (
       <ErrorState
-        message={error instanceof Error ? error.message : "Erro ao carregar."}
+        message={error instanceof Error ? error.message : t("common.loadFailed")}
         onRetry={() => refetch()}
       />
     );
   }
 
-  if (!info) return <ErrorState message="Sem dados." onRetry={() => refetch()} />;
+  if (!info) return <ErrorState message={t("common.emptyTitle")} onRetry={() => refetch()} />;
 
   return (
     <div className={PRO_PAGE_SHELL}>
@@ -291,35 +317,34 @@ export default function Plataformas() {
 
       {intLocked ? (
         <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90 mb-4">
-          Só pode <strong>consultar</strong> estes dados: alterar o e-mail de notificação ou testar envio requer permissão para integrações neste workspace.
+          {t("pages.networkSales.readOnly")}
         </div>
       ) : null}
 
       <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-primary/[0.07] via-card to-card p-5 sm:p-6 shadow-sm mb-6">
         <div className="flex items-center gap-2 mb-4">
           <ListOrdered className="h-5 w-5 text-primary shrink-0" />
-          <h2 className="text-base font-semibold text-foreground">Como configurar (passos profissionais)</h2>
+          <h2 className="text-base font-semibold text-foreground">{t("pages.networkSales.setupTitle")}</h2>
         </div>
         <ol className="list-decimal list-outside space-y-2.5 pl-5 text-sm text-muted-foreground leading-relaxed marker:font-semibold marker:text-foreground">
           <li>
-            Escolha a <strong className="text-foreground/90">rede</strong> à esquerda. O cartão à direita adapta-se ao que essa rede permite de verdade.
+            {t("pages.networkSales.pickNetwork")}
           </li>
           <li>
-            <strong className="text-foreground/90">Vendas:</strong> Copiar URL → cola no aviso de venda da rede.
+            <strong className="text-foreground/90">{t("pages.networkSales.salesStep")}</strong> {t("pages.networkSales.salesStepBody")}
           </li>
           <li>
-            <strong className="text-foreground/90">Checkout (opcional):</strong> no bloco Funil — pixel HTML (ex. BuyGoods) ou aviso de evento (ex. SmartAdv). Se a rede só notifica venda, o bloco diz-te isso.
+            <strong className="text-foreground/90">{t("pages.networkSales.checkoutStep")}</strong> {t("pages.networkSales.checkoutStepBody")}
           </li>
           <li>
-            Na <strong className="text-foreground/90">página</strong>, usa o link oficial da oferta — a Clickora
-            acrescenta o ID do clique automaticamente.
+            {t("pages.networkSales.pageStep")}
           </li>
           <li>
-            Venda aprovada → Conversões. Checkout → Relatórios → Acessos (não conta como venda).
+            {t("pages.networkSales.whereItLands")}
           </li>
         </ol>
         <p className="mt-4 text-xs text-muted-foreground border-t border-border/50 pt-3">
-          Se o aviso de venda chegar sem ID do clique, a venda <strong className="text-foreground/90">ainda é registada</strong> — não se perde; só falta a ligação ao anúncio.
+          {t("pages.networkSales.untrackedStillSaved")}
         </p>
       </div>
 
@@ -329,14 +354,14 @@ export default function Plataformas() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Filtrar redes..."
+                placeholder={t("pages.networkSales.filterNetworks")}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 className="pl-9"
               />
             </div>
             <p className="text-[11px] text-muted-foreground mt-2 leading-snug">
-              Catálogo profissional (parsers nativos + S2S documentado). A mesma URL de webhook serve; as macros mudam por rede.
+              {t("pages.networkSales.catalogHint")}
             </p>
           </div>
           <div className="max-h-[420px] overflow-y-auto">
@@ -361,7 +386,7 @@ export default function Plataformas() {
                         selected === platform ? "opacity-90" : "text-muted-foreground"
                       }`}
                     >
-                      {tier === "native" ? "Nativo" : "S2S"}
+                      {tier === "native" ? t("pages.networkSales.tierNative") : "S2S"}
                     </span>
                   ) : null}
                 </span>
@@ -375,29 +400,29 @@ export default function Plataformas() {
           <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-card space-y-5">
             <div>
               <h2 className="text-lg font-bold text-card-foreground">
-                <span className="text-muted-foreground font-normal text-sm uppercase tracking-wider">Rede</span>{" "}
+                <span className="text-muted-foreground font-normal text-sm uppercase tracking-wider">{t("pages.networkSales.networkParam")}</span>{" "}
                 {selected}
                 {selectedTier ? (
                   <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border border-border/60 rounded px-1.5 py-0.5">
-                    {selectedTier === "native" ? "Parser nativo" : "S2S documentado"}
+                    {selectedTier === "native" ? t("pages.networkSales.tierParser") : t("pages.networkSales.tierS2s")}
                   </span>
                 ) : null}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Siga os passos do cartão <strong className="text-foreground/90">Como configurar</strong> acima. Na conta{" "}
-                <strong className="text-foreground/90">{selected}</strong>, usa o URL de aviso completo. Quando houver conversão, a rede
-                chama a dclickora. A venda aprovada chega por e-mail mesmo com a conta fechada.
+                {t("pages.networkSales.followCard")}{" "}
+                <strong className="text-foreground/90">{selected}</strong>
+                {t("pages.networkSales.followCardTail")}
               </p>
             </div>
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 font-semibold">
                 <Mail className="h-4 w-4 text-muted-foreground" />
-                E-mail para alertas de venda
+                {t("pages.networkSales.emailLabel")}
               </Label>
               <p className="text-xs text-muted-foreground">
-                Opcional. Se vazio, usa o e-mail da conta: <span className="font-mono text-[11px]">{info.fallback_account_email}</span>
-                . O servidor envia este e-mail quando a rede aprova a venda, com o separador e o navegador fechados.
+                {t("pages.networkSales.emailFallback")} <span className="font-mono text-[11px]">{info.fallback_account_email}</span>
+                . {t("pages.networkSales.emailHint")}
               </p>
               <Input
                 type="email"
@@ -413,18 +438,16 @@ export default function Plataformas() {
                 disabled={intLocked || saveMutation.isPending}
               >
                 {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Guardar e-mail e som
+                {t("pages.networkSales.saveEmail")}
               </Button>
             </div>
 
             <div className="space-y-3">
-              <Label className="font-semibold">Som da venda</Label>
+              <Label className="font-semibold">{t("pages.networkSales.chimeLabel")}</Label>
               <p className="text-xs text-muted-foreground">
-                Toque num som para o ouvir e guarde com «Guardar e-mail e som». O mesmo som toca no aviso push e com a
-                app aberta. Se o browser bloquear áudio, abra a dclickora ou toque no aviso — o som escolhido dispara ao
-                entrar.
+                {t("pages.networkSales.chimeHint")}
               </p>
-              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Som da venda">
+              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={t("pages.networkSales.chimeLabel")}>
                 {SALE_CHIMES.map((item) => {
                   const selectedSound = chime === item.id;
                   return (
@@ -454,31 +477,24 @@ export default function Plataformas() {
             <div className="space-y-2 rounded-xl border border-border/60 bg-muted/15 px-4 py-3">
               <p className="text-sm font-medium text-foreground flex items-center gap-2">
                 <Bell className="h-4 w-4 text-muted-foreground" />
-                Aviso no ecrã do telemóvel
+                {t("pages.networkSales.phoneTitle")}
               </p>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                O cartão diz <strong className="font-medium text-foreground/90">Nova venda aprovada!</strong> e traz o
-                produto e a comissão que a rede enviou. O e-mail chega na mesma, sem este passo.
+                {t("pages.networkSales.phoneCard")} {t("pages.networkSales.phoneCardBody")}
               </p>
               {phoneSupport === "ios-home" ? (
                 <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal pl-4">
-                  <li>No Safari, toca em <strong className="font-medium text-foreground/90">Partilhar</strong>.</li>
-                  <li>
-                    Escolhe <strong className="font-medium text-foreground/90">Adicionar ao Ecrã Principal</strong>.
-                  </li>
-                  <li>
-                    Abre o ícone <strong className="font-medium text-foreground/90">dclickora</strong> e toca em Ativar.
-                    O Safari e o Chrome do iPhone não mostram o cartão dentro do separador.
-                  </li>
+                  <li>{t("pages.networkSales.iosShare")}</li>
+                  <li>{t("pages.networkSales.addHome")}</li>
+                  <li>{t("pages.networkSales.openIcon")}</li>
                 </ol>
               ) : phoneSupport === "unsupported" ? (
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Este browser não instala avisos no ecrã. No Android, abre a dclickora no Chrome e toca em Ativar.
+                  {t("pages.networkSales.noInstall")}
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Toca em Ativar e aceita as notificações. Com dados móveis ou Wi-Fi, o cartão aparece mesmo com o
-                  browser fechado.
+                  {t("pages.networkSales.tapActivate")}
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
@@ -490,7 +506,7 @@ export default function Plataformas() {
                   onClick={() => activatePhone.mutate()}
                 >
                   {activatePhone.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-                  {phonePushOn ? "Este telemóvel já recebe os avisos" : "Ativar neste telemóvel"}
+                  {phonePushOn ? t("pages.networkSales.phoneOnLabel") : t("pages.networkSales.phoneActivate")}
                 </Button>
                 <Button
                   type="button"
@@ -499,7 +515,7 @@ export default function Plataformas() {
                   onClick={() => testPhone.mutate()}
                 >
                   {testPhone.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Enviar aviso de teste
+                  {t("pages.networkSales.sendTest")}
                 </Button>
               </div>
             </div>
@@ -507,24 +523,22 @@ export default function Plataformas() {
             <div className="space-y-2 rounded-xl border-2 border-primary/40 bg-primary/[0.06] p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <Label className="font-semibold text-foreground text-base">
-                  → Cole este URL na {selected}
+                  {fill(t("pages.networkSales.pasteIn"), { network: selected })}
                 </Label>
                 <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                  Usar este
+                  {t("pages.networkSales.useThis")}
                 </span>
               </div>
               <p className="text-sm text-foreground/90 leading-relaxed">
-                Clique <strong>Copiar URL de aviso</strong> e cola em{" "}
+                {t("pages.networkSales.copyNoticeLead")}{" "}
                 {selected === "BuyGoods" ? (
-                  <>
-                    BuyGoods → <strong>Setup → Affiliates → Postback Pixels → Add</strong>
-                  </>
+                  <strong>{t("pages.networkSales.pasteBuygoods")}</strong>
                 ) : selected === "SmartAdv" ? (
-                  <>SmartAdv → Postbacks (Global ou por oferta)</>
+                  <>{t("pages.networkSales.pasteSmart")}</>
                 ) : (
-                  <>o painel de Postback / IPN da {selected}</>
+                  <>{fill(t("pages.networkSales.pastePanel"), { network: selected })}</>
                 )}
-                . Os campos entre chaves são preenchidos pela rede na venda. Campanhas que já estão a correr mantêm o URL que já foi colado.
+                . {t("pages.networkSales.macrosHint")}
               </p>
               <p className="text-xs text-foreground/90 leading-snug rounded-lg bg-background/80 border border-border/50 px-3 py-2">
                 <span className="font-semibold text-foreground">{selected}:</span> {postbackPresetHint}
@@ -533,7 +547,7 @@ export default function Plataformas() {
                 <Input readOnly value={examplePostbackUrl} className="font-mono text-[11px] leading-snug bg-background h-auto min-h-[3rem] py-2 flex-1 min-w-[12rem]" />
                 <Button type="button" className="gap-2 shrink-0 sm:self-start" onClick={handleCopyExample}>
                   {copiedExample ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  Copiar URL de aviso
+                  {t("pages.networkSales.copyNotice")}
                 </Button>
                 <Button
                   type="button"
@@ -543,7 +557,7 @@ export default function Plataformas() {
                   onClick={() => testPostback.mutate()}
                 >
                   {testPostback.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                  Testar ligação
+                  {t("pages.networkSales.testLink")}
                 </Button>
               </div>
               <PostbackMacroChecklist postbackUrl={examplePostbackUrl} platform={selected} />
@@ -556,13 +570,13 @@ export default function Plataformas() {
                   }`}
                 >
                   <p className="font-medium">
-                    {testPostback.data.ok ? "Resultado do teste" : "Atenção"}
+                    {testPostback.data.ok ? t("pages.networkSales.testResult") : t("pages.networkSales.attention")}
                   </p>
                   <p className="mt-1 text-muted-foreground">
                     {testPostback.data.message || testPostback.data.error}
                   </p>
                   {testPostback.data.next_step ? (
-                    <p className="mt-1 text-muted-foreground">Próximo: {testPostback.data.next_step}</p>
+                    <p className="mt-1 text-muted-foreground">{t("pages.networkSales.nextStep")} {testPostback.data.next_step}</p>
                   ) : null}
                   {testPostback.data.conversion ? (
                     <p className="mt-1 font-mono text-[10px] text-muted-foreground">
@@ -573,31 +587,30 @@ export default function Plataformas() {
                   ) : null}
                   {testPostback.data.ok ? (
                     <Button variant="link" className="h-auto px-0 mt-1 text-xs" asChild>
-                      <Link to="/resultados/conversoes">Ver Conversões</Link>
+                      <Link to="/resultados/conversoes">{t("pages.networkSales.viewConversions")}</Link>
                     </Button>
                   ) : null}
                 </div>
               ) : null}
               <div className="rounded-lg border border-border/40 bg-background/60 px-3 py-2.5 text-xs text-muted-foreground space-y-1.5">
-                <p className="font-semibold text-foreground text-[11px] uppercase tracking-wide">Como validar de ponta a ponta</p>
+                <p className="font-semibold text-foreground text-[11px] uppercase tracking-wide">{t("pages.networkSales.validateTitle")}</p>
                 <ol className="list-decimal pl-4 space-y-1 leading-relaxed">
                   <li>
-                    Cola o URL de aviso na {selected} e guarda.
+                    {fill(t("pages.networkSales.validatePaste"), { network: selected })}
                   </li>
                   <li>
-                    Abra o <strong className="text-foreground/90">link da campanha</strong> (o do anúncio) no browser e clique no CTA da oferta — gera um clique real.
+                    {t("pages.networkSales.test1")}
                   </li>
                   <li>
-                    Clique <strong className="text-foreground/90">Testar ligação</strong> — a Clickora simula a venda da {selected} com esse clique.
+                    {fill(t("pages.networkSales.test2"), { network: selected })}
                   </li>
                   <li>
-                    Confirme em <Link to="/resultados/conversoes" className="text-primary underline-offset-2 hover:underline">Conversões</Link>{" "}
-                    (deve aparecer atribuída). Opcional: venda real de teste na rede.
+                    {t("pages.networkSales.test3")}
                   </li>
                 </ol>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Rede: <span className="font-medium text-foreground/90">{selected}</span> → parâmetro{" "}
+                {t("pages.networkSales.networkParam")} <span className="font-medium text-foreground/90">{selected}</span> → {t("pages.networkSales.paramWord")}{" "}
                 <span className="font-mono">platform=…</span> nos alertas.
               </p>
             </div>
@@ -607,24 +620,22 @@ export default function Plataformas() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Label className="font-semibold text-foreground text-base">
-                      Funil: Checkout / Lander
+                      {t("pages.networkSales.funnelTitle")}
                     </Label>
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {funnelGuide.mode === "html_funnel_pixels"
-                        ? "Pixel HTML"
+                        ? t("pages.networkSales.pixelHtml")
                         : funnelGuide.mode === "event_postback"
-                          ? "Aviso de evento"
-                          : "Só venda (típico)"}
+                          ? t("pages.networkSales.eventNotice")
+                          : t("pages.networkSales.saleOnly")}
                     </span>
                   </div>
                   <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{funnelGuide.summary}</p>
                   <p className="mt-1 text-xs text-foreground/80">
-                    Onde configurar: <span className="font-medium">{funnelGuide.panelPath}</span>
+                    {t("pages.networkSales.whereConfig")} <span className="font-medium">{funnelGuide.panelPath}</span>
                   </p>
                   <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed border-t border-border/40 pt-2">
-                    Sempre disponível sem pixel: <strong className="text-foreground/85">Clique</strong> (saída para a
-                    oferta) e <strong className="text-foreground/85">Venda</strong> (aviso acima). Checkout na
-                    dclickora só depois de a rede disparar pixel/evento.
+                    {t("pages.networkSales.alwaysAvailable")}
                   </p>
                 </div>
 
@@ -632,13 +643,11 @@ export default function Plataformas() {
                   <div className="space-y-3">
                     {funnelGuide.mode === "sale_only" ? (
                       <p className="text-xs text-amber-900/90 dark:text-amber-100/90 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 leading-relaxed">
-                        Esta rede, na documentação típica, <strong>não</strong> envia Checkout Visitors. Os campos
-                        abaixo só servem se o painel tiver slot de pixel HTML no checkout/order form — caso contrário
-                        ignore.
+                        {t("pages.networkSales.noCheckoutDocs")}
                       </p>
                     ) : null}
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Pixel HTML — Checkout</Label>
+                      <Label className="text-xs text-muted-foreground">{t("pages.networkSales.htmlCheckout")}</Label>
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
                         <Input
                           readOnly
@@ -653,13 +662,13 @@ export default function Plataformas() {
                           onClick={() => handleCopyFunnel("checkout")}
                         >
                           {copiedFunnel === "checkout" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                          Copiar Checkout
+                          {t("pages.networkSales.copyCheckout")}
                         </Button>
                       </div>
                     </div>
                     {(funnelGuide.supportsLander || funnelGuide.mode === "sale_only") && (
                       <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Pixel HTML — Lander / VSL (opcional)</Label>
+                        <Label className="text-xs text-muted-foreground">{t("pages.networkSales.htmlLander")}</Label>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
                           <Input
                             readOnly
@@ -674,7 +683,7 @@ export default function Plataformas() {
                             onClick={() => handleCopyFunnel("lander")}
                           >
                             {copiedFunnel === "lander" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                            Copiar Lander
+                            {t("pages.networkSales.copyLander")}
                           </Button>
                         </div>
                       </div>
@@ -685,7 +694,7 @@ export default function Plataformas() {
                 {funnelGuide.mode === "event_postback" && checkoutEventUrl ? (
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">
-                      URL de aviso — Checkout (não uses como venda)
+                      {t("pages.networkSales.checkoutUrl")}
                     </Label>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
                       <Input
@@ -705,12 +714,12 @@ export default function Plataformas() {
                         ) : (
                           <Copy className="h-4 w-4" />
                         )}
-                        Copiar Event
+                        {t("pages.networkSales.copyEvent")}
                       </Button>
                     </div>
                     {funnelGuide.eventClickIdMacro ? (
                       <p className="text-[11px] text-muted-foreground">
-                        Macro do click id nesta rede:{" "}
+                        {t("pages.networkSales.clickMacro")}{" "}
                         <span className="font-mono text-foreground/85">{funnelGuide.eventClickIdMacro}</span>
                       </p>
                     ) : null}
@@ -718,11 +727,11 @@ export default function Plataformas() {
                 ) : null}
 
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Eventos de funil aparecem em{" "}
+                  {t("pages.networkSales.funnelLead")}{" "}
                   <Link to="/resultados/relatorios/acessos" className="text-primary underline-offset-2 hover:underline">
-                    Relatórios → Acessos
+                    {t("pages.networkSales.reportsVisits")}
                   </Link>{" "}
-                  como <strong className="text-foreground/90">Checkout</strong> ou Lander / VSL — nunca como venda.
+                  {t("pages.networkSales.asCheckout")}
                 </p>
               </div>
             ) : null}
@@ -730,23 +739,22 @@ export default function Plataformas() {
             <Collapsible>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="px-0 h-auto text-muted-foreground gap-1">
-                  Para que serve a outra URL? (avançado)
+                  {t("pages.networkSales.otherUrl")}
                   <ChevronDown className="h-3.5 w-3.5" />
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-4 pt-3">
                 <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-4">
-                  <Label className="font-semibold text-muted-foreground">URL base (só o token)</Label>
+                  <Label className="font-semibold text-muted-foreground">{t("pages.networkSales.baseToken")}</Label>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    É a mesma base do URL de cima, <strong className="text-foreground/90">sem</strong> os campos{" "}
-                    <span className="font-mono">{"{SUBID}"}</span>, <span className="font-mono">{"{ORDERID}"}</span>, etc.
-                    Só precisas dela se a rede pedir o endereço à parte. Na BuyGoods normalmente{" "}
-                    <strong className="text-foreground/90">não uses</strong> esta; usa «Copiar URL de aviso».
+                    {t("pages.networkSales.baseTokenHint")}{" "}
+                    <span className="font-mono">{"{SUBID}"}</span>, <span className="font-mono">{"{ORDERID}"}</span>, etc.{" "}
+                    {t("pages.networkSales.baseTokenTail")}
                   </p>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                     <Input readOnly value={displayHookUrl} className="font-mono text-xs bg-muted/30 h-11 sm:h-10 opacity-90" />
                     <div className="flex gap-2">
-                      <Button type="button" variant="outline" size="icon" onClick={handleCopyHook} title="Copiar URL base">
+                      <Button type="button" variant="outline" size="icon" onClick={handleCopyHook} title={t("pages.networkSales.copyHookTitle")}>
                         {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                       </Button>
                       <Button
@@ -761,7 +769,7 @@ export default function Plataformas() {
                         ) : (
                           <Link2 className="h-4 w-4" />
                         )}
-                        Testar e-mail
+                        {t("pages.networkSales.testEmailBtn")}
                       </Button>
                     </div>
                   </div>
@@ -769,12 +777,10 @@ export default function Plataformas() {
                     <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
                       {isAdmin ? (
                         <>
-                          O servidor ainda não tem SMTP configurado (<span className="font-mono">SMTP_HOST</span>,{" "}
-                          <span className="font-mono">SMTP_FROM</span>, etc.). O botão de teste fica desativado até isso existir no{" "}
-                          <span className="font-mono">.env</span> da API.
+                          {t("pages.networkSales.smtpMissing")}
                         </>
                       ) : (
-                        <>O envio de e-mail de teste ainda não está disponível neste ambiente. Contacte o suporte se precisar de ajuda.</>
+                        <>{t("pages.networkSales.emailUnavailable")}</>
                       )}
                     </p>
                   )}
@@ -787,16 +793,16 @@ export default function Plataformas() {
                 <AlertCircle className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
                 <div className="text-xs text-muted-foreground space-y-2">
                   <p>
-                    <strong className="text-foreground/90">Google Ads / Microsoft Ads</strong> usam outro fluxo (conversões por GCLID). Use{" "}
+                    {t("pages.networkSales.adsOtherFlow")}{" "}
                     <Link to="/tracking/tools" className="text-primary inline-flex items-center gap-1 hover:underline">
-                      Ferramentas de rastreio <ExternalLink className="h-3 w-3" />
+                      {t("pages.integrations.openTracking")} <ExternalLink className="h-3 w-3" />
                     </Link>
                     .
                   </p>
                   {isAdmin ? (
                     <p>
-                      <strong className="text-foreground/90">Webhook Hotmart do dclickora</strong> (assinaturas da app) é outro endpoint:{" "}
-                      <span className="font-mono">/api/webhooks/hotmart</span> — não confundir com o aviso de venda de afiliado.
+                      {t("pages.networkSales.hotmartOther")}{" "}
+                      <span className="font-mono">/api/webhooks/hotmart</span> {t("pages.networkSales.hotmartTail")}
                     </p>
                   ) : null}
                 </div>

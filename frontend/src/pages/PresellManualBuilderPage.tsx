@@ -1,4 +1,5 @@
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 import {
   lazy,
   Suspense,
@@ -204,7 +205,7 @@ export default function PresellManualBuilderPage() {
       const { data, error } = await presellService.getById(routeId);
       if (cancelled) return;
       if (error || !data) {
-        toast.error(error || "Não foi possível carregar a página.");
+        toast.error(error || t("pages.manualBuilder.loadError"));
         navigate("/presell/dashboard", { replace: true });
         return;
       }
@@ -235,7 +236,7 @@ export default function PresellManualBuilderPage() {
         const expanded = expandMonolithicHtmlDocument(doc);
         if (expanded !== doc) {
           doc = { ...expanded, settings: { ...expanded.settings, htmlFoldMode: "blocks" } };
-          toast.message("Página convertida em blocos editáveis. Clique em cada elemento para editar.");
+          toast.message(t("pages.manualBuilder.convertedBlocks"));
         } else if (typeof c.importMirrorSrcDoc === "string" && c.importMirrorSrcDoc.length > 800) {
           const rebuilt = buildEditablePageDocument({
             title: data.title,
@@ -246,13 +247,13 @@ export default function PresellManualBuilderPage() {
           });
           if (rebuilt.settings?.htmlFoldMode === "blocks" || !isMonolithicHtmlFold(rebuilt)) {
             doc = rebuilt;
-            toast.message("Página convertida em blocos editáveis. Clique em cada elemento para editar.");
+            toast.message(t("pages.manualBuilder.convertedBlocks"));
           }
         }
       }
       setAwaitingVisualPublish(data.type !== "builder");
       if (!doc || !Array.isArray(doc.sections)) {
-        toast.error("Documento do editor em falta ou inválido.");
+        toast.error(t("pages.manualBuilder.docInvalid"));
         navigate("/presell/dashboard", { replace: true });
         return;
       }
@@ -298,14 +299,14 @@ export default function PresellManualBuilderPage() {
     mutationFn: async () => {
       const slug = sanitizeSlug(slugDraft || useBuilder.getState().doc.name);
       const affiliate = affiliateDraft.trim();
-      if (!slug) throw new Error("Indique um slug (endereço interno) para a página.");
+      if (!slug) throw new Error(t("pages.manualBuilder.slugRequired"));
       if (!affiliate) {
-        throw new Error("Indique o link da oferta (afiliado) na barra acima — usado pelo rastreamento de cliques.");
+        throw new Error(t("pages.manualBuilder.offerRequired"));
       }
       try {
         new URL(affiliate);
       } catch {
-        throw new Error("O link da oferta tem de ser um URL válido (https://…).");
+        throw new Error(t("pages.manualBuilder.offerInvalid"));
       }
       const doc = pointOfferButtonsAt(useBuilder.getState().doc, affiliate, loadedOfferRef.current);
       const currentIdentity = useBuilder.getState().pageIdentity;
@@ -329,7 +330,7 @@ export default function PresellManualBuilderPage() {
       lastCloudDocJsonRef.current = JSON.stringify(doc);
 
       const payload: Partial<Presell> = {
-        title: doc.name.trim() || "Presell manual",
+        title: doc.name.trim() || t("pages.manualBuilder.defaultTitle"),
         slug,
         type: keepType,
         category,
@@ -358,7 +359,7 @@ export default function PresellManualBuilderPage() {
         const base =
           row.compliance?.error ||
           row.message ||
-          "Publicação bloqueada pelas verificações internas.";
+          t("pages.manualBuilder.publishBlocked");
         return issues.length ? `${base}: ${issues.join(" · ")}` : base;
       };
 
@@ -409,7 +410,7 @@ export default function PresellManualBuilderPage() {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
       setAwaitingVisualPublish(false);
       if (!saved?.id) {
-        toast.success("Presell publicada.");
+        toast.success(t("pages.manualBuilder.published"));
         return;
       }
       const publicUrl = getPublicPresellFullUrl(
@@ -417,7 +418,7 @@ export default function PresellManualBuilderPage() {
         saved.custom_domain_id ?? customDomainId ?? null,
         { id: saved.id },
       );
-      toast.success("Página publicada — pronta a usar (links e rastreamento ativos).", {
+      toast.success(t("pages.manualBuilder.publishedReady"), {
         description: publicUrl,
         duration: 8000,
       });
@@ -429,7 +430,7 @@ export default function PresellManualBuilderPage() {
       navigate("/presell/dashboard", { replace: true });
     },
     onError: (e) => {
-      toast.error(e instanceof Error ? e.message : "Erro ao publicar.");
+      toast.error(e instanceof Error ? e.message : t("pages.manualBuilder.publishError"));
     },
   });
 
@@ -496,7 +497,7 @@ export default function PresellManualBuilderPage() {
       affiliateLink: affiliate || contentRef.current.affiliateLink || "",
     };
     const payload: Partial<Presell> = {
-      title: doc.name.trim() || "Presell manual",
+      title: doc.name.trim() || t("pages.manualBuilder.defaultTitle"),
       slug,
       type: "builder",
       category: categoryRef.current,
@@ -610,7 +611,7 @@ export default function PresellManualBuilderPage() {
     () => ({
       onRequestSave: () => {
         if (!userCanWritePresells(user)) {
-          toast.error("Sem permissão para guardar presells neste workspace.");
+          toast.error(t("pages.manualBuilder.noPermission"));
           return;
         }
         saveMutation.mutate();
@@ -627,7 +628,7 @@ export default function PresellManualBuilderPage() {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background text-muted-foreground gap-2">
         <Loader2 className="h-5 w-5 animate-spin" />
-        A preparar o editor…
+        {t("pages.manualBuilder.preparing")}
       </div>
     );
   }
@@ -646,21 +647,21 @@ export default function PresellManualBuilderPage() {
             onClick={() => navigate("/presell/dashboard")}
           >
             <ArrowLeft className="mr-1 h-3.5 w-3.5" />
-            Voltar
+            {t("common.back")}
           </Button>
           <Input
             value={slugDraft}
             onChange={(e) => setSlugDraft(e.target.value)}
-            aria-label="Slug"
+            aria-label={t("pages.manualBuilder.slugAria")}
             className="h-8 w-36 shrink-0 border-editor-border bg-editor-bg text-xs text-editor-fg sm:w-44"
-            placeholder="slug da página"
+            placeholder={t("pages.manualBuilder.slugPlaceholder")}
           />
           <Input
             value={affiliateDraft}
             onChange={(e) => setAffiliateDraft(e.target.value)}
-            aria-label="Link da oferta"
+            aria-label={t("pages.manualBuilder.offerAria")}
             className="h-8 min-w-0 flex-1 border-editor-border bg-editor-bg text-xs text-editor-fg"
-            placeholder="Link da oferta — https://…"
+            placeholder={t("pages.manualBuilder.offerPlaceholder")}
           />
           {hasVerifiedCustomDomain ? (
             <Select
@@ -668,10 +669,10 @@ export default function PresellManualBuilderPage() {
               onValueChange={(v) => setCustomDomainId(v === "default" ? "" : v)}
             >
               <SelectTrigger className="h-8 w-40 shrink-0 border-editor-border bg-editor-bg text-xs text-editor-fg sm:w-52">
-                <SelectValue placeholder="Domínio" />
+                <SelectValue placeholder={t("pages.manualBuilder.domainPlaceholder")} />
               </SelectTrigger>
               <SelectContent className="z-[240] border-editor-border bg-editor-panel text-editor-fg shadow-lg [&_[role=option]]:text-editor-fg [&_[role=option]:focus]:bg-editor-panel-2">
-                <SelectItem value="default">Domínio padrão</SelectItem>
+                <SelectItem value="default">{t("pages.manualBuilder.defaultDomain")}</SelectItem>
                 {verifiedHostingDomains.map((d) => (
                     <SelectItem key={d.id} value={d.id}>
                       {d.hostname}
@@ -683,9 +684,9 @@ export default function PresellManualBuilderPage() {
           <Select value={language} onValueChange={(v) => setLanguage(normalizePresellLocale(v) as PresellLocaleKey)}>
             <SelectTrigger
               className="h-8 w-36 shrink-0 border-editor-border bg-editor-bg text-xs text-editor-fg sm:w-44"
-              aria-label="Idioma da página"
+              aria-label={t("pages.manualBuilder.languageAria")}
             >
-              <SelectValue placeholder="Idioma" />
+              <SelectValue placeholder={t("pages.manualBuilder.languagePlaceholder")} />
             </SelectTrigger>
             <SelectContent className="z-[240] border-editor-border bg-editor-panel text-editor-fg shadow-lg [&_[role=option]]:text-editor-fg [&_[role=option]:focus]:bg-editor-panel-2">
               {PRESELL_CREATION_LANGUAGES.map((l) => (
@@ -706,14 +707,15 @@ export default function PresellManualBuilderPage() {
             }}
           >
             <Settings2 className="mr-1 h-3.5 w-3.5" />
-            Rastreio
+            {t("pages.manualBuilder.tracking")}
             <span className="ml-1.5 tabular-nums text-editor-fg-muted">{trackingHealthScore}</span>
           </Button>
         </div>
         {awaitingVisualPublish ? (
           <p className="shrink-0 border-b border-editor-border bg-editor-panel-2 px-3 py-2 text-xs leading-relaxed text-editor-fg">
-            Escolhe o domínio (se tiveres), edita e clica em <strong className="font-medium">Publicar</strong> — a
-            página fica no ar de imediato, com rastreamento e pronta na lista de Presells.
+            {t("pages.manualBuilder.publishHintBefore")}{" "}
+            <strong className="font-medium">{t("pages.manualBuilder.publishStrong")}</strong>
+            {t("pages.manualBuilder.publishHintAfter")}
           </p>
         ) : null}
 
@@ -722,7 +724,7 @@ export default function PresellManualBuilderPage() {
             fallback={
               <div className="flex h-full items-center justify-center text-sm text-editor-fg-muted">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                A carregar o editor…
+                {t("pages.manualBuilder.loadingEditor")}
               </div>
             }
           >
@@ -734,23 +736,22 @@ export default function PresellManualBuilderPage() {
               <button
                 type="button"
                 className="absolute inset-0 cursor-default"
-                aria-label="Fechar painel"
+                aria-label={t("pages.manualBuilder.closePanel")}
                 onClick={() => setPublishDrawer(false)}
               />
               <div className="relative flex h-full w-full max-w-xl flex-col border-l border-editor-border bg-editor-panel shadow-2xl">
                 <div className="flex items-start justify-between gap-3 border-b border-editor-border px-4 py-3">
                   <div>
-                    <p className="text-sm font-semibold text-editor-fg">Pixels e rastreio</p>
+                    <p className="text-sm font-semibold text-editor-fg">{t("pages.manualBuilder.pixelsTitle")}</p>
                     <p className="mt-1 text-[11px] leading-relaxed text-editor-fg-muted">
-                      Clickora (cliques/comissões) é automático. Aqui colas pixel Meta, TikTok, Google ou Bing — por ID
-                      ou script completo — para a página manual.
+                      {t("pages.manualBuilder.pixelsHint")}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setPublishDrawer(false)}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-editor-fg-muted hover:bg-editor-panel-2 hover:text-editor-fg"
-                    aria-label="Fechar"
+                    aria-label={t("common.close")}
                   >
                     <X className="h-4 w-4" />
                   </button>

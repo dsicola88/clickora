@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { usePageBuilderT } from "../usePageBuilderT";
 
 type TocItem = { id: string; text: string; level: number };
 
@@ -15,8 +16,10 @@ export function TableOfContentsWidget({
   widget: WidgetNode;
   device: DeviceType;
 }) {
+  const t = usePageBuilderT();
   const c = widget.content;
-  const title = ((c.title as string) ?? "Índice").trim();
+  const tocTitle = t("pages.pageBuilder.defaults.tocTitle");
+  const title = ((c.title as string) ?? tocTitle).trim();
   const manual = Array.isArray(c.items)
     ? (c.items as Array<{ id?: string; label?: string; href?: string }>)
     : [];
@@ -44,7 +47,7 @@ export function TableOfContentsWidget({
     manual.length > 0
       ? manual.map((m) => ({
           href: m.href || (m.id ? `#${m.id}` : "#"),
-          label: m.label || m.id || "Secção",
+          label: m.label || m.id || t("pages.pageBuilder.defaults.tocSection"),
           level: 2,
         }))
       : autoItems.map((a) => ({
@@ -54,14 +57,14 @@ export function TableOfContentsWidget({
         }));
 
   return (
-    <nav style={{ ...css }} aria-label={title || "Índice"}>
+    <nav style={{ ...css }} aria-label={title || tocTitle}>
       {title ? (
         <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 16 }}>{title}</div>
       ) : null}
       <ol style={{ margin: 0, padding: 0, listStyle: "none" }}>
         {items.length === 0 ? (
           <li style={{ fontSize: 13, opacity: 0.6 }}>
-            Sem entradas. Dê ID aos títulos (h2–h4) ou adicione itens manuais.
+            {t("pages.pageBuilder.defaults.tocEmpty")}
           </li>
         ) : (
           items.map((it, i) => (

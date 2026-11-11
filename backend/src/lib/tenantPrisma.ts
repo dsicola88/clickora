@@ -5,7 +5,10 @@ import { logCrossTenantBlocked, logTenantViolation } from "./tenantLogging";
 
 /**
  * Modelos com coluna `user_id` (tenant = dono da linha).
- * Ao adicionar modelo novo com `userId` em schema.prisma, incluir aqui ou o cliente tenant não filtra.
+ * Ao adicionar modelo novo com `userId` em schema.prisma:
+ * - incluir aqui (cliente tenant filtra), **ou**
+ * - documentar em `USER_ID_MODELS_INTENTIONAL_EXCLUSIONS` (systemPrisma + ownership manual).
+ * O teste `tenantPrisma.test.ts` falha se o schema e estas listas divergirem.
  */
 /** Exposto para testes — manter sincronizado com modelos `userId` no schema. */
 export const USER_ID_MODELS = [
@@ -33,6 +36,22 @@ export const USER_ID_MODELS = [
   "tenantBranding",
   /** Paid: defense-in-depth se alguém usar o cliente tenant por engano. */
   "paidAdsProject",
+] as const;
+
+/**
+ * Modelos Prisma com `userId` que **não** entram no extension tenant.
+ * Motivo: membership / fila de sistema / paid child tables com ownership via `systemPrisma`.
+ * Não remover daqui sem decidir explicitamente o isolamento.
+ */
+export const USER_ID_MODELS_INTENTIONAL_EXCLUSIONS = [
+  "workspaceMember",
+  "conversionSyncJob",
+  "paidAdsGoogleAdsConnection",
+  "paidAdsMetaConnection",
+  "paidAdsTikTokConnection",
+  "paidAdsCampaign",
+  "paidAdsChangeRequest",
+  "paidAdsAiRun",
 ] as const;
 
 const MUTATING_PLAN_OPS = new Set(["create", "createMany", "update", "updateMany", "delete", "deleteMany", "upsert"]);

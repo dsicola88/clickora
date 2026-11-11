@@ -11,6 +11,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 import { campaignStatusArchivableLocally } from "@/lib/paidAdsUi";
 import type { CampaignRow } from "@/services/paidAdsService";
 import { paidAdsService } from "@/services/paidAdsService";
@@ -23,6 +25,7 @@ type Props = {
 
 /** Arquiva na base (estado «arquivada») sem apagar a conta na rede — só rascunhos / pré-publish / erro. */
 export function DpilotCampaignArchiveButton({ projectId, campaign, reload }: Props) {
+  const { t } = useAppLocale();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -38,9 +41,8 @@ export function DpilotCampaignArchiveButton({ projectId, campaign, reload }: Pro
         toast.error(error);
         return;
       }
-      toast.success("Campanha arquivada", {
-        description:
-          "Saíu da lista por defeito — filtre por «Arquivada» se precisar de ver o registo.",
+      toast.success(t("pages.dpilot.hub.archiveToast"), {
+        description: t("pages.dpilot.hub.archiveToastDesc"),
       });
       setOpen(false);
       reload();
@@ -53,20 +55,18 @@ export function DpilotCampaignArchiveButton({ projectId, campaign, reload }: Pro
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="h-8 text-xs">
-          Arquivar
+          {t("pages.dpilot.hub.archiveBtn")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Arquivar «{campaign.name}»?</AlertDialogTitle>
+          <AlertDialogTitle>{fill(t("pages.dpilot.hub.archiveTitle"), { name: campaign.name })}</AlertDialogTitle>
           <AlertDialogDescription className="text-left leading-relaxed">
-            Esta acção marca a campanha como <strong className="font-medium text-foreground">arquivada</strong> no Clickora
-            (não apaga nada na conta Google, Meta ou TikTok se ainda não foi publicada). Pode filtrar estado «Arquivada» na
-            tabela para a voltar a ver.
+            {t("pages.dpilot.hub.archiveBody")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel disabled={busy}>{t("common.cancel")}</AlertDialogCancel>
           <Button
             type="button"
             variant="destructive"
@@ -74,7 +74,7 @@ export function DpilotCampaignArchiveButton({ projectId, campaign, reload }: Pro
             disabled={busy}
             onClick={() => void onConfirm()}
           >
-            {busy ? "A arquivar…" : "Confirmar arquivo"}
+            {busy ? t("pages.dpilot.hub.archiving") : t("pages.dpilot.hub.archiveConfirm")}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

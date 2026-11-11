@@ -1,4 +1,5 @@
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill, numberLocaleFor, type MessageKey } from "@/i18n";
 import { useEffect, useState } from "react";
 import { Routes, Route, Navigate, NavLink, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -36,22 +37,20 @@ import { cn } from "@/lib/utils";
 
 const TOOLS_BASE = "/tracking/tools";
 
-const navItems = [
-  { to: `${TOOLS_BASE}/ip`, label: "Rastrear IP", icon: MapPin },
-  { to: `${TOOLS_BASE}/gclid`, label: "GCLID", icon: Key },
-  { to: `${TOOLS_BASE}/clique`, label: "ID do clique", icon: Fingerprint },
-  { to: `${TOOLS_BASE}/postbacks`, label: "Postbacks e conversão Google", icon: Globe },
-] as const;
+const navItems: { to: string; labelKey: MessageKey | null; literal?: string; icon: typeof MapPin }[] = [
+  { to: `${TOOLS_BASE}/ip`, labelKey: "pages.trackingTools.navIp", icon: MapPin },
+  { to: `${TOOLS_BASE}/gclid`, labelKey: null, literal: "GCLID", icon: Key },
+  { to: `${TOOLS_BASE}/clique`, labelKey: "pages.trackingTools.clickId", icon: Fingerprint },
+  { to: `${TOOLS_BASE}/postbacks`, labelKey: "pages.trackingTools.navPostbacks", icon: Globe },
+];
 
 function ToolsSubNav() {
+  const { t } = useAppLocale();
   return (
-    <nav className="mb-6 space-y-3" aria-label="Ferramentas de rastreio">
-      <p className="text-sm text-muted-foreground">
-        Cada ferramenta tem o seu URL — pode marcar favoritos ou partilhar ligações directas sem mudar de página
-        manualmente.
-      </p>
+    <nav className="mb-6 space-y-3" aria-label={t("pages.trackingTools.navAria")}>
+      <p className="text-sm text-muted-foreground">{t("pages.trackingTools.navHint")}</p>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        {navItems.map(({ to, label, icon: Icon }) => (
+        {navItems.map(({ to, labelKey, literal, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -65,7 +64,7 @@ function ToolsSubNav() {
             }
           >
             <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
-            {label}
+            {labelKey ? t(labelKey) : literal}
           </NavLink>
         ))}
       </div>
@@ -74,6 +73,7 @@ function ToolsSubNav() {
 }
 
 function IpLookupPage() {
+  const { t } = useAppLocale();
   const [ip, setIp] = useState("");
   const [ipLoading, setIpLoading] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -106,7 +106,7 @@ function IpLookupPage() {
   const handleTrackIp = async () => {
     const v = ip.trim();
     if (!v) {
-      toast.error("Insira um IP.");
+      toast.error(t("pages.trackingTools.needIp"));
       return;
     }
     setIpLoading(true);
@@ -114,7 +114,7 @@ function IpLookupPage() {
     try {
       const { data, error } = await trackingService.lookupIp(v);
       if (error) throw new Error(error);
-      if (!data || !data.ok) throw new Error("Resposta inválida");
+      if (!data || !data.ok) throw new Error(t("pages.trackingTools.badResponse"));
       setIpLookup({
         ip: data.ip,
         found: data.found,
@@ -125,11 +125,13 @@ function IpLookupPage() {
         geo: data.geo,
       });
       if (data.network) {
-        toast.info(`Nó ${data.network_label ?? data.network}. O país de quem acedeu não está neste IP.`);
-      } else if (data.found) toast.info("Estimativa da base GeoLite2. Não entra nos relatórios.");
-      else toast.info(data.message || "Sem dados para este IP.");
+        toast.info(
+          fill(t("pages.trackingTools.networkNode"), { name: data.network_label ?? data.network }),
+        );
+      } else if (data.found) toast.info(t("pages.trackingTools.geoEstimate"));
+      else toast.info(data.message || t("pages.trackingTools.noIpData"));
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Falha ao consultar IP");
+      toast.error(e instanceof Error ? e.message : t("pages.trackingTools.ipFail"));
       setIpLookup(null);
     } finally {
       setIpLoading(false);
@@ -138,15 +140,10 @@ function IpLookupPage() {
 
   return (
     <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
-      <p className="text-sm text-muted-foreground">
-        Consulta da base <span className="text-foreground/90">GeoLite2</span>. É uma estimativa do endereço, não a
-        localização confirmada de uma pessoa, e não é o país que aparece nos relatórios. Cidade e coordenadas podem
-        estar erradas. Em <span className="font-mono text-xs">IPv6</span> a base costuma ter só país, sem cidade. Para
-        testar: <span className="font-mono text-xs">8.8.8.8</span>.
-      </p>
+      <p className="text-sm text-muted-foreground">{t("pages.trackingTools.ipIntro")}</p>
       <div className="flex flex-col sm:flex-row items-end gap-4">
         <div className="space-y-2 flex-1">
-          <Label>Endereço IP</Label>
+          <Label>{t("pages.trackingTools.ipLabel")}</Label>
           <Input
             placeholder="Ex: 8.8.8.8"
             value={ip}
@@ -161,7 +158,7 @@ function IpLookupPage() {
           className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
         >
           {ipLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-          {ipLoading ? "A consultar…" : "Rastrear"}
+          {ipLoading ? t("pages.trackingTools.lookingUp") : t("pages.trackingTools.track")}
         </Button>
       </div>
 
@@ -169,7 +166,7 @@ function IpLookupPage() {
         <div className="space-y-4">
           <div className="rounded-xl border border-border/50 bg-muted/30 p-5 space-y-2">
             <h3 className="font-semibold text-card-foreground flex items-center gap-2">
-              <Globe className="h-4 w-4 text-primary" /> IP consultado
+              <Globe className="h-4 w-4 text-primary" /> {t("pages.trackingTools.ipConsulted")}
             </h3>
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-mono text-sm font-medium text-card-foreground">{ipLookup.ip}</p>
@@ -181,7 +178,7 @@ function IpLookupPage() {
                 onClick={() => copyText("ip-consultado", ipLookup.ip)}
               >
                 {copiedField === "ip-consultado" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                Copiar IP
+                {t("pages.trackingTools.copyIp")}
               </Button>
             </div>
           </div>
@@ -189,7 +186,7 @@ function IpLookupPage() {
           {ipLookup.network ? (
             <div className="rounded-xl border border-border/50 p-5 space-y-4 bg-card">
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rede</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("pages.trackingTools.network")}</p>
                 <p className="text-lg font-semibold text-foreground">
                   {ipLookup.network_label ?? ipLookup.network}
                 </p>
@@ -198,25 +195,25 @@ function IpLookupPage() {
               {ipLookup.geo ? (
                 <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-3 space-y-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Leitura da base, posta de lado
+                    {t("pages.trackingTools.geoAside")}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     {[
                       {
-                        label: "País que a base marcou",
+                        label: t("pages.trackingTools.countryMarked"),
                         value: `${countryDisplayLabel(ipLookup.geo.country_code)} (${ipLookup.geo.country_code})`,
                       },
-                      { label: "Cidade", value: ipLookup.geo.city || "—" },
-                      { label: "Fuso horário", value: ipLookup.geo.timezone || "—" },
+                      { label: t("pages.trackingTools.city"), value: ipLookup.geo.city || "—" },
+                      { label: t("pages.trackingTools.timezone"), value: ipLookup.geo.timezone || "—" },
                       {
-                        label: "Coordenadas (aprox.)",
+                        label: t("pages.trackingTools.coords"),
                         value:
                           ipLookup.geo.latitude != null && ipLookup.geo.longitude != null
                             ? `${ipLookup.geo.latitude.toFixed(4)}, ${ipLookup.geo.longitude.toFixed(4)}`
                             : "—",
                       },
                       {
-                        label: "Precisão estimada (km)",
+                        label: t("pages.trackingTools.accuracyKm"),
                         value:
                           ipLookup.geo.area_km != null && ipLookup.geo.area_km > 0
                             ? String(ipLookup.geo.area_km)
@@ -235,7 +232,7 @@ function IpLookupPage() {
           ) : !ipLookup.found ? (
             <p className="text-sm text-muted-foreground rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-3">
               {ipLookup.message ??
-                "Sem dados de localização (rede privada, localhost ou IP sem entrada na base GeoLite)."}
+                t("pages.trackingTools.noGeo")}
             </p>
           ) : ipLookup.geo ? (
             <div className="rounded-xl border border-border/50 p-5 space-y-4 bg-card">
@@ -248,7 +245,7 @@ function IpLookupPage() {
                 </span>
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Estimativa da base
+                    {t("pages.trackingTools.geoBase")}
                   </p>
                   <p className="text-lg font-semibold text-foreground">
                     {countryDisplayLabel(ipLookup.geo.country_code)}{" "}
@@ -258,32 +255,32 @@ function IpLookupPage() {
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {ipLookup.message ??
-                      "Estimativa da base GeoLite. Não é a localização confirmada de uma pessoa e não entra nos relatórios."}
+                      t("pages.trackingTools.geoBaseHint")}
                   </p>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 {[
-                  { label: "Cidade", value: ipLookup.geo.city || "—" },
-                  { label: "Região / estado (código)", value: ipLookup.geo.region || "—" },
-                  { label: "Fuso horário", value: ipLookup.geo.timezone || "—" },
+                  { label: t("pages.trackingTools.city"), value: ipLookup.geo.city || "—" },
+                  { label: t("pages.trackingTools.regionCode"), value: ipLookup.geo.region || "—" },
+                  { label: t("pages.trackingTools.timezone"), value: ipLookup.geo.timezone || "—" },
                   {
-                    label: "Coordenadas (aprox.)",
+                    label: t("pages.trackingTools.coords"),
                     value:
                       ipLookup.geo.latitude != null && ipLookup.geo.longitude != null
                         ? `${ipLookup.geo.latitude.toFixed(4)}, ${ipLookup.geo.longitude.toFixed(4)}`
                         : "—",
                   },
-                  { label: "União Europeia", value: ipLookup.geo.eu ? "Sim" : "Não" },
+                  { label: t("pages.trackingTools.eu"), value: ipLookup.geo.eu ? t("common.yes") : t("common.no") },
                   {
-                    label: "Precisão estimada (km)",
+                    label: t("pages.trackingTools.accuracyKm"),
                     value:
                       ipLookup.geo.area_km != null && ipLookup.geo.area_km > 0
                         ? String(ipLookup.geo.area_km)
                         : "—",
                   },
                   ...(ipLookup.geo.metro > 0
-                    ? [{ label: "Metro / DMA (EUA)", value: String(ipLookup.geo.metro) }]
+                    ? [{ label: t("pages.trackingTools.metro"), value: String(ipLookup.geo.metro) }]
                     : []),
                 ].map((row) => (
                   <div key={row.label} className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
@@ -301,7 +298,7 @@ function IpLookupPage() {
                       rel="noopener noreferrer"
                     >
                       <MapPin className="h-3.5 w-3.5" />
-                      Ver no mapa (OpenStreetMap)
+                      {t("pages.trackingTools.viewMap")}
                     </a>
                   </Button>
                 </div>
@@ -309,9 +306,10 @@ function IpLookupPage() {
               <div className="flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
                 <Smartphone className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400 mt-0.5" />
                 <p>
-                  <span className="font-medium text-foreground/90">Dispositivo:</span> não dá para saber só pelo IP
-                  (móvel, tablet ou desktop). Esse dado vem do navegador nos{" "}
-                  <span className="text-foreground/90">relatórios de cliques</span> quando há user-agent.
+                  <span className="font-medium text-foreground/90">{t("pages.trackingTools.deviceLead")}</span>{" "}
+                  {t("pages.trackingTools.deviceMid")}{" "}
+                  <span className="text-foreground/90">{t("pages.trackingTools.deviceReports")}</span>{" "}
+                  {t("pages.trackingTools.deviceEnd")}
                 </p>
               </div>
             </div>
@@ -323,6 +321,7 @@ function IpLookupPage() {
 }
 
 function GclidDecoderPage() {
+  const { t } = useAppLocale();
   const [gclidInput, setGclidInput] = useState("");
   const [loadingGclid, setLoadingGclid] = useState(false);
   const [gclidResult, setGclidResult] = useState<null | {
@@ -334,22 +333,22 @@ function GclidDecoderPage() {
 
   const handleDecodeGclid = async () => {
     if (!gclidInput) {
-      toast.error("Insira um GCLID.");
+      toast.error(t("pages.trackingTools.needGclid"));
       return;
     }
     setLoadingGclid(true);
     try {
       const { data, error } = await trackingService.lookupGclid(gclidInput);
-      if (error || !data) throw new Error(error || "GCLID não encontrado");
+      if (error || !data) throw new Error(error || t("pages.trackingTools.gclidMissing"));
       setGclidResult({
         campaignId: data.campaign || "N/A",
         adGroupId: data.medium || "N/A",
         keyword: data.utm_term || "N/A",
         network: data.source || "N/A",
       });
-      toast.success("GCLID encontrado no tracking!");
+      toast.success(t("pages.trackingTools.gclidFound"));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Falha ao consultar GCLID");
+      toast.error(err instanceof Error ? err.message : t("pages.trackingTools.gclidFail"));
       setGclidResult(null);
     } finally {
       setLoadingGclid(false);
@@ -362,7 +361,7 @@ function GclidDecoderPage() {
         <div className="space-y-2 flex-1">
           <Label>GCLID</Label>
           <Input
-            placeholder="Cole o GCLID aqui..."
+            placeholder={t("pages.trackingTools.gclidPlaceholder")}
             value={gclidInput}
             onChange={(e) => setGclidInput(e.target.value)}
           />
@@ -373,19 +372,19 @@ function GclidDecoderPage() {
           disabled={loadingGclid}
           className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
         >
-          <Key className="h-4 w-4" /> {loadingGclid ? "Consultando..." : "Decodificar"}
+          <Key className="h-4 w-4" /> {loadingGclid ? t("pages.trackingTools.consulting") : t("pages.trackingTools.decode")}
         </Button>
       </div>
 
       {gclidResult && (
         <div className="bg-muted/30 rounded-xl p-5 space-y-3 border border-border/50">
-          <h3 className="font-semibold text-card-foreground">Informações decodificadas</h3>
+          <h3 className="font-semibold text-card-foreground">{t("pages.trackingTools.decoded")}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               { label: "Campaign ID", value: gclidResult.campaignId },
               { label: "Ad Group ID", value: gclidResult.adGroupId },
-              { label: "Palavra-chave", value: gclidResult.keyword },
-              { label: "Rede", value: gclidResult.network },
+              { label: t("pages.trackingTools.keyword"), value: gclidResult.keyword },
+              { label: t("pages.trackingTools.network"), value: gclidResult.network },
             ].map((item) => (
               <div key={item.label} className="bg-card rounded-lg p-3 border border-border/50">
                 <p className="text-xs text-muted-foreground">{item.label}</p>
@@ -400,6 +399,7 @@ function GclidDecoderPage() {
 }
 
 function ClickUuidPage() {
+  const { t } = useAppLocale();
   const [clickIdInput, setClickIdInput] = useState("");
   const [clickLookupLoading, setClickLookupLoading] = useState(false);
   const [clickLookup, setClickLookup] = useState<null | Record<string, unknown>>(null);
@@ -407,18 +407,18 @@ function ClickUuidPage() {
   const handleLookupClick = async () => {
     const id = clickIdInput.trim();
     if (!id) {
-      toast.error("Cole o ID do clique (Relatórios → Click ID).");
+      toast.error(t("pages.trackingTools.needClickId"));
       return;
     }
     setClickLookupLoading(true);
     setClickLookup(null);
     try {
       const { data, error } = await analyticsService.getTrackingClick(id);
-      if (error || !data) throw new Error(error || "Clique não encontrado");
+      if (error || !data) throw new Error(error || t("pages.trackingTools.clickMissing"));
       setClickLookup(data as unknown as Record<string, unknown>);
-      toast.success("Clique encontrado.");
+      toast.success(t("pages.trackingTools.clickFound"));
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Falha na consulta");
+      toast.error(e instanceof Error ? e.message : t("pages.trackingTools.lookupFail"));
     } finally {
       setClickLookupLoading(false);
     }
@@ -426,13 +426,10 @@ function ClickUuidPage() {
 
   return (
     <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
-      <p className="text-sm text-muted-foreground">
-        Consulta um evento de <span className="text-foreground/90">clique</span> pelo ID (coluna Click ID nos
-        Relatórios). Útil para confirmar destino do rotador, sub-IDs, GCLID e IP.
-      </p>
+      <p className="text-sm text-muted-foreground">{t("pages.trackingTools.clickIntro")}</p>
       <div className="flex flex-col sm:flex-row items-end gap-4">
         <div className="space-y-2 flex-1">
-          <Label>ID do clique</Label>
+          <Label>{t("pages.trackingTools.clickId")}</Label>
           <Input
             placeholder="ex.: a1b2c3d4-…"
             value={clickIdInput}
@@ -448,23 +445,23 @@ function ClickUuidPage() {
           className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90"
         >
           {clickLookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-          {clickLookupLoading ? "A consultar…" : "Consultar"}
+          {clickLookupLoading ? t("pages.trackingTools.lookingUp") : t("pages.trackingTools.lookup")}
         </Button>
       </div>
       {clickLookup ? (
         <dl className="grid gap-2 sm:grid-cols-2 text-xs rounded-lg border border-border/50 bg-muted/20 p-4">
           {(
             [
-              ["Destino", clickLookup.redirect_to ?? clickLookup.destination_url ?? clickLookup.to],
+              [t("pages.trackingTools.dest"), clickLookup.redirect_to ?? clickLookup.destination_url ?? clickLookup.to],
               ["IP", clickLookup.ip],
-              ["País", clickLookup.country],
+              [t("pages.trackingTools.country"), clickLookup.country],
               ["GCLID", clickLookup.gclid],
-              ["Campanha", clickLookup.campaign ?? clickLookup.utm_campaign],
-              ["Fonte", clickLookup.source ?? clickLookup.utm_source],
+              [t("pages.trackingTools.campaign"), clickLookup.campaign ?? clickLookup.utm_campaign],
+              [t("pages.trackingTools.source"), clickLookup.source ?? clickLookup.utm_source],
               ["Sub1", clickLookup.sub1],
               ["Sub2", clickLookup.sub2],
               ["Sub3", clickLookup.sub3],
-              ["Quando", clickLookup.created_at ?? clickLookup.timestamp],
+              [t("pages.trackingTools.when"), clickLookup.created_at ?? clickLookup.timestamp],
             ] as const
           )
             .filter(([, v]) => v != null && String(v).trim() !== "")
@@ -487,6 +484,7 @@ function ManualGoogleConversionForm({
   postbackToken: string;
   onSent: () => void;
 }) {
+  const { t } = useAppLocale();
   const queryClient = useQueryClient();
   const { data: presells = [], isLoading: loadingPresells } = useQuery({
     queryKey: ["presells"],
@@ -517,16 +515,16 @@ function ManualGoogleConversionForm({
     e.preventDefault();
     const g = gclid.trim();
     if (!presellId) {
-      toast.error("Escolha uma presell.");
+      toast.error(t("pages.trackingTools.needPresell"));
       return;
     }
     if (!g) {
-      toast.error("Cole o GCLID do clique.");
+      toast.error(t("pages.trackingTools.needClickGclid"));
       return;
     }
     const value = Number.parseFloat(String(valueStr).replace(",", "."));
     if (!Number.isFinite(value) || value < 0) {
-      toast.error("Indique um valor válido (0 ou maior).");
+      toast.error(t("pages.trackingTools.needValue"));
       return;
     }
     setSubmitting(true);
@@ -544,14 +542,14 @@ function ManualGoogleConversionForm({
       if (error) throw new Error(error);
       toast.success(
         data && typeof data === "object" && "duplicate" in data && data.duplicate
-          ? "Esta conversão já estava registada (mesmo ID de transação)."
-          : "Pedido enviado. Se o Google Ads estiver configurado no painel, a conversão segue para o Google.",
+          ? t("pages.trackingTools.duplicateConv")
+          : t("pages.trackingTools.sent"),
       );
       setGclid("");
       void queryClient.invalidateQueries({ queryKey: ["presells"] });
       onSent();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível enviar.");
+      toast.error(err instanceof Error ? err.message : t("pages.trackingTools.sendFail"));
     } finally {
       setSubmitting(false);
     }
@@ -564,25 +562,19 @@ function ManualGoogleConversionForm({
           <Send className="h-4 w-4" />
         </div>
         <div className="min-w-0 space-y-1">
-          <h3 className="font-semibold text-card-foreground">Conversão Google — envio simples</h3>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Preenche os campos e clica em enviar. Não precisas de Postman nem de comandos no terminal — o dclickora trata do pedido como no postback técnico.
-          </p>
+          <h3 className="font-semibold text-card-foreground">{t("pages.trackingTools.manualTitle")}</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">{t("pages.trackingTools.manualHint")}</p>
         </div>
       </div>
 
       <Alert className="border-sky-500/30 bg-sky-500/[0.06]">
-        <AlertTitle className="text-sm">Antes de enviar</AlertTitle>
+        <AlertTitle className="text-sm">{t("pages.trackingTools.beforeSend")}</AlertTitle>
         <AlertDescription className="text-xs leading-relaxed space-y-2">
+          <p>{t("pages.trackingTools.beforeSendP1")}</p>
           <p>
-            O <strong className="text-foreground/90">GCLID</strong> tem de ser o do clique real (anúncio com etiquetagem automática). Podes obtê-lo na
-            URL em que o visitante entrou ou na ferramenta <strong className="text-foreground/90">GCLID</strong> /{" "}
-            <strong className="text-foreground/90">ID do clique</strong> desta página.
-          </p>
-          <p>
-            Para o Google Ads receber pela API, liga a conta em{" "}
+            {t("pages.trackingTools.beforeSendP2")}{" "}
             <Link to="/integracoes/google-ads" className="font-medium text-primary underline underline-offset-2">
-              Integrações → Google Ads
+              {t("pages.trackingTools.googleAdsLink")}
             </Link>
             .
           </p>
@@ -591,17 +583,17 @@ function ManualGoogleConversionForm({
 
       {loadingPresells ? (
         <p className="text-sm text-muted-foreground flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" /> A carregar presells…
+          <Loader2 className="h-4 w-4 animate-spin" /> {t("pages.trackingTools.loadingPresells")}
         </p>
       ) : presells.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Cria primeiro uma presell em Minhas Presells.</p>
+        <p className="text-sm text-muted-foreground">{t("pages.trackingTools.createPresellFirst")}</p>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="manual-google-presell">Presell</Label>
+            <Label htmlFor="manual-google-presell">{t("pages.trackingTools.presellLabel")}</Label>
             <Select value={presellId} onValueChange={setPresellId}>
               <SelectTrigger id="manual-google-presell" className="w-full">
-                <SelectValue placeholder="Escolher presell" />
+                <SelectValue placeholder={t("pages.trackingTools.choosePresell")} />
               </SelectTrigger>
               <SelectContent>
                 {presells.map((p) => (
@@ -619,7 +611,7 @@ function ManualGoogleConversionForm({
             <Label htmlFor="manual-google-gclid">GCLID</Label>
             <Input
               id="manual-google-gclid"
-              placeholder="Cole o GCLID aqui"
+              placeholder={t("pages.trackingTools.gclidPlaceholder")}
               value={gclid}
               onChange={(e) => setGclid(e.target.value)}
               className="font-mono text-xs"
@@ -628,7 +620,7 @@ function ManualGoogleConversionForm({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="manual-google-value">Valor da conversão</Label>
+              <Label htmlFor="manual-google-value">{t("pages.trackingTools.value")}</Label>
               <Input
                 id="manual-google-value"
                 type="text"
@@ -639,7 +631,7 @@ function ManualGoogleConversionForm({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="manual-google-currency">Moeda</Label>
+              <Label htmlFor="manual-google-currency">{t("pages.trackingTools.currency")}</Label>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger id="manual-google-currency">
                   <SelectValue />
@@ -655,10 +647,10 @@ function ManualGoogleConversionForm({
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="manual-google-txid">ID da transação (opcional)</Label>
+            <Label htmlFor="manual-google-txid">{t("pages.trackingTools.txid")}</Label>
             <Input
               id="manual-google-txid"
-              placeholder="Ex.: encomenda-123 — evita duplicar se enviares outra vez"
+              placeholder={t("pages.trackingTools.txidPlaceholder")}
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
               className="font-mono text-xs"
@@ -670,7 +662,7 @@ function ManualGoogleConversionForm({
             className="gap-2 gradient-primary border-0 text-primary-foreground hover:opacity-90 w-full sm:w-auto"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            {submitting ? "A enviar…" : "Enviar conversão"}
+            {submitting ? t("pages.trackingTools.sending") : t("pages.trackingTools.sendConversion")}
           </Button>
         </form>
       )}
@@ -679,6 +671,8 @@ function ManualGoogleConversionForm({
 }
 
 function PostbacksPage() {
+  const { t, locale } = useAppLocale();
+  const numLocale = numberLocaleFor(locale);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [postbackTemplates, setPostbackTemplates] = useState<null | {
     token: string;
@@ -725,12 +719,12 @@ function PostbacksPage() {
         <ManualGoogleConversionForm postbackToken={postbackTemplates.token} onSent={reloadAudit} />
       ) : null}
 
-      <h3 className="font-semibold text-card-foreground">URLs de postback por cliente</h3>
-      {templatesLoading ? <p className="text-sm text-muted-foreground">A carregar URLs…</p> : null}
+      <h3 className="font-semibold text-card-foreground">{t("pages.trackingTools.postbackUrls")}</h3>
+      {templatesLoading ? <p className="text-sm text-muted-foreground">{t("pages.trackingTools.loadingUrls")}</p> : null}
       {!templatesLoading && postbackTemplates ? (
         <>
           <div className="space-y-2">
-            <Label>Token privado</Label>
+            <Label>{t("pages.trackingTools.privateToken")}</Label>
             <div className="flex gap-2">
               <Input readOnly value={postbackTemplates.token} className="font-mono text-xs" />
               <Button type="button" variant="outline" onClick={() => copyText("token", postbackTemplates.token)}>
@@ -739,7 +733,7 @@ function PostbacksPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Google Ads — URL de postback</Label>
+            <Label>{t("pages.trackingTools.googlePostback")}</Label>
             <div className="flex gap-2">
               <Input readOnly value={postbackTemplates.endpoints.google_ads} className="font-mono text-xs" />
               <Button
@@ -752,7 +746,7 @@ function PostbacksPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Microsoft Ads — URL de postback</Label>
+            <Label>{t("pages.trackingTools.msPostback")}</Label>
             <div className="flex gap-2">
               <Input readOnly value={postbackTemplates.endpoints.microsoft_ads} className="font-mono text-xs" />
               <Button
@@ -765,10 +759,10 @@ function PostbacksPage() {
             </div>
           </div>
           <div className="space-y-2 pt-2">
-            <Label>Auditoria recente</Label>
+            <Label>{t("pages.trackingTools.recentAudit")}</Label>
             <div className="max-h-64 overflow-auto rounded-md border border-border">
               {postbackAudit.length === 0 ? (
-                <p className="text-xs text-muted-foreground p-3">Sem eventos recentes.</p>
+                <p className="text-xs text-muted-foreground p-3">{t("pages.trackingTools.noEvents")}</p>
               ) : (
                 postbackAudit.map((row) => (
                   <div key={row.id} className="p-3 border-b border-border/50 last:border-0 text-xs">
@@ -786,7 +780,7 @@ function PostbacksPage() {
                         {row.status}
                       </span>
                     </div>
-                    <p className="text-muted-foreground">{new Date(row.created_at).toLocaleString("pt-BR")}</p>
+                    <p className="text-muted-foreground">{new Date(row.created_at).toLocaleString(numLocale)}</p>
                     {row.message ? <p>{row.message}</p> : null}
                   </div>
                 ))

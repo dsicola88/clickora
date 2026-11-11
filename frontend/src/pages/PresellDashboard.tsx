@@ -238,9 +238,9 @@ export default function PresellDashboard() {
     mutationFn: (id: string) => presellService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
-      toast.success("Página removida.");
+      toast.success(t("pages.presells.toastRemoved"));
     },
-    onError: () => toast.error("Erro ao remover página."),
+    onError: () => toast.error(t("pages.presells.toastRemoveError")),
   });
 
   const toggleMutation = useMutation({
@@ -252,17 +252,17 @@ export default function PresellDashboard() {
         throw new Error(
           blocked.compliance?.error ||
             blocked.message ||
-            "Publicação bloqueada pelas verificações internas.",
+            t("pages.presells.toastPublishBlocked"),
         );
       }
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
-      toast.success("Estado atualizado.");
+      toast.success(t("pages.presells.toastStatusUpdated"));
     },
     onError: (e: Error) => {
-      toast.error(e.message || "Não foi possível alterar o estado (verifique a conformidade).");
+      toast.error(e.message || t("pages.presells.toastStatusError"));
     },
   });
 
@@ -291,9 +291,14 @@ export default function PresellDashboard() {
         ),
       });
       if (pub.block && wantPublished) {
-        toast.warning(`Em rascunho: ${pub.block.label}. ${pub.block.hint || ""}`.trim());
+        toast.warning(
+          fill(t("pages.presells.toastDraftBlocked"), {
+            label: pub.block.label,
+            hint: pub.block.hint || "",
+          }).trim(),
+        );
       } else if (wantPublished && pub.complianceBlocked) {
-        toast.warning("Presell em rascunho por conformidade. Abra a página, corrija e publique.", {
+        toast.warning(t("pages.presells.toastDraftCompliance"), {
           duration: 8000,
         });
       }
@@ -305,12 +310,9 @@ export default function PresellDashboard() {
       resetForm();
       if (created?.id) {
         navigate("/campanhas");
-        toast.success(
-          "Presell criada. Continue em Campanhas ou use «Nova presell» para o assistente completo com link do anúncio.",
-          { duration: 8000 },
-        );
+        toast.success(t("pages.presells.toastCreatedContinue"), { duration: 8000 });
       } else {
-        toast.success("Página criada! Texto e imagens foram gerados automaticamente.");
+        toast.success(t("pages.presells.toastCreatedAuto"));
       }
     },
   });
@@ -333,22 +335,16 @@ export default function PresellDashboard() {
           (updated as { compliance_blocked?: boolean }).compliance_blocked,
       );
       if (blocked) {
-        toast.warning(
-          "Presell actualizada. Continua publicada, mas há avisos de conformidade — reveja antes de escalar anúncios.",
-          { duration: 9000 },
-        );
+        toast.warning(t("pages.presells.toastUpdatedWarnings"), { duration: 9000 });
       } else {
-        toast.success("Presell atualizada.");
+        toast.success(t("pages.presells.toastUpdated"));
       }
     },
     onError: (e: Error) => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
       const msg = (e.message || "").trim();
-      const pausedHint =
-        /pausad/i.test(msg)
-          ? " Clique em «Pausada» na lista para tentar publicar outra vez."
-          : "";
-      toast.error(`${msg || "Erro ao guardar alterações."}${pausedHint}`.trim(), {
+      const pausedHint = /pausad/i.test(msg) ? t("pages.presells.toastPausedRetry") : "";
+      toast.error(`${msg || t("pages.presells.toastSaveError")}${pausedHint}`.trim(), {
         duration: 10000,
       });
     },
@@ -358,9 +354,9 @@ export default function PresellDashboard() {
     mutationFn: (id: string) => presellService.duplicate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
-      toast.success("Presell duplicada com sucesso!");
+      toast.success(t("pages.presells.toastDuplicated"));
     },
-    onError: () => toast.error("Erro ao duplicar presell."),
+    onError: () => toast.error(t("pages.presells.toastDuplicateError")),
   });
 
   const [formData, setFormData] = useState({
@@ -442,7 +438,7 @@ export default function PresellDashboard() {
           if (e.path[0]) errs[String(e.path[0])] = e.message;
         });
         setFormErrors(errs);
-        toast.error("Corrija os campos do passo 1.");
+        toast.error(t("pages.presells.toastFixStep1"));
         return;
       }
       setFormErrors((prev) => {
@@ -527,7 +523,7 @@ export default function PresellDashboard() {
     // A lista omite `content`/`tracking` (performance) — carregar o detalhe.
     const { data: full, error } = await presellService.getById(page.id);
     if (error || !full) {
-      toast.error(error || "Não foi possível carregar a presell para editar.");
+      toast.error(error || t("pages.presells.toastLoadEditError"));
       return;
     }
     populateFormFromPresell(full);
@@ -553,13 +549,13 @@ export default function PresellDashboard() {
 
   const handleCopyAdsUrl = (page: Presell) => {
     if (page.status !== "published") {
-      toast.error("Publique a página antes de copiar a URL para o Ads.");
+      toast.error(t("pages.presells.toastPublishBeforeCopy"));
       return;
     }
     const url = adsFinalUrlForPage(page);
     void navigator.clipboard.writeText(url);
     setCopiedId(page.id);
-    toast.success("URL do anúncio copiada (com parâmetros de campanha).");
+    toast.success(t("pages.presells.toastAdsUrlCopied"));
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -568,7 +564,7 @@ export default function PresellDashboard() {
     try {
       const { data, error } = await presellService.getById(page.id);
       if (error || !data) {
-        toast.error(error || "Não foi possível carregar a página.");
+        toast.error(error || t("pages.presells.toastLoadPageError"));
         return;
       }
       const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
@@ -578,15 +574,13 @@ export default function PresellDashboard() {
         format: "htmlWidget",
       });
       if (data.type === "builder" && !parsePresellBuilderPageDocument(data.content)) {
-        toast.error("Documento do editor em falta.");
+        toast.error(t("pages.presells.toastEditorDocMissing"));
         return;
       }
       await navigator.clipboard.writeText(html);
-      toast.success(
-        "HTML copiado (layout + pixels Clickora/Meta/TikTok/Google/Bing). Cola no teu site no bloco «HTML».",
-      );
+      toast.success(t("pages.presells.toastHtmlCopiedWidget"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível copiar o HTML.");
+      toast.error(e instanceof Error ? e.message : t("pages.presells.toastHtmlCopyError"));
     } finally {
       setHtmlExportBusyId(null);
     }
@@ -597,12 +591,12 @@ export default function PresellDashboard() {
     try {
       const { data, error } = await presellService.getById(page.id);
       if (error || !data) {
-        toast.error(error || "Não foi possível carregar a página.");
+        toast.error(error || t("pages.presells.toastLoadPageError"));
         return;
       }
       const publicUrl = getPublicPresellFullUrl(customDomains, data.custom_domain_id, data);
       if (data.type === "builder" && !parsePresellBuilderPageDocument(data.content)) {
-        toast.error("Documento do editor em falta.");
+        toast.error(t("pages.presells.toastEditorDocMissing"));
         return;
       }
       const html = buildPresellStandaloneHtml(data, {
@@ -621,9 +615,9 @@ export default function PresellDashboard() {
       a.click();
       a.remove();
       URL.revokeObjectURL(objectUrl);
-      toast.success("Ficheiro .html completo descarregado (abre no browser ou edita offline).");
+      toast.success(t("pages.presells.toastHtmlDownloaded"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível gerar o ficheiro.");
+      toast.error(e instanceof Error ? e.message : t("pages.presells.toastHtmlGenerateError"));
     } finally {
       setHtmlExportBusyId(null);
     }
@@ -661,7 +655,7 @@ export default function PresellDashboard() {
         if (e.path[0]) errs[String(e.path[0])] = e.message;
       });
       setFormErrors(errs);
-      toast.error("Preencha os campos obrigatórios.");
+      toast.error(t("pages.presells.toastRequiredFields"));
       return;
     }
     setFormErrors({});
@@ -670,11 +664,11 @@ export default function PresellDashboard() {
     const importUrl = formData.productLink.trim();
     const ctaAffiliate = formData.affiliateLink.trim();
     if (!ctaAffiliate) {
-      toast.error("Indica o link da oferta da rede (destino do botão). Sem ele a venda não é atribuída.");
+      toast.error(t("pages.presells.toastOfferLinkRequired"));
       setCreatorStep(1);
       setFormErrors((prev) => ({
         ...prev,
-        affiliateLink: "Cola o link da oferta da rede (obrigatório).",
+        affiliateLink: t("pages.presells.affiliateLinkError"),
       }));
       return;
     }
@@ -690,7 +684,7 @@ export default function PresellDashboard() {
             if (isYoutubeUrl(manualYt)) {
               const embed = buildYoutubeEmbedUrlForPresell(manualYt);
               if (!embed) {
-                toast.error("URL do YouTube inválido. Use um link de vídeo (watch, youtu.be ou embed).");
+                toast.error(t("pages.presells.toastYoutubeInvalid"));
                 return;
               }
               video_url = embed;
@@ -739,7 +733,9 @@ export default function PresellDashboard() {
           );
           if (block) {
             toast.error(
-              `Presell: corrija «${block.hint || block.label}» antes de guardar.`.trim(),
+              fill(t("pages.presells.toastFixBeforeSave"), {
+                detail: block.hint || block.label,
+              }).trim(),
             );
             return;
           }
@@ -771,7 +767,7 @@ export default function PresellDashboard() {
           },
         });
       } catch (e) {
-        toastErrorFromCatch(e, "Erro ao guardar alterações.");
+        toastErrorFromCatch(e, t("pages.presells.toastSaveError"));
       } finally {
         setIsSavingPage(false);
       }
@@ -788,7 +784,7 @@ export default function PresellDashboard() {
       });
 
       if (error || !data) {
-        toast.error(error || "Não foi possível ler esta página. Verifique o link do produto (deve ser https://).");
+        toast.error(error || t("pages.presells.toastReadProductError"));
         return;
       }
 
@@ -801,7 +797,7 @@ export default function PresellDashboard() {
         } else if (manualYt) {
           const embed = buildYoutubeEmbedUrlForPresell(manualYt);
           if (!embed) {
-            toast.error("URL do YouTube inválido. Use um link de vídeo (watch, youtu.be ou embed).");
+            toast.error(t("pages.presells.toastYoutubeInvalid"));
             return;
           }
           video_url = embed;
@@ -868,11 +864,11 @@ export default function PresellDashboard() {
         toast.warning(data.import_notes.join(" "));
       } else if (data.publishable !== true) {
         toast.warning(
-          "Presell em rascunho — faltam título, imagens ou texto reais da oferta. Complete e publique.",
+          t("pages.presells.toastDraftIncomplete"),
         );
       }
     } catch (e) {
-      toastErrorFromCatch(e, "Erro ao criar página.");
+      toastErrorFromCatch(e, t("pages.presells.toastCreateError"));
     } finally {
       setIsSavingPage(false);
     }
@@ -886,7 +882,7 @@ export default function PresellDashboard() {
       // Lista não traz content/tracking — sem GET o check achava hoplink em falta.
       const { data: full, error: loadErr } = await presellService.getById(page.id);
       if (loadErr || !full) {
-        toast.error(loadErr || "Não foi possível carregar a presell.");
+        toast.error(loadErr || t("pages.presells.toastLoadPresellError"));
         return;
       }
       const content = { ...((full.content || {}) as Record<string, unknown>) };
@@ -930,7 +926,10 @@ export default function PresellDashboard() {
       });
       const block = publishBlockedByReadiness(items);
       if (block) {
-        toast.error(`Não publique ainda: ${block.hint || block.label}`.trim(), { duration: 9000 });
+        toast.error(
+          fill(t("pages.presells.toastDoNotPublishYet"), { detail: block.hint || block.label }).trim(),
+          { duration: 9000 },
+        );
         return;
       }
     }
@@ -973,7 +972,7 @@ export default function PresellDashboard() {
           actions={
             <>
               <Button variant="outline" onClick={exitCreator}>
-                Voltar
+                {t("common.back")}
               </Button>
               {(isEditing || creatorStep === 3) && (
                 <Button
@@ -984,11 +983,11 @@ export default function PresellDashboard() {
                   <Save className="h-4 w-4" />{" "}
                   {createMutation.isPending || updateMutation.isPending || isSavingPage
                     ? isEditing
-                      ? "A guardar..."
-                      : "Gerando página..."
+                      ? t("pages.presells.saving")
+                      : t("pages.presells.generatingPage")
                     : isEditing
-                      ? "Guardar alterações"
-                      : "Criar página completa"}
+                      ? t("pages.presells.saveChanges")
+                      : t("pages.presells.createFullPage")}
                 </Button>
               )}
             </>
@@ -999,24 +998,29 @@ export default function PresellDashboard() {
           <div className="rounded-xl border border-border/50 bg-muted/30 px-5 py-4 text-sm text-muted-foreground">
             {isEditing ? (
               <>
-                <p className="font-medium text-card-foreground mb-2">Edição</p>
-                <p>Alterações são locais; não voltamos a ler o site da oferta automaticamente.</p>
+                <p className="font-medium text-card-foreground mb-2">{t("pages.presells.editingHeading")}</p>
+                <p>{t("pages.presells.editingLocal")}</p>
               </>
             ) : (
               <>
-                <p className="font-medium text-card-foreground mb-2">Como funciona</p>
+                <p className="font-medium text-card-foreground mb-2">{t("pages.presells.howItWorks")}</p>
                 <ol className="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-muted-foreground">
                   <li>
-                    Ligue o <span className="font-medium text-foreground/90">seu domínio</span> — a Clickora trata da
-                    publicação e da segurança.
+                    {t("pages.presells.how1a")}{" "}
+                    <span className="font-medium text-foreground/90">{t("pages.presells.how1b")}</span>
+                    {t("pages.presells.how1c")}
                   </li>
                   <li>
-                    Crie a <span className="font-medium text-foreground/90">página</span> com o visual do produto e o{" "}
-                    <span className="font-medium text-foreground/90">link da oferta</span>.
+                    {t("pages.presells.how2a")}{" "}
+                    <span className="font-medium text-foreground/90">{t("pages.presells.how2b")}</span>
+                    {t("pages.presells.how2c")}{" "}
+                    <span className="font-medium text-foreground/90">{t("pages.presells.how2d")}</span>
+                    {t("pages.presells.how2e")}
                   </li>
                   <li>
-                    No anúncio use só o <span className="font-medium text-foreground/90">link da página</span> — o botão
-                    conta o clique e envia à oferta.
+                    {t("pages.presells.how3a")}{" "}
+                    <span className="font-medium text-foreground/90">{t("pages.presells.how3b")}</span>
+                    {t("pages.presells.how3c")}
                   </li>
                 </ol>
               </>
@@ -1026,13 +1030,13 @@ export default function PresellDashboard() {
 
         {!isEditing ? (
           <div className="rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-4 sm:px-5 mb-4">
-            <p className="text-xs font-medium text-foreground/90 mb-3">3 passos</p>
+            <p className="text-xs font-medium text-foreground/90 mb-3">{t("pages.presells.stepsTitle")}</p>
             <ol className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-8 text-sm">
               {(
                 [
-                  { n: 1 as const, label: "Nome + URLs" },
-                  { n: 2 as const, label: "Tipo" },
-                  { n: 3 as const, label: "Publicar" },
+                  { n: 1 as const, label: t("pages.presells.stepNameUrls") },
+                  { n: 2 as const, label: t("pages.presells.stepType") },
+                  { n: 3 as const, label: t("pages.presells.stepPublish") },
                 ] as const
               ).map(({ n, label }) => (
                 <li key={n} className="flex items-center gap-2 min-w-0">
@@ -1066,22 +1070,22 @@ export default function PresellDashboard() {
           <div className="px-4 py-4 sm:px-6 sm:py-4 border-b border-border/50">
             <h2 className="font-semibold text-card-foreground">
               {isEditing
-                ? "Dados da presell"
+                ? t("pages.presells.formDataTitle")
                 : creatorStep === 1
-                  ? "Passo 1 — Nome e links"
+                  ? t("pages.presells.step1Title")
                   : creatorStep === 2
-                    ? "Passo 2 — Tipo de página"
-                    : "Passo 3 — Endereço e criar"}
+                    ? t("pages.presells.step2Title")
+                    : t("pages.presells.step3Title")}
             </h2>
           </div>
           <div className="p-4 sm:p-6 lg:p-8 space-y-6">
             {stepVisible(1) ? (
               <div className="space-y-6 border-border/50 pb-6 sm:border-b sm:pb-8">
                 <div className="space-y-2">
-                  <Label htmlFor="pageName">Nome do projeto</Label>
+                  <Label htmlFor="pageName">{t("pages.presells.projectName")}</Label>
                   <Input
                     id="pageName"
-                    placeholder="Ex.: Campanha Suplemento X"
+                    placeholder={t("pages.presells.projectNamePlaceholder")}
                     value={formData.pageName}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -1100,15 +1104,14 @@ export default function PresellDashboard() {
                     className={formErrors.pageName ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
                   <FieldError message={formErrors.pageName} />
-                  <p className="text-xs text-muted-foreground">Só para te organizares na lista — não é o link do anúncio.</p>
+                  <p className="text-xs text-muted-foreground">{t("pages.presells.projectNameHint")}</p>
                 </div>
 
                 <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
                   <div>
-                    <Label className="text-foreground">Gerador de presell — nicho</Label>
+                    <Label className="text-foreground">{t("pages.presells.nicheLabel")}</Label>
                     <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                      Escolhe como a IA lê o link do produto. Black mantém o funil agressivo; White aproxima-se da
-                      sales page (texto, políticas e espelho visual).
+                      {t("pages.presells.nicheHint")}
                     </p>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -1141,32 +1144,32 @@ export default function PresellDashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="productLink">1) Página do produto a clonar</Label>
+                  <Label htmlFor="productLink">{t("pages.presells.productPageLabel")}</Label>
                   <Input
                     id="productLink"
                     type="url"
-                    placeholder="https://… sales page pública do produto"
+                    placeholder={t("pages.presells.productPagePlaceholder")}
                     value={formData.productLink}
                     onChange={(e) => updateField("productLink", e.target.value)}
                     className={formErrors.productLink ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
                   <FieldError message={formErrors.productLink} />
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Espelhamos esta página (layout, CSS, imagens) na presell. Use a{" "}
-                    <span className="font-medium text-foreground/90">sales page pública</span>, não o checkout.
-                    O link da oferta abaixo é o destino do botão (com rastreamento).
+                    {t("pages.presells.productHintBefore")}{" "}
+                    <span className="font-medium text-foreground/90">{t("pages.presells.productHintPublic")}</span>
+                    {t("pages.presells.productHintAfter")}
                   </p>
                 </div>
 
                 <div className="space-y-2 rounded-lg border border-primary/25 bg-primary/[0.04] p-3 sm:p-4">
                   <Label htmlFor="affiliateLinkOpt" className="text-foreground">
-                    2) Link da oferta — destino do botão{" "}
-                    <span className="text-destructive font-normal">(obrigatório)</span>
+                    {t("pages.presells.offerLinkLabel")}{" "}
+                    <span className="text-destructive font-normal">{t("pages.presells.requiredParen")}</span>
                   </Label>
                   <Input
                     id="affiliateLinkOpt"
                     type="url"
-                    placeholder="https://… link de afiliado da Digistore / ClickBank / etc."
+                    placeholder={t("pages.presells.offerLinkPlaceholder")}
                     value={formData.affiliateLink}
                     onChange={(e) => updateField("affiliateLink", e.target.value)}
                     className={formErrors.affiliateLink ? "border-destructive focus-visible:ring-destructive" : ""}
@@ -1174,13 +1177,12 @@ export default function PresellDashboard() {
                   />
                   <FieldError message={formErrors.affiliateLink} />
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Este é o link que a rede te dá (com o teu ID). O botão da presell envia o visitante para aqui — é o
-                    que faz o marketplace registar o teu clique e a venda.
+                    {t("pages.presells.offerLinkHint")}
                   </p>
                 </div>
 
                 <div className="space-y-2 max-w-md">
-                  <Label>Idioma do conteúdo gerado</Label>
+                  <Label>{t("pages.presells.generatedLanguage")}</Label>
                   <Select value={formData.language} onValueChange={(v) => updateField("language", v)}>
                     <SelectTrigger>
                       <SelectValue />
@@ -1200,7 +1202,7 @@ export default function PresellDashboard() {
             {stepVisible(2) ? (
               <div className="space-y-6 border-border/50 pb-6 sm:border-b sm:pb-8">
                 <div className="space-y-2 max-w-xl">
-                  <Label htmlFor="presell-type-select">Tipo de presell</Label>
+                  <Label htmlFor="presell-type-select">{t("pages.presells.presellTypeLabel")}</Label>
                   <PresellTypeCombobox
                     id="presell-type-select"
                     value={formData.presellType}
@@ -1208,8 +1210,9 @@ export default function PresellDashboard() {
                     generationNiche={formData.generationNiche}
                   />
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Abre a lista, usa a <span className="font-medium text-foreground/80">pesquisa</span> para filtrar (ex. «VSL»,
-                    «cookie», «desconto») e lê a descrição de cada tipo antes de confirmar.
+                    {t("pages.presells.typeSearchBefore")}{" "}
+                    <span className="font-medium text-foreground/80">{t("pages.presells.typeSearchWord")}</span>
+                    {t("pages.presells.typeSearchAfter")}
                   </p>
                   {selectedPresellTypeDetail ? (
                     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
@@ -1220,19 +1223,15 @@ export default function PresellDashboard() {
                 </div>
 
             <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 p-4 sm:p-5 space-y-4 text-left w-full min-w-0">
-              <p className="text-sm font-medium text-card-foreground">Opções do tipo (na página pública)</p>
-              <p className="text-xs text-muted-foreground">
-                O URL importado e o link de afiliado foram definidos no passo 1; aqui só ajusta regras visuais (cookies,
-                idade, VSL, etc.).
-              </p>
+              <p className="text-sm font-medium text-card-foreground">{t("pages.presells.typeOptionsTitle")}</p>
+              <p className="text-xs text-muted-foreground">{t("pages.presells.typeOptionsHint")}</p>
               {formData.presellType === "cookies" ? (
                 <div className="space-y-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 space-y-1">
-                      <p className="text-sm font-medium text-card-foreground">Ir directo à página de vendas</p>
+                      <p className="text-sm font-medium text-card-foreground">{t("pages.presells.cookieDirectTitle")}</p>
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        Ligado: «Aceitar» / «Fechar» abrem a oferta com rastreamento Clickora. Desligado: só liberam a
-                        review — o visitante usa os botões da página.
+                        {t("pages.presells.cookieDirectHint")}
                       </p>
                     </div>
                     <Switch
@@ -1240,11 +1239,11 @@ export default function PresellDashboard() {
                       onCheckedChange={(v) =>
                         setTypeOptions((o) => ({ ...o, cookieRedirectToOffer: Boolean(v) }))
                       }
-                      aria-label="Ir directo à página de vendas após cookies"
+                      aria-label={t("pages.presells.cookieDirectAria")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="cookiePolicyUrl">URL da política de cookies / privacidade (opcional)</Label>
+                    <Label htmlFor="cookiePolicyUrl">{t("pages.presells.cookiePolicyLabel")}</Label>
                     <Input
                       id="cookiePolicyUrl"
                       type="url"
@@ -1252,16 +1251,13 @@ export default function PresellDashboard() {
                       value={typeOptions.cookiePolicyUrl}
                       onChange={(e) => setTypeOptions((o) => ({ ...o, cookiePolicyUrl: e.target.value }))}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      O link da política abre num separador (não envia para a oferta). Sem hoplink, o modal só
-                      desbloqueia a página.
-                    </p>
+                    <p className="text-xs text-muted-foreground">{t("pages.presells.cookiePolicyHint")}</p>
                   </div>
                 </div>
               ) : null}
               {["idade", "idade_sexo", "idade_pais"].includes(formData.presellType) ? (
                 <div className="space-y-2">
-                  <Label htmlFor="minAge">Idade mínima para liberar o botão</Label>
+                  <Label htmlFor="minAge">{t("pages.presells.minAgeLabel")}</Label>
                   <Input
                     id="minAge"
                     type="number"
@@ -1271,10 +1267,7 @@ export default function PresellDashboard() {
                     value={typeOptions.minAge}
                     onChange={(e) => setTypeOptions((o) => ({ ...o, minAge: e.target.value }))}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Na página pública o visitante indica a idade; o botão da oferta só fica ativo se a idade for igual ou
-                    superior a este valor. O clique usa o mesmo link de afiliado guardado na presell.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t("pages.presells.minAgeHint")}</p>
                 </div>
               ) : null}
               {[
@@ -1287,36 +1280,22 @@ export default function PresellDashboard() {
                 "idade_sexo",
                 "sexo_pais",
               ].includes(formData.presellType) ? (
-                <p className="text-xs text-muted-foreground">
-                  Na página pública aparece o formulário correspondente. O botão da oferta só ativa após preencher
-                  corretamente. O clique usa o mesmo link de afiliado guardado na presell.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("pages.presells.formUnlockHint")}</p>
               ) : null}
               {["vsl", "vsl_tsl"].includes(formData.presellType) ? (
                 <div className="space-y-3">
                   {formData.presellType === "vsl_tsl" ? (
-                    <p className="text-xs text-muted-foreground">
-                      Na página pública: vídeo em destaque no topo e, abaixo, o texto longo importado da oferta (cartas
-                      TSL), com CTA a meio — combinação VSL + TSL.
-                    </p>
+                    <p className="text-xs text-muted-foreground">{t("pages.presells.vslTslHint")}</p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Na página pública: foco no vídeo e nos botões; o texto longo importado não é mostrado outra vez por
-                      baixo (continua guardado na presell se quiser mudar o tipo para combo ou TSL depois).
-                    </p>
+                    <p className="text-xs text-muted-foreground">{t("pages.presells.vslHint")}</p>
                   )}
-                  <p className="text-xs text-muted-foreground">
-                    O import analisa o HTML da página (iframes, scripts, ficheiros .mp4, YouTube no texto, etc.).
-                    Muitas VSL carregam o vídeo só com JavaScript depois do carregamento — nesse caso o URL pode não
-                    aparecer no HTML e terá de colar o link do YouTube abaixo. O vídeo reproduz na presell; os botões
-                    levam à oferta, não ao YouTube.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t("pages.presells.vslImportHint")}</p>
                   <div className="space-y-2">
-                    <Label htmlFor="manualYoutubeUrl">YouTube (opcional, se a página não tiver vídeo)</Label>
+                    <Label htmlFor="manualYoutubeUrl">{t("pages.presells.youtubeOptionalLabel")}</Label>
                     <Input
                       id="manualYoutubeUrl"
                       type="url"
-                      placeholder="https://www.youtube.com/watch?v=… ou https://youtu.be/…"
+                      placeholder={t("pages.presells.youtubePlaceholder")}
                       value={typeOptions.manualYoutubeUrl}
                       onChange={(e) => setTypeOptions((o) => ({ ...o, manualYoutubeUrl: e.target.value }))}
                     />
@@ -1324,20 +1303,13 @@ export default function PresellDashboard() {
                 </div>
               ) : null}
               {formData.presellType === "desconto" ? (
-                <p className="text-xs text-muted-foreground">
-                  A página pública mostra faixa rosa com contagem regressiva e um modal de desconto. O botão, fechar e o clique fora vão para o link rastreado da oferta. Textos e prova social vêm da página importada quando existem.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("pages.presells.discountHint")}</p>
               ) : null}
               {["tsl", "dtc", "review"].includes(formData.presellType) ? (
-                <p className="text-xs text-muted-foreground">
-                  Layout padrão (hero claro): título, imagens e texto importados; sem vídeo nem formulário extra.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("pages.presells.standardLayoutHint")}</p>
               ) : null}
               {formData.presellType === "fantasma" ? (
-                <p className="text-xs text-muted-foreground">
-                  O visitante é enviado para a página da oferta ao primeiro movimento do rato, toque ou scroll — útil
-                  para não deixar sair sem passar pelo link de afiliado.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("pages.presells.ghostHint")}</p>
               ) : null}
             </div>
               </div>
@@ -1346,7 +1318,7 @@ export default function PresellDashboard() {
             {stepVisible(3) ? (
               <div className="space-y-6">
                 <div className="space-y-2 min-w-0">
-                  <Label htmlFor="pageSlug">Endereço público (slug)</Label>
+                  <Label htmlFor="pageSlug">{t("pages.presells.slugLabel")}</Label>
                   <div className="flex min-w-0 rounded-md border border-input bg-background shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
                     <span
                       className="flex items-center shrink min-w-0 max-w-[min(100%,14rem)] sm:max-w-[16rem] px-2.5 py-2 text-xs sm:text-sm font-mono text-muted-foreground bg-muted/40 border-r border-border select-none truncate"
@@ -1357,7 +1329,7 @@ export default function PresellDashboard() {
                     </span>
                     <Input
                       id="pageSlug"
-                      placeholder="ex.: suplemento_x"
+                      placeholder={t("pages.presells.slugPlaceholder")}
                       value={formData.pageSlug}
                       onChange={(e) => {
                         setSlugTouchedByUser(true);
@@ -1369,16 +1341,18 @@ export default function PresellDashboard() {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Pré-visualização:{" "}
+                    {t("pages.presells.previewLabel")}{" "}
                     <span className="font-mono text-foreground/90 break-all" title={presellUrlPreview.fullUrl}>
                       {presellUrlPreview.prefix}
                       {presellUrlPreview.pathLabel}
                     </span>
                     {!hasVerifiedCustomDomain ? (
                       <span className="block mt-1 text-[11px] leading-snug">
-                        Com domínio verificado, <code className="text-[10px] bg-muted px-1 rounded">/p/seu-endereco</code>{" "}
-                        funciona no teu site. No dclickora, o link de anúncio usa <code className="text-[10px] bg-muted px-1 rounded">/p/</code>{" "}
-                        com o ID da página.
+                        {t("pages.presells.verifiedDomainBefore")}{" "}
+                        <code className="text-[10px] bg-muted px-1 rounded">{t("pages.presells.slugExamplePath")}</code>{" "}
+                        {t("pages.presells.verifiedDomainMid")}{" "}
+                        <code className="text-[10px] bg-muted px-1 rounded">/p/</code>{" "}
+                        {t("pages.presells.verifiedDomainAfter")}
                       </span>
                     ) : null}
                   </p>
@@ -1386,36 +1360,35 @@ export default function PresellDashboard() {
 
                 {hasVerifiedCustomDomain ? (
                   <div className="space-y-2 max-w-xl">
-                    <Label>Domínio nos links públicos</Label>
+                    <Label>{t("pages.presells.publicDomainLabel")}</Label>
                     <Select
                       value={formData.customDomainId || "default"}
                       onValueChange={(v) => updateField("customDomainId", v === "default" ? "" : v)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Domínio padrão da conta" />
+                        <SelectValue placeholder={t("pages.presells.defaultDomain")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="default">Domínio padrão da conta</SelectItem>
+                        <SelectItem value="default">{t("pages.presells.defaultDomain")}</SelectItem>
                         {verifiedHostingDomains.map((d) => (
                             <SelectItem key={d.id} value={d.id}>
                               {d.hostname}
-                              {d.is_default ? " (padrão)" : ""}
+                              {d.is_default ? t("pages.presells.defaultSuffix") : ""}
                             </SelectItem>
                           ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">
-                      O URL copiado para anúncios segue este domínio; «padrão» usa o definido em Configurações.
-                    </p>
+                    <p className="text-xs text-muted-foreground">{t("pages.presells.domainAdsHint")}</p>
                   </div>
                 ) : null}
 
                 <p className="text-xs text-muted-foreground leading-relaxed rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
-                  <span className="font-medium text-card-foreground">Favicon e título:</span> na página pública o
-                  separador usa o ícone e o nome do produto (importados da sales page ou a foto do produto) — não o da
-                  app. O Google mostra o ícone do <span className="font-medium text-foreground/90">domínio</span>; para o
-                  resultado parecer o site oficial, publique num domínio personalizado. Pode ainda definir URL no{" "}
-                  <span className="font-medium text-foreground/90">Editor</span> (SEO).
+                  <span className="font-medium text-card-foreground">{t("pages.presells.faviconLead")}</span>
+                  {t("pages.presells.faviconBefore")}
+                  <span className="font-medium text-foreground/90">{t("pages.presells.faviconDomain")}</span>
+                  {t("pages.presells.faviconMid")}{" "}
+                  <span className="font-medium text-foreground/90">{t("pages.presells.faviconEditor")}</span>
+                  {t("pages.presells.faviconAfter")}
                 </p>
               </div>
             ) : null}
@@ -1425,12 +1398,12 @@ export default function PresellDashboard() {
                 {creatorStep > 1 ? (
                   <Button type="button" variant="outline" onClick={goCreatorPrev} className="gap-1">
                     <ChevronLeft className="h-4 w-4" />
-                    Anterior
+                    {t("common.previous")}
                   </Button>
                 ) : null}
                 {creatorStep < 3 ? (
                   <Button type="button" onClick={goCreatorNext} className="gap-1">
-                    Seguinte
+                    {t("common.next")}
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 ) : null}
@@ -1443,12 +1416,12 @@ export default function PresellDashboard() {
           <>
             {trackingEmbedScript ? (
               <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
-                <span className="font-medium text-card-foreground">Rastreamento: </span>
-                ao guardar, o script da conta vai para «Código no head»; pode acrescentar outros scripts em baixo.
+                <span className="font-medium text-card-foreground">{t("pages.presells.trackingLead")} </span>
+                {t("pages.presells.trackingBody")}
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 px-4 py-3 text-xs text-muted-foreground">
-                Inicie sessão para ligar o rastreamento Clickora ao guardar.
+                {t("pages.presells.trackingSignIn")}
               </div>
             )}
 
@@ -1482,7 +1455,7 @@ export default function PresellDashboard() {
                 onReimport={async () => {
                   const url = formData.productLink.trim() || formData.affiliateLink.trim();
                   if (!/^https?:\/\//i.test(url)) {
-                    toast.error("Indique um URL https:// do produto para re-importar.");
+                    toast.error(t("pages.presells.toastReimportUrl"));
                     return;
                   }
                   setMirrorReimportBusy(true);
@@ -1494,19 +1467,19 @@ export default function PresellDashboard() {
                       affiliate_link: formData.affiliateLink.trim() || undefined,
                     });
                     if (error || !data) {
-                      toast.error(error || "Falha ao re-importar.");
+                      toast.error(error || t("pages.presells.toastReimportFail"));
                       return;
                     }
                     const mirror =
                       typeof data.import_mirror_src_doc === "string" ? data.import_mirror_src_doc : "";
                     if (mirror.length < 200) {
-                      toast.warning("Re-import sem espelho fiel — HTML mantido. Verifique o URL.");
+                      toast.warning(t("pages.presells.toastReimportNoMirror"));
                       return;
                     }
                     setMirrorHtmlDraft(mirror);
-                    toast.success("Espelho actualizado. Guarde para publicar.");
+                    toast.success(t("pages.presells.toastMirrorUpdated"));
                   } catch (e) {
-                    toastErrorFromCatch(e, "Falha ao re-importar.");
+                    toastErrorFromCatch(e, t("pages.presells.toastReimportFail"));
                   } finally {
                     setMirrorReimportBusy(false);
                   }
@@ -1565,7 +1538,7 @@ export default function PresellDashboard() {
               return (
                 <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold text-foreground">Qualidade elite (nicho)</p>
+                    <p className="text-xs font-semibold text-foreground">{t("pages.presells.eliteQuality")}</p>
                     <span
                       className={`text-[11px] tabular-nums font-medium ${
                         elite.ready ? "text-emerald-600" : "text-muted-foreground"
@@ -1596,11 +1569,11 @@ export default function PresellDashboard() {
             >
               {createMutation.isPending || updateMutation.isPending || isSavingPage
                 ? isEditing
-                  ? "A guardar..."
-                  : "Gerando página..."
+                  ? t("pages.presells.saving")
+                  : t("pages.presells.generatingPage")
                 : isEditing
-                  ? "Guardar alterações"
-                  : "Criar página completa"}
+                  ? t("pages.presells.saveChanges")
+                  : t("pages.presells.createFullPage")}
             </Button>
           </>
         )}
@@ -1859,8 +1832,8 @@ export default function PresellDashboard() {
                         className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                         title={
                           page.status === "published"
-                            ? "Abrir a página pública"
-                            : "Publique a página para o link público mostrar conteúdo"
+                            ? t("pages.presells.openPublic")
+                            : t("pages.presells.publishToOpen")
                         }
                       >
                         <Eye className="h-4 w-4" />
@@ -1901,7 +1874,7 @@ export default function PresellDashboard() {
                             type="button"
                             className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                             title={t("pages.presells.moreActions")}
-                            aria-label="Mais ações"
+                            aria-label={t("pages.presells.moreActions")}
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </button>
@@ -1910,7 +1883,7 @@ export default function PresellDashboard() {
                           {canWritePresells ? (
                             <DropdownMenuItem onClick={() => startEditPresell(page)}>
                               <Pencil className="mr-2 h-4 w-4" />
-                              Alterar tipo e opções
+                              {t("pages.presells.changeType")}
                             </DropdownMenuItem>
                           ) : null}
                           <DropdownMenuItem
@@ -1918,14 +1891,14 @@ export default function PresellDashboard() {
                             onClick={() => void handleCopyHtml(page)}
                           >
                             <Code2 className="mr-2 h-4 w-4" />
-                            Copiar HTML (widget)
+                            {t("pages.presells.copyHtmlWidget")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             disabled={htmlExportBusyId === page.id}
                             onClick={() => void handleDownloadFullHtml(page)}
                           >
                             <Download className="mr-2 h-4 w-4" />
-                            Descarregar .html
+                            {t("pages.presells.downloadHtml")}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -1936,7 +1909,7 @@ export default function PresellDashboard() {
               {filteredPages.length === 0 && (
                 <tr>
                   <td colSpan={5} className="text-center text-muted-foreground py-8">
-                    Nenhuma presell encontrada para &quot;{searchTerm}&quot;
+                    {fill(t("pages.presells.searchNone"), { q: searchTerm })}
                   </td>
                 </tr>
               )}
@@ -1948,13 +1921,11 @@ export default function PresellDashboard() {
       <AlertDialog open={deleteConfirmId != null} onOpenChange={(o) => !o && setDeleteConfirmId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar esta presell?</AlertDialogTitle>
-            <AlertDialogDescription>
-              O link público deixa de funcionar. Esta acção não pode ser desfeita.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("pages.presells.deleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("pages.presells.deleteDesc")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
@@ -1962,7 +1933,7 @@ export default function PresellDashboard() {
                 setDeleteConfirmId(null);
               }}
             >
-              Eliminar
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

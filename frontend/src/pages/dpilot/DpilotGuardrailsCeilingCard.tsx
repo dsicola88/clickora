@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ type Gr = {
 
 /** Teto diário por campanha — base para todas as propostas de orçamento neste projeto (automático ou com aprovação). */
 export function DpilotGuardrailsCeilingCard() {
+  const { t } = useAppLocale();
   const { projectId, overview, reload } = useDpilotPaid();
   const gr = overview?.guardrails as Gr | undefined;
   const [usdStr, setUsdStr] = useState("");
@@ -34,12 +36,12 @@ export function DpilotGuardrailsCeilingCard() {
 
   const onSave = async () => {
     if (!gr) {
-      toast.error("Guardrails ainda não carregados.");
+      toast.error(t("pages.dpilot.common.guardrailsNotLoaded"));
       return;
     }
     const n = parseFloat(usdStr.replace(",", ".").trim());
     if (!Number.isFinite(n) || n <= 0) {
-      toast.error("Indique um teto diário válido em USD (ex.: 100).");
+      toast.error(t("pages.dpilot.guardrails.ceiling.invalid"));
       return;
     }
 
@@ -59,8 +61,8 @@ export function DpilotGuardrailsCeilingCard() {
         toast.error(error);
         return;
       }
-      toast.success("Teto actualizado", {
-        description: "Orçamentos novos respeitam já este limite diário.",
+      toast.success(t("pages.dpilot.guardrails.ceiling.updated"), {
+        description: t("pages.dpilot.guardrails.ceiling.updatedDesc"),
       });
       reload();
     } finally {
@@ -76,36 +78,32 @@ export function DpilotGuardrailsCeilingCard() {
   return (
     <Card className="border-blue-600/14 shadow-sm dark:border-blue-400/22">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Teto diário por campanha</CardTitle>
-        <CardDescription>
-          Orçamentos diários propostos não ultrapassam este valor até o ajustar aqui ou no assistente de campanha.
-        </CardDescription>
+        <CardTitle className="text-base">{t("pages.dpilot.guardrails.ceiling.title")}</CardTitle>
+        <CardDescription>{t("pages.dpilot.guardrails.ceiling.description")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {previewMicros != null ? (
           <p className="text-sm text-muted-foreground">
-            Actual:{" "}
+            {t("pages.dpilot.guardrails.ceiling.current")}{" "}
             <strong className="font-semibold tabular-nums text-foreground">{formatUsdFromMicros(previewMicros)}</strong>
-            /dia.
           </p>
         ) : null}
         <div className="space-y-2">
-          <Label htmlFor="guardrails-daily-usd">Ajustar teto diário (USD)</Label>
+          <Label htmlFor="guardrails-daily-usd">{t("pages.dpilot.guardrails.ceiling.label")}</Label>
           <Input
             id="guardrails-daily-usd"
             inputMode="decimal"
             autoComplete="off"
-            placeholder="Ex.: 100"
+            placeholder={t("pages.dpilot.guardrails.ceiling.placeholder")}
             value={usdStr}
             onChange={(e) => setUsdStr(e.target.value)}
           />
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            País, CPC e outros limites ficam no cartão «Escopo». Apenas utilizadores do workspace com permissões adequadas
-            alteram estes valores.
+            {t("pages.dpilot.guardrails.ceiling.help")}
           </p>
         </div>
         <Button type="button" size="sm" onClick={() => void onSave()} disabled={saving || !gr}>
-          {saving ? "A guardar…" : "Guardar teto"}
+          {saving ? t("pages.dpilot.common.saving") : t("pages.dpilot.guardrails.ceiling.save")}
         </Button>
       </CardContent>
     </Card>

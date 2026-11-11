@@ -9,6 +9,8 @@ import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { plansService } from "@/services/plansService";
 import type { UserPlan } from "@/types/api";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 
 function planTypeLabel(t: UserPlan["plan_type"]): string {
   switch (t) {
@@ -47,6 +49,7 @@ function applyAppTheme(next: "light" | "dark") {
 }
 
 export default function Settings() {
+  const { t } = useAppLocale();
   const { userPlan, refreshUser } = useAuth();
   const [theme, setTheme] = useState<"light" | "dark">(() => readAppTheme());
   const [cancelling, setCancelling] = useState(false);
@@ -55,13 +58,15 @@ export default function Settings() {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
     applyAppTheme(newTheme);
-    toast.success(`Tema alterado para ${newTheme === "dark" ? "escuro" : "claro"}`);
+    toast.success(
+      fill(t("pages.settings.themeChanged"), {
+        theme: t(newTheme === "dark" ? "pages.settings.themeDark" : "pages.settings.themeLight"),
+      }),
+    );
   };
 
   const cancelSubscription = async () => {
-    const ok = window.confirm(
-      "Cancelar a assinatura? O acesso às áreas protegidas pode terminar de imediato. Compras Hotmart continuam a ser geridas no painel Hotmart.",
-    );
+    const ok = window.confirm(t("pages.settings.cancelSubscriptionConfirm"));
     if (!ok) return;
     setCancelling(true);
     try {
@@ -71,7 +76,7 @@ export default function Settings() {
         return;
       }
       await refreshUser();
-      toast.success("Assinatura cancelada.");
+      toast.success(t("pages.settings.subscriptionCancelled"));
     } finally {
       setCancelling(false);
     }

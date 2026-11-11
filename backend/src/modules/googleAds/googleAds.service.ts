@@ -14,6 +14,7 @@ import {
   humanizeGoogleAdsApiError,
   plainGoogleAdsError,
 } from "./googleAdsApiErrors";
+import { onlyDigits } from "../../lib/stringPrimitives";
 
 const DIGITS_ONLY = /^\d+$/;
 
@@ -25,12 +26,6 @@ function safeSerializeGoogleAdsResponse(response: unknown): unknown {
   } catch {
     return { note: "unserializable_response" };
   }
-}
-
-function onlyDigits(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const d = raw.replace(/\D/g, "");
-  return d.length > 0 ? d : null;
 }
 
 /** Formato esperado pela API: `yyyy-MM-dd HH:mm:ss±HH:mm` */

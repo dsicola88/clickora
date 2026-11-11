@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { cn } from "@/lib/utils";
 import type { PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { PresellProfessionalDocStrip } from "@/components/presell/PresellProfessionalDocStrip";
@@ -35,8 +36,10 @@ export function PresellAdvancedTrackingCollapsible({
   setConfigSettings,
   trackingEmbedScript,
   surface = "dashboard",
-  triggerLabel = "Pixels de anúncios e configurações",
+  triggerLabel,
 }: Props) {
+  const { t } = useAppLocale();
+  const resolvedTrigger = triggerLabel ?? t("pages.presells.advanced.triggerDefault");
   const [copiedTrackingScript, setCopiedTrackingScript] = useState(false);
   const isEditor = surface === "editor";
 
@@ -52,7 +55,7 @@ export function PresellAdvancedTrackingCollapsible({
           )}
         >
           <span className={cn("font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>
-            {triggerLabel}
+            {resolvedTrigger}
           </span>
           {open ? (
             <ChevronDown className={cn("h-4 w-4 shrink-0", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")} />
@@ -80,19 +83,18 @@ export function PresellAdvancedTrackingCollapsible({
               )}
             >
               <span className={cn("font-medium", isEditor ? "text-editor-fg" : "text-foreground")}>
-                Multi-conta:{" "}
+                {t("pages.presells.advanced.multiAccountLead")}{" "}
               </span>
-              estes valores aplicam-se só a esta presell. Cada afiliado ou página tem os seus próprios IDs e scripts —
-              nada é misturado entre contas.
+              {t("pages.presells.advanced.multiAccountBody")}
             </p>
 
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className={cn("text-sm font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>
-                  Popup de saída
+                  {t("pages.presells.advanced.exitPopup")}
                 </p>
                 <p className={cn("text-xs", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                  Ao tentar sair da página
+                  {t("pages.presells.advanced.exitPopupHint")}
                 </p>
               </div>
               <Switch
@@ -103,10 +105,10 @@ export function PresellAdvancedTrackingCollapsible({
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className={cn("text-sm font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>
-                  Contagem regressiva
+                  {t("pages.presells.advanced.countdown")}
                 </p>
                 <p className={cn("text-xs", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                  Urgência com timer
+                  {t("pages.presells.advanced.countdownHint")}
                 </p>
               </div>
               <Switch
@@ -122,7 +124,7 @@ export function PresellAdvancedTrackingCollapsible({
                 )}
               >
                 <Label className={cn("text-xs shrink-0", isEditor ? "text-editor-fg" : "")}>
-                  Duração do timer (minutos)
+                  {t("pages.presells.advanced.countdownMinutes")}
                 </Label>
                 <Input
                   type="number"
@@ -139,10 +141,10 @@ export function PresellAdvancedTrackingCollapsible({
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className={cn("text-sm font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>
-                  Prova social
+                  {t("pages.presells.advanced.socialProof")}
                 </p>
                 <p className={cn("text-xs", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                  Notificações de compras
+                  {t("pages.presells.advanced.socialProofHint")}
                 </p>
               </div>
               <Switch
@@ -152,7 +154,7 @@ export function PresellAdvancedTrackingCollapsible({
             </div>
             <div className="space-y-2 max-w-2xl">
               <Label htmlFor={isEditor ? "presell-offer-fwd-editor" : "presell-offer-fwd"}>
-                Propagar parâmetros da URL para o hoplink
+                {t("pages.presells.advanced.forwardLabel")}
               </Label>
               <p
                 className={cn(
@@ -160,16 +162,11 @@ export function PresellAdvancedTrackingCollapsible({
                   isEditor ? "text-editor-fg-muted" : "text-muted-foreground",
                 )}
               >
-                <span className="font-mono">sub1</span> e <span className="font-mono">sub2</span> passam para o link da
-                oferta quando lá ainda não existem. <span className="font-mono">sub3</span> não vai por defeito: é o
-                identificador de clique da SmartAdv. Acrescenta aqui mais nomes (vírgula ou espaço): só{" "}
-                <span className="font-mono">a-z</span>,{" "}
-                <span className="font-mono">0-9</span>, <span className="font-mono">-</span> e{" "}
-                <span className="font-mono">_</span>, até 32 nomes. Nunca sobrepõe o que o hoplink já define.
+                {t("pages.presells.advanced.forwardHint")}
               </p>
               <Input
                 id={isEditor ? "presell-offer-fwd-editor" : "presell-offer-fwd"}
-                placeholder="ex.: txn_id, aff_sub, ext_click_id"
+                placeholder={t("pages.presells.advanced.forwardPlaceholder")}
                 value={String(configSettings.offerQueryForwardAllowlist ?? "")}
                 onChange={(e) =>
                   setConfigSettings((p) => ({ ...p, offerQueryForwardAllowlist: e.target.value }))
@@ -189,21 +186,19 @@ export function PresellAdvancedTrackingCollapsible({
             >
               <div>
                 <p className={cn("text-sm font-semibold", isEditor ? "text-editor-fg" : "text-foreground")}>
-                  Pixels de anúncios (Meta, TikTok, Google, Bing)
+                  {t("pages.presells.advanced.pixelsTitle")}
                 </p>
                 <p className={cn("mt-1 text-xs leading-relaxed", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                  Para uma página feita para Facebook, TikTok ou outra rede: escolhe o modo, cola o ID ou o script do
-                  painel da plataforma — a Clickora injeta na presell publicada. O rastreio Clickora (cliques / comissão)
-                  continua automático.
+                  {t("pages.presells.advanced.pixelsHint")}
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 {(
                   [
-                    { id: "auto", label: "Automático (só IDs)" },
-                    { id: "manual", label: "Manual (colar script)" },
-                  ] as const
+                    { id: "auto" as const, label: t("pages.presells.advanced.modeAuto") },
+                    { id: "manual" as const, label: t("pages.presells.advanced.modeManual") },
+                  ]
                 ).map((opt) => {
                   const active =
                     String(configSettings.adPixelsMode ?? "auto").toLowerCase() === opt.id ||
@@ -227,20 +222,17 @@ export function PresellAdvancedTrackingCollapsible({
                             String(configSettings.conversionTrackingScript ?? "").trim(),
                           );
                           if (hasIds && !hasScript) {
-                            toast.warning("Modo manual sem script", {
-                              description:
-                                "Os IDs deixam de gerar pixel. Cola o script completo da Meta/TikTok/Google/Bing no campo abaixo, ou fica em Automático.",
+                            toast.warning(t("pages.presells.advanced.manualNoScriptTitle"), {
+                              description: t("pages.presells.advanced.manualNoScriptDesc"),
                             });
                           } else {
-                            toast.message("Modo manual", {
-                              description:
-                                "Cola o script completo no campo abaixo. Os IDs não geram pixel automático (evita duplicar).",
+                            toast.message(t("pages.presells.advanced.manualModeTitle"), {
+                              description: t("pages.presells.advanced.manualModeDesc"),
                             });
                           }
                         } else {
-                          toast.message("Modo automático", {
-                            description:
-                              "Usa só os IDs. Se já tiveres um script completo colado, esse continua no head — remove-o se for o mesmo pixel.",
+                          toast.message(t("pages.presells.advanced.autoModeTitle"), {
+                            description: t("pages.presells.advanced.autoModeDesc"),
                           });
                         }
                         setConfigSettings((p) => ({ ...p, adPixelsMode: opt.id }));
@@ -266,12 +258,12 @@ export function PresellAdvancedTrackingCollapsible({
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2 min-w-0">
-                      <Label>Pixel Meta (Facebook / Instagram)</Label>
+                      <Label>{t("pages.presells.advanced.metaPixel")}</Label>
                       <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                        Gestor de eventos → Pixel → só o ID (dígitos). PageView na carga.
+                        {t("pages.presells.advanced.metaPixelHint")}
                       </p>
                       <Input
-                        placeholder="ex.: 1234567890123456"
+                        placeholder={t("pages.presells.advanced.metaPixelPlaceholder")}
                         inputMode="numeric"
                         value={String(configSettings.fbPixelId ?? "")}
                         onChange={(e) => setConfigSettings((p) => ({ ...p, fbPixelId: e.target.value }))}
@@ -280,38 +272,38 @@ export function PresellAdvancedTrackingCollapsible({
                     </div>
                     <div className="space-y-2 min-w-0">
                       <Label htmlFor={isEditor ? "presell-fb-track-editor" : "fbTrackName"}>
-                        Evento Meta extra (opcional)
+                        {t("pages.presells.advanced.metaEvent")}
                       </Label>
                       <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                        Dispara <span className="font-mono">trackCustom</span> após o PageView.
+                        {t("pages.presells.advanced.metaEventHint")}
                       </p>
                       <Input
                         id={isEditor ? "presell-fb-track-editor" : "fbTrackName"}
-                        placeholder="ex.: Lead ou ViewContent"
+                        placeholder={t("pages.presells.advanced.metaEventPlaceholder")}
                         value={String(configSettings.fbTrackName ?? "")}
                         onChange={(e) => setConfigSettings((p) => ({ ...p, fbTrackName: e.target.value }))}
                         className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
                       />
                     </div>
                     <div className="space-y-2 min-w-0">
-                      <Label>Pixel TikTok</Label>
+                      <Label>{t("pages.presells.advanced.tiktokPixel")}</Label>
                       <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                        TikTok Ads → Events → Pixel ID.
+                        {t("pages.presells.advanced.tiktokHint")}
                       </p>
                       <Input
-                        placeholder="ex.: CABCDEF1234567890"
+                        placeholder={t("pages.presells.advanced.tiktokPlaceholder")}
                         value={String(configSettings.tiktokPixelId ?? "")}
                         onChange={(e) => setConfigSettings((p) => ({ ...p, tiktokPixelId: e.target.value }))}
                         className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
                       />
                     </div>
                     <div className="space-y-2 min-w-0">
-                      <Label>Bing / Microsoft UET</Label>
+                      <Label>{t("pages.presells.advanced.bingPixel")}</Label>
                       <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                        Microsoft Advertising → UET tag ID (só números).
+                        {t("pages.presells.advanced.bingHint")}
                       </p>
                       <Input
-                        placeholder="ex.: 12345678"
+                        placeholder={t("pages.presells.advanced.bingPlaceholder")}
                         inputMode="numeric"
                         value={String(configSettings.bingUetTagId ?? "")}
                         onChange={(e) => setConfigSettings((p) => ({ ...p, bingUetTagId: e.target.value }))}
@@ -319,25 +311,24 @@ export function PresellAdvancedTrackingCollapsible({
                       />
                     </div>
                     <div className="space-y-2 min-w-0">
-                      <Label>Google Analytics / tag</Label>
+                      <Label>{t("pages.presells.advanced.googleTag")}</Label>
                       <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                        <span className="font-mono">G-…</span>, <span className="font-mono">GTM-…</span> ou{" "}
-                        <span className="font-mono">AW-…</span>
+                        {t("pages.presells.advanced.googleTagHint")}
                       </p>
                       <Input
-                        placeholder="G-XXXXXXXX ou GTM-XXXX ou AW-…"
+                        placeholder={t("pages.presells.advanced.googleTagPlaceholder")}
                         value={String(configSettings.googleTrackingCode ?? "")}
                         onChange={(e) => setConfigSettings((p) => ({ ...p, googleTrackingCode: e.target.value }))}
                         className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
                       />
                     </div>
                     <div className="space-y-2 min-w-0">
-                      <Label>Conversão Google Ads (opcional)</Label>
+                      <Label>{t("pages.presells.advanced.googleConv")}</Label>
                       <p className={cn("text-[10px] leading-snug", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                        <span className="font-mono">AW-123/AbCdEf</span> — dispara conversion na carga.
+                        {t("pages.presells.advanced.googleConvHint")}
                       </p>
                       <Input
-                        placeholder="AW-123456789/AbCdEfGh"
+                        placeholder={t("pages.presells.advanced.googleConvPlaceholder")}
                         value={String(configSettings.googleConversionEvent ?? "")}
                         onChange={(e) => setConfigSettings((p) => ({ ...p, googleConversionEvent: e.target.value }))}
                         className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
@@ -347,16 +338,13 @@ export function PresellAdvancedTrackingCollapsible({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label>Script / pixel completo</Label>
+                  <Label>{t("pages.presells.advanced.fullScript")}</Label>
                   <p className={cn("text-[10px] leading-relaxed", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                    Cola o código que a Meta, TikTok, Google Ads ou Bing te dão (pode incluir vários{" "}
-                    <span className="font-mono">&lt;script&gt;</span>). É injetado no{" "}
-                    <span className="font-mono">&lt;head&gt;</span> da página publicada. Em modo manual os IDs acima
-                    não geram script automático (evita duplicar o pixel).
+                    {t("pages.presells.advanced.fullScriptHint")}
                   </p>
                   <Textarea
                     rows={7}
-                    placeholder={`<!-- Ex.: Pixel Meta ou TikTok completo -->\n<script>…</script>`}
+                    placeholder={t("pages.presells.advanced.fullScriptPlaceholder")}
                     value={String(configSettings.conversionTrackingScript ?? "")}
                     onChange={(e) =>
                       setConfigSettings((p) => ({ ...p, conversionTrackingScript: e.target.value }))
@@ -379,11 +367,10 @@ export function PresellAdvancedTrackingCollapsible({
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className={cn("text-sm font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>
-                    Página segura por país
+                    {t("pages.presells.advanced.cloakTitle")}
                   </p>
                   <p className={cn("text-xs", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                    Os países desta lista vêem o texto seguro, sem oferta. O mesmo texto serve a IPs que
-                    adicionares à blacklist (bloqueio manual) ou a regras opt-in (bot/proxy).
+                    {t("pages.presells.advanced.cloakHint")}
                   </p>
                 </div>
                 <Switch
@@ -401,39 +388,37 @@ export function PresellAdvancedTrackingCollapsible({
                         : "border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-100",
                     )}
                   >
-                    Aviso Google Ads / Meta: mostrar conteúdo diferente por país ou IP pode violar políticas
-                    de cloaking. Usa só com critério (ex. compliance local) e mantém a landing que o AdsBot
-                    vê alinhada com o anúncio. Crawlers oficiais do Google não devem ser bloqueados.
+                    {t("pages.presells.advanced.cloakWarn")}
                   </p>
                   <div className="space-y-2">
-                    <Label>Título da página segura</Label>
+                    <Label>{t("pages.presells.advanced.cloakSafeTitle")}</Label>
                     <Input
-                      placeholder="Informação"
+                      placeholder={t("pages.presells.advanced.cloakSafeTitlePlaceholder")}
                       value={String(configSettings.cloakSafeTitle ?? "")}
                       onChange={(e) => setConfigSettings((p) => ({ ...p, cloakSafeTitle: e.target.value }))}
                       className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Texto da página segura</Label>
+                    <Label>{t("pages.presells.advanced.cloakSafeBody")}</Label>
                     <Textarea
                       rows={3}
-                      placeholder="Conteúdo informativo…"
+                      placeholder={t("pages.presells.advanced.cloakSafeBodyPlaceholder")}
                       value={String(configSettings.cloakSafeBody ?? "")}
                       onChange={(e) => setConfigSettings((p) => ({ ...p, cloakSafeBody: e.target.value }))}
                       className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Países bloqueados (códigos, ex.: CN, RU)</Label>
+                    <Label>{t("pages.presells.advanced.cloakCountries")}</Label>
                     <Input
-                      placeholder="CN, RU"
+                      placeholder={t("pages.presells.advanced.cloakCountriesPlaceholder")}
                       value={String(configSettings.cloakGeoDeny ?? "")}
                       onChange={(e) => setConfigSettings((p) => ({ ...p, cloakGeoDeny: e.target.value }))}
                       className={isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : ""}
                     />
                     <p className={cn("text-[10px]", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                      Códigos de 2 letras separados por vírgula. Esses países recebem a página segura.
+                      {t("pages.presells.advanced.cloakCountriesHint")}
                     </p>
                   </div>
                 </div>
@@ -443,12 +428,10 @@ export function PresellAdvancedTrackingCollapsible({
             <div className={cn("space-y-4 border-t pt-6", isEditor ? "border-editor-border" : "border-border/50")}>
               <div>
                 <p className={cn("text-sm font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>
-                  Scripts na página pública
+                  {t("pages.presells.advanced.scriptsTitle")}
                 </p>
                 <p className={cn("text-xs mt-1", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                  O script Clickora da conta é aplicado ao <span className="opacity-90">head</span> ao guardar. Podes
-                  acrescentar outros scripts (pixels de anúncios, ferramentas de terceiros). Executam na presell publicada em{" "}
-                  <span className="opacity-90">&lt;head&gt;</span>, início do corpo e rodapé.
+                  {t("pages.presells.advanced.scriptsHint")}
                 </p>
               </div>
 
@@ -460,15 +443,14 @@ export function PresellAdvancedTrackingCollapsible({
                   )}
                 >
                   <Label className={cn("text-sm", isEditor ? "text-editor-fg" : "")}>
-                    Script extra de conversão (opcional)
+                    {t("pages.presells.advanced.extraConv")}
                   </Label>
                   <p className={cn("text-xs leading-relaxed", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                    Além dos IDs acima, podes colar aqui um snippet adicional (ex. evento só de purchase). Injetado no{" "}
-                    <span className="font-mono text-[11px]">&lt;head&gt;</span> antes do «Código no &lt;head&gt;».
+                    {t("pages.presells.advanced.extraConvHint")}
                   </p>
                   <Textarea
                     rows={3}
-                    placeholder={`<!-- Opcional — script extra -->`}
+                    placeholder={t("pages.presells.advanced.extraConvPlaceholder")}
                     value={String(configSettings.conversionTrackingScript ?? "")}
                     onChange={(e) =>
                       setConfigSettings((p) => ({ ...p, conversionTrackingScript: e.target.value }))
@@ -484,10 +466,9 @@ export function PresellAdvancedTrackingCollapsible({
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
                 <div className="space-y-2 min-w-0">
-                  <Label className="text-sm">Script Clickora (rastreamento)</Label>
+                  <Label className="text-sm">{t("pages.presells.advanced.clickoraScript")}</Label>
                   <p className={cn("text-xs leading-relaxed", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                    O mesmo valor que em «Código no &lt;head&gt;» ao guardar (<span className="font-mono text-[11px]">data-id</span> = o teu
-                    utilizador).
+                    {t("pages.presells.advanced.clickoraScriptHint")}
                   </p>
                   {trackingEmbedScript ? (
                     <div className="space-y-2">
@@ -499,7 +480,7 @@ export function PresellAdvancedTrackingCollapsible({
                           "font-mono text-xs min-h-[4.5rem]",
                           isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : "bg-muted/30 border-border/80",
                         )}
-                        aria-label="Script de rastreamento Clickora"
+                        aria-label={t("pages.presells.advanced.clickoraScriptAria")}
                       />
                       <Button
                         type="button"
@@ -510,11 +491,11 @@ export function PresellAdvancedTrackingCollapsible({
                           void navigator.clipboard.writeText(trackingEmbedScript);
                           setCopiedTrackingScript(true);
                           setTimeout(() => setCopiedTrackingScript(false), 2000);
-                          toast.success("Script copiado.");
+                          toast.success(t("pages.presells.advanced.scriptCopied"));
                         }}
                       >
                         {copiedTrackingScript ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                        {copiedTrackingScript ? "Copiado" : "Copiar script"}
+                        {copiedTrackingScript ? t("common.copied") : t("pages.presells.advanced.copyScript")}
                       </Button>
                     </div>
                   ) : (
@@ -526,18 +507,17 @@ export function PresellAdvancedTrackingCollapsible({
                           : "border-dashed border-border/70 bg-muted/20 text-muted-foreground",
                       )}
                     >
-                      Inicia sessão para gerar o teu script de rastreamento.
+                      {t("pages.presells.advanced.signInScript")}
                     </p>
                   )}
                 </div>
 
                 <div className={cn("space-y-2 min-w-0", !isEditor && "lg:border-l lg:border-border/50 lg:pl-8")}>
                   <Label htmlFor={isEditor ? "presell-adv-head-editor" : "headerCode"} className="text-sm">
-                    Código no &lt;head&gt;
+                    {t("pages.presells.advanced.headCode")}
                   </Label>
                   <p className={cn("text-xs leading-relaxed", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                    O Clickora é antecipado automaticamente; edita ou acrescenta outros scripts (pixels, ferramentas de
-                    terceiros, etc.) se precisares.
+                    {t("pages.presells.advanced.headCodeHint")}
                   </p>
                   <Textarea
                     id={isEditor ? "presell-adv-head-editor" : "headerCode"}
@@ -553,11 +533,11 @@ export function PresellAdvancedTrackingCollapsible({
                 </div>
               </div>
               <div className="space-y-2 min-w-0">
-                <Label htmlFor={isEditor ? "presell-adv-body-editor" : "bodyCode"}>Código no início do conteúdo</Label>
+                <Label htmlFor={isEditor ? "presell-adv-body-editor" : "bodyCode"}>{t("pages.presells.advanced.bodyCode")}</Label>
                 <Textarea
                   id={isEditor ? "presell-adv-body-editor" : "bodyCode"}
                   rows={2}
-                  placeholder="Opcional — após &lt;body&gt;"
+                  placeholder={t("pages.presells.advanced.bodyPlaceholder")}
                   value={String(configSettings.bodyCode ?? "")}
                   onChange={(e) => setConfigSettings((p) => ({ ...p, bodyCode: e.target.value }))}
                   className={cn(
@@ -567,11 +547,11 @@ export function PresellAdvancedTrackingCollapsible({
                 />
               </div>
               <div className="space-y-2 min-w-0">
-                <Label htmlFor={isEditor ? "presell-adv-foot-editor" : "footerCode"}>Código no rodapé (fim da página)</Label>
+                <Label htmlFor={isEditor ? "presell-adv-foot-editor" : "footerCode"}>{t("pages.presells.advanced.footerCode")}</Label>
                 <Textarea
                   id={isEditor ? "presell-adv-foot-editor" : "footerCode"}
                   rows={3}
-                  placeholder="Opcional — antes de </body>"
+                  placeholder={t("pages.presells.advanced.footerPlaceholder")}
                   value={String(configSettings.footerCode ?? "")}
                   onChange={(e) => setConfigSettings((p) => ({ ...p, footerCode: e.target.value }))}
                   className={cn(
@@ -581,11 +561,11 @@ export function PresellAdvancedTrackingCollapsible({
                 />
               </div>
               <div className="space-y-2 min-w-0">
-                <Label htmlFor={isEditor ? "presell-adv-css-editor" : "customCss"}>CSS personalizado (opcional)</Label>
+                <Label htmlFor={isEditor ? "presell-adv-css-editor" : "customCss"}>{t("pages.presells.advanced.customCss")}</Label>
                 <Textarea
                   id={isEditor ? "presell-adv-css-editor" : "customCss"}
                   rows={3}
-                  placeholder=".minha-classe { ... }"
+                  placeholder={t("pages.presells.advanced.customCssPlaceholder")}
                   value={String(configSettings.customCss ?? "")}
                   onChange={(e) => setConfigSettings((p) => ({ ...p, customCss: e.target.value }))}
                   className={cn(

@@ -6,8 +6,10 @@ import {
   useLayoutEffect,
   type CSSProperties,
 } from "react";
+import { fill } from "@/i18n";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { usePageBuilderT } from "../usePageBuilderT";
 
 export interface GalleryImage {
   id: string;
@@ -112,6 +114,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
   );
 
   const columns = device === "mobile" ? 1 : device === "tablet" ? Math.min(2, baseColumns) : baseColumns;
+  const t = usePageBuilderT();
   const [lightbox, setLightbox] = useState<number | null>(null);
   /** Índice do primeiro slide visível (carrossel multi-slide). */
   const [carouselStart, setCarouselStart] = useState(0);
@@ -293,7 +296,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
             e.stopPropagation();
             setLightbox(null);
           }}
-          aria-label="Fechar"
+          aria-label={t("common.close")}
           style={{
             position: "absolute",
             top: 16,
@@ -318,7 +321,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
                 e.stopPropagation();
                 setLightbox((i) => (i === null ? null : (i - 1 + images.length) % images.length));
               }}
-              aria-label="Anterior"
+              aria-label={t("common.previous")}
               style={navBtn("left")}
             >
               ‹
@@ -329,7 +332,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
                 e.stopPropagation();
                 setLightbox((i) => (i === null ? null : (i + 1) % images.length));
               }}
-              aria-label="Próxima"
+              aria-label={t("common.next")}
               style={navBtn("right")}
             >
               ›
@@ -406,7 +409,10 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
                     borderRadius: Math.max(0, borderRadius - 2),
                     overflow: "hidden",
                   }}
-                  aria-label={img.alt || `Imagem ${i + 1} de ${images.length}`}
+                  aria-label={
+                    img.alt ||
+                    fill(t("pages.pageBuilder.defaults.imageOf"), { n: i + 1, total: images.length })
+                  }
                 >
                   {slideHasSrc(img.src) ? (
                     <img
@@ -417,7 +423,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
                     />
                   ) : (
                     <div style={{ ...imgStyleCarousel, ...emptySlideBox }}>
-                      Sem imagem — no painel à direita: URL ou «Carregar do PC»
+                      {t("pages.pageBuilder.defaults.noImage")}
                     </div>
                   )}
                   {img.caption ? (
@@ -445,7 +451,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
             <>
               <button
                 type="button"
-                aria-label="Anterior"
+                aria-label={t("common.previous")}
                 onClick={(e) => {
                   e.stopPropagation();
                   goPrev();
@@ -460,7 +466,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
               </button>
               <button
                 type="button"
-                aria-label="Seguinte"
+                aria-label={t("common.next")}
                 onClick={(e) => {
                   e.stopPropagation();
                   goNext();
@@ -486,7 +492,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
               flexWrap: "wrap",
             }}
             role="navigation"
-            aria-label="Posição do carrossel"
+            aria-label={t("pages.pageBuilder.defaults.carouselPosition")}
           >
             {Array.from({ length: dotCount }, (_, page) => {
               const active = carouselStart === page;
@@ -494,7 +500,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
                 <button
                   key={`dot-${page}`}
                   type="button"
-                  aria-label={`Ir para posição ${page + 1}`}
+                  aria-label={fill(t("pages.pageBuilder.defaults.goToPosition"), { n: page + 1 })}
                   aria-current={active}
                   onClick={() => setCarouselStart(page)}
                   style={{
@@ -554,13 +560,13 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
               display: "block",
               position: "relative",
             }}
-            aria-label={im.alt || `Imagem ${i + 1}`}
+            aria-label={im.alt || fill(t("pages.pageBuilder.defaults.imageN"), { n: i + 1 })}
           >
             {slideHasSrc(im.src) ? (
               <img src={im.src} alt={im.alt} loading="lazy" style={imgStyleGrid} />
             ) : (
               <div style={{ ...imgStyleGrid, ...emptySlideBox, aspectRatio: ratioMap[aspectRatio] }}>
-                Sem imagem — painel à direita: URL ou «Carregar do PC»
+                {t("pages.pageBuilder.defaults.noImage")}
               </div>
             )}
             {im.caption && (

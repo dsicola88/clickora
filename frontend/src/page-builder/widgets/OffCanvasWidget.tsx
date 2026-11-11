@@ -2,11 +2,13 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { Menu, X } from "lucide-react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { usePageBuilderT } from "../usePageBuilderT";
 
 /**
  * Painel lateral (off-canvas): botão flutuante abre painel com HTML / links.
  */
 export function OffCanvasWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
+  const t = usePageBuilderT();
   const c = widget.content;
   const side = ((c.side as string) ?? "right") === "left" ? "left" : "right";
   const width = typeof c.width === "number" && c.width > 0 ? c.width : 320;
@@ -96,7 +98,7 @@ export function OffCanvasWidget({ widget, device }: { widget: WidgetNode; device
             <button
               type="button"
               onClick={() => setOpen(false)}
-              aria-label="Fechar"
+              aria-label={t("common.close")}
               style={{
                 position: "absolute",
                 top: 12,
@@ -113,7 +115,7 @@ export function OffCanvasWidget({ widget, device }: { widget: WidgetNode; device
               <div dangerouslySetInnerHTML={{ __html: html }} />
             ) : (
               <p style={{ opacity: 0.7, fontSize: 14 }}>
-                Adicione HTML do painel na aba Conteúdo.
+                {t("pages.pageBuilder.defaults.offCanvasEmpty")}
               </p>
             )}
           </aside>

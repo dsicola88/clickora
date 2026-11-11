@@ -55,6 +55,7 @@ import {
 } from "@/components/PresellPublishReadiness";
 import { buildEliteQualityBar } from "@/lib/presellEliteQuality";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { fill } from "@/i18n";
 
 function detectPlatform(url: string): string | null {
   const u = url.toLowerCase();
@@ -167,7 +168,7 @@ export default function CreatePresellWizardPage() {
         platform,
         status: "draft",
       });
-      if (error || !data) throw new Error(error || "Falha ao criar campanha");
+      if (error || !data) throw new Error(error || t("pages.createPresell.failCreateCampaign"));
       return data;
     },
     onSuccess: (c) => {
@@ -181,7 +182,7 @@ export default function CreatePresellWizardPage() {
   const createPresell = useMutation({
     mutationFn: async () => {
       const type = presellType;
-      const titleSeed = campaignName.trim() || "Nova presell";
+      const titleSeed = campaignName.trim() || t("pages.createPresell.defaultTitle");
       const slug = `${slugFromTitle(titleSeed)}-${Date.now().toString(36).slice(-4)}`;
       const offer = offerUrl.trim();
       const productPage = productPageUrl.trim() || offer;
@@ -196,7 +197,7 @@ export default function CreatePresellWizardPage() {
       if (imported.error || !imported.data) {
         throw new Error(
           imported.error ||
-            "Não foi possível ler a página do produto. Cole o URL público da sales page (não o checkout).",
+            t("pages.createPresell.readProductError"),
         );
       }
 
@@ -270,7 +271,7 @@ export default function CreatePresellWizardPage() {
               video_url = resolveVideoEmbedSrc(data.video_url) || null;
             } else if (manualYoutubeUrl.trim()) {
               const embed = buildYoutubeEmbedUrlForPresell(manualYoutubeUrl.trim());
-              if (!embed) throw new Error("URL do YouTube inválido.");
+              if (!embed) throw new Error(t("pages.createPresell.youtubeInvalid"));
               video_url = embed;
             }
           }
@@ -302,7 +303,7 @@ export default function CreatePresellWizardPage() {
         (!operatorName || !operatorEmail)
       ) {
         throw new Error(
-          "Com o rodapé de políticas ligado, indique o seu nome real de afiliado/operador e um e-mail de contacto válidos — sem inventar CNPJ, marca nem e-mail.",
+          t("pages.createPresell.footerBlackRequired"),
         );
       }
       const policyFromImport = imported.data?.policy_urls;
@@ -330,7 +331,7 @@ export default function CreatePresellWizardPage() {
         (!whiteBusinessName || !whiteContactEmail)
       ) {
         throw new Error(
-          "Com o rodapé de políticas ligado, indique um e-mail de contacto público (ou configure «Notificar vendas» no perfil). O nome pode ser o do produto ou o seu como afiliado.",
+          t("pages.createPresell.footerWhiteRequired"),
         );
       }
       // Black: identidade do afiliado. White: produto + contacto real (quando o rodapé está ligado).
@@ -398,7 +399,7 @@ export default function CreatePresellWizardPage() {
         settings,
         ...(customDomainId ? { custom_domain_id: customDomainId } : {}),
       } as never);
-      if (errA || !pageA) throw new Error(errA || "Falha ao criar presell");
+      if (errA || !pageA) throw new Error(errA || t("pages.createPresell.failCreatePresell"));
 
       const publicUrlA = getPublicPresellFullUrl(customDomains, pageA.custom_domain_id ?? null, pageA);
       const pubA = await bakeAndMaybePublishPresell({
@@ -416,12 +417,12 @@ export default function CreatePresellWizardPage() {
       const pageALive = pubA.page;
       const complianceBlocked = pubA.complianceBlocked;
       if (pubA.block && a.mirrorOk) {
-        toast.warning(`Presell em rascunho: ${pubA.block.label}. ${pubA.block.hint || ""}`.trim(), {
+        toast.warning(fill(t("pages.createPresell.toastDraftBlock"), { label: pubA.block.label, hint: pubA.block.hint || "" }).trim(), {
           duration: 8000,
         });
       } else if (complianceBlocked) {
         toast.warning(
-          "Presell criada em rascunho: a conformidade publicitária impede a publicação automática. Abra a página e corrija os problemas — a aprovação final depende do Google/Microsoft.",
+          t("pages.createPresell.toastDraftCompliance"),
           { duration: 10000 },
         );
       }
@@ -450,9 +451,9 @@ export default function CreatePresellWizardPage() {
           deterministic_only: !(aiQuota?.openai_configured ?? false),
         });
         if (packErr || !pack) {
-          toast.warning(packErr || "Pacote 3 variantes não criado — a página base ficou ok.");
+          toast.warning(packErr || t("pages.createPresell.toastPackFail"));
         } else {
-          triplePackNote = `Pacote ${pack.source}: ${pack.pages.landing.slug} · ${pack.pages.review.slug} · ${pack.pages.advertorial.slug}`;
+          triplePackNote = fill(t("pages.createPresell.toastPackNote"), { source: pack.source, landing: pack.pages.landing.slug, review: pack.pages.review.slug, advertorial: pack.pages.advertorial.slug });
           toast.success(triplePackNote, { duration: 9000 });
 
           // Bake + publicar irmãs (cada uma com o seu track id) + rotador 33/33/34.
@@ -524,7 +525,7 @@ export default function CreatePresellWizardPage() {
             if (!rotErr && rotator?.public_click_url) {
               rotatorUrl = rotator.public_click_url;
             } else if (rotErr) {
-              toast.warning(`Variantes ok; rotador: ${rotErr}`);
+              toast.warning(fill(t("pages.createPresell.toastVariantsRotator"), { error: rotErr }));
             }
           }
         }
@@ -555,7 +556,7 @@ export default function CreatePresellWizardPage() {
           settings: settingsB,
           ...(customDomainId ? { custom_domain_id: customDomainId } : {}),
         } as never);
-        if (errB || !createdB) throw new Error(errB || "Falha ao criar variante B");
+        if (errB || !createdB) throw new Error(errB || t("pages.createPresell.failVariantB"));
         const publicUrlB = getPublicPresellFullUrl(customDomains, createdB.custom_domain_id ?? null, createdB);
         const pubB = await bakeAndMaybePublishPresell({
           page: createdB,
@@ -664,36 +665,36 @@ export default function CreatePresellWizardPage() {
       const wantedPack = enableTriplePack;
       if (wantedPack && !rotatorUrl && mirrorOk) {
         toast.warning(
-          "Pacote 3 variantes criado, mas o rotador 33/33/34 falhou. Use as 3 páginas em Presells → Rotadores, ou volte a gerar o pacote.",
+          t("pages.createPresell.toastPackNoRotator"),
           { duration: 10000 },
         );
       } else if (wantedPack && rotatorUrl) {
-        toast.success("Pacote 3 variantes + rotador 33/33/34 prontos — use o URL do rotador no anúncio.");
+        toast.success(t("pages.createPresell.toastPackReady"));
       } else if (wantedAb && !rotatorUrl) {
         toast.error(
-          "A/B pedido mas o rotador não foi criado (variante B ou publicação falhou). Use o URL único só depois de corrigir, ou desactive A/B.",
+          t("pages.createPresell.toastAbNoRotator"),
           { duration: 10000 },
         );
       } else if (wantedAb && rotatorUrl) {
-        toast.success("A/B criado: 2 landers + rotador 50/50");
+        toast.success(t("pages.createPresell.toastAbReady"));
       } else if (mirrorOk) {
         toast.success(
-          "Presell publicada com o nome, as fotos e o link da oferta. Não é um clone da página da marca.",
+          t("pages.createPresell.toastPublished"),
         );
       } else if (complianceBlocked) {
         toast.warning(
-          "Importação ok, mas a conformidade publicitária manteve a página em rascunho. Edite e publique em Presells.",
+          t("pages.createPresell.toastComplianceDraft"),
           { duration: 10000 },
         );
       } else if (importNotes.length > 0) {
         toast.warning(importNotes.join(" "));
       } else if (importPublishable) {
         toast.warning(
-          "A presell ficou em rascunho. Abra Presells, complete a conformidade e publique antes de anunciar.",
+          t("pages.createPresell.toastStillDraft"),
         );
       } else {
         toast.warning(
-          "Presell em rascunho — faltam título, imagens ou texto reais. Complete e publique antes de anunciar.",
+          t("pages.createPresell.toastDraftMissing"),
         );
       }
     },
@@ -716,50 +717,50 @@ export default function CreatePresellWizardPage() {
     toast.success(
       rotatorAdUrl
         ? enableTriplePack
-          ? "URL do rotador 33/33/34 copiada"
-          : "URL do rotador A/B copiada"
-        : "URL do anúncio copiada",
+          ? t("pages.createPresell.copyRotatorTriple")
+          : t("pages.createPresell.copyRotatorAb")
+        : t("pages.createPresell.copyAdUrl"),
     );
     setTimeout(() => setCopied(false), 2000);
   };
 
   const steps = [
-    { n: 1 as const, label: "Oferta" },
-    { n: 2 as const, label: "Campanha" },
-    { n: 3 as const, label: "Tipo e idioma" },
-    { n: 4 as const, label: "Rastreio" },
-    { n: 5 as const, label: "Rever" },
+    { n: 1 as const, label: t("pages.createPresell.stepOffer") },
+    { n: 2 as const, label: t("pages.createPresell.stepCampaign") },
+    { n: 3 as const, label: t("pages.createPresell.stepTypeLang") },
+    { n: 4 as const, label: t("pages.createPresell.stepTracking") },
+    { n: 5 as const, label: t("pages.createPresell.stepReview") },
   ];
 
   const genLabel =
     genPhase === "import"
-      ? "A ler a oferta…"
+      ? t("pages.createPresell.phaseImport")
       : genPhase === "publish"
-        ? "A publicar…"
+        ? t("pages.createPresell.phasePublish")
         : genPhase === "ab"
           ? enableTriplePack
-            ? "A criar 3 variantes…"
-            : "A criar variante B…"
+            ? t("pages.createPresell.phaseTriple")
+            : t("pages.createPresell.phaseVariantB")
           : genPhase === "rotator"
             ? enableTriplePack
-              ? "A criar rotador 33/33/34…"
-              : "A criar rotador A/B…"
+              ? t("pages.createPresell.phaseRotatorTriple")
+              : t("pages.createPresell.phaseRotatorAb")
             : createPresell.isPending
-              ? "A gerar…"
+              ? t("pages.createPresell.phaseGenerating")
               : enableTriplePack
-                ? "Gerar 3 variantes e publicar"
+                ? t("pages.createPresell.actionTriple")
                 : enableAbTest
-                  ? "Gerar A/B e publicar"
-                  : "Gerar e publicar";
+                  ? t("pages.createPresell.actionAb")
+                  : t("pages.createPresell.actionGenerate");
 
   return (
     <div className={cn(APP_PAGE_SHELL, "max-w-2xl")}>
       <PageHeader
         title={t("pages.createPresell.title")}
-        description="Escolha tipo (cookies, desconto, VSL…), idioma e publique. O tracking fica automático."
+        description={t("pages.createPresell.intro")}
         actions={
           <Button variant="outline" onClick={() => navigate("/presells")}>
-            Cancelar
+            {t("common.cancel")}
           </Button>
         }
       />
@@ -786,7 +787,7 @@ export default function CreatePresellWizardPage() {
       {step === 1 && (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
           <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-            <Label>Gerador — nicho da campanha</Label>
+            <Label>{t("pages.createPresell.nicheLabel")}</Label>
             <div className="grid gap-2 sm:grid-cols-2">
               {PRESELL_NICHE_OPTIONS.map((opt) => {
                 const active = generationNiche === opt.id;
@@ -796,7 +797,7 @@ export default function CreatePresellWizardPage() {
                     type="button"
                     onClick={() => {
                       setGenerationNiche(opt.id);
-                      setPresellType((t) => coercePresellTypeForNiche(t, opt.id));
+                      setPresellType((prev) => coercePresellTypeForNiche(prev, opt.id));
                       if (enableAbTest) setAbTypeB(defaultAbPresellTypeB(presellType, opt.id));
                     }}
                     className={cn(
@@ -815,34 +816,34 @@ export default function CreatePresellWizardPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="offer">Hoplink da rede (destino da venda)</Label>
+            <Label htmlFor="offer">{t("pages.createPresell.offerLabel")}</Label>
             <Input
               id="offer"
-              placeholder="https://… (BuyGoods / Digistore / SmartAdv…)"
+              placeholder={t("pages.createPresell.offerPlaceholder")}
               value={offerUrl}
               onChange={(e) => setOfferUrl(e.target.value)}
               autoFocus
             />
             {platform ? (
-              <p className="text-xs text-muted-foreground">Rede detectada: {platform}</p>
+              <p className="text-xs text-muted-foreground">{fill(t("pages.createPresell.networkDetected"), { name: platform })}</p>
             ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="product-page">
               {generationNiche === "black"
-                ? "Página do produto (nome, fotos — sem clonar claims)"
-                : "Página do produto (fidelidade visual)"}
+                ? t("pages.createPresell.productBlackLabel")
+                : t("pages.createPresell.productWhiteLabel")}
             </Label>
             <Input
               id="product-page"
-              placeholder="https://… sales page (opcional — se vazio usa o hoplink)"
+              placeholder={t("pages.createPresell.productPlaceholder")}
               value={productPageUrl}
               onChange={(e) => setProductPageUrl(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
               {generationNiche === "black"
-                ? "Black: portal informativo (Google/Bing). O cookie só desbloqueia o artigo; o hoplink fica no botão «site oficial». A sales page agressiva não vai para o anúncio."
-                : "White: a página segue o visual do produto. Em cookies o hoplink fica no aviso; nos outros tipos o CTA do tipo. Use a sales page pública, não o checkout."}
+                ? t("pages.createPresell.productBlackHint")
+                : t("pages.createPresell.productWhiteHint")}
             </p>
           </div>
           <Button
@@ -854,7 +855,7 @@ export default function CreatePresellWizardPage() {
                   const host = new URL(offerUrl).hostname.replace(/^www\./, "");
                   setCampaignName(`${host} — ${trafficSource}`);
                 } catch {
-                  setCampaignName("Minha campanha");
+                  setCampaignName(t("pages.createPresell.defaultCampaign"));
                 }
               }
               setStep(2);
@@ -868,57 +869,64 @@ export default function CreatePresellWizardPage() {
       {step === 2 && (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
           <div className="space-y-2">
-            <Label>Nome da campanha (e da página na lista)</Label>
+            <Label>{t("pages.createPresell.campaignNameLabel")}</Label>
             <Input
               value={campaignName}
               onChange={(e) => setCampaignName(e.target.value)}
-              placeholder="Ex.: Google US — Nitric Boost"
+              placeholder={t("pages.createPresell.campaignNamePlaceholder")}
             />
             <p className="text-xs text-muted-foreground">
-              Este nome aparece em Presells como «Nome da página» e na campanha.
+              {t("pages.createPresell.campaignNameHint")}
             </p>
           </div>
           <div className="space-y-2">
-            <Label>Fonte de tráfego</Label>
+            <Label>{t("pages.createPresell.trafficSource")}</Label>
             <Select value={trafficSource} onValueChange={setTrafficSource}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {["Google Ads", "Meta Ads", "TikTok Ads", "Native", "Email", "Outra"].map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
+                {[
+                  { value: "Google Ads", label: "Google Ads" },
+                  { value: "Meta Ads", label: "Meta Ads" },
+                  { value: "TikTok Ads", label: "TikTok Ads" },
+                  { value: "Native", label: "Native" },
+                  { value: "Email", label: "Email" },
+                  { value: "Outra", label: t("pages.createPresell.sourceOther") },
+                ].map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2 max-w-[8rem]">
-            <Label>País (anúncio)</Label>
+            <Label>{t("pages.createPresell.countryLabel")}</Label>
             <Input value={country} onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))} />
           </div>
           {listVerifiedHostingDomains(customDomains).length > 1 ? (
             <div className="space-y-2 max-w-xl">
-              <Label>Domínio do anúncio</Label>
+              <Label>{t("pages.createPresell.adDomain")}</Label>
               <Select
                 value={customDomainId || "default"}
                 onValueChange={(v) => setCustomDomainId(v === "default" ? "" : v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Domínio padrão da conta" />
+                  <SelectValue placeholder={t("pages.createPresell.defaultDomain")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">Domínio padrão da conta</SelectItem>
+                  <SelectItem value="default">{t("pages.createPresell.defaultDomain")}</SelectItem>
                   {listVerifiedHostingDomains(customDomains).map((d) => (
                       <SelectItem key={d.id} value={d.id}>
                         {d.hostname}
-                        {d.is_default ? " (padrão)" : ""}
+                        {d.is_default ? t("pages.createPresell.defaultSuffix") : ""}
                       </SelectItem>
                     ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                A campanha X e a Y ficam em domínios diferentes ao escolheres aqui o domínio de cada uma.
+                {t("pages.createPresell.domainSplitHint")}
               </p>
             </div>
           ) : null}
@@ -930,7 +938,7 @@ export default function CreatePresellWizardPage() {
               disabled={!campaignName.trim() || saveCampaign.isPending}
               onClick={() => saveCampaign.mutate()}
             >
-              {saveCampaign.isPending ? "A guardar…" : "Continuar"}
+              {saveCampaign.isPending ? t("pages.createPresell.saving") : t("pages.createPresell.continue")}
             </Button>
           </div>
         </div>
@@ -939,7 +947,7 @@ export default function CreatePresellWizardPage() {
       {step === 3 && (
         <div className="space-y-5 rounded-xl border border-border/60 bg-card p-5">
           <div className="space-y-2">
-            <Label>Idioma da página</Label>
+            <Label>{t("pages.createPresell.pageLanguage")}</Label>
             <Select value={language} onValueChange={(v) => setLanguage(v as PresellLocaleKey)}>
               <SelectTrigger className="max-w-md">
                 <SelectValue />
@@ -952,11 +960,11 @@ export default function CreatePresellWizardPage() {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">Textos da UI pública (cookies, botões, etc.).</p>
+            <p className="text-xs text-muted-foreground">{t("pages.createPresell.pageLanguageHint")}</p>
           </div>
 
           <div className="space-y-2">
-            <Label>Tipo de presell</Label>
+            <Label>{t("pages.createPresell.presellType")}</Label>
             <PresellTypeCombobox
               value={presellType}
               generationNiche={generationNiche}
@@ -966,7 +974,7 @@ export default function CreatePresellWizardPage() {
               }}
             />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Pesquisa por «cookie», «desconto», «VSL», «idade»… Cada tipo muda o que o visitante vê.
+              {t("pages.createPresell.typeSearchHint")}
             </p>
             {typeDetail ? (
               <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
@@ -979,21 +987,21 @@ export default function CreatePresellWizardPage() {
           <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-3">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium">Pacote 3 variantes (landing + review + advertorial)</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Cria 3 landers com textos distintos, publica e monta rotador 33/33/34 — uma URL para o
-                  anúncio. Consome 1 crédito IA neste mês se a OpenAI estiver activa (senão usa texto
-                  editorial seguro sem gastar quota).
-                </p>
+                <p className="text-sm font-medium">{t("pages.createPresell.tripleTitle")}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t("pages.createPresell.tripleHint")}</p>
                 {aiQuota ? (
                   <p className="text-[11px] text-muted-foreground mt-1.5 tabular-nums">
-                    Quota IA: {aiQuota.used}
-                    {aiQuota.limit == null ? "" : ` / ${aiQuota.limit}`}
-                    {aiQuota.remaining != null ? ` · restam ${aiQuota.remaining}` : " · sem limite"}
-                    {aiQuota.openai_configured
-                      ? " · OpenAI activa"
-                      : " · OpenAI off (determinístico)"}
-                    {" · planos: 8 / 40 / 120 gerações/mês"}
+                    {fill(t("pages.createPresell.aiQuotaLine"), {
+                      used: aiQuota.used,
+                      limit: aiQuota.limit == null ? "" : ` / ${aiQuota.limit}`,
+                      remaining:
+                        aiQuota.remaining != null
+                          ? fill(t("pages.createPresell.aiQuotaRemaining"), { n: aiQuota.remaining })
+                          : t("pages.createPresell.aiQuotaUnlimited"),
+                      openai: aiQuota.openai_configured
+                        ? t("pages.createPresell.aiQuotaOn")
+                        : t("pages.createPresell.aiQuotaOff"),
+                    })}
                   </p>
                 ) : null}
               </div>
@@ -1003,16 +1011,13 @@ export default function CreatePresellWizardPage() {
                   setEnableTriplePack(v);
                   if (v) setEnableAbTest(false);
                 }}
-                aria-label="Pacote de 3 variantes"
+                aria-label={t("pages.createPresell.tripleAria")}
               />
             </div>
             <div className="flex items-center justify-between gap-4 border-t border-border/40 pt-3">
               <div>
-                <p className="text-sm font-medium">Teste A/B (2 landers + rotador)</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Cria variante B com outro tipo, mesmo espelho/hoplink, e um rotador 50/50. Use o URL do
-                  rotador no anúncio.
-                </p>
+                <p className="text-sm font-medium">{t("pages.createPresell.abTitle")}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t("pages.createPresell.abHint")}</p>
               </div>
               <Switch
                 checked={enableAbTest}
@@ -1028,7 +1033,7 @@ export default function CreatePresellWizardPage() {
             </div>
             {enableAbTest ? (
               <div className="space-y-2">
-                <Label>Tipo da variante B</Label>
+                <Label>{t("pages.createPresell.abTypeLabel")}</Label>
                 <PresellTypeCombobox
                   value={abTypeB}
                   generationNiche={generationNiche}
@@ -1042,51 +1047,44 @@ export default function CreatePresellWizardPage() {
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 space-y-1">
                 <p className="text-sm font-medium text-foreground">
-                  Rodapé de políticas / identidade do afiliado
+                  {t("pages.createPresell.footerTitle")}
                 </p>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Desligado: página limpa, sem o bloco POLICIES no fundo (como SuperPresell e apps semelhantes).
-                  Ligado: mostra divulgação, contacto e políticas no rodapé — útil se a revisão do Google pedir
-                  transparência.
-                </p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">{t("pages.createPresell.footerHint")}</p>
               </div>
               <Switch
                 checked={showAffiliateTrustFooter}
                 onCheckedChange={setShowAffiliateTrustFooter}
-                aria-label="Mostrar rodapé de políticas e identidade"
+                aria-label={t("pages.createPresell.footerAria")}
               />
             </div>
             {showAffiliateTrustFooter ? (
               generationNiche === "black" ? (
                 <div className="space-y-3 border-t border-border/50 pt-3">
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Use apenas dados verdadeiros do afiliado — não se passe pelo fabricante. Não invente CNPJ, marca
-                    nem e-mail.
-                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{t("pages.createPresell.footerBlackHint")}</p>
                   <div className="space-y-2">
-                    <Label htmlFor="bizName">Nome do responsável / empresa</Label>
+                    <Label htmlFor="bizName">{t("pages.createPresell.bizNameLabel")}</Label>
                     <Input
                       id="bizName"
-                      placeholder={user?.name || "O seu nome ou razão social"}
+                      placeholder={user?.name || t("pages.createPresell.bizNamePlaceholder")}
                       value={businessName}
                       onChange={(e) => setBusinessName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bizEmail">E-mail de contacto público</Label>
+                    <Label htmlFor="bizEmail">{t("pages.createPresell.bizEmailLabel")}</Label>
                     <Input
                       id="bizEmail"
                       type="email"
-                      placeholder={user?.email || "voce@dominio.com"}
+                      placeholder={user?.email || t("pages.createPresell.bizEmailPlaceholder")}
                       value={contactEmail}
                       onChange={(e) => setContactEmail(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bizDoc">CNPJ / CPF / NIF (opcional — só se for real)</Label>
+                    <Label htmlFor="bizDoc">{t("pages.createPresell.bizDocLabel")}</Label>
                     <Input
                       id="bizDoc"
-                      placeholder="Deixe vazio se ainda não tiver"
+                      placeholder={t("pages.createPresell.bizDocPlaceholder")}
                       value={operatorDocument}
                       onChange={(e) => setOperatorDocument(e.target.value)}
                     />
@@ -1095,23 +1093,23 @@ export default function CreatePresellWizardPage() {
               ) : (
                 <div className="space-y-3 border-t border-border/50 pt-3">
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Nome e e-mail reais no rodapé. Sem inventar dados.
+                    {t("pages.createPresell.footerWhiteHint")}
                   </p>
                   <div className="space-y-2">
-                    <Label htmlFor="whiteBizName">Nome no rodapé (produto ou operador)</Label>
+                    <Label htmlFor="whiteBizName">{t("pages.createPresell.whiteNameLabel")}</Label>
                     <Input
                       id="whiteBizName"
-                      placeholder={campaignName.trim() || "Nome do produto"}
+                      placeholder={campaignName.trim() || t("pages.createPresell.productNamePlaceholder")}
                       value={businessName}
                       onChange={(e) => setBusinessName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="whiteBizEmail">E-mail de contacto público</Label>
+                    <Label htmlFor="whiteBizEmail">{t("pages.createPresell.bizEmailLabel")}</Label>
                     <Input
                       id="whiteBizEmail"
                       type="email"
-                      placeholder={user?.email || "voce@dominio.com"}
+                      placeholder={user?.email || t("pages.createPresell.bizEmailPlaceholder")}
                       value={contactEmail}
                       onChange={(e) => setContactEmail(e.target.value)}
                     />
@@ -1122,26 +1120,23 @@ export default function CreatePresellWizardPage() {
           </div>
 
           <div className="rounded-lg border border-dashed border-border/60 bg-muted/15 p-4 space-y-3">
-            <p className="text-sm font-medium text-foreground">Opções do tipo</p>
+            <p className="text-sm font-medium text-foreground">{t("pages.createPresell.typeOptions")}</p>
             {presellType === "cookies" ? (
               <div className="space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 space-y-1">
-                    <p className="text-sm font-medium text-foreground">Ir directo à página de vendas</p>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Ligado: «Aceitar» / «Fechar» no modal de cookies abrem a oferta (com rastreamento). Desligado: só
-                      liberam a review — o visitante clica depois num botão da página.
-                    </p>
+                    <p className="text-sm font-medium text-foreground">{t("pages.createPresell.cookieDirectTitle")}</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">{t("pages.createPresell.cookieDirectHint")}</p>
                   </div>
                   <Switch
                     checked={cookieRedirectToOffer}
                     onCheckedChange={setCookieRedirectToOffer}
-                    aria-label="Ir directo à página de vendas após cookies"
+                    aria-label={t("pages.createPresell.cookieDirectAria")}
                   />
                 </div>
                 {generationNiche === "black" ? (
                   <div className="space-y-2">
-                    <Label htmlFor="cookiePolicy">URL política de cookies (opcional)</Label>
+                    <Label htmlFor="cookiePolicy">{t("pages.createPresell.cookiePolicyLabel")}</Label>
                     <Input
                       id="cookiePolicy"
                       type="url"
@@ -1155,7 +1150,7 @@ export default function CreatePresellWizardPage() {
             ) : null}
             {["idade", "idade_sexo", "idade_pais"].includes(presellType) ? (
               <div className="space-y-2 max-w-[8rem]">
-                <Label htmlFor="minAge">Idade mínima</Label>
+                <Label htmlFor="minAge">{t("pages.createPresell.minAge")}</Label>
                 <Input
                   id="minAge"
                   value={minAge}
@@ -1165,10 +1160,10 @@ export default function CreatePresellWizardPage() {
             ) : null}
             {isVideoPresellType(presellType) ? (
               <div className="space-y-2">
-                <Label htmlFor="yt">YouTube (se o import não trouxer vídeo)</Label>
+                <Label htmlFor="yt">{t("pages.createPresell.youtubeLabel")}</Label>
                 <Input
                   id="yt"
-                  placeholder="https://youtube.com/watch?v=…"
+                  placeholder={t("pages.createPresell.youtubePlaceholder")}
                   value={manualYoutubeUrl}
                   onChange={(e) => setManualYoutubeUrl(e.target.value)}
                 />
@@ -1176,50 +1171,51 @@ export default function CreatePresellWizardPage() {
             ) : null}
             {isDiscountPresellType(presellType) ? (
               <p className="text-xs text-muted-foreground">
-                Desconto e urgência vêm do import da página do produto (percentagem, contagem, prova social).
+                {t("pages.createPresell.discountHint")}
               </p>
             ) : null}
             {presellType === "fantasma" ? (
               <p className="text-xs text-muted-foreground">
-                Redirect no primeiro gesto. Confirme se a rede e a compliance o permitem.
+                {t("pages.createPresell.ghostHint")}
               </p>
             ) : null}
             {!["cookies", "idade", "idade_sexo", "idade_pais", "fantasma"].includes(presellType) &&
             !isVideoPresellType(presellType) &&
             !isDiscountPresellType(presellType) ? (
-              <p className="text-xs text-muted-foreground">Sem opções extra para este tipo — o import preenche o conteúdo.</p>
+              <p className="text-xs text-muted-foreground">{t("pages.createPresell.noExtraOptions")}</p>
             ) : null}
           </div>
 
           {createPresell.isPending ? (
             <p className="text-xs text-muted-foreground">
               {genPhase === "import"
-                ? "A extrair título, imagens e link da oferta…"
-                : "A publicar a presell…"}
+                ? t("pages.createPresell.extracting")
+                : t("pages.createPresell.publishingPresell")}
             </p>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setStep(2)} disabled={createPresell.isPending}>
-              Voltar
+              {t("common.back")}
             </Button>
             <Button disabled={createPresell.isPending} onClick={() => createPresell.mutate()}>
               {genLabel}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Prefere o formulário completo? Em Presells use{" "}
-            <strong className="text-foreground/90">Formulário rápido</strong>.
+            {t("pages.createPresell.preferQuickBefore")}{" "}
+            <strong className="text-foreground/90">{t("pages.createPresell.quickFormStrong")}</strong>.
           </p>
         </div>
       )}
 
       {step === 4 && (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
-          <p className="font-semibold">Rastreio</p>
+          <p className="font-semibold">{t("pages.createPresell.stepTracking")}</p>
           {!mirrorFidelityOk ? (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-3 text-xs text-amber-900 dark:text-amber-100 leading-relaxed">
-              A presell ficou em <strong>rascunho</strong>. O link do anúncio só abre depois de a publicares em
-              Presells.
+              {t("pages.createPresell.draftBannerBefore")}{" "}
+              <strong>{t("pages.createPresell.draftBannerStrong")}</strong>
+              {t("pages.createPresell.draftBannerAfter")}
             </div>
           ) : null}
 
@@ -1229,11 +1225,11 @@ export default function CreatePresellWizardPage() {
               data-testid="presell-final-ads-url"
             >
               <div>
-                <p className="text-sm font-semibold text-foreground">URL final para o Google Ads</p>
+                <p className="text-sm font-semibold text-foreground">{t("pages.createPresell.finalUrlTitle")}</p>
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                  Link completo da presell com UTMs, gclid e rastreamento — copie e cole no campo{" "}
-                  <strong className="text-foreground/90">URL final</strong> do anúncio. Não acrescente parâmetros à
-                  mão.
+                  {t("pages.createPresell.finalUrlBefore")}{" "}
+                  <strong className="text-foreground/90">{t("pages.createPresell.finalUrlStrong")}</strong>{" "}
+                  {t("pages.createPresell.finalUrlAfter")}
                 </p>
               </div>
               <div className="rounded-lg border border-border/60 bg-background px-3 py-2.5">
@@ -1249,11 +1245,11 @@ export default function CreatePresellWizardPage() {
                 onClick={() => void copy()}
               >
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                {copied ? "URL copiada" : "Copiar URL completa para o Ads"}
+                {copied ? t("pages.createPresell.urlCopied") : t("pages.createPresell.copyFullUrl")}
               </Button>
               {!mirrorFidelityOk ? (
                 <p className="text-[11px] text-amber-800 dark:text-amber-200">
-                  Publique a página primeiro — em rascunho o link ainda não está no ar.
+                  {t("pages.createPresell.publishFirst")}
                 </p>
               ) : null}
             </div>
@@ -1261,18 +1257,18 @@ export default function CreatePresellWizardPage() {
 
           <ul className="space-y-2 text-sm">
             {[
-              ["Cliques no anúncio", "Já no link do anúncio (IDs Google + UTMs) — sem pixel extra"],
-              ["Click ID na oferta", "Já no link da oferta (subid / cid da rede reconhecida)"],
+              [t("pages.createPresell.rowAdClicks"), t("pages.createPresell.rowAdClicksVal")],
+              [t("pages.createPresell.rowClickId"), t("pages.createPresell.rowClickIdVal")],
               [
-                "Vendas no painel",
-                "Uma vez: colar o URL de postback na BuyGoods / SmartAdv / Digistore (não no anúncio)",
+                t("pages.createPresell.rowSales"),
+                t("pages.createPresell.rowSalesVal"),
               ],
-              ["Página", mirrorFidelityOk ? "Publicada e pronta para o anúncio" : "Rascunho — editar antes de anunciar"],
+              [t("pages.createPresell.rowPage"), mirrorFidelityOk ? t("pages.createPresell.rowPageLive") : t("pages.createPresell.rowPageDraft")],
             ].map(([k, v]) => (
               <li key={k} className="flex items-center justify-between gap-3 border-b border-border/40 py-2">
                 <span className="text-muted-foreground">{k}</span>
                 <span className="inline-flex items-center gap-1.5 font-medium text-right max-w-[60%]">
-                  {k === "Vendas no painel" || (k === "Página" && !mirrorFidelityOk) ? (
+                  {k === t("pages.createPresell.rowSales") || (k === t("pages.createPresell.rowPage") && !mirrorFidelityOk) ? (
                     <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" aria-hidden />
                   ) : (
                     <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -1283,12 +1279,11 @@ export default function CreatePresellWizardPage() {
             ))}
           </ul>
           <div className="rounded-lg border border-border/50 bg-muted/30 px-3 py-3 text-xs text-muted-foreground leading-relaxed">
-            <p className="font-medium text-foreground mb-1">O link do anúncio já rastreia o clique</p>
+            <p className="font-medium text-foreground mb-1">{t("pages.createPresell.alreadyTracksTitle")}</p>
             <p>
-              Não acrescente pixels nem parâmetros à mão. O visitante chega com o ID do clique da Google; os botões e os
-              cookies passam pelo rastreamento Clickora e o ID vai na oferta. Vendas no painel: em{" "}
-              <strong className="text-foreground/90">Integrações → Postback</strong> copie o URL uma vez para a rede
-              de afiliados.
+              {t("pages.createPresell.alreadyTracksBefore")}{" "}
+              <strong className="text-foreground/90">{t("pages.createPresell.alreadyTracksStrong")}</strong>{" "}
+              {t("pages.createPresell.alreadyTracksAfter")}
             </p>
           </div>
           {wizardReadiness.length ? <PresellPublishReadiness items={wizardReadiness} /> : null}
@@ -1315,7 +1310,7 @@ export default function CreatePresellWizardPage() {
             return (
               <div className="rounded-xl border border-border/60 bg-card p-4 space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-foreground">Qualidade elite (nicho)</h3>
+                  <h3 className="text-sm font-semibold text-foreground">{t("pages.createPresell.eliteTitle")}</h3>
                   <span
                     className={`text-[11px] tabular-nums font-medium ${
                       elite.ready ? "text-emerald-600" : "text-muted-foreground"
@@ -1326,8 +1321,8 @@ export default function CreatePresellWizardPage() {
                 </div>
                 <p className="text-[11px] text-muted-foreground">
                   {elite.ready
-                    ? "Barra OK para anunciar neste nicho."
-                    : "Complete nome, botões e imagens antes de escalar Ads."}
+                    ? t("pages.createPresell.eliteReady")
+                    : t("pages.createPresell.eliteIncomplete")}
                 </p>
                 <ul className="space-y-1.5">
                   {elite.items
@@ -1345,15 +1340,15 @@ export default function CreatePresellWizardPage() {
           })()}
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild>
-              <Link to="/integracoes/postback">Configurar postback agora</Link>
+              <Link to="/integracoes/postback">{t("pages.createPresell.setupPostback")}</Link>
             </Button>
             {presellId ? (
               <Button variant="outline" asChild>
-                <Link to={`/presell/builder/${presellId}`}>Editar presell</Link>
+                <Link to={`/presell/builder/${presellId}`}>{t("pages.createPresell.editPresell")}</Link>
               </Button>
             ) : null}
             <Button className="w-full sm:w-auto" onClick={() => setStep(5)}>
-              Continuar / Rever
+              {t("pages.createPresell.continueReview")}
             </Button>
             {mirrorFidelityOk && tracked && canAdvertiseDpilot ? (
               <Button
@@ -1361,7 +1356,7 @@ export default function CreatePresellWizardPage() {
                 className="w-full sm:w-auto"
                 onClick={() => navigate(dpilotAdsHandoffHref(tracked))}
               >
-                Anunciar no Google Ads
+                {t("pages.createPresell.advertiseGoogle")}
               </Button>
             ) : null}
           </div>

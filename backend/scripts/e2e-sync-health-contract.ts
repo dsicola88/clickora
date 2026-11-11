@@ -72,14 +72,19 @@ function main() {
     join(process.cwd(), "../frontend/src/pages/IntegrationsHubPage.tsx"),
     "utf8",
   );
+  const accountHealthSteps = readFileSync(
+    join(process.cwd(), "../frontend/src/lib/accountHealthSteps.ts"),
+    "utf8",
+  );
   record(
     "Integrações go-live cobre ads_upload + cost_sync + Meta/TikTok",
-    integrationsHub.includes('id: "ads_upload"') &&
-      integrationsHub.includes('id: "cost_sync"') &&
-      integrationsHub.includes('id: "domain_https"') &&
-      integrationsHub.includes('id: "meta_capi_configured"') &&
-      integrationsHub.includes('id: "tiktok_events_configured"') &&
-      integrationsHub.includes("conversion-sync/retry"),
+    integrationsHub.includes("ACCOUNT_HEALTH_HUB_STEPS") &&
+      integrationsHub.includes("retryConversionSync") &&
+      accountHealthSteps.includes('id: "ads_upload"') &&
+      accountHealthSteps.includes('id: "cost_sync"') &&
+      accountHealthSteps.includes('id: "domain_https"') &&
+      accountHealthSteps.includes('id: "meta_capi_configured"') &&
+      accountHealthSteps.includes('id: "tiktok_events_configured"'),
     "ok",
   );
   record(

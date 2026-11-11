@@ -1,4 +1,6 @@
 import { Palette } from "lucide-react";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,15 +18,16 @@ export function EditorThemePicker({
   themeId: EditorChromeThemeId;
   onChange: (id: EditorChromeThemeId) => void;
 }) {
-  const current = EDITOR_CHROME_THEMES.find((t) => t.id === themeId) ?? EDITOR_CHROME_THEMES[0];
+  const { t } = useAppLocale();
+  const current = EDITOR_CHROME_THEMES.find((theme) => theme.id === themeId) ?? EDITOR_CHROME_THEMES[0];
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          title={`Tema do editor: ${current.label}`}
-          aria-label="Tema do editor"
+          title={fill(t("pages.pageBuilder.theme.title"), { name: current.label })}
+          aria-label={t("pages.pageBuilder.theme.aria")}
           className="flex h-8 items-center gap-1.5 rounded-md px-2 text-editor-fg-muted hover:bg-editor-panel-2 hover:text-editor-fg"
         >
           <Palette className="h-4 w-4" />
@@ -38,7 +41,7 @@ export function EditorThemePicker({
         className="z-[240] w-64 border-editor-border bg-editor-panel text-editor-fg"
       >
         <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-editor-fg-muted">
-          Tema do editor
+          {t("pages.pageBuilder.theme.menu")}
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-editor-border" />
         {EDITOR_CHROME_THEMES.map((theme) => {
@@ -67,7 +70,7 @@ export function EditorThemePicker({
                 </span>
               </span>
               {active ? (
-                <span className="text-[10px] font-semibold text-editor-accent">Ativo</span>
+                <span className="text-[10px] font-semibold text-editor-accent">{t("common.active")}</span>
               ) : null}
             </DropdownMenuItem>
           );

@@ -1,3 +1,5 @@
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useBuilder, resolveResponsive } from "../store";
 import type {
   BaseStyles,
@@ -17,7 +19,7 @@ import type {
   WidgetType,
 } from "../types";
 import { SHAPE_DIVIDER_PRESETS } from "../section-chrome";
-import { WIDGET_REGISTRY } from "../widget-registry";
+import { WIDGET_NAME_KEY, WIDGET_REGISTRY } from "../widget-registry";
 import { locateWidget } from "../widget-tree";
 import { Settings2, Trash2, Plus, GripVertical, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -98,21 +100,25 @@ export function PropertyPanel() {
 }
 
 function EmptyPanel() {
+  const { t } = useAppLocale();
   return (
     <aside className="flex h-full min-h-0 w-full min-w-0 flex-col items-center justify-center gap-4 border-l border-editor-border bg-editor-panel p-6 text-center text-editor-fg-muted">
       <div className="rounded-full bg-editor-panel-2 p-4">
         <Settings2 className="h-6 w-6" />
       </div>
       <div className="space-y-2 max-w-[220px]">
-        <p className="text-sm font-medium text-editor-fg">Nada selecionado</p>
+        <p className="text-sm font-medium text-editor-fg">{t("pages.pageBuilder.panel.nothingSelected")}</p>
         <p className="text-[11px] leading-relaxed">
-          Clique num <span className="font-semibold text-editor-fg">widget</span> (título, texto, botão…)
-          para Conteúdo / Estilo / Avançado desse elemento.
+          {t("pages.pageBuilder.panel.emptyBeforeWidget")}{" "}
+          <span className="font-semibold text-editor-fg">{t("pages.pageBuilder.panel.widgetWord")}</span>{" "}
+          {t("pages.pageBuilder.panel.emptyAfterWidget")}
         </p>
         <p className="text-[11px] leading-relaxed">
-          A moldura <span className="font-semibold text-editor-section">verde</span> é a secção
-          (layout de colunas). A moldura{" "}
-          <span className="font-semibold text-editor-widget">vermelha</span> é o elemento.
+          {t("pages.pageBuilder.panel.emptyFrameBefore")}{" "}
+          <span className="font-semibold text-editor-section">{t("pages.pageBuilder.panel.emptyGreen")}</span>{" "}
+          {t("pages.pageBuilder.panel.emptyFrameMid")}{" "}
+          <span className="font-semibold text-editor-widget">{t("pages.pageBuilder.panel.emptyRed")}</span>{" "}
+          {t("pages.pageBuilder.panel.emptyFrameAfter")}
         </p>
       </div>
     </aside>
@@ -126,10 +132,11 @@ type BreadcrumbCrumb = {
 };
 
 function SelectionBreadcrumb({ crumbs }: { crumbs: BreadcrumbCrumb[] }) {
+  const { t } = useAppLocale();
   if (crumbs.length === 0) return null;
   return (
     <nav
-      aria-label="Hierarquia de seleção"
+      aria-label={t("pages.pageBuilder.panel.breadcrumbAria")}
       className="flex flex-wrap items-center gap-1 border-b border-editor-border bg-editor-panel-2/50 px-3 py-1.5"
     >
       {crumbs.map((c, i) => (
@@ -141,7 +148,7 @@ function SelectionBreadcrumb({ crumbs }: { crumbs: BreadcrumbCrumb[] }) {
               onClick={c.onClick}
               className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
               style={{ background: c.color }}
-              title={`Selecionar ${c.label}`}
+              title={fill(t("pages.pageBuilder.panel.selectCrumb"), { label: c.label })}
             >
               {c.label}
             </button>
@@ -218,6 +225,7 @@ function PanelShell({
 
 /** Lista rápida de widgets da secção — evita ficar preso só nas opções de layout. */
 function SectionElementsPicker({ section }: { section: SectionNode }) {
+  const { t } = useAppLocale();
   const select = useBuilder((s) => s.select);
   const items: Array<{
     id: string;
@@ -231,24 +239,24 @@ function SectionElementsPicker({ section }: { section: SectionNode }) {
       items.push({
         id: w.id,
         columnId: col.id,
-        label: def?.label ?? w.type,
+        label: def ? t(WIDGET_NAME_KEY[w.type]) : w.type,
         type: w.type,
       });
     }
   }
   if (items.length === 0) {
     return (
-      <Section title="Elementos nesta secção">
+      <Section title={t("pages.pageBuilder.panel.elementsInSection")}>
         <p className="text-[11px] leading-relaxed text-editor-fg-muted">
-          Ainda sem widgets. Arraste Título, Texto ou Botão da barra esquerda para dentro da coluna.
+          {t("pages.pageBuilder.panel.elementsEmpty")}
         </p>
       </Section>
     );
   }
   return (
-    <Section title="Elementos nesta secção">
+    <Section title={t("pages.pageBuilder.panel.elementsInSection")}>
       <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1 mb-1.5">
-        Clique para editar o elemento (Conteúdo / Estilo / Avançado). A secção só controla colunas e fundo.
+        {t("pages.pageBuilder.panel.elementsHint")}
       </p>
       <ul className="space-y-1">
         {items.map((it, i) => (
@@ -304,9 +312,9 @@ function WidgetPanel({
   widget: WidgetNode;
   device: DeviceType;
 }) {
+  const { t } = useAppLocale();
   const [tab, setTab] = useState<Tab>("content");
   const updateWidget = useBuilder((s) => s.updateWidget);
-  const def = WIDGET_REGISTRY[widget.type];
 
   /** Ao mudar de widget, o painel reutiliza o mesmo estado — voltar a «Conteúdo» para não ficar preso em «Estilo» sem o campo do vídeo/URL. */
   useEffect(() => {
@@ -334,9 +342,7 @@ function WidgetPanel({
   const updateSettings = useBuilder((s) => s.updateSettings);
   const convertHtmlToBlocks = () => {
     if (widget.type !== "html") return;
-    const ok = window.confirm(
-      "Isto decompõe o HTML em blocos do builder e pode alterar o layout/CSS original. Continuar?",
-    );
+    const ok = window.confirm(t("pages.pageBuilder.panel.convertConfirm"));
     if (!ok) return;
     const code = String(widget.content.code ?? "");
     const parts = decomposeMirrorHtmlToWidgets(code);
@@ -344,7 +350,7 @@ function WidgetPanel({
       ["heading", "text", "image", "button", "video", "divider"].includes(w.type),
     );
     if (natives.length < 1) {
-      toast.error("Não foi possível decompor este HTML em blocos editáveis.");
+      toast.error(t("pages.pageBuilder.panel.convertFailed"));
       return;
     }
     const idx = column.widgets.findIndex((w) => w.id === widget.id);
@@ -362,39 +368,37 @@ function WidgetPanel({
         columnId: column.id,
       });
     }
-    toast.message("Convertido em blocos — o visual pode diferir do original.");
+    toast.message(t("pages.pageBuilder.panel.converted"));
   };
 
   return (
     <PanelShell
-      title={def.label}
-      badge="Elemento"
+      title={t(WIDGET_NAME_KEY[widget.type])}
+      badge={t("pages.pageBuilder.element")}
       badgeColor="var(--editor-widget)"
       breadcrumb={[
         {
-          label: "Secção",
+          label: t("pages.pageBuilder.section"),
           color: "var(--editor-section)",
           onClick: () => select({ kind: "section", id: section.id }),
         },
         {
-          label: `Coluna ${colIndex + 1}`,
+          label: fill(t("pages.pageBuilder.columnN"), { n: colIndex + 1 }),
           color: "var(--editor-column)",
           onClick: () =>
             select({ kind: "column", sectionId: section.id, id: column.id }),
         },
-        { label: def.label, color: "var(--editor-widget)" },
+        { label: t(WIDGET_NAME_KEY[widget.type]), color: "var(--editor-widget)" },
       ]}
       hint={
         <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-          A editar este elemento. Conteúdo = texto/link · Estilo = cores e tipografia · Avançado =
-          animações (entrada no scroll, sticky, mouse, hover) ·
-          margem, posição e CSS.
+          {t("pages.pageBuilder.panel.editingHint")}
         </p>
       }
       tabs={[
-        { id: "content", label: "Conteúdo" },
-        { id: "style", label: "Estilo" },
-        { id: "advanced", label: "Avançado" },
+        { id: "content", label: t("pages.pageBuilder.content") },
+        { id: "style", label: t("pages.pageBuilder.style") },
+        { id: "advanced", label: t("pages.pageBuilder.advanced") },
       ]}
       active={tab}
       onTab={setTab}
@@ -466,42 +470,43 @@ function WidgetContentTab({
   onFoldPatch?: ((patch: { text?: string; href?: string; src?: string; alt?: string; color?: string; background?: string }) => void) | null;
 }) {
   const c = widget.content;
+  const { t } = useAppLocale();
   switch (widget.type) {
     case "heading":
       return (
-        <Section title="Título">
+        <Section title={t("pages.pageBuilder.widgets.fields.title")}>
           <TextareaField
-            label="Título"
+            label={t("pages.pageBuilder.widgets.fields.title")}
             value={(c.text as string) ?? ""}
             onChange={(v) => setContent({ text: v })}
-            placeholder="Adicione o texto do seu título aqui"
+            placeholder={t("pages.pageBuilder.widgets.content.headingPh")}
           />
           <TextField
-            label="Link (opcional)"
+            label={t("pages.pageBuilder.widgets.fields.linkOptional")}
             value={(c.link as string) ?? ""}
             onChange={(v) => setContent({ link: v })}
             placeholder="https://…"
           />
           <SelectField
-            label="Abrir link"
+            label={t("pages.pageBuilder.widgets.content.openLink")}
             value={((c.linkTarget as string) ?? "_self") as string}
             options={[
-              { value: "_self", label: "Mesma janela" },
-              { value: "_blank", label: "Nova janela" },
+              { value: "_self", label: t("pages.pageBuilder.widgets.opt.sameWindow") },
+              { value: "_blank", label: t("pages.pageBuilder.widgets.opt.newWindow") },
             ]}
             onChange={(v) => setContent({ linkTarget: v })}
           />
           <SelectField
-            label="Rel nofollow"
+            label={t("pages.pageBuilder.widgets.content.nofollow")}
             value={(c.linkNofollow as boolean) ? "yes" : "no"}
             options={[
-              { value: "no", label: "Não" },
-              { value: "yes", label: "Sim (nofollow)" },
+              { value: "no", label: t("common.no") },
+              { value: "yes", label: t("pages.pageBuilder.widgets.opt.nofollowYes") },
             ]}
             onChange={(v) => setContent({ linkNofollow: v === "yes" })}
           />
           <SelectField
-            label="Tag HTML"
+            label={t("pages.pageBuilder.widgets.content.htmlTag")}
             value={(c.tag as string) ?? "h2"}
             options={[
               ...["h1", "h2", "h3", "h4", "h5", "h6"].map((t) => ({ value: t, label: t.toUpperCase() })),
@@ -515,9 +520,9 @@ function WidgetContentTab({
       );
     case "text":
       return (
-        <Section title="Conteúdo">
+        <Section title={t("pages.pageBuilder.content")}>
           <TextareaField
-            label="HTML do texto"
+            label={t("pages.pageBuilder.widgets.content.textHtml")}
             value={(c.html as string) ?? ""}
             onChange={(v) => setContent({ html: v })}
             rows={8}
@@ -526,42 +531,42 @@ function WidgetContentTab({
       );
     case "image":
       return (
-        <Section title="Imagem">
+        <Section title={t("pages.pageBuilder.widgets.content.image")}>
           <BuilderImageUrlField
-            label="URL da imagem"
+            label={t("pages.pageBuilder.widgets.content.imageUrl")}
             value={(c.src as string) ?? ""}
             onChange={(v) => setContent({ src: v })}
             placeholder="https://…"
           />
           <TextField
-            label="Texto alternativo"
+            label={t("pages.pageBuilder.widgets.content.alt")}
             value={(c.alt as string) ?? ""}
             onChange={(v) => setContent({ alt: v })}
           />
           <TextField
-            label="Legenda (opcional)"
+            label={t("pages.pageBuilder.widgets.content.caption")}
             value={(c.caption as string) ?? ""}
             onChange={(v) => setContent({ caption: v })}
           />
           <TextField
-            label="Link (opcional)"
+            label={t("pages.pageBuilder.widgets.fields.linkOptional")}
             value={(c.link as string) ?? ""}
             onChange={(v) => setContent({ link: v })}
           />
           <SelectField
-            label="Object-fit"
+            label={t("pages.pageBuilder.widgets.content.objectFit")}
             value={(c.objectFit as string) ?? "cover"}
             options={[
-              { value: "cover", label: "Cobrir (cover)" },
-              { value: "contain", label: "Conter (contain)" },
-              { value: "fill", label: "Preencher (fill)" },
-              { value: "none", label: "Nenhum" },
-              { value: "scale-down", label: "Reduzir (scale-down)" },
+              { value: "cover", label: t("pages.pageBuilder.widgets.opt.fitCover") },
+              { value: "contain", label: t("pages.pageBuilder.widgets.opt.fitContain") },
+              { value: "fill", label: t("pages.pageBuilder.widgets.opt.fitFill") },
+              { value: "none", label: t("pages.pageBuilder.widgets.opt.fitNone") },
+              { value: "scale-down", label: t("pages.pageBuilder.widgets.opt.fitScale") },
             ]}
             onChange={(v) => setContent({ objectFit: v })}
           />
           <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-            Largura/altura da imagem → aba Estilo (refletem no canvas).
+            {t("pages.pageBuilder.widgets.content.imageHint")}
           </p>
         </Section>
       );
@@ -569,82 +574,81 @@ function WidgetContentTab({
       return <ButtonWidgetEditor widget={widget} setContent={setContent} />;
     case "video":
       return (
-        <Section title="Ligação do vídeo">
+        <Section title={t("pages.pageBuilder.widgets.content.video")}>
           <p className="text-[11px] leading-relaxed text-editor-fg-muted -mt-1 mb-1">
-            O URL cola-se aqui no painel à direita (não no bloco no canvas). Certifica-te de que estás na aba{" "}
-            <span className="font-semibold text-editor-fg">Conteúdo</span>.
+            {t("pages.pageBuilder.widgets.content.videoWhere")}{" "}
+            <span className="font-semibold text-editor-fg">{t("pages.pageBuilder.content")}</span>.
           </p>
           <TextareaField
-            label="YouTube ou Bunny.net (Stream)"
+            label={t("pages.pageBuilder.widgets.content.videoUrl")}
             value={(c.url as string) ?? ""}
             onChange={(v) => setContent({ url: v })}
             rows={4}
-            placeholder="Ex.: https://www.youtube.com/watch?v=… ou https://video.bunnycdn.com/play/…/…"
+            placeholder={t("pages.pageBuilder.widgets.content.videoPh")}
           />
           <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-            <span className="font-semibold text-editor-fg">YouTube:</span> link do vídeo (youtube.com, youtu.be ou
-            Shorts).{" "}
-            <span className="font-semibold text-editor-fg">Bunny.net:</span> página Play (video.bunnycdn.com/play/…) ou
-            iframe (iframe.mediadelivery.net/embed/…).
+            <span className="font-semibold text-editor-fg">{t("pages.pageBuilder.widgets.content.ytLabel")}</span>{" "}
+            {t("pages.pageBuilder.widgets.content.ytBody")}{" "}
+            <span className="font-semibold text-editor-fg">{t("pages.pageBuilder.widgets.content.bunnyLabel")}</span>{" "}
+            {t("pages.pageBuilder.widgets.content.bunnyBody")}
           </p>
           <SelectField
-            label="Reprodução automática"
+            label={t("pages.pageBuilder.widgets.content.autoplay")}
             value={(c.autoplay as boolean) ? "yes" : "no"}
             options={[
-              { value: "no", label: "Não" },
-              { value: "yes", label: "Sim (começa sem som)" },
+              { value: "no", label: t("common.no") },
+              { value: "yes", label: t("pages.pageBuilder.widgets.opt.autoplayMuted") },
             ]}
             onChange={(v) => setContent({ autoplay: v === "yes" })}
           />
           <SelectField
-            label="Controlos do leitor"
+            label={t("pages.pageBuilder.widgets.content.controls")}
             value={(c.controls as boolean) !== false ? "yes" : "no"}
             options={[
-              { value: "yes", label: "Visíveis" },
-              { value: "no", label: "Ocultos" },
+              { value: "yes", label: t("pages.pageBuilder.widgets.opt.visible") },
+              { value: "no", label: t("pages.pageBuilder.widgets.opt.hidden") },
             ]}
             onChange={(v) => setContent({ controls: v === "yes" })}
           />
           <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-            O alinhamento na coluna (esquerda, centro, direita) fica na aba Estilo. Com largura 100% o vídeo ocupa a
-            coluna inteira.
+            {t("pages.pageBuilder.widgets.content.videoAlign")}
           </p>
         </Section>
       );
     case "icon":
       return (
-        <Section title="Ícone">
+        <Section title={t("pages.pageBuilder.widgets.content.icon")}>
           <TextField
-            label="Nome (lucide-react)"
+            label={t("pages.pageBuilder.widgets.content.iconName")}
             value={(c.name as string) ?? ""}
             onChange={(v) => setContent({ name: v })}
-            placeholder="ex.: star, arrow-right, ShoppingCart"
+            placeholder={t("pages.pageBuilder.widgets.content.iconPh")}
           />
           <NumberField
-            label="Tamanho (px)"
+            label={t("pages.pageBuilder.widgets.fields.sizePx")}
             value={(c.size as number) ?? 48}
             onChange={(v) => setContent({ size: v })}
             min={8}
             max={256}
           />
           <TextField
-            label="Link (opcional)"
+            label={t("pages.pageBuilder.widgets.fields.linkOptional")}
             value={(c.link as string) ?? ""}
             onChange={(v) => setContent({ link: v })}
           />
           <SelectField
-            label="Forma"
+            label={t("pages.pageBuilder.widgets.fields.shape")}
             value={(c.shape as string) ?? "none"}
             options={[
-              { value: "none", label: "Nenhuma" },
-              { value: "circle", label: "Círculo" },
-              { value: "square", label: "Quadrado" },
+              { value: "none", label: t("pages.pageBuilder.widgets.opt.noneFem") },
+              { value: "circle", label: t("pages.pageBuilder.widgets.opt.circle") },
+              { value: "square", label: t("pages.pageBuilder.widgets.opt.square") },
             ]}
             onChange={(v) => setContent({ shape: v })}
           />
           {(c.shape as string) === "circle" || (c.shape as string) === "square" ? (
             <ColorField
-              label="Fundo da forma"
+              label={t("pages.pageBuilder.widgets.content.shapeBg")}
               value={(c.shapeBg as string) ?? "#f1f5f9"}
               onChange={(v) => setContent({ shapeBg: v })}
             />
@@ -653,19 +657,19 @@ function WidgetContentTab({
       );
     case "divider":
       return (
-        <Section title="Divisor">
+        <Section title={t("pages.pageBuilder.widgets.content.divider")}>
           <SelectField
-            label="Estilo"
+            label={t("pages.pageBuilder.style")}
             value={(c.style as string) ?? "solid"}
             options={[
-              { value: "solid", label: "Sólido" },
-              { value: "dashed", label: "Tracejado" },
-              { value: "dotted", label: "Pontilhado" },
+              { value: "solid", label: t("pages.pageBuilder.widgets.opt.solid") },
+              { value: "dashed", label: t("pages.pageBuilder.widgets.opt.dashed") },
+              { value: "dotted", label: t("pages.pageBuilder.widgets.opt.dotted") },
             ]}
             onChange={(v) => setContent({ style: v })}
           />
           <NumberField
-            label="Espessura"
+            label={t("pages.pageBuilder.widgets.content.thickness")}
             value={(c.weight as number) ?? 1}
             onChange={(v) => setContent({ weight: v })}
             min={1}
@@ -675,21 +679,20 @@ function WidgetContentTab({
       );
     case "spacer":
       return (
-        <Section title="Espaçador">
-          <p className="text-xs text-editor-fg-muted">Configure a altura na aba Estilo.</p>
+        <Section title={t("pages.pageBuilder.widgets.content.spacer")}>
+          <p className="text-xs text-editor-fg-muted">{t("pages.pageBuilder.widgets.content.spacerHint")}</p>
         </Section>
       );
     case "html":
       return (
         <>
-          <Section title="Edição fiel">
+          <Section title={t("pages.pageBuilder.widgets.content.faithful")}>
             <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-              Visual e CSS originais preservados. Clique num texto, imagem, botão ou secção no canvas
-              — edite aqui sem partir o layout. Tracking e scripts ficam nas definições da página.
+              {t("pages.pageBuilder.widgets.content.faithfulHint")}
             </p>
             {!foldSelection ? (
               <p className="rounded-md border border-dashed border-editor-border bg-editor-panel/50 px-2 py-2 text-[10px] text-editor-fg-muted">
-                Nenhum elemento seleccionado. Clique no canvas para começar.
+                {t("pages.pageBuilder.widgets.content.faithfulEmpty")}
               </p>
             ) : (
               <div className="space-y-3">
@@ -701,7 +704,7 @@ function WidgetContentTab({
                   foldSelection.kind === "button" ||
                   foldSelection.kind === "link") && (
                   <TextareaField
-                    label="Texto"
+                    label={t("pages.pageBuilder.widgets.fields.text")}
                     value={foldSelection.text}
                     onChange={(v) => onFoldPatch?.({ text: v })}
                     rows={3}
@@ -709,7 +712,7 @@ function WidgetContentTab({
                 )}
                 {(foldSelection.kind === "button" || foldSelection.kind === "link") && (
                   <TextField
-                    label="Link (href)"
+                    label={t("pages.pageBuilder.widgets.content.href")}
                     value={foldSelection.href}
                     onChange={(v) => onFoldPatch?.({ href: v })}
                     placeholder="https://…"
@@ -718,32 +721,32 @@ function WidgetContentTab({
                 {foldSelection.kind === "image" && (
                   <>
                     <BuilderImageUrlField
-                      label="Imagem (substituir)"
+                      label={t("pages.pageBuilder.widgets.content.replaceImage")}
                       value={foldSelection.src}
                       onChange={(v) => onFoldPatch?.({ src: v })}
-                      placeholder="https://… ou upload"
+                      placeholder={t("pages.pageBuilder.widgets.content.replaceImagePh")}
                     />
                     <TextField
-                      label="Texto alternativo"
+                      label={t("pages.pageBuilder.widgets.content.alt")}
                       value={foldSelection.alt}
                       onChange={(v) => onFoldPatch?.({ alt: v })}
                     />
                   </>
                 )}
                 <ColorField
-                  label="Cor do texto"
+                  label={t("pages.pageBuilder.panel.textColor")}
                   value={foldSelection.color}
                   onChange={(v) => onFoldPatch?.({ color: v })}
                 />
                 <ColorField
-                  label="Cor de fundo"
+                  label={t("pages.pageBuilder.widgets.content.bgColor")}
                   value={foldSelection.background}
                   onChange={(v) => onFoldPatch?.({ background: v })}
                 />
               </div>
             )}
           </Section>
-          <Section title="HTML avançado">
+          <Section title={t("pages.pageBuilder.widgets.content.advancedHtml")}>
             {onConvertHtmlToBlocks ? (
               <button
                 type="button"
@@ -751,11 +754,11 @@ function WidgetContentTab({
                 className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-editor-border bg-editor-panel px-3 py-2 text-[11px] font-medium text-editor-fg-muted hover:bg-editor-hover hover:text-editor-fg"
               >
                 <Wand2 className="h-3.5 w-3.5" />
-                Decompor em blocos (pode alterar o visual)
+                {t("pages.pageBuilder.widgets.content.decompose")}
               </button>
             ) : null}
             <TextareaField
-              label="Código HTML"
+              label={t("pages.pageBuilder.widgets.content.htmlCode")}
               value={(c.code as string) ?? ""}
               onChange={(v) => setContent({ code: v })}
               rows={8}
@@ -814,57 +817,57 @@ function WidgetContentTab({
       return <InfoBoxContentEditor content={c} setContent={setContent} />;
     case "imageBox":
       return (
-        <Section title="Caixa de imagem">
+        <Section title={t("pages.pageBuilder.widgets.content.imageBox")}>
           <BuilderImageUrlField
-            label="URL da imagem"
+            label={t("pages.pageBuilder.widgets.content.imageUrl")}
             value={(c.src as string) ?? ""}
             onChange={(v) => setContent({ src: v })}
           />
           <TextField
-            label="Texto alternativo"
+            label={t("pages.pageBuilder.widgets.content.alt")}
             value={(c.alt as string) ?? ""}
             onChange={(v) => setContent({ alt: v })}
           />
           <TextField
-            label="Título"
+            label={t("pages.pageBuilder.widgets.fields.title")}
             value={(c.title as string) ?? ""}
             onChange={(v) => setContent({ title: v })}
           />
           <TextareaField
-            label="Descrição"
+            label={t("pages.pageBuilder.widgets.fields.description")}
             value={(c.description as string) ?? ""}
             onChange={(v) => setContent({ description: v })}
             rows={3}
           />
           <TextField
-            label="Link (opcional)"
+            label={t("pages.pageBuilder.widgets.fields.linkOptional")}
             value={(c.href as string) ?? ""}
             onChange={(v) => setContent({ href: v })}
             placeholder="https://…"
           />
           <NumberField
-            label="Altura da imagem (px)"
+            label={t("pages.pageBuilder.widgets.content.imageHeight")}
             value={(c.imageHeight as number) ?? 200}
             min={80}
             max={800}
             onChange={(v) => setContent({ imageHeight: v })}
           />
           <SelectField
-            label="Object-fit"
+            label={t("pages.pageBuilder.widgets.content.objectFit")}
             value={(c.objectFit as string) ?? "cover"}
             options={[
-              { value: "cover", label: "Cobrir" },
-              { value: "contain", label: "Conter" },
+              { value: "cover", label: t("pages.pageBuilder.widgets.opt.coverShort") },
+              { value: "contain", label: t("pages.pageBuilder.widgets.opt.containShort") },
             ]}
             onChange={(v) => setContent({ objectFit: v })}
           />
           <ColorField
-            label="Cor do título"
+            label={t("pages.pageBuilder.widgets.fields.titleColor")}
             value={(c.titleColor as string) ?? "#0f172a"}
             onChange={(v) => setContent({ titleColor: v })}
           />
           <ColorField
-            label="Cor da descrição"
+            label={t("pages.pageBuilder.widgets.fields.descColor")}
             value={(c.descColor as string) ?? "#64748b"}
             onChange={(v) => setContent({ descColor: v })}
           />
@@ -872,14 +875,14 @@ function WidgetContentTab({
       );
     case "starRating":
       return (
-        <Section title="Avaliação">
+        <Section title={t("pages.pageBuilder.widgets.content.rating")}>
           <TextField
-            label="Título (opcional)"
+            label={t("pages.pageBuilder.widgets.content.titleOptional")}
             value={(c.title as string) ?? ""}
             onChange={(v) => setContent({ title: v })}
           />
           <NumberField
-            label="Nota"
+            label={t("pages.pageBuilder.widgets.content.score")}
             value={(c.rating as number) ?? 4.5}
             min={0}
             max={10}
@@ -887,35 +890,35 @@ function WidgetContentTab({
             onChange={(v) => setContent({ rating: v })}
           />
           <NumberField
-            label="Máximo de estrelas"
+            label={t("pages.pageBuilder.widgets.content.maxStars")}
             value={(c.max as number) ?? 5}
             min={1}
             max={10}
             onChange={(v) => setContent({ max: v })}
           />
           <NumberField
-            label="Tamanho (px)"
+            label={t("pages.pageBuilder.widgets.fields.sizePx")}
             value={(c.size as number) ?? 22}
             min={12}
             max={48}
             onChange={(v) => setContent({ size: v })}
           />
           <ColorField
-            label="Cor preenchida"
+            label={t("pages.pageBuilder.widgets.content.filled")}
             value={(c.color as string) ?? "#f59e0b"}
             onChange={(v) => setContent({ color: v })}
           />
           <ColorField
-            label="Cor vazia"
+            label={t("pages.pageBuilder.widgets.content.empty")}
             value={(c.emptyColor as string) ?? "#e5e7eb"}
             onChange={(v) => setContent({ emptyColor: v })}
           />
           <SelectField
-            label="Mostrar nota numérica"
+            label={t("pages.pageBuilder.widgets.content.showScore")}
             value={(c.showScore as boolean) !== false ? "yes" : "no"}
             options={[
-              { value: "yes", label: "Sim" },
-              { value: "no", label: "Não" },
+              { value: "yes", label: t("common.yes") },
+              { value: "no", label: t("common.no") },
             ]}
             onChange={(v) => setContent({ showScore: v === "yes" })}
           />
@@ -923,46 +926,46 @@ function WidgetContentTab({
       );
     case "counter":
       return (
-        <Section title="Contador">
+        <Section title={t("pages.pageBuilder.widgets.content.counter")}>
           <NumberField
-            label="Início"
+            label={t("pages.pageBuilder.widgets.content.start")}
             value={(c.start as number) ?? 0}
             onChange={(v) => setContent({ start: v })}
           />
           <NumberField
-            label="Fim"
+            label={t("pages.pageBuilder.widgets.content.end")}
             value={(c.end as number) ?? 1000}
             onChange={(v) => setContent({ end: v })}
           />
           <NumberField
-            label="Duração (ms)"
+            label={t("pages.pageBuilder.widgets.fields.durationMs")}
             value={(c.durationMs as number) ?? 1600}
             min={200}
             max={10000}
             onChange={(v) => setContent({ durationMs: v })}
           />
           <TextField
-            label="Prefixo"
+            label={t("pages.pageBuilder.widgets.fields.prefix")}
             value={(c.prefix as string) ?? ""}
             onChange={(v) => setContent({ prefix: v })}
           />
           <TextField
-            label="Sufixo"
+            label={t("pages.pageBuilder.widgets.fields.suffix")}
             value={(c.suffix as string) ?? ""}
             onChange={(v) => setContent({ suffix: v })}
           />
           <TextField
-            label="Título"
+            label={t("pages.pageBuilder.widgets.fields.title")}
             value={(c.title as string) ?? ""}
             onChange={(v) => setContent({ title: v })}
           />
           <ColorField
-            label="Cor do número"
+            label={t("pages.pageBuilder.widgets.content.numberColor")}
             value={(c.numberColor as string) ?? "#0f172a"}
             onChange={(v) => setContent({ numberColor: v })}
           />
           <ColorField
-            label="Cor do título"
+            label={t("pages.pageBuilder.widgets.fields.titleColor")}
             value={(c.titleColor as string) ?? "#64748b"}
             onChange={(v) => setContent({ titleColor: v })}
           />
@@ -972,10 +975,10 @@ function WidgetContentTab({
       return (
         <Section title="Google Maps">
           <TextField
-            label="Morada / pesquisa"
+            label={t("pages.pageBuilder.widgets.content.address")}
             value={(c.query as string) ?? ""}
             onChange={(v) => setContent({ query: v })}
-            placeholder="Lisboa, Portugal"
+            placeholder={t("pages.pageBuilder.widgets.content.addressPh")}
           />
           <NumberField
             label="Zoom"
@@ -985,30 +988,29 @@ function WidgetContentTab({
             onChange={(v) => setContent({ zoom: v })}
           />
           <NumberField
-            label="Altura (px)"
+            label={t("pages.pageBuilder.widgets.fields.heightPx")}
             value={(c.height as number) ?? 320}
             min={120}
             max={800}
             onChange={(v) => setContent({ height: v })}
           />
           <TextareaField
-            label="URL embed (opcional)"
+            label={t("pages.pageBuilder.widgets.content.embed")}
             value={(c.embedUrl as string) ?? ""}
             onChange={(v) => setContent({ embedUrl: v })}
             rows={3}
-            placeholder="Cole o src do iframe do Google Maps se preferir"
+            placeholder={t("pages.pageBuilder.widgets.content.embedPh")}
           />
         </Section>
       );
     case "menuAnchor":
       return (
-        <Section title="Âncora">
+        <Section title={t("pages.pageBuilder.widgets.content.anchor")}>
           <p className="text-[11px] leading-relaxed text-editor-fg-muted -mt-1">
-            Cria um ponto na página (ex.: <span className="font-mono">#oferta</span>). Use no link do botão
-            ou menu: <span className="font-mono">#oferta</span>.
+            {t("pages.pageBuilder.widgets.content.anchorBefore")}{" "}<span className="font-mono">#oferta</span>{t("pages.pageBuilder.widgets.content.anchorAfter")}{" "}<span className="font-mono">#oferta</span>.
           </p>
           <TextField
-            label="ID da âncora (sem #)"
+            label={t("pages.pageBuilder.widgets.content.anchorId")}
             value={(c.anchorId as string) ?? "oferta"}
             onChange={(v) => setContent({ anchorId: v })}
             placeholder="oferta"
@@ -1019,62 +1021,62 @@ function WidgetContentTab({
       return <CookieBannerContentEditor content={c} setContent={setContent} />;
     case "offCanvas":
       return (
-        <Section title="Off-canvas">
+        <Section title={t("pages.pageBuilder.widgets.content.offCanvas")}>
           <TextField
-            label="Texto do botão"
+            label={t("pages.pageBuilder.widgets.fields.buttonText")}
             value={(c.buttonLabel as string) ?? "Menu"}
             onChange={(v) => setContent({ buttonLabel: v })}
           />
           <SelectField
-            label="Lado do painel"
+            label={t("pages.pageBuilder.widgets.content.panelSide")}
             value={(c.side as string) ?? "right"}
             options={[
-              { value: "right", label: "Direita" },
-              { value: "left", label: "Esquerda" },
+              { value: "right", label: t("pages.pageBuilder.widgets.opt.right") },
+              { value: "left", label: t("pages.pageBuilder.widgets.opt.left") },
             ]}
             onChange={(v) => setContent({ side: v })}
           />
           <SelectField
-            label="Posição do botão"
+            label={t("pages.pageBuilder.widgets.content.buttonPos")}
             value={(c.position as string) ?? "bottom-right"}
             options={[
-              { value: "bottom-right", label: "Canto inferior direito" },
-              { value: "bottom-left", label: "Canto inferior esquerdo" },
-              { value: "top-right", label: "Canto superior direito" },
-              { value: "top-left", label: "Canto superior esquerdo" },
+              { value: "bottom-right", label: t("pages.pageBuilder.popups.posBottomRight") },
+              { value: "bottom-left", label: t("pages.pageBuilder.popups.posBottomLeft") },
+              { value: "top-right", label: t("pages.pageBuilder.popups.posTopRight") },
+              { value: "top-left", label: t("pages.pageBuilder.popups.posTopLeft") },
             ]}
             onChange={(v) => setContent({ position: v })}
           />
           <NumberField
-            label="Largura do painel (px)"
+            label={t("pages.pageBuilder.widgets.content.panelWidth")}
             value={(c.width as number) ?? 340}
             min={240}
             max={640}
             onChange={(v) => setContent({ width: v })}
           />
           <TextareaField
-            label="HTML do painel"
+            label={t("pages.pageBuilder.widgets.content.panelHtml")}
             value={(c.html as string) ?? ""}
             onChange={(v) => setContent({ html: v })}
             rows={6}
           />
           <ColorField
-            label="Fundo do painel"
+            label={t("pages.pageBuilder.widgets.content.panelBg")}
             value={(c.panelBg as string) ?? "#0f172a"}
             onChange={(v) => setContent({ panelBg: v })}
           />
           <ColorField
-            label="Texto do painel"
+            label={t("pages.pageBuilder.widgets.content.panelText")}
             value={(c.panelColor as string) ?? "#f8fafc"}
             onChange={(v) => setContent({ panelColor: v })}
           />
           <ColorField
-            label="Fundo do botão"
+            label={t("pages.pageBuilder.widgets.fields.buttonBg")}
             value={(c.buttonBg as string) ?? "#e63946"}
             onChange={(v) => setContent({ buttonBg: v })}
           />
           <ColorField
-            label="Texto do botão"
+            label={t("pages.pageBuilder.widgets.fields.buttonText")}
             value={(c.buttonColor as string) ?? "#ffffff"}
             onChange={(v) => setContent({ buttonColor: v })}
           />
@@ -1082,20 +1084,20 @@ function WidgetContentTab({
       );
     case "shareButtons":
       return (
-        <Section title="Partilha">
+        <Section title={t("pages.pageBuilder.widgets.content.share")}>
           <TextField
-            label="Texto partilhado"
+            label={t("pages.pageBuilder.widgets.content.sharedText")}
             value={(c.text as string) ?? ""}
             onChange={(v) => setContent({ text: v })}
           />
           <TextField
-            label="URL (vazio = página actual)"
+            label={t("pages.pageBuilder.widgets.content.shareUrl")}
             value={(c.url as string) ?? ""}
             onChange={(v) => setContent({ url: v })}
             placeholder="https://…"
           />
           <TextareaField
-            label="Redes (JSON)"
+            label={t("pages.pageBuilder.widgets.content.networks")}
             value={JSON.stringify((c.networks as string[]) ?? ["whatsapp", "facebook", "twitter", "copy"])}
             onChange={(v) => {
               try {
@@ -1108,15 +1110,15 @@ function WidgetContentTab({
             rows={2}
           />
           <p className="text-[10px] text-editor-fg-muted">
-            Valores: whatsapp, facebook, twitter, linkedin, copy
+            {t("pages.pageBuilder.widgets.content.networksHint")}
           </p>
           <ColorField
-            label="Fundo botões"
+            label={t("pages.pageBuilder.widgets.content.buttonsBg")}
             value={(c.buttonBg as string) ?? "#0f172a"}
             onChange={(v) => setContent({ buttonBg: v })}
           />
           <ColorField
-            label="Texto botões"
+            label={t("pages.pageBuilder.widgets.content.buttonsFg")}
             value={(c.buttonColor as string) ?? "#ffffff"}
             onChange={(v) => setContent({ buttonColor: v })}
           />
@@ -1124,23 +1126,24 @@ function WidgetContentTab({
       );
     case "tableOfContents":
       return (
-        <Section title="Índice">
+        <Section title={t("pages.pageBuilder.widgets.content.toc")}>
           <TextField
-            label="Título"
-            value={(c.title as string) ?? "Índice"}
+            label={t("pages.pageBuilder.widgets.fields.title")}
+            value={(c.title as string) ?? t("pages.pageBuilder.defaults.tocTitle")}
+            placeholder={t("pages.pageBuilder.defaults.tocTitle")}
             onChange={(v) => setContent({ title: v })}
           />
           <SelectField
-            label="Automático (h2–h4 com id)"
+            label={t("pages.pageBuilder.widgets.content.autoToc")}
             value={(c.auto as boolean) !== false ? "yes" : "no"}
             options={[
-              { value: "yes", label: "Sim" },
-              { value: "no", label: "Não (só manuais)" },
+              { value: "yes", label: t("common.yes") },
+              { value: "no", label: t("pages.pageBuilder.widgets.opt.manualOnly") },
             ]}
             onChange={(v) => setContent({ auto: v === "yes" })}
           />
           <ColorField
-            label="Cor dos links"
+            label={t("pages.pageBuilder.widgets.content.linkColor")}
             value={(c.linkColor as string) ?? "#0f172a"}
             onChange={(v) => setContent({ linkColor: v })}
           />
@@ -1155,24 +1158,24 @@ function WidgetContentTab({
       return (
         <Section title="Lottie">
           <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-            Cola o URL de um ficheiro JSON Lottie (LottieFiles, CDN, R2).
+            {t("pages.pageBuilder.widgets.content.lottieHint")}
           </p>
           <TextareaField
-            label="URL do JSON"
+            label={t("pages.pageBuilder.widgets.content.jsonUrl")}
             value={(c.src as string) ?? ""}
             onChange={(v) => setContent({ src: v })}
             rows={3}
             placeholder="https://assets….lottiefiles.com/….json"
           />
           <NumberField
-            label="Largura (px)"
+            label={t("pages.pageBuilder.widgets.content.widthPx")}
             value={(c.width as number) ?? 280}
             min={40}
             max={1200}
             onChange={(v) => setContent({ width: v })}
           />
           <NumberField
-            label="Velocidade"
+            label={t("pages.pageBuilder.widgets.content.speed")}
             value={(c.speed as number) ?? 1}
             min={0.1}
             max={5}
@@ -1183,8 +1186,8 @@ function WidgetContentTab({
             label="Loop"
             value={(c.loop as boolean) !== false ? "yes" : "no"}
             options={[
-              { value: "yes", label: "Sim" },
-              { value: "no", label: "Não" },
+              { value: "yes", label: t("common.yes") },
+              { value: "no", label: t("common.no") },
             ]}
             onChange={(v) => setContent({ loop: v === "yes" })}
           />
@@ -1192,8 +1195,8 @@ function WidgetContentTab({
             label="Autoplay"
             value={(c.autoplay as boolean) !== false ? "yes" : "no"}
             options={[
-              { value: "yes", label: "Sim" },
-              { value: "no", label: "Não" },
+              { value: "yes", label: t("common.yes") },
+              { value: "no", label: t("common.no") },
             ]}
             onChange={(v) => setContent({ autoplay: v === "yes" })}
           />
@@ -1201,56 +1204,56 @@ function WidgetContentTab({
       );
     case "container":
       return (
-        <Section title="Contentor">
+        <Section title={t("pages.pageBuilder.widgets.content.container")}>
           <p className="text-[11px] leading-relaxed text-editor-fg-muted -mt-1">
-            Os elementos lá dentro ficam lado a lado ou empilhados, como um contentor flex.
+            {t("pages.pageBuilder.widgets.content.containerHint")}
           </p>
           <SelectField
-            label="Direção"
+            label={t("pages.pageBuilder.widgets.content.direction")}
             value={(c.direction as string) ?? "row"}
             options={[
-              { value: "row", label: "Linha" },
-              { value: "column", label: "Coluna" },
-              { value: "row-reverse", label: "Linha invertida" },
-              { value: "column-reverse", label: "Coluna invertida" },
+              { value: "row", label: t("pages.pageBuilder.panel.row") },
+              { value: "column", label: t("pages.pageBuilder.panel.columnDir") },
+              { value: "row-reverse", label: t("pages.pageBuilder.panel.rowReverse") },
+              { value: "column-reverse", label: t("pages.pageBuilder.panel.columnReverse") },
             ]}
             onChange={(v) => setContent({ direction: v })}
           />
           <SelectField
-            label="Justificar"
+            label={t("pages.pageBuilder.widgets.content.justify")}
             value={(c.justify as string) ?? "flex-start"}
             options={[
-              { value: "flex-start", label: "Início" },
-              { value: "center", label: "Centro" },
-              { value: "flex-end", label: "Fim" },
-              { value: "space-between", label: "Espaço entre" },
-              { value: "space-around", label: "Espaço à volta" },
-              { value: "space-evenly", label: "Espaço igual" },
+              { value: "flex-start", label: t("pages.pageBuilder.panel.flexStart") },
+              { value: "center", label: t("pages.pageBuilder.panel.center") },
+              { value: "flex-end", label: t("pages.pageBuilder.panel.flexEnd") },
+              { value: "space-between", label: t("pages.pageBuilder.panel.spaceBetween") },
+              { value: "space-around", label: t("pages.pageBuilder.panel.spaceAround") },
+              { value: "space-evenly", label: t("pages.pageBuilder.panel.spaceEvenly") },
             ]}
             onChange={(v) => setContent({ justify: v })}
           />
           <SelectField
-            label="Alinhar"
+            label={t("pages.pageBuilder.widgets.content.align")}
             value={(c.align as string) ?? "stretch"}
             options={[
-              { value: "stretch", label: "Esticar" },
-              { value: "flex-start", label: "Início" },
-              { value: "center", label: "Centro" },
-              { value: "flex-end", label: "Fim" },
+              { value: "stretch", label: t("pages.pageBuilder.panel.stretch") },
+              { value: "flex-start", label: t("pages.pageBuilder.panel.flexStart") },
+              { value: "center", label: t("pages.pageBuilder.panel.center") },
+              { value: "flex-end", label: t("pages.pageBuilder.panel.flexEnd") },
             ]}
             onChange={(v) => setContent({ align: v })}
           />
           <SelectField
-            label="Quebra"
+            label={t("pages.pageBuilder.widgets.content.wrap")}
             value={(c.wrap as string) ?? "nowrap"}
             options={[
-              { value: "nowrap", label: "Uma linha" },
-              { value: "wrap", label: "Quebrar linha" },
+              { value: "nowrap", label: t("pages.pageBuilder.panel.nowrap") },
+              { value: "wrap", label: t("pages.pageBuilder.panel.wrapLine") },
             ]}
             onChange={(v) => setContent({ wrap: v })}
           />
           <NumberField
-            label="Intervalo (px)"
+            label={t("pages.pageBuilder.widgets.content.gap")}
             value={(c.gap as number) ?? 16}
             min={0}
             max={80}
@@ -1261,12 +1264,12 @@ function WidgetContentTab({
     default: {
       const keys = Object.keys(c);
       return (
-        <Section title="Conteúdo">
+        <Section title={t("pages.pageBuilder.content")}>
           <p className="text-[11px] leading-relaxed text-editor-fg-muted -mt-1">
-            Este widget usa campos livres. Estilo e efeitos estão nas abas Estilo / Avançado.
+            {t("pages.pageBuilder.widgets.content.freeHint")}
           </p>
           {keys.length === 0 ? (
-            <p className="text-xs text-editor-fg-muted">Sem campos de conteúdo.</p>
+            <p className="text-xs text-editor-fg-muted">{t("pages.pageBuilder.widgets.content.noFields")}</p>
           ) : (
             keys.map((key) => {
               const val = c[key];
@@ -1277,8 +1280,8 @@ function WidgetContentTab({
                     label={key}
                     value={val ? "yes" : "no"}
                     options={[
-                      { value: "yes", label: "Sim" },
-                      { value: "no", label: "Não" },
+                      { value: "yes", label: t("common.yes") },
+                      { value: "no", label: t("common.no") },
                     ]}
                     onChange={(v) => setContent({ [key]: v === "yes" })}
                   />
@@ -1348,6 +1351,7 @@ function WidgetStyleTab({
   device: DeviceType;
   setStyles: (p: Partial<BaseStyles & ResponsiveStyles>) => void;
 }) {
+  const { t } = useAppLocale();
   const setBorder = (patch: Partial<NonNullable<BaseStyles["border"]>>) =>
     setStyles({
       border: {
@@ -1363,51 +1367,51 @@ function WidgetStyleTab({
     <>
       <div className="border-b border-editor-border px-3 py-2">
         <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-          Estilo deste elemento. Dispositivo ativo:{" "}
-          <span className="font-semibold text-editor-fg">{device}</span>. Hover e animação de entrada →{" "}
-          <span className="font-semibold text-editor-fg">Avançado</span>.
+          {t("pages.pageBuilder.panel.styleDeviceBefore")}{" "}
+          <span className="font-semibold text-editor-fg">{device}</span>.{" "}
+          {t("pages.pageBuilder.panel.styleDeviceAfter")}
         </p>
       </div>
 
-      <Section title={`Tamanho (${device})`}>
+      <Section title={fill(t("pages.pageBuilder.panel.sizeDevice"), { device })}>
         <TextField
-          label="Largura"
+          label={t("pages.pageBuilder.panel.width")}
           value={(resolveResponsive(widget.styles.width, device) as string) ?? ""}
           onChange={(v) => {
-            const t = v.trim();
-            if (!t) setStyles({ width: undefined });
-            else setStyles({ width: setResponsive(widget.styles.width, device, t) });
+            const next = v.trim();
+            if (!next) setStyles({ width: undefined });
+            else setStyles({ width: setResponsive(widget.styles.width, device, next) });
           }}
           placeholder="auto, 100%, 320px…"
         />
         <TextField
-          label="Altura"
+          label={t("pages.pageBuilder.panel.height")}
           value={
             (resolveResponsive(widget.styles.height, device) as string) ??
             (widget.type === "spacer" ? "50px" : "")
           }
           onChange={(v) => {
-            const t = v.trim();
-            if (!t) setStyles({ height: undefined });
-            else setStyles({ height: setResponsive(widget.styles.height, device, t) });
+            const next = v.trim();
+            if (!next) setStyles({ height: undefined });
+            else setStyles({ height: setResponsive(widget.styles.height, device, next) });
           }}
           placeholder={widget.type === "spacer" ? "50px" : "auto, 200px…"}
         />
       </Section>
 
-      <Section title="Cores">
+      <Section title={t("pages.pageBuilder.colors")}>
         <ColorField
-          label="Cor do texto"
+          label={t("pages.pageBuilder.panel.textColor")}
           value={widget.styles.color ?? ""}
           onChange={(v) => setStyles({ color: v })}
         />
         <ColorField
-          label="Fundo"
+          label={t("pages.pageBuilder.background")}
           value={widget.styles.background ?? ""}
           onChange={(v) => setStyles({ background: v })}
         />
         <NumberField
-          label="Opacidade (0–1)"
+          label={t("pages.pageBuilder.panel.opacity")}
           value={typeof widget.styles.opacity === "number" ? widget.styles.opacity : 1}
           min={0}
           max={1}
@@ -1420,34 +1424,34 @@ function WidgetStyleTab({
 
       <SpacingSection styles={widget.styles} device={device} setStyles={setStyles} />
 
-      <Section title="Borda">
+      <Section title={t("pages.pageBuilder.panel.border")}>
         <NumberField
-          label="Espessura (px)"
+          label={t("pages.pageBuilder.panel.thickness")}
           value={widget.styles.border?.width ?? 0}
           min={0}
           max={40}
           onChange={(v) => setBorder({ width: v })}
         />
         <SelectField
-          label="Estilo"
+          label={t("pages.pageBuilder.panel.borderStyle")}
           value={widget.styles.border?.style ?? "solid"}
           options={[
-            { value: "none", label: "Nenhuma" },
-            { value: "solid", label: "Sólida" },
-            { value: "dashed", label: "Tracejada" },
-            { value: "dotted", label: "Pontilhada" },
+            { value: "none", label: t("pages.pageBuilder.panel.borderNone") },
+            { value: "solid", label: t("pages.pageBuilder.panel.borderSolid") },
+            { value: "dashed", label: t("pages.pageBuilder.panel.borderDashed") },
+            { value: "dotted", label: t("pages.pageBuilder.panel.borderDotted") },
           ]}
           onChange={(v) =>
             setBorder({ style: v as NonNullable<BaseStyles["border"]>["style"] })
           }
         />
         <ColorField
-          label="Cor da borda"
+          label={t("pages.pageBuilder.panel.borderColor")}
           value={widget.styles.border?.color ?? "#000000"}
           onChange={(v) => setBorder({ color: v })}
         />
         <NumberField
-          label="Raio (px)"
+          label={t("pages.pageBuilder.panel.radius")}
           value={widget.styles.border?.radius ?? 0}
           min={0}
           max={999}
@@ -1455,9 +1459,9 @@ function WidgetStyleTab({
         />
       </Section>
 
-      <Section title="Sombra">
+      <Section title={t("pages.pageBuilder.panel.shadow")}>
         <TextareaField
-          label="Sombra (CSS box-shadow)"
+          label={t("pages.pageBuilder.panel.shadowCss")}
           value={widget.styles.boxShadow ?? ""}
           onChange={(v) => setStyles({ boxShadow: v.trim() ? v : undefined })}
           rows={2}
@@ -1465,18 +1469,17 @@ function WidgetStyleTab({
         />
       </Section>
 
-      <Section title="Alinhamento do bloco">
+      <Section title={t("pages.pageBuilder.panel.blockAlign")}>
         <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-2 mb-1">
-          Posição do widget na coluna (esquerda / centro / direita). O alinhamento tipográfico
-          (incl. justificado) está em Tipografia.
+          {t("pages.pageBuilder.panel.blockAlignHint")}
         </p>
         <div className="grid grid-cols-3 gap-1">
           {(
             [
-              { value: "left", label: "Esq." },
-              { value: "center", label: "Centro" },
-              { value: "right", label: "Dir." },
-            ] as const
+              { value: "left" as const, label: t("pages.pageBuilder.panel.alignLeft") },
+              { value: "center" as const, label: t("pages.pageBuilder.panel.alignCenter") },
+              { value: "right" as const, label: t("pages.pageBuilder.panel.alignRight") },
+            ]
           ).map((opt) => {
             const current = (resolveResponsive(widget.styles.align, device) as string) ?? "left";
             const active = current === opt.value;
@@ -1516,6 +1519,7 @@ function ColumnPanel({
   column: ColumnNode;
   device: DeviceType;
 }) {
+  const { t } = useAppLocale();
   const [tab, setTab] = useState<Tab>("style");
   useEffect(() => {
     setTab("style");
@@ -1529,36 +1533,35 @@ function ColumnPanel({
 
   return (
     <PanelShell
-      title={`Coluna ${colIndex + 1}`}
-      badge="Coluna"
+      title={fill(t("pages.pageBuilder.columnN"), { n: colIndex + 1 })}
+      badge={t("pages.pageBuilder.column")}
       badgeColor="var(--editor-column)"
       breadcrumb={[
         {
-          label: "Secção",
+          label: t("pages.pageBuilder.section"),
           color: "var(--editor-section)",
           onClick: () => select({ kind: "section", id: section.id }),
         },
-        { label: `Coluna ${colIndex + 1}`, color: "var(--editor-column)" },
+        { label: fill(t("pages.pageBuilder.columnN"), { n: colIndex + 1 }), color: "var(--editor-column)" },
       ]}
       hint={
         <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-          Largura e fundo desta coluna. Para texto/botão, selecione o elemento no canvas ou na lista
-          da secção.
+          {t("pages.pageBuilder.panel.columnHint")}
         </p>
       }
       tabs={[
-        { id: "content", label: "Disposição" },
-        { id: "style", label: "Estilo" },
-        { id: "advanced", label: "Avançado" },
+        { id: "content", label: t("pages.pageBuilder.disposition") },
+        { id: "style", label: t("pages.pageBuilder.style") },
+        { id: "advanced", label: t("pages.pageBuilder.advanced") },
       ]}
       active={tab}
       onTab={setTab}
     >
       {tab === "content" && (
         <>
-          <Section title="Largura">
+          <Section title={t("pages.pageBuilder.panel.widthSection")}>
             <NumberField
-              label={`Largura % (${device})`}
+              label={fill(t("pages.pageBuilder.panel.widthPercent"), { device })}
               value={resolveResponsive(column.widthPercent, device) ?? 100}
               min={5}
               max={100}
@@ -1569,20 +1572,20 @@ function ColumnPanel({
               }
             />
           </Section>
-          <Section title="Alinhamento vertical do conteúdo">
+          <Section title={t("pages.pageBuilder.panel.verticalAlign")}>
             <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-2 mb-1">
-              Como os widgets se distribuem na altura da coluna (tipo Elementor Vertical Align).
+              {t("pages.pageBuilder.panel.verticalAlignHint")}
             </p>
             <SelectField
-              label={`Vertical (${device})`}
+              label={fill(t("pages.pageBuilder.panel.vertical"), { device })}
               value={(resolveResponsive(column.styles.justifyContent, device) as string) ?? "flex-start"}
               options={[
-                { value: "flex-start", label: "Topo" },
-                { value: "center", label: "Centro" },
-                { value: "flex-end", label: "Fundo" },
-                { value: "space-between", label: "Espaço entre" },
-                { value: "space-around", label: "Espaço em torno" },
-                { value: "space-evenly", label: "Espaço igual" },
+                { value: "flex-start", label: t("pages.pageBuilder.panel.top") },
+                { value: "center", label: t("pages.pageBuilder.panel.center") },
+                { value: "flex-end", label: t("pages.pageBuilder.panel.bottom") },
+                { value: "space-between", label: t("pages.pageBuilder.panel.spaceBetween") },
+                { value: "space-around", label: t("pages.pageBuilder.panel.spaceAround") },
+                { value: "space-evenly", label: t("pages.pageBuilder.panel.spaceEvenly") },
               ]}
               onChange={(v) =>
                 setStyles({
@@ -1596,10 +1599,10 @@ function ColumnPanel({
             />
           </Section>
           {column.widgets.length > 0 ? (
-            <Section title="Elementos nesta coluna">
+            <Section title={t("pages.pageBuilder.panel.elementsInColumn")}>
               <ul className="space-y-1">
                 {column.widgets.map((w) => {
-                  const label = WIDGET_REGISTRY[w.type]?.label ?? w.type;
+                  const label = WIDGET_REGISTRY[w.type] ? t(WIDGET_NAME_KEY[w.type]) : w.type;
                   return (
                     <li key={w.id}>
                       <button
@@ -1615,7 +1618,7 @@ function ColumnPanel({
                         className="flex w-full items-center justify-between rounded-md border border-editor-border bg-editor-panel-2 px-2.5 py-2 text-left text-xs transition-colors hover:border-editor-widget"
                       >
                         <span className="font-medium text-editor-fg">{label}</span>
-                        <span className="text-[10px] text-editor-fg-muted">Editar →</span>
+                        <span className="text-[10px] text-editor-fg-muted">{t("pages.pageBuilder.panel.editArrow")}</span>
                       </button>
                     </li>
                   );
@@ -1627,9 +1630,9 @@ function ColumnPanel({
       )}
       {tab === "style" && (
         <>
-          <Section title="Cores">
+          <Section title={t("pages.pageBuilder.colors")}>
             <ColorField
-              label="Fundo"
+              label={t("pages.pageBuilder.background")}
               value={column.styles.background ?? ""}
               onChange={(v) => setStyles({ background: v })}
             />
@@ -1653,6 +1656,7 @@ function ColumnPanel({
 }
 
 function SectionPanel({ section, device }: { section: SectionNode; device: DeviceType }) {
+  const { t } = useAppLocale();
   const [tab, setTab] = useState<Tab>("content");
   useEffect(() => {
     setTab("content");
@@ -1664,20 +1668,20 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
 
   return (
     <PanelShell
-      title="Secção"
-      badge="Secção"
+      title={t("pages.pageBuilder.section")}
+      badge={t("pages.pageBuilder.section")}
       badgeColor="var(--editor-section)"
-      breadcrumb={[{ label: "Secção", color: "var(--editor-section)" }]}
+      breadcrumb={[{ label: t("pages.pageBuilder.section"), color: "var(--editor-section)" }]}
       hint={
         <p className="rounded-md border border-editor-section/40 bg-editor-section/10 px-2 py-1.5 text-[10px] leading-relaxed text-editor-fg">
-          Estás na <strong>secção</strong> (colunas e fundo). Para tipografia, botão ou imagem,
-          escolhe um elemento na lista abaixo ou clica nele no canvas.
+          {t("pages.pageBuilder.panel.sectionHintLead")} <strong>{t("pages.pageBuilder.section")}</strong>{" "}
+          {t("pages.pageBuilder.panel.sectionHintTail")}
         </p>
       }
       tabs={[
-        { id: "content", label: "Disposição" },
-        { id: "style", label: "Estilo" },
-        { id: "advanced", label: "Avançado" },
+        { id: "content", label: t("pages.pageBuilder.disposition") },
+        { id: "style", label: t("pages.pageBuilder.style") },
+        { id: "advanced", label: t("pages.pageBuilder.advanced") },
       ]}
       active={tab}
       onTab={setTab}
@@ -1685,9 +1689,9 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
       {tab === "content" && (
         <>
           <SectionElementsPicker section={section} />
-          <Section title="Estrutura de colunas">
+          <Section title={t("pages.pageBuilder.panel.columnStructure")}>
             <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-              Altere o layout de colunas. Widgets de colunas removidas passam para a última coluna.
+              {t("pages.pageBuilder.panel.columnStructureHint")}
             </p>
             <div className="grid grid-cols-4 gap-1.5">
               {(
@@ -1716,19 +1720,19 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               ))}
             </div>
           </Section>
-          <Section title="Disposição">
+          <Section title={t("pages.pageBuilder.disposition")}>
             <SelectField
-              label="Largura do conteúdo"
+              label={t("pages.pageBuilder.panel.contentWidth")}
               value={section.layout}
               options={[
-                { value: "boxed", label: "Limitado (boxed)" },
-                { value: "full", label: "Largura total" },
+                { value: "boxed", label: t("pages.pageBuilder.panel.boxed") },
+                { value: "full", label: t("pages.pageBuilder.panel.fullWidth") },
               ]}
               onChange={(v) => updateSection(section.id, { layout: v as "boxed" | "full" })}
             />
             {section.layout === "boxed" && (
               <NumberField
-                label="Largura máxima (px)"
+                label={t("pages.pageBuilder.panel.maxWidthPx")}
                 value={section.contentWidth}
                 onChange={(v) => updateSection(section.id, { contentWidth: v })}
                 min={320}
@@ -1736,7 +1740,7 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               />
             )}
             <NumberField
-              label={`Espaço entre colunas (${device})`}
+              label={fill(t("pages.pageBuilder.panel.columnGap"), { device })}
               value={resolveResponsive(section.columnGap, device) ?? 20}
               onChange={(v) =>
                 updateSection(section.id, {
@@ -1747,13 +1751,13 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               max={120}
             />
             <SelectField
-              label={`Direção (${device})`}
+              label={fill(t("pages.pageBuilder.panel.direction"), { device })}
               value={resolveResponsive(section.flex?.direction, device) ?? (device === "mobile" ? "column" : "row")}
               options={[
-                { value: "row", label: "Linha" },
-                { value: "column", label: "Coluna" },
-                { value: "row-reverse", label: "Linha invertida" },
-                { value: "column-reverse", label: "Coluna invertida" },
+                { value: "row", label: t("pages.pageBuilder.panel.row") },
+                { value: "column", label: t("pages.pageBuilder.panel.columnDir") },
+                { value: "row-reverse", label: t("pages.pageBuilder.panel.rowReverse") },
+                { value: "column-reverse", label: t("pages.pageBuilder.panel.columnReverse") },
               ]}
               onChange={(v) =>
                 updateSection(section.id, {
@@ -1765,15 +1769,15 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               }
             />
             <SelectField
-              label={`Justificar (${device})`}
+              label={fill(t("pages.pageBuilder.panel.justify"), { device })}
               value={resolveResponsive(section.flex?.justify, device) ?? "flex-start"}
               options={[
-                { value: "flex-start", label: "Início" },
-                { value: "center", label: "Centro" },
-                { value: "flex-end", label: "Fim" },
-                { value: "space-between", label: "Espaço entre" },
-                { value: "space-around", label: "Espaço à volta" },
-                { value: "space-evenly", label: "Espaço igual" },
+                { value: "flex-start", label: t("pages.pageBuilder.panel.flexStart") },
+                { value: "center", label: t("pages.pageBuilder.panel.center") },
+                { value: "flex-end", label: t("pages.pageBuilder.panel.flexEnd") },
+                { value: "space-between", label: t("pages.pageBuilder.panel.spaceBetween") },
+                { value: "space-around", label: t("pages.pageBuilder.panel.spaceAround") },
+                { value: "space-evenly", label: t("pages.pageBuilder.panel.spaceEvenly") },
               ]}
               onChange={(v) =>
                 updateSection(section.id, {
@@ -1785,13 +1789,13 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               }
             />
             <SelectField
-              label={`Alinhar (${device})`}
+              label={fill(t("pages.pageBuilder.panel.align"), { device })}
               value={resolveResponsive(section.flex?.align, device) ?? "stretch"}
               options={[
-                { value: "flex-start", label: "Início" },
-                { value: "center", label: "Centro" },
-                { value: "flex-end", label: "Fim" },
-                { value: "stretch", label: "Esticar" },
+                { value: "flex-start", label: t("pages.pageBuilder.panel.flexStart") },
+                { value: "center", label: t("pages.pageBuilder.panel.center") },
+                { value: "flex-end", label: t("pages.pageBuilder.panel.flexEnd") },
+                { value: "stretch", label: t("pages.pageBuilder.panel.stretch") },
               ]}
               onChange={(v) =>
                 updateSection(section.id, {
@@ -1803,11 +1807,11 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               }
             />
             <SelectField
-              label={`Quebra (${device})`}
+              label={fill(t("pages.pageBuilder.panel.wrap"), { device })}
               value={resolveResponsive(section.flex?.wrap, device) ?? "nowrap"}
               options={[
-                { value: "nowrap", label: "Uma linha" },
-                { value: "wrap", label: "Quebrar linha" },
+                { value: "nowrap", label: t("pages.pageBuilder.panel.nowrap") },
+                { value: "wrap", label: t("pages.pageBuilder.panel.wrapLine") },
               ]}
               onChange={(v) =>
                 updateSection(section.id, {
@@ -1823,16 +1827,16 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
       )}
       {tab === "style" && (
         <>
-          <Section title="Cores">
+          <Section title={t("pages.pageBuilder.colors")}>
             <ColorField
-              label="Fundo"
+              label={t("pages.pageBuilder.background")}
               value={section.styles.background ?? ""}
               onChange={(v) => setStyles({ background: v })}
             />
           </Section>
-          <Section title="Imagem de fundo">
+          <Section title={t("pages.pageBuilder.panel.backgroundImage")}>
             <BuilderImageUrlField
-              label="URL da imagem"
+              label={t("pages.pageBuilder.panel.imageUrl")}
               value={section.backgroundImageUrl ?? ""}
               onChange={(v) =>
                 updateSection(section.id, {
@@ -1842,12 +1846,12 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               placeholder="https://…"
             />
             <SelectField
-              label="Tamanho"
+              label={t("pages.pageBuilder.panel.size")}
               value={section.backgroundImageSize ?? "cover"}
               options={[
-                { value: "cover", label: "Cobrir (cover)" },
-                { value: "contain", label: "Conter (contain)" },
-                { value: "auto", label: "Automático" },
+                { value: "cover", label: t("pages.pageBuilder.panel.cover") },
+                { value: "contain", label: t("pages.pageBuilder.panel.contain") },
+                { value: "auto", label: t("pages.pageBuilder.panel.auto") },
               ]}
               onChange={(v) =>
                 updateSection(section.id, {
@@ -1856,7 +1860,7 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               }
             />
             <TextField
-              label="Posição"
+              label={t("pages.pageBuilder.panel.position")}
               value={section.backgroundImagePosition ?? "center center"}
               onChange={(v) =>
                 updateSection(section.id, {
@@ -1866,7 +1870,7 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               placeholder="center center"
             />
             <TextareaField
-              label="Slideshow (URLs, uma por linha)"
+              label={t("pages.pageBuilder.sectionChrome.slideshow")}
               value={(section.backgroundSlideshow ?? []).join("\n")}
               onChange={(v) =>
                 updateSection(section.id, {
@@ -1881,7 +1885,7 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
             />
             {(section.backgroundSlideshow ?? []).length > 0 ? (
               <NumberField
-                label="Intervalo slideshow (ms)"
+                label={t("pages.pageBuilder.sectionChrome.slideshowInterval")}
                 value={section.backgroundSlideshowMs ?? 5000}
                 min={1500}
                 max={60000}
@@ -1889,12 +1893,12 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               />
             ) : null}
           </Section>
-          <Section title="Overlay de fundo">
+          <Section title={t("pages.pageBuilder.panel.backgroundOverlay")}>
             <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-              Camada sobre cor, imagem ou vídeo de fundo.
+              {t("pages.pageBuilder.panel.overlayHint")}
             </p>
             <ColorField
-              label="Cor do overlay"
+              label={t("pages.pageBuilder.panel.overlayColor")}
               value={section.backgroundOverlay?.color ?? ""}
               onChange={(v) =>
                 updateSection(section.id, {
@@ -1906,7 +1910,7 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               }
             />
             <NumberField
-              label="Opacidade (%)"
+              label={t("pages.pageBuilder.panel.overlayOpacity")}
               value={section.backgroundOverlay?.opacity ?? 50}
               min={0}
               max={100}
@@ -1943,9 +1947,9 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
               }
             />
           </Section>
-          <Section title="Vídeo de fundo (opcional)">
+          <Section title={t("pages.pageBuilder.panel.backgroundVideo")}>
             <TextareaField
-              label="YouTube ou Bunny.net"
+              label={t("pages.pageBuilder.panel.videoUrl")}
               value={(section.backgroundVideoUrl as string | undefined) ?? ""}
               onChange={(v) =>
                 updateSection(section.id, {
@@ -1953,20 +1957,19 @@ function SectionPanel({ section, device }: { section: SectionNode; device: Devic
                 })
               }
               rows={3}
-              placeholder="https://www.youtube.com/watch?v=… ou video.bunnycdn.com/play/…"
+              placeholder={t("pages.pageBuilder.widgets.stickyVideo.urlPh")}
             />
             <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-              Autoplay silencioso em loop atrás das colunas (mesmos formatos que o widget Vídeo). Deixa vazio para
-              desativar.
+              {t("pages.pageBuilder.sectionChrome.videoHint")}
             </p>
           </Section>
           <ShapeDividerFields
-            title="Shape divider — topo"
+            title={t("pages.pageBuilder.shape.top")}
             config={section.shapeDividerTop}
             onChange={(shapeDividerTop) => updateSection(section.id, { shapeDividerTop })}
           />
           <ShapeDividerFields
-            title="Shape divider — fundo"
+            title={t("pages.pageBuilder.shape.bottom")}
             config={section.shapeDividerBottom}
             onChange={(shapeDividerBottom) => updateSection(section.id, { shapeDividerBottom })}
           />
@@ -1997,6 +2000,20 @@ function ShapeDividerFields({
   config: ShapeDividerConfig | undefined;
   onChange: (next: ShapeDividerConfig | undefined) => void;
 }) {
+  const { t } = useAppLocale();
+  const shapeLabel = {
+    none: "pages.pageBuilder.shape.none",
+    waves: "pages.pageBuilder.shape.waves",
+    "waves-brush": "pages.pageBuilder.shape.wavesBrush",
+    curve: "pages.pageBuilder.shape.curve",
+    "curve-asym": "pages.pageBuilder.shape.curveAsym",
+    tilt: "pages.pageBuilder.shape.tilt",
+    triangle: "pages.pageBuilder.shape.triangle",
+    "triangle-asym": "pages.pageBuilder.shape.triangleAsym",
+    mountains: "pages.pageBuilder.shape.mountains",
+    drops: "pages.pageBuilder.shape.drops",
+    zigzag: "pages.pageBuilder.shape.zigzag",
+  } as const;
   const c = config ?? {};
   const preset = c.preset ?? "none";
   const patch = (partial: Partial<ShapeDividerConfig>) => {
@@ -2010,49 +2027,49 @@ function ShapeDividerFields({
   return (
     <Section title={title}>
       <SelectField
-        label="Forma"
+        label={t("pages.pageBuilder.widgets.fields.shape")}
         value={preset}
-        options={[...SHAPE_DIVIDER_PRESETS]}
+        options={SHAPE_DIVIDER_PRESETS.map((preset) => ({ value: preset.value, label: t(shapeLabel[preset.value]) }))}
         onChange={(v) => patch({ preset: v, color: c.color || "#ffffff", heightPx: c.heightPx ?? 80 })}
       />
       {preset !== "none" ? (
         <>
           <ColorField
-            label="Cor"
+            label={t("pages.pageBuilder.widgets.fields.color")}
             value={c.color ?? "#ffffff"}
             onChange={(v) => patch({ color: v })}
           />
           <NumberField
-            label="Altura (px)"
+            label={t("pages.pageBuilder.widgets.fields.heightPx")}
             value={c.heightPx ?? 80}
             min={8}
             max={400}
             onChange={(v) => patch({ heightPx: v })}
           />
           <SelectField
-            label="Inverter"
+            label={t("pages.pageBuilder.shape.invert")}
             value={c.invert ? "yes" : "no"}
             options={[
-              { value: "no", label: "Não" },
-              { value: "yes", label: "Sim" },
+              { value: "no", label: t("common.no") },
+              { value: "yes", label: t("common.yes") },
             ]}
             onChange={(v) => patch({ invert: v === "yes" })}
           />
           <SelectField
-            label="Espelhar"
+            label={t("pages.pageBuilder.shape.mirror")}
             value={c.flip ? "yes" : "no"}
             options={[
-              { value: "no", label: "Não" },
-              { value: "yes", label: "Sim" },
+              { value: "no", label: t("common.no") },
+              { value: "yes", label: t("common.yes") },
             ]}
             onChange={(v) => patch({ flip: v === "yes" })}
           />
           <SelectField
-            label="Trazer para a frente"
+            label={t("pages.pageBuilder.shape.front")}
             value={c.bringToFront ? "yes" : "no"}
             options={[
-              { value: "no", label: "Não" },
-              { value: "yes", label: "Sim" },
+              { value: "no", label: t("common.no") },
+              { value: "yes", label: t("common.yes") },
             ]}
             onChange={(v) => patch({ bringToFront: v === "yes" })}
           />
@@ -2073,7 +2090,8 @@ function TypographySection({
   device: DeviceType;
   setStyles: (p: Partial<BaseStyles & ResponsiveStyles>) => void;
 }) {
-  const t = (resolveResponsive(styles.typography, device) as TypographyValue | undefined) ?? {
+  const { t } = useAppLocale();
+  const typo = (resolveResponsive(styles.typography, device) as TypographyValue | undefined) ?? {
     fontSize: 16,
     fontWeight: 400,
     lineHeight: 1.5,
@@ -2087,32 +2105,32 @@ function TypographySection({
   const update = (patch: Partial<TypographyValue>) => {
     if (patch.fontFamily) ensureFontFamilyLoaded(patch.fontFamily);
     setStyles({
-      typography: setResponsive(styles.typography, device, { ...t, ...patch }),
+      typography: setResponsive(styles.typography, device, { ...typo, ...patch }),
     });
   };
 
-  const lineUnit = t.lineHeightUnit ?? "";
-  const fsUnit = t.fontSizeUnit ?? "px";
-  const presetId = matchFontPresetId(t.fontFamily);
+  const lineUnit = typo.lineHeightUnit ?? "";
+  const fsUnit = typo.fontSizeUnit ?? "px";
+  const presetId = matchFontPresetId(typo.fontFamily);
 
   return (
-    <Section title={`Tipografia (${device})`}>
+    <Section title={fill(t("pages.pageBuilder.chrome.typeTitle"), { device })}>
       <SelectField
-        label="Família tipográfica"
+        label={t("pages.pageBuilder.chrome.fontFamily")}
         value={presetId === "custom" ? "custom" : presetId}
         options={[
           ...TYPOGRAPHY_FONT_PRESETS.map((p) => ({
             value: p.id,
-            label: `${p.label}${p.category !== "system" ? ` · ${p.category}` : ""}`,
+            label: `${p.id === "system" ? t("pages.pageBuilder.chrome.fontSystem") : p.label}${p.category !== "system" ? ` · ${p.category}` : ""}`,
           })),
-          { value: "custom", label: "Personalizada (CSS)" },
+          { value: "custom", label: t("pages.pageBuilder.chrome.fontCustom") },
         ]}
         onChange={(v) => {
           if (v === "custom") {
             update({
               fontFamily:
-                t.fontFamily && matchFontPresetId(t.fontFamily) === "custom"
-                  ? t.fontFamily
+                typo.fontFamily && matchFontPresetId(typo.fontFamily) === "custom"
+                  ? typo.fontFamily
                   : "inherit",
             });
             return;
@@ -2125,27 +2143,27 @@ function TypographySection({
       />
       {presetId === "custom" ? (
         <TextField
-          label="font-family (CSS)"
-          value={t.fontFamily === "inherit" ? "" : (t.fontFamily ?? "")}
+          label={t("pages.pageBuilder.chrome.fontCss")}
+          value={typo.fontFamily === "inherit" ? "" : (typo.fontFamily ?? "")}
           onChange={(v) => update({ fontFamily: v.trim() ? v : "inherit" })}
-          placeholder="Ex.: 'My Font', Georgia, serif"
+          placeholder={t("pages.pageBuilder.chrome.fontCssPh")}
         />
       ) : (
         <p
           className="rounded-md border border-editor-border bg-editor-panel-2 px-2.5 py-2 text-xs text-editor-fg"
-          style={{ fontFamily: t.fontFamily }}
+          style={{ fontFamily: typo.fontFamily }}
         >
-          Aa Bb Cc — {TYPOGRAPHY_FONT_PRESETS.find((p) => p.id === presetId)?.label ?? "Fonte"}
+          Aa Bb Cc — {TYPOGRAPHY_FONT_PRESETS.find((p) => p.id === presetId)?.label ?? t("pages.pageBuilder.chrome.fontFallback")}
         </p>
       )}
 
       <div>
         <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-editor-fg-muted">
-          Tamanho rápido
+          {t("pages.pageBuilder.chrome.quickSize")}
         </p>
         <div className="mb-2 flex flex-wrap gap-1">
           {TYPOGRAPHY_SIZE_PRESETS.map((s) => {
-            const active = fsUnit === "px" && t.fontSize === s.px;
+            const active = fsUnit === "px" && typo.fontSize === s.px;
             return (
               <button
                 key={s.label}
@@ -2165,9 +2183,9 @@ function TypographySection({
       </div>
 
       <div className="grid grid-cols-[1fr_auto] gap-2">
-        <NumberField label="Tamanho" value={t.fontSize} min={0} max={500} onChange={(v) => update({ fontSize: v })} />
+        <NumberField label={t("pages.pageBuilder.chrome.size")} value={typo.fontSize} min={0} max={500} onChange={(v) => update({ fontSize: v })} />
         <SelectField
-          label="Un."
+          label={t("pages.pageBuilder.chrome.unit")}
           value={fsUnit}
           options={[
             { value: "px", label: "px" },
@@ -2179,8 +2197,8 @@ function TypographySection({
         />
       </div>
       <SelectField
-        label="Peso"
-        value={String(t.fontWeight)}
+        label={t("pages.pageBuilder.chrome.weight")}
+        value={String(typo.fontWeight)}
         options={[100, 200, 300, 400, 500, 600, 700, 800, 900].map((w) => ({
           value: String(w),
           label: TYPOGRAPHY_WEIGHT_LABELS[w] ?? String(w),
@@ -2188,51 +2206,51 @@ function TypographySection({
         onChange={(v) => update({ fontWeight: Number(v) })}
       />
       <SelectField
-        label="Transformação"
-        value={t.textTransform}
+        label={t("pages.pageBuilder.chrome.transform")}
+        value={typo.textTransform}
         options={[
-          { value: "none", label: "Normal" },
-          { value: "uppercase", label: "MAIÚSCULAS" },
-          { value: "lowercase", label: "minúsculas" },
-          { value: "capitalize", label: "Capitalizar palavras" },
+          { value: "none", label: t("pages.pageBuilder.chrome.caseNormal") },
+          { value: "uppercase", label: t("pages.pageBuilder.chrome.uppercase") },
+          { value: "lowercase", label: t("pages.pageBuilder.chrome.lowercase") },
+          { value: "capitalize", label: t("pages.pageBuilder.chrome.capitalize") },
         ]}
         onChange={(v) => update({ textTransform: v as TypographyValue["textTransform"] })}
       />
       <SelectField
-        label="Estilo"
-        value={t.fontStyle ?? "normal"}
+        label={t("pages.pageBuilder.chrome.fontStyle")}
+        value={typo.fontStyle ?? "normal"}
         options={[
-          { value: "normal", label: "Normal" },
-          { value: "italic", label: "Itálico" },
-          { value: "oblique", label: "Oblíquo" },
+          { value: "normal", label: t("pages.pageBuilder.chrome.caseNormal") },
+          { value: "italic", label: t("pages.pageBuilder.chrome.italic") },
+          { value: "oblique", label: t("pages.pageBuilder.chrome.oblique") },
         ]}
         onChange={(v) => update({ fontStyle: v as TypographyValue["fontStyle"] })}
       />
       <SelectField
-        label="Decoração"
-        value={t.textDecoration ?? "none"}
+        label={t("pages.pageBuilder.chrome.decoration")}
+        value={typo.textDecoration ?? "none"}
         options={[
-          { value: "none", label: "Nenhuma" },
-          { value: "underline", label: "Sublinhado" },
-          { value: "overline", label: "Linha acima" },
-          { value: "line-through", label: "Riscado" },
+          { value: "none", label: t("pages.pageBuilder.widgets.opt.noneFem") },
+          { value: "underline", label: t("pages.pageBuilder.chrome.underline") },
+          { value: "overline", label: t("pages.pageBuilder.chrome.overline") },
+          { value: "line-through", label: t("pages.pageBuilder.chrome.strike") },
         ]}
         onChange={(v) => update({ textDecoration: v as TypographyValue["textDecoration"] })}
       />
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <NumberField
-          label="Altura da linha"
-          value={t.lineHeight}
+          label={t("pages.pageBuilder.chrome.lineHeight")}
+          value={typo.lineHeight}
           min={0}
           max={lineUnit === "" ? 4 : 200}
           step={lineUnit === "" ? 0.05 : 1}
           onChange={(v) => update({ lineHeight: v })}
         />
         <SelectField
-          label="Un."
+          label={t("pages.pageBuilder.chrome.unit")}
           value={lineUnit === "" ? "unitless" : lineUnit}
           options={[
-            { value: "unitless", label: "sem unidade" },
+            { value: "unitless", label: t("pages.pageBuilder.chrome.unitless") },
             { value: "px", label: "px" },
             { value: "em", label: "em" },
             { value: "rem", label: "rem" },
@@ -2246,16 +2264,16 @@ function TypographySection({
       </div>
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <NumberField
-          label="Espaçamento entre letras"
-          value={t.letterSpacing}
+          label={t("pages.pageBuilder.chrome.letterSpacing")}
+          value={typo.letterSpacing}
           min={-20}
           max={40}
           step={0.5}
           onChange={(v) => update({ letterSpacing: v })}
         />
         <SelectField
-          label="Un."
-          value={t.letterSpacingUnit ?? "px"}
+          label={t("pages.pageBuilder.chrome.unit")}
+          value={typo.letterSpacingUnit ?? "px"}
           options={[
             { value: "px", label: "px" },
             { value: "em", label: "em" },
@@ -2265,16 +2283,16 @@ function TypographySection({
       </div>
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <NumberField
-          label="Espaçamento entre palavras"
-          value={t.wordSpacing ?? 0}
+          label={t("pages.pageBuilder.chrome.wordSpacing")}
+          value={typo.wordSpacing ?? 0}
           min={-20}
           max={80}
           step={0.5}
           onChange={(v) => update({ wordSpacing: v })}
         />
         <SelectField
-          label="Un."
-          value={t.wordSpacingUnit ?? "px"}
+          label={t("pages.pageBuilder.chrome.unit")}
+          value={typo.wordSpacingUnit ?? "px"}
           options={[
             { value: "px", label: "px" },
             { value: "em", label: "em" },
@@ -2285,18 +2303,18 @@ function TypographySection({
 
       <div>
         <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-editor-fg-muted">
-          Alinhamento do texto
+          {t("pages.pageBuilder.chrome.textAlign")}
         </p>
         <div className="grid grid-cols-4 gap-1">
           {(
             [
-              { value: "left", label: "Esq." },
-              { value: "center", label: "Centro" },
-              { value: "right", label: "Dir." },
-              { value: "justify", label: "Just." },
+              { value: "left", label: t("pages.pageBuilder.panel.alignLeft") },
+              { value: "center", label: t("pages.pageBuilder.panel.center") },
+              { value: "right", label: t("pages.pageBuilder.panel.alignRight") },
+              { value: "justify", label: t("pages.pageBuilder.chrome.justifyShort") },
             ] as const
           ).map((opt) => {
-            const active = t.textAlign === opt.value;
+            const active = typo.textAlign === opt.value;
             return (
               <button
                 key={opt.value}
@@ -2304,7 +2322,7 @@ function TypographySection({
                 onClick={() => {
                   const textAlign = opt.value;
                   const patch: Partial<BaseStyles & ResponsiveStyles> = {
-                    typography: setResponsive(styles.typography, device, { ...t, textAlign }),
+                    typography: setResponsive(styles.typography, device, { ...typo, textAlign }),
                   };
                   if (textAlign === "left" || textAlign === "center" || textAlign === "right") {
                     patch.align = setResponsive(styles.align, device, textAlign);
@@ -2336,6 +2354,7 @@ function SpacingSection({
   device: DeviceType;
   setStyles: (p: Partial<BaseStyles & ResponsiveStyles>) => void;
 }) {
+  const { t } = useAppLocale();
   const padding = (resolveResponsive(styles.padding, device) as SpacingValue | undefined) ?? {
     top: 0,
     right: 0,
@@ -2351,14 +2370,14 @@ function SpacingSection({
     unit: "px" as const,
   };
   return (
-    <Section title={`Espaçamento (${device})`}>
+    <Section title={fill(t("pages.pageBuilder.chrome.spacingTitle"), { device })}>
       <SpacingField
-        label="Padding"
+        label={t("pages.pageBuilder.chrome.padding")}
         value={padding}
         onChange={(v) => setStyles({ padding: setResponsive(styles.padding, device, v) })}
       />
       <SpacingField
-        label="Margin"
+        label={t("pages.pageBuilder.chrome.margin")}
         value={margin}
         onChange={(v) => setStyles({ margin: setResponsive(styles.margin, device, v) })}
       />
@@ -2412,6 +2431,7 @@ function AdvancedTab({
   cssMaskCustom?: string;
   onMask?: (patch: { cssMask?: string; cssMaskCustom?: string }) => void;
 }) {
+  const { t } = useAppLocale();
   const clearableZ = resolveResponsive(styles.zIndex, device);
   const zStr =
     clearableZ !== undefined && clearableZ !== null && !Number.isNaN(clearableZ)
@@ -2445,36 +2465,36 @@ function AdvancedTab({
         />
       ) : null}
       {showLayout ? (
-        <Section title="Disposição">
+        <Section title={t("pages.pageBuilder.disposition")}>
           <TextField
-            label={`Largura (${device})`}
+            label={fill(t("pages.pageBuilder.chrome.widthDevice"), { device })}
             value={(resolveResponsive(styles.width, device) as string) ?? ""}
             onChange={(v) => {
               const t = v.trim();
               if (!t) onStyles({ width: undefined });
               else onStyles({ width: setResponsive(styles.width, device, t) });
             }}
-            placeholder="vazio = automático, ex.: 100%, 320px"
+            placeholder={t("pages.pageBuilder.chrome.widthPh")}
           />
           <TextField
-            label={`Altura (${device})`}
+            label={fill(t("pages.pageBuilder.chrome.heightDevice"), { device })}
             value={(resolveResponsive(styles.height, device) as string) ?? ""}
             onChange={(v) => {
               const t = v.trim();
               if (!t) onStyles({ height: undefined });
               else onStyles({ height: setResponsive(styles.height, device, t) });
             }}
-            placeholder="vazio = automático"
+            placeholder={t("pages.pageBuilder.chrome.heightPh")}
           />
           <SelectField
-            label={`Posição (${device})`}
+            label={fill(t("pages.pageBuilder.chrome.positionDevice"), { device })}
             value={(resolveResponsive(styles.position, device) as string) ?? "static"}
             options={[
-              { value: "static", label: "Padrão (static)" },
-              { value: "relative", label: "Relativa" },
-              { value: "absolute", label: "Absoluta" },
-              { value: "fixed", label: "Fixa (viewport) — conteúdo passa por baixo" },
-              { value: "sticky", label: "Sticky (barra de menu) — conteúdo passa por baixo" },
+              { value: "static", label: t("pages.pageBuilder.chrome.posStatic") },
+              { value: "relative", label: t("pages.pageBuilder.chrome.posRelative") },
+              { value: "absolute", label: t("pages.pageBuilder.chrome.posAbsolute") },
+              { value: "fixed", label: t("pages.pageBuilder.chrome.posFixed") },
+              { value: "sticky", label: t("pages.pageBuilder.chrome.posSticky") },
             ]}
             onChange={(v) => {
               const stickyOrFixed = v === "sticky" || v === "fixed";
@@ -2500,12 +2520,11 @@ function AdvancedTab({
             }}
           />
           <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-            Sticky/fixa: a página sobe por baixo da barra (não por cima). Use fundo sólido e z-index alto
-            (ex. 200). Na barra de menu completa, prefira sticky/fixa nesta secção.
+            {t("pages.pageBuilder.chrome.stickyHint")}
           </p>
           <div className="grid grid-cols-2 gap-2">
             <TextField
-              label={`Top (${device})`}
+              label={fill(t("pages.pageBuilder.chrome.topDevice"), { device })}
               value={(resolveResponsive(styles.top, device) as string) ?? ""}
               onChange={(v) => {
                 const t = v.trim();
@@ -2515,7 +2534,7 @@ function AdvancedTab({
               placeholder="0 / 12px / 10%"
             />
             <TextField
-              label={`Right (${device})`}
+              label={fill(t("pages.pageBuilder.chrome.rightDevice"), { device })}
               value={(resolveResponsive(styles.right, device) as string) ?? ""}
               onChange={(v) => {
                 const t = v.trim();
@@ -2525,7 +2544,7 @@ function AdvancedTab({
               placeholder="auto / 0 / 24px"
             />
             <TextField
-              label={`Bottom (${device})`}
+              label={fill(t("pages.pageBuilder.chrome.bottomDevice"), { device })}
               value={(resolveResponsive(styles.bottom, device) as string) ?? ""}
               onChange={(v) => {
                 const t = v.trim();
@@ -2535,7 +2554,7 @@ function AdvancedTab({
               placeholder="auto / 0 / 24px"
             />
             <TextField
-              label={`Left (${device})`}
+              label={fill(t("pages.pageBuilder.chrome.leftDevice"), { device })}
               value={(resolveResponsive(styles.left, device) as string) ?? ""}
               onChange={(v) => {
                 const t = v.trim();
@@ -2546,10 +2565,10 @@ function AdvancedTab({
             />
           </div>
           <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-            Offsets top/right/bottom/left activos com posição relativa, absoluta, fixa ou sticky.
+            {t("pages.pageBuilder.chrome.offsetHint")}
           </p>
           <TextField
-            label={`Z-index (${device})`}
+            label={fill(t("pages.pageBuilder.chrome.zIndex"), { device })}
             value={zStr}
             onChange={(v) => {
               const t = v.trim();
@@ -2560,17 +2579,17 @@ function AdvancedTab({
               const n = Number(t);
               if (!Number.isNaN(n)) onStyles({ zIndex: setResponsive(styles.zIndex, device, n) });
             }}
-            placeholder="200 (barra de menu)"
+            placeholder={t("pages.pageBuilder.chrome.zIndexPh")}
           />
           <SelectField
-            label={`Alinhar-se (align-self, ${device})`}
+            label={fill(t("pages.pageBuilder.chrome.alignSelf"), { device })}
             value={(resolveResponsive(styles.alignSelf, device) as string) ?? "auto"}
             options={[
-              { value: "auto", label: "Automático" },
-              { value: "flex-start", label: "Início" },
-              { value: "center", label: "Centro" },
-              { value: "flex-end", label: "Fim" },
-              { value: "stretch", label: "Esticar" },
+              { value: "auto", label: t("pages.pageBuilder.panel.auto") },
+              { value: "flex-start", label: t("pages.pageBuilder.panel.flexStart") },
+              { value: "center", label: t("pages.pageBuilder.panel.center") },
+              { value: "flex-end", label: t("pages.pageBuilder.panel.flexEnd") },
+              { value: "stretch", label: t("pages.pageBuilder.panel.stretch") },
             ]}
             onChange={(v) =>
               onStyles({
@@ -2583,7 +2602,7 @@ function AdvancedTab({
             }
           />
           <NumberField
-            label={`Ordem flex (${device})`}
+            label={fill(t("pages.pageBuilder.chrome.order"), { device })}
             value={resolveResponsive(styles.order, device) ?? 0}
             min={-999}
             max={9999}
@@ -2591,14 +2610,14 @@ function AdvancedTab({
           />
           <div className="grid grid-cols-2 gap-2">
             <NumberField
-              label={`Flex grow (${device})`}
+              label={fill(t("pages.pageBuilder.chrome.flexGrow"), { device })}
               value={resolveResponsive(styles.flexGrow, device) ?? 0}
               min={0}
               max={99}
               onChange={(v) => onStyles({ flexGrow: setResponsive(styles.flexGrow, device, v) })}
             />
             <NumberField
-              label={`Flex shrink (${device})`}
+              label={fill(t("pages.pageBuilder.chrome.flexShrink"), { device })}
               value={resolveResponsive(styles.flexShrink, device) ?? 1}
               min={0}
               max={99}
@@ -2607,9 +2626,9 @@ function AdvancedTab({
           </div>
         </Section>
       ) : null}
-      <Section title="Bordas">
+      <Section title={t("pages.pageBuilder.chrome.borders")}>
         <NumberField
-          label="Espessura"
+          label={t("pages.pageBuilder.chrome.thickness")}
           value={styles.border?.width ?? 0}
           min={0}
           max={20}
@@ -2625,7 +2644,7 @@ function AdvancedTab({
           }
         />
         <ColorField
-          label="Cor"
+          label={t("pages.pageBuilder.widgets.fields.color")}
           value={styles.border?.color ?? "#000000"}
           onChange={(v) =>
             onStyles({
@@ -2639,7 +2658,7 @@ function AdvancedTab({
           }
         />
         <NumberField
-          label="Raio"
+          label={t("pages.pageBuilder.chrome.radiusPx")}
           value={styles.border?.radius ?? 0}
           min={0}
           max={200}
@@ -2655,15 +2674,15 @@ function AdvancedTab({
           }
         />
       </Section>
-      <Section title="Visibilidade">
+      <Section title={t("pages.pageBuilder.chrome.visibility")}>
         <SelectField
-          label={`Visível em ${device}`}
+          label={fill(t("pages.pageBuilder.chrome.visibleOn"), { device })}
           value={
             (resolveResponsive(styles.visibility, device) ?? true) ? "show" : "hide"
           }
           options={[
-            { value: "show", label: "Mostrar" },
-            { value: "hide", label: "Ocultar" },
+            { value: "show", label: t("pages.pageBuilder.chrome.show") },
+            { value: "hide", label: t("pages.pageBuilder.chrome.hide") },
           ]}
           onChange={(v) =>
             onStyles({
@@ -2676,30 +2695,29 @@ function AdvancedTab({
         <Section title="CSS">
           {onCssId ? (
             <TextField
-              label="ID CSS"
+              label={t("pages.pageBuilder.chrome.cssId")}
               value={cssId ?? ""}
               onChange={onCssId}
-              placeholder="identificador-único"
+              placeholder={t("pages.pageBuilder.chrome.cssIdPh")}
             />
           ) : null}
           <TextField
-            label="Classes CSS adicionais"
+            label={t("pages.pageBuilder.chrome.cssClasses")}
             value={cssClasses ?? ""}
             onChange={onClasses}
           />
           {onWidgetCustomCss ? (
             <TextareaField
-              label="CSS personalizado (só este widget)"
+              label={t("pages.pageBuilder.chrome.customCss")}
               value={widgetCustomCss ?? ""}
               onChange={onWidgetCustomCss}
               rows={5}
-              placeholder={'#meu-id { border-radius: 8px; }\n.meu-widget .btn { ... }'}
+              placeholder={t("pages.pageBuilder.chrome.customCssPh")}
             />
           ) : null}
           {onWidgetCustomCss ? (
             <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-              Preferência: usa o ID CSS acima como seletor (ex. <span className="font-mono">#promo-box</span>) para não
-              afetar outros blocos.
+              {t("pages.pageBuilder.chrome.customCssHint")}
             </p>
           ) : null}
         </Section>
@@ -2730,6 +2748,7 @@ function FormContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   const fields = (content.fields as FormField[] | undefined) ?? [];
 
   const updateField = (idx: number, patch: Partial<FormField>) => {
@@ -2746,7 +2765,7 @@ function FormContentEditor({
       id: `f_${nanoid(6)}`,
       type: "text",
       name: `campo_${fields.length + 1}`,
-      label: "Novo campo",
+      label: t("pages.pageBuilder.defaults.newField"),
       placeholder: "",
       required: false,
     };
@@ -2763,11 +2782,11 @@ function FormContentEditor({
 
   return (
     <>
-      <Section title="Campos do formulário">
+      <Section title={t("pages.pageBuilder.chrome.formFields")}>
         <div className="space-y-2">
           {fields.length === 0 && (
             <p className="rounded bg-editor-panel-2 p-3 text-center text-[11px] text-editor-fg-muted">
-              Nenhum campo. Adicione um abaixo.
+              {t("pages.pageBuilder.chrome.formEmpty")}
             </p>
           )}
           {fields.map((field, idx) => (
@@ -2782,7 +2801,7 @@ function FormContentEditor({
                     onClick={() => moveField(idx, -1)}
                     disabled={idx === 0}
                     className="text-editor-fg-muted hover:text-editor-fg disabled:opacity-30"
-                    title="Mover para cima"
+                    title={t("pages.pageBuilder.chrome.moveUp")}
                   >
                     <GripVertical className="h-3.5 w-3.5" />
                   </button>
@@ -2794,35 +2813,35 @@ function FormContentEditor({
                   type="button"
                   onClick={() => removeField(idx)}
                   className="rounded p-1 text-editor-fg-muted hover:bg-destructive/20 hover:text-destructive"
-                  title="Remover campo"
+                  title={t("pages.pageBuilder.chrome.removeField")}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
               <SelectField
-                label="Tipo"
+                label={t("pages.pageBuilder.widgets.fields.type")}
                 value={field.type}
                 options={[
-                  { value: "text", label: "Texto" },
+                  { value: "text", label: t("pages.pageBuilder.widgets.fields.text") },
                   { value: "email", label: "E-mail" },
-                  { value: "tel", label: "Telefone" },
-                  { value: "number", label: "Número" },
-                  { value: "textarea", label: "Texto longo" },
+                  { value: "tel", label: t("pages.pageBuilder.chrome.phone") },
+                  { value: "number", label: t("pages.pageBuilder.chrome.number") },
+                  { value: "textarea", label: t("pages.pageBuilder.chrome.longText") },
                 ]}
                 onChange={(v) => updateField(idx, { type: v as FormField["type"] })}
               />
               <TextField
-                label="Rótulo"
+                label={t("pages.pageBuilder.chrome.fieldLabel")}
                 value={field.label}
                 onChange={(v) => updateField(idx, { label: v })}
               />
               <TextField
-                label="Nome (chave do payload)"
+                label={t("pages.pageBuilder.chrome.payloadKey")}
                 value={field.name}
                 onChange={(v) => updateField(idx, { name: v.replace(/[^a-zA-Z0-9_]/g, "_") })}
               />
               <TextField
-                label="Texto de exemplo"
+                label={t("pages.pageBuilder.chrome.placeholder")}
                 value={field.placeholder ?? ""}
                 onChange={(v) => updateField(idx, { placeholder: v })}
               />
@@ -2833,7 +2852,7 @@ function FormContentEditor({
                   onChange={(e) => updateField(idx, { required: e.target.checked })}
                   className="h-3.5 w-3.5 accent-editor-accent"
                 />
-                Obrigatório
+                {t("common.required")}
               </label>
             </div>
           ))}
@@ -2842,68 +2861,68 @@ function FormContentEditor({
             onClick={addField}
             className="flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-editor-border py-2 text-[11px] font-medium text-editor-fg-muted transition-colors hover:border-editor-accent hover:text-editor-accent"
           >
-            <Plus className="h-3.5 w-3.5" /> Adicionar campo
+            <Plus className="h-3.5 w-3.5" /> {t("pages.pageBuilder.chrome.addField")}
           </button>
         </div>
       </Section>
 
-      <Section title="Envio">
+      <Section title={t("pages.pageBuilder.chrome.submitSection")}>
         <TextField
-          label="Texto do botão"
+          label={t("pages.pageBuilder.widgets.fields.buttonText")}
           value={(content.submitText as string) ?? "Enviar"}
           onChange={(v) => setContent({ submitText: v })}
         />
         <TextField
-          label="URL do webhook"
+          label={t("pages.pageBuilder.chrome.webhook")}
           value={(content.webhookUrl as string) ?? ""}
           placeholder="https://hooks.exemplo.com/..."
           onChange={(v) => setContent({ webhookUrl: v })}
         />
         <TextField
-          label="Redirecionar após envio (opcional)"
+          label={t("pages.pageBuilder.chrome.redirectAfter")}
           value={(content.redirectUrl as string) ?? ""}
           placeholder="https://..."
           onChange={(v) => setContent({ redirectUrl: v })}
         />
         <TextareaField
-          label="Mensagem de sucesso"
+          label={t("pages.pageBuilder.chrome.successMsg")}
           value={(content.successMessage as string) ?? ""}
           onChange={(v) => setContent({ successMessage: v })}
           rows={2}
         />
         <TextareaField
-          label="Mensagem de erro"
+          label={t("pages.pageBuilder.chrome.errorMsg")}
           value={(content.errorMessage as string) ?? ""}
           onChange={(v) => setContent({ errorMessage: v })}
           rows={2}
         />
       </Section>
 
-      <Section title="Estilo dos campos">
+      <Section title={t("pages.pageBuilder.chrome.fieldStyle")}>
         <ColorField
-          label="Fundo do campo"
+          label={t("pages.pageBuilder.chrome.fieldBg")}
           value={(content.inputBg as string) ?? "#ffffff"}
           onChange={(v) => setContent({ inputBg: v })}
         />
         <ColorField
-          label="Cor da borda"
+          label={t("pages.pageBuilder.panel.borderColor")}
           value={(content.inputBorderColor as string) ?? "#d0d5dd"}
           onChange={(v) => setContent({ inputBorderColor: v })}
         />
         <NumberField
-          label="Raio da borda (px)"
+          label={t("pages.pageBuilder.chrome.borderRadius")}
           value={(content.inputRadius as number) ?? 6}
           onChange={(v) => setContent({ inputRadius: v })}
           min={0}
           max={32}
         />
         <ColorField
-          label="Cor do rótulo"
+          label={t("pages.pageBuilder.chrome.labelColor")}
           value={(content.labelColor as string) ?? "#1a1a1a"}
           onChange={(v) => setContent({ labelColor: v })}
         />
         <NumberField
-          label="Espaçamento entre campos (px)"
+          label={t("pages.pageBuilder.chrome.fieldGap")}
           value={(content.fieldGap as number) ?? 12}
           onChange={(v) => setContent({ fieldGap: v })}
           min={0}
@@ -2911,19 +2930,19 @@ function FormContentEditor({
         />
       </Section>
 
-      <Section title="Estilo do botão">
+      <Section title={t("pages.pageBuilder.chrome.buttonStyle")}>
         <ColorField
-          label="Fundo"
+          label={t("pages.pageBuilder.background")}
           value={(content.buttonBg as string) ?? "#e63946"}
           onChange={(v) => setContent({ buttonBg: v })}
         />
         <ColorField
-          label="Cor do texto"
+          label={t("pages.pageBuilder.panel.textColor")}
           value={(content.buttonColor as string) ?? "#ffffff"}
           onChange={(v) => setContent({ buttonColor: v })}
         />
         <NumberField
-          label="Raio (px)"
+          label={t("pages.pageBuilder.panel.radius")}
           value={(content.buttonRadius as number) ?? 6}
           onChange={(v) => setContent({ buttonRadius: v })}
           min={0}
@@ -2956,14 +2975,15 @@ function ListEditor<T extends ListItem>({
   renderFields: (item: T, update: (patch: Partial<T>) => void) => React.ReactNode;
   itemLabel: (item: T, idx: number) => string;
 }) {
+  const { t } = useAppLocale();
   const update = (idx: number, patch: Partial<T>) =>
     onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx));
   const move = (idx: number, dir: -1 | 1) => {
-    const t = idx + dir;
-    if (t < 0 || t >= items.length) return;
+    const target = idx + dir;
+    if (target < 0 || target >= items.length) return;
     const next = [...items];
-    [next[idx], next[t]] = [next[t], next[idx]];
+    [next[idx], next[target]] = [next[target], next[idx]];
     onChange(next);
   };
   return (
@@ -2971,7 +2991,7 @@ function ListEditor<T extends ListItem>({
       <div className="space-y-2">
         {items.length === 0 && (
           <p className="rounded bg-editor-panel-2 p-3 text-center text-[11px] text-editor-fg-muted">
-            Nenhum item ainda.
+            {t("pages.pageBuilder.chrome.listEmpty")}
           </p>
         )}
         {items.map((item, idx) => (
@@ -3009,7 +3029,7 @@ function ListEditor<T extends ListItem>({
           onClick={() => onChange([...items, newItem()])}
           className="flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-editor-border py-2 text-[11px] font-medium text-editor-fg-muted transition-colors hover:border-editor-accent hover:text-editor-accent"
         >
-          <Plus className="h-3.5 w-3.5" /> Adicionar
+          <Plus className="h-3.5 w-3.5" /> {t("common.add")}
         </button>
       </div>
     </Section>
@@ -3025,6 +3045,7 @@ function NavMenuContentEditor({
   setContent: (p: Record<string, unknown>) => void;
   section: SectionNode;
 }) {
+  const { t } = useAppLocale();
   const updateSection = useBuilder((s) => s.updateSection);
   const items = (content.items as NavItem[]) ?? [];
   const stickyMode = ((content.stickyMode as NavStickyMode) ?? "none") as NavStickyMode;
@@ -3059,23 +3080,23 @@ function NavMenuContentEditor({
   return (
     <>
       <ListEditor<NavItem & ListItem>
-        title="Links do menu"
+        title={t("pages.pageBuilder.chrome.menuLinks")}
         items={items as Array<NavItem & ListItem>}
         onChange={(next) => setContent({ items: next })}
-        itemLabel={(it) => it.label || "Link"}
-        newItem={() => ({ id: `nav_${nanoid(6)}`, label: "Novo link", href: "#" })}
+        itemLabel={(it) => it.label || t("pages.pageBuilder.chrome.linkFallback")}
+        newItem={() => ({ id: `nav_${nanoid(6)}`, label: t("pages.pageBuilder.defaults.newLink"), href: "#" })}
         renderFields={(item, update) => {
           const children = (item.children as NavItem[] | undefined) ?? [];
           return (
             <>
-              <TextField label="Texto" value={item.label} onChange={(v) => update({ label: v })} />
-              <TextField label="URL / âncora" value={item.href} onChange={(v) => update({ href: v })} />
+              <TextField label={t("pages.pageBuilder.widgets.fields.text")} value={item.label} onChange={(v) => update({ label: v })} />
+              <TextField label={t("pages.pageBuilder.chrome.urlAnchor")} value={item.href} onChange={(v) => update({ href: v })} />
               <div className="space-y-1.5 rounded border border-dashed border-editor-border/80 p-2">
-                <p className="text-[10px] font-semibold text-editor-fg-muted">Submenu</p>
+                <p className="text-[10px] font-semibold text-editor-fg-muted">{t("pages.pageBuilder.chrome.submenu")}</p>
                 {children.map((child, ci) => (
                   <div key={child.id} className="grid gap-1.5 rounded bg-editor-panel p-1.5">
                     <TextField
-                      label="Texto"
+                      label={t("pages.pageBuilder.widgets.fields.text")}
                       value={child.label}
                       onChange={(v) => {
                         const next = children.map((ch, i) => (i === ci ? { ...ch, label: v } : ch));
@@ -3095,7 +3116,7 @@ function NavMenuContentEditor({
                       className="text-[10px] text-destructive"
                       onClick={() => update({ children: children.filter((_, i) => i !== ci) })}
                     >
-                      Remover sub-link
+                      {t("pages.pageBuilder.chrome.removeSub")}
                     </button>
                   </div>
                 ))}
@@ -3106,12 +3127,12 @@ function NavMenuContentEditor({
                     update({
                       children: [
                         ...children,
-                        { id: `nav_${nanoid(6)}`, label: "Sub-link", href: "#" },
+                        { id: `nav_${nanoid(6)}`, label: t("pages.pageBuilder.defaults.subLink"), href: "#" },
                       ],
                     })
                   }
                 >
-                  + Adicionar sub-link
+                  {t("pages.pageBuilder.chrome.addSub")}
                 </button>
               </div>
             </>
@@ -3119,29 +3140,29 @@ function NavMenuContentEditor({
         }}
       />
 
-      <Section title="Disposição">
+      <Section title={t("pages.pageBuilder.disposition")}>
         <SelectField
-          label="Layout"
+          label={t("pages.pageBuilder.disposition")}
           value={(content.layout as string) ?? "horizontal"}
           options={[
-            { value: "horizontal", label: "Horizontal" },
-            { value: "vertical", label: "Vertical" },
-            { value: "dropdown", label: "Dropdown" },
-            { value: "mega", label: "Mega menu" },
+            { value: "horizontal", label: t("pages.pageBuilder.chrome.horizontal") },
+            { value: "vertical", label: t("pages.pageBuilder.chrome.vertical") },
+            { value: "dropdown", label: t("pages.pageBuilder.chrome.dropdown") },
+            { value: "mega", label: t("pages.pageBuilder.chrome.mega") },
           ]}
           onChange={(v) => setContent({ layout: v })}
         />
         {(content.layout as string) === "mega" ? (
           <>
             <NumberField
-              label="Largura do mega (px)"
+              label={t("pages.pageBuilder.chrome.megaWidth")}
               value={(content.megaWidth as number) ?? 720}
               min={320}
               max={1200}
               onChange={(v) => setContent({ megaWidth: v })}
             />
             <NumberField
-              label="Colunas"
+              label={t("pages.pageBuilder.chrome.columns")}
               value={(content.megaColumns as number) ?? 3}
               min={2}
               max={6}
@@ -3150,25 +3171,25 @@ function NavMenuContentEditor({
           </>
         ) : null}
         <SelectField
-          label="Alinhamento"
+          label={t("pages.pageBuilder.widgets.fields.alignment")}
           value={(content.align as string) ?? "center"}
           options={[
-            { value: "left", label: "Esquerda" },
-            { value: "center", label: "Centro" },
-            { value: "right", label: "Direita" },
+            { value: "left", label: t("pages.pageBuilder.widgets.opt.left") },
+            { value: "center", label: t("pages.pageBuilder.panel.center") },
+            { value: "right", label: t("pages.pageBuilder.widgets.opt.right") },
           ]}
           onChange={(v) => setContent({ align: v })}
         />
         <SelectField
-          label="Pointer"
+          label={t("pages.pageBuilder.chrome.pointer")}
           value={pointer}
           options={[
-            { value: "none", label: "Nenhum" },
-            { value: "underline", label: "Sublinhado" },
-            { value: "overline", label: "Linha acima" },
-            { value: "double-line", label: "Linha dupla" },
-            { value: "framed", label: "Moldura" },
-            { value: "background", label: "Fundo" },
+            { value: "none", label: t("pages.pageBuilder.widgets.opt.noneMasc") },
+            { value: "underline", label: t("pages.pageBuilder.chrome.underline") },
+            { value: "overline", label: t("pages.pageBuilder.chrome.overline") },
+            { value: "double-line", label: t("pages.pageBuilder.chrome.doubleLine") },
+            { value: "framed", label: t("pages.pageBuilder.chrome.framed") },
+            { value: "background", label: t("pages.pageBuilder.background") },
           ]}
           onChange={(v) =>
             setContent({
@@ -3178,46 +3199,45 @@ function NavMenuContentEditor({
           }
         />
         <SelectField
-          label="Barra fixa ao scroll"
+          label={t("pages.pageBuilder.chrome.stickyBar")}
           value={stickyMode}
           options={[
-            { value: "none", label: "Normal (rola com a página)" },
-            { value: "sticky", label: "Sticky — página passa por baixo" },
-            { value: "fixed", label: "Fixa (viewport) — página passa por baixo" },
+            { value: "none", label: t("pages.pageBuilder.chrome.stickyNone") },
+            { value: "sticky", label: t("pages.pageBuilder.chrome.stickyUnder") },
+            { value: "fixed", label: t("pages.pageBuilder.chrome.fixedUnder") },
           ]}
           onChange={(v) => applySticky(v as NavStickyMode)}
         />
         <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
-          Sticky/fixa aplica-se à secção do menu. O conteúdo sobe por baixo da
-          barra; fundo branco e z-index 200 são definidos automaticamente.
+          {t("pages.pageBuilder.chrome.navStickyNote")}
         </p>
       </Section>
 
-      <Section title="Estilo dos links">
+      <Section title={t("pages.pageBuilder.chrome.linkStyle")}>
         <ColorField
-          label="Cor normal"
+          label={t("pages.pageBuilder.chrome.colorNormal")}
           value={(content.color as string) ?? "#0f172a"}
           onChange={(v) => setContent({ color: v })}
         />
         <ColorField
-          label="Cor hover"
+          label={t("pages.pageBuilder.chrome.colorHover")}
           value={(content.hoverColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ hoverColor: v })}
         />
         <ColorField
-          label="Cor ativa (âncora)"
+          label={t("pages.pageBuilder.chrome.colorActive")}
           value={(content.activeColor as string) ?? (content.hoverColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ activeColor: v })}
         />
         <NumberField
-          label="Tamanho da fonte"
+          label={t("pages.pageBuilder.chrome.fontSize")}
           value={(content.fontSize as number) ?? 15}
           onChange={(v) => setContent({ fontSize: v })}
           min={10}
           max={28}
         />
         <NumberField
-          label="Peso da fonte"
+          label={t("pages.pageBuilder.chrome.fontWeight")}
           value={(content.fontWeight as number) ?? 500}
           onChange={(v) => setContent({ fontWeight: v })}
           min={300}
@@ -3225,21 +3245,21 @@ function NavMenuContentEditor({
           step={100}
         />
         <NumberField
-          label="Espaço entre links"
+          label={t("pages.pageBuilder.chrome.linkGap")}
           value={(content.gap as number) ?? 24}
           onChange={(v) => setContent({ gap: v })}
           min={0}
           max={64}
         />
         <NumberField
-          label="Padding horizontal do item"
+          label={t("pages.pageBuilder.chrome.padX")}
           value={(content.itemPaddingX as number) ?? 4}
           onChange={(v) => setContent({ itemPaddingX: v })}
           min={0}
           max={32}
         />
         <NumberField
-          label="Padding vertical do item"
+          label={t("pages.pageBuilder.chrome.padY")}
           value={(content.itemPaddingY as number) ?? 6}
           onChange={(v) => setContent({ itemPaddingY: v })}
           min={0}
@@ -3247,24 +3267,24 @@ function NavMenuContentEditor({
         />
       </Section>
 
-      <Section title="Dropdown / submenu">
+      <Section title={t("pages.pageBuilder.chrome.dropdownSection")}>
         <ColorField
-          label="Fundo do submenu"
+          label={t("pages.pageBuilder.chrome.submenuBg")}
           value={(content.submenuBg as string) ?? "#ffffff"}
           onChange={(v) => setContent({ submenuBg: v })}
         />
         <ColorField
-          label="Cor do texto"
+          label={t("pages.pageBuilder.panel.textColor")}
           value={(content.submenuColor as string) ?? "#0f172a"}
           onChange={(v) => setContent({ submenuColor: v })}
         />
         <ColorField
-          label="Cor hover"
+          label={t("pages.pageBuilder.chrome.colorHover")}
           value={(content.submenuHoverColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ submenuHoverColor: v })}
         />
         <NumberField
-          label="Largura mínima (px)"
+          label={t("pages.pageBuilder.chrome.minWidth")}
           value={(content.submenuMinWidth as number) ?? 180}
           onChange={(v) => setContent({ submenuMinWidth: v })}
           min={120}
@@ -3272,31 +3292,31 @@ function NavMenuContentEditor({
         />
       </Section>
 
-      <Section title="Telemóvel">
+      <Section title={t("pages.pageBuilder.chrome.mobile")}>
         <NumberField
-          label="Breakpoint (px)"
+          label={t("pages.pageBuilder.chrome.breakpoint")}
           value={(content.mobileBreakpoint as number) ?? 767}
           onChange={(v) => setContent({ mobileBreakpoint: v })}
           min={320}
           max={1200}
         />
         <SelectField
-          label="Alinhamento mobile"
+          label={t("pages.pageBuilder.chrome.mobileAlign")}
           value={(content.mobileAlign as string) ?? "left"}
           options={[
-            { value: "left", label: "Esquerda" },
-            { value: "center", label: "Centro" },
-            { value: "right", label: "Direita" },
+            { value: "left", label: t("pages.pageBuilder.widgets.opt.left") },
+            { value: "center", label: t("pages.pageBuilder.panel.center") },
+            { value: "right", label: t("pages.pageBuilder.widgets.opt.right") },
           ]}
           onChange={(v) => setContent({ mobileAlign: v })}
         />
         <ColorField
-          label="Cor do botão hamburger"
+          label={t("pages.pageBuilder.chrome.hamburger")}
           value={(content.toggleColor as string) ?? "#0f172a"}
           onChange={(v) => setContent({ toggleColor: v })}
         />
         <NumberField
-          label="Tamanho do ícone"
+          label={t("pages.pageBuilder.chrome.iconSize")}
           value={(content.toggleSize as number) ?? 28}
           onChange={(v) => setContent({ toggleSize: v })}
           min={18}
@@ -3314,6 +3334,7 @@ function TestimonialsContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   const items =
     (content.items as Array<{
       id: string;
@@ -3326,10 +3347,10 @@ function TestimonialsContentEditor({
   return (
     <>
       <ListEditor
-        title="Depoimentos"
+        title={t("pages.pageBuilder.chrome.quotes")}
         items={items}
         onChange={(next) => setContent({ items: next })}
-        itemLabel={(it) => it.name || "Sem nome"}
+        itemLabel={(it) => it.name || t("pages.pageBuilder.chrome.unnamed")}
         newItem={() => ({
           id: `t_${nanoid(6)}`,
           name: "Nome",
@@ -3340,17 +3361,17 @@ function TestimonialsContentEditor({
         })}
         renderFields={(item, update) => (
           <>
-            <TextField label="Nome" value={item.name} onChange={(v) => update({ name: v })} />
-            <TextField label="Cargo / empresa" value={item.role} onChange={(v) => update({ role: v })} />
+            <TextField label={t("common.name")} value={item.name} onChange={(v) => update({ name: v })} />
+            <TextField label={t("pages.pageBuilder.chrome.role")} value={item.role} onChange={(v) => update({ role: v })} />
             <BuilderImageUrlField
-              label="URL do avatar"
+              label={t("pages.pageBuilder.chrome.avatarUrl")}
               value={item.avatar}
               onChange={(v) => update({ avatar: v })}
               placeholder="https://…"
             />
-            <TextareaField label="Depoimento" value={item.quote} onChange={(v) => update({ quote: v })} rows={3} />
+            <TextareaField label={t("pages.pageBuilder.chrome.quote")} value={item.quote} onChange={(v) => update({ quote: v })} rows={3} />
             <NumberField
-              label="Estrelas (0-5)"
+              label={t("pages.pageBuilder.chrome.stars")}
               value={item.rating}
               min={0}
               max={5}
@@ -3359,18 +3380,18 @@ function TestimonialsContentEditor({
           </>
         )}
       />
-      <Section title="Carrossel">
+      <Section title={t("pages.pageBuilder.chrome.carousel")}>
         <SelectField
-          label="Auto-play"
+          label={t("pages.pageBuilder.widgets.content.autoplay")}
           value={(content.autoplay as boolean) ?? true ? "yes" : "no"}
           options={[
-            { value: "yes", label: "Sim" },
-            { value: "no", label: "Não" },
+            { value: "yes", label: t("common.yes") },
+            { value: "no", label: t("common.no") },
           ]}
           onChange={(v) => setContent({ autoplay: v === "yes" })}
         />
         <NumberField
-          label="Intervalo (ms)"
+          label={t("pages.pageBuilder.chrome.interval")}
           value={(content.intervalMs as number) ?? 5000}
           min={1500}
           max={20000}
@@ -3378,19 +3399,19 @@ function TestimonialsContentEditor({
           onChange={(v) => setContent({ intervalMs: v })}
         />
       </Section>
-      <Section title="Aparência">
+      <Section title={t("pages.pageBuilder.chrome.appearance")}>
         <ColorField
-          label="Fundo do card"
+          label={t("pages.pageBuilder.chrome.cardBg")}
           value={(content.cardBg as string) ?? "#ffffff"}
           onChange={(v) => setContent({ cardBg: v })}
         />
         <ColorField
-          label="Cor do texto"
+          label={t("pages.pageBuilder.panel.textColor")}
           value={(content.textColor as string) ?? "#1a1a1a"}
           onChange={(v) => setContent({ textColor: v })}
         />
         <ColorField
-          label="Cor de destaque (estrelas)"
+          label={t("pages.pageBuilder.chrome.accentStars")}
           value={(content.accentColor as string) ?? "#f59e0b"}
           onChange={(v) => setContent({ accentColor: v })}
         />
@@ -3406,15 +3427,16 @@ function FaqContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   const items =
     (content.items as Array<{ id: string; question: string; answer: string }>) ?? [];
   return (
     <>
       <ListEditor
-        title="Perguntas"
+        title={t("pages.pageBuilder.chrome.questions")}
         items={items}
         onChange={(next) => setContent({ items: next })}
-        itemLabel={(it) => it.question || "Pergunta"}
+        itemLabel={(it) => it.question || t("pages.pageBuilder.chrome.questionFallback")}
         newItem={() => ({
           id: `q_${nanoid(6)}`,
           question: "Nova pergunta?",
@@ -3423,12 +3445,12 @@ function FaqContentEditor({
         renderFields={(item, update) => (
           <>
             <TextField
-              label="Pergunta"
+              label={t("pages.pageBuilder.chrome.question")}
               value={item.question}
               onChange={(v) => update({ question: v })}
             />
             <TextareaField
-              label="Resposta (HTML)"
+              label={t("pages.pageBuilder.chrome.answerHtml")}
               value={item.answer}
               onChange={(v) => update({ answer: v })}
               rows={3}
@@ -3436,40 +3458,40 @@ function FaqContentEditor({
           </>
         )}
       />
-      <Section title="Comportamento">
+      <Section title={t("pages.pageBuilder.chrome.behavior")}>
         <SelectField
-          label="Permitir múltiplas abertas"
+          label={t("pages.pageBuilder.chrome.allowMultiple")}
           value={(content.allowMultiple as boolean) ? "yes" : "no"}
           options={[
-            { value: "no", label: "Não" },
-            { value: "yes", label: "Sim" },
+            { value: "no", label: t("common.no") },
+            { value: "yes", label: t("common.yes") },
           ]}
           onChange={(v) => setContent({ allowMultiple: v === "yes" })}
         />
       </Section>
-      <Section title="Aparência">
+      <Section title={t("pages.pageBuilder.chrome.appearance")}>
         <ColorField
-          label="Fundo dos itens"
+          label={t("pages.pageBuilder.chrome.itemBg")}
           value={(content.itemBg as string) ?? "#ffffff"}
           onChange={(v) => setContent({ itemBg: v })}
         />
         <ColorField
-          label="Cor da borda"
+          label={t("pages.pageBuilder.panel.borderColor")}
           value={(content.itemBorderColor as string) ?? "#e5e7eb"}
           onChange={(v) => setContent({ itemBorderColor: v })}
         />
         <ColorField
-          label="Cor da pergunta"
+          label={t("pages.pageBuilder.chrome.questionColor")}
           value={(content.questionColor as string) ?? "#111827"}
           onChange={(v) => setContent({ questionColor: v })}
         />
         <ColorField
-          label="Cor da resposta"
+          label={t("pages.pageBuilder.chrome.answerColor")}
           value={(content.answerColor as string) ?? "#4b5563"}
           onChange={(v) => setContent({ answerColor: v })}
         />
         <ColorField
-          label="Cor de destaque"
+          label={t("pages.pageBuilder.chrome.accent")}
           value={(content.accentColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ accentColor: v })}
         />
@@ -3485,6 +3507,7 @@ function CountdownContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   const deadline = (content.deadline as string) ?? new Date(Date.now() + 86400000).toISOString();
   const dt = new Date(deadline);
   // datetime-local needs YYYY-MM-DDTHH:MM
@@ -3494,10 +3517,10 @@ function CountdownContentEditor({
 
   return (
     <>
-      <Section title="Data alvo">
+      <Section title={t("pages.pageBuilder.chrome.targetDate")}>
         <div>
           <label className="mb-1 block text-[11px] font-medium text-editor-fg-muted">
-            Quando expira
+            {t("pages.pageBuilder.chrome.expires")}
           </label>
           <input
             type="datetime-local"
@@ -3510,56 +3533,56 @@ function CountdownContentEditor({
           />
         </div>
         <TextField
-          label="Mensagem ao expirar"
+          label={t("pages.pageBuilder.chrome.expiredLabel")}
           value={(content.expiredMessage as string) ?? "A oferta expirou!"}
           onChange={(v) => setContent({ expiredMessage: v })}
         />
       </Section>
-      <Section title="Exibição">
+      <Section title={t("pages.pageBuilder.chrome.display")}>
         <SelectField
-          label="Mostrar dias"
+          label={t("pages.pageBuilder.chrome.showDays")}
           value={(content.showDays as boolean) ?? true ? "yes" : "no"}
           options={[
-            { value: "yes", label: "Sim" },
-            { value: "no", label: "Não" },
+            { value: "yes", label: t("common.yes") },
+            { value: "no", label: t("common.no") },
           ]}
           onChange={(v) => setContent({ showDays: v === "yes" })}
         />
         <SelectField
-          label="Mostrar rótulos"
+          label={t("pages.pageBuilder.chrome.showLabels")}
           value={(content.showLabels as boolean) ?? true ? "yes" : "no"}
           options={[
-            { value: "yes", label: "Sim" },
-            { value: "no", label: "Não" },
+            { value: "yes", label: t("common.yes") },
+            { value: "no", label: t("common.no") },
           ]}
           onChange={(v) => setContent({ showLabels: v === "yes" })}
         />
         <NumberField
-          label="Tamanho dos dígitos"
+          label={t("pages.pageBuilder.chrome.digitSize")}
           value={(content.digitSize as number) ?? 48}
           min={20}
           max={120}
           onChange={(v) => setContent({ digitSize: v })}
         />
       </Section>
-      <Section title="Cores">
+      <Section title={t("pages.pageBuilder.colors")}>
         <ColorField
-          label="Fundo dos dígitos"
+          label={t("pages.pageBuilder.chrome.digitBg")}
           value={(content.digitBg as string) ?? "#0f172a"}
           onChange={(v) => setContent({ digitBg: v })}
         />
         <ColorField
-          label="Cor dos dígitos"
+          label={t("pages.pageBuilder.chrome.digitColor")}
           value={(content.digitColor as string) ?? "#ffffff"}
           onChange={(v) => setContent({ digitColor: v })}
         />
         <ColorField
-          label="Cor dos rótulos"
+          label={t("pages.pageBuilder.chrome.labelColor")}
           value={(content.labelColor as string) ?? "#475569"}
           onChange={(v) => setContent({ labelColor: v })}
         />
         <ColorField
-          label="Cor do separador"
+          label={t("pages.pageBuilder.chrome.separatorColor")}
           value={(content.separatorColor as string) ?? "#0f172a"}
           onChange={(v) => setContent({ separatorColor: v })}
         />
@@ -3587,47 +3610,48 @@ function AlertContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   return (
     <>
-      <Section title="Conteúdo">
+      <Section title={t("pages.pageBuilder.content")}>
         <SelectField
-          label="Tipo"
+          label={t("pages.pageBuilder.widgets.fields.type")}
           value={(content.variant as string) ?? "info"}
           options={[
-            { value: "info", label: "Informação" },
-            { value: "success", label: "Sucesso" },
-            { value: "warning", label: "Aviso" },
-            { value: "danger", label: "Erro / urgência" },
+            { value: "info", label: t("pages.pageBuilder.chrome.variantInfo") },
+            { value: "success", label: t("pages.pageBuilder.chrome.variantSuccess") },
+            { value: "warning", label: t("pages.pageBuilder.chrome.variantWarning") },
+            { value: "danger", label: t("pages.pageBuilder.chrome.variantDanger") },
           ]}
           onChange={(v) => setContent({ variant: v })}
         />
-        <TextField label="Título" value={(content.title as string) ?? ""} onChange={(v) => setContent({ title: v })} />
+        <TextField label={t("pages.pageBuilder.widgets.fields.title")} value={(content.title as string) ?? ""} onChange={(v) => setContent({ title: v })} />
         <TextareaField
-          label="Mensagem (HTML permitido)"
+          label={t("pages.pageBuilder.chrome.messageHtml")}
           value={(content.message as string) ?? ""}
           onChange={(v) => setContent({ message: v })}
           rows={5}
         />
         <SelectField
-          label="Mostrar ícone"
+          label={t("pages.pageBuilder.chrome.showIcon")}
           value={((content.showIcon as boolean) ?? true) ? "yes" : "no"}
           options={[
-            { value: "yes", label: "Sim" },
-            { value: "no", label: "Não" },
+            { value: "yes", label: t("common.yes") },
+            { value: "no", label: t("common.no") },
           ]}
           onChange={(v) => setContent({ showIcon: v === "yes" })}
         />
         <SelectField
-          label="Permitir fechar"
+          label={t("pages.pageBuilder.chrome.dismiss")}
           value={((content.dismissible as boolean) ?? false) ? "yes" : "no"}
           options={[
-            { value: "no", label: "Não" },
-            { value: "yes", label: "Sim" },
+            { value: "no", label: t("common.no") },
+            { value: "yes", label: t("common.yes") },
           ]}
           onChange={(v) => setContent({ dismissible: v === "yes" })}
         />
         <NumberField
-          label="Raio das bordas (px)"
+          label={t("pages.pageBuilder.chrome.borderRadius")}
           value={(content.borderRadius as number) ?? 10}
           min={0}
           max={32}
@@ -3645,24 +3669,25 @@ function TabsContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   const tabs = (content.tabs as TabItem[]) ?? [];
   return (
     <>
       <ListEditor
-        title="Separadores"
+        title={t("pages.pageBuilder.chrome.tabsTitle")}
         items={tabs}
         onChange={(next) => setContent({ tabs: next })}
-        itemLabel={(it) => it.label || "Separador"}
+        itemLabel={(it) => it.label || t("pages.pageBuilder.chrome.tabFallback")}
         newItem={() => ({
           id: `tab_${nanoid(6)}`,
-          label: "Novo separador",
-          html: "<p>Conteúdo deste separador.</p>",
+          label: t("pages.pageBuilder.defaults.newSeparator"),
+          html: `<p>${t("pages.pageBuilder.defaults.tabBody")}</p>`,
         })}
         renderFields={(item, update) => (
           <>
-            <TextField label="Rótulo" value={item.label} onChange={(v) => update({ label: v })} />
+            <TextField label={t("pages.pageBuilder.chrome.fieldLabel")} value={item.label} onChange={(v) => update({ label: v })} />
             <TextareaField
-              label="Conteúdo (HTML)"
+              label={t("pages.pageBuilder.chrome.htmlContent")}
               value={item.html}
               onChange={(v) => update({ html: v })}
               rows={4}
@@ -3670,49 +3695,49 @@ function TabsContentEditor({
           </>
         )}
       />
-      <Section title="Cores">
+      <Section title={t("pages.pageBuilder.colors")}>
         <ColorField
-          label="Fundo das abas inativas"
+          label={t("pages.pageBuilder.chrome.inactiveBg")}
           value={(content.tabBg as string) ?? "#f1f5f9"}
           onChange={(v) => setContent({ tabBg: v })}
         />
         <ColorField
-          label="Fundo da aba ativa"
+          label={t("pages.pageBuilder.chrome.activeBg")}
           value={(content.tabActiveBg as string) ?? "#ffffff"}
           onChange={(v) => setContent({ tabActiveBg: v })}
         />
         <ColorField
-          label="Texto inativo"
+          label={t("pages.pageBuilder.chrome.inactiveText")}
           value={(content.tabTextColor as string) ?? "#64748b"}
           onChange={(v) => setContent({ tabTextColor: v })}
         />
         <ColorField
-          label="Texto ativo"
+          label={t("pages.pageBuilder.chrome.activeText")}
           value={(content.tabActiveTextColor as string) ?? "#0f172a"}
           onChange={(v) => setContent({ tabActiveTextColor: v })}
         />
         <ColorField
-          label="Destaque (barra)"
+          label={t("pages.pageBuilder.chrome.accentBar")}
           value={(content.accentColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ accentColor: v })}
         />
         <ColorField
-          label="Fundo do painel"
+          label={t("pages.pageBuilder.chrome.panelBg")}
           value={(content.panelBg as string) ?? "#ffffff"}
           onChange={(v) => setContent({ panelBg: v })}
         />
         <ColorField
-          label="Texto do painel"
+          label={t("pages.pageBuilder.chrome.panelText")}
           value={(content.panelTextColor as string) ?? "#334155"}
           onChange={(v) => setContent({ panelTextColor: v })}
         />
         <ColorField
-          label="Borda"
+          label={t("pages.pageBuilder.chrome.border")}
           value={(content.borderColor as string) ?? "#e2e8f0"}
           onChange={(v) => setContent({ borderColor: v })}
         />
         <NumberField
-          label="Raio geral (px)"
+          label={t("pages.pageBuilder.chrome.radiusGeneral")}
           value={(content.borderRadius as number) ?? 12}
           min={0}
           max={28}
@@ -3730,15 +3755,23 @@ function SocialIconsContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   const items =
     (content.items as Array<{ id: string; network: SocialNetwork; url: string }>) ?? [];
   return (
     <>
       <ListEditor
-        title="Ligações"
+        title={t("pages.pageBuilder.chrome.socialLinks")}
         items={items}
         onChange={(next) => setContent({ items: next })}
-        itemLabel={(it) => SOCIAL_NETWORK_OPTIONS.find((o) => o.value === it.network)?.label ?? "Rede"}
+        itemLabel={(it) =>
+          it.network === "email"
+            ? t("pages.pageBuilder.chrome.email")
+            : it.network === "link"
+              ? t("pages.pageBuilder.chrome.website")
+              : (SOCIAL_NETWORK_OPTIONS.find((o) => o.value === it.network)?.label ??
+                t("pages.pageBuilder.chrome.networkFallback"))
+        }
         newItem={() => ({
           id: `soc_${nanoid(6)}`,
           network: "instagram" as SocialNetwork,
@@ -3747,52 +3780,52 @@ function SocialIconsContentEditor({
         renderFields={(item, update) => (
           <>
             <SelectField
-              label="Rede"
+              label={t("pages.pageBuilder.chrome.network")}
               value={item.network}
-              options={SOCIAL_NETWORK_OPTIONS}
+              options={SOCIAL_NETWORK_OPTIONS.map((o) => o.value === "email" ? { ...o, label: t("pages.pageBuilder.chrome.email") } : o.value === "link" ? { ...o, label: t("pages.pageBuilder.chrome.website") } : o)}
               onChange={(v) => update({ network: v as SocialNetwork })}
             />
             <TextField
-              label="URL ou contacto"
+              label={t("pages.pageBuilder.chrome.urlContact")}
               value={item.url}
               onChange={(v) => update({ url: v })}
-              placeholder="https://… ou e-mail / telefone (WhatsApp)"
+              placeholder={t("pages.pageBuilder.chrome.urlContactPh")}
             />
           </>
         )}
       />
-      <Section title="Ícones">
+      <Section title={t("pages.pageBuilder.chrome.icons")}>
         <NumberField
-          label="Tamanho (px)"
+          label={t("pages.pageBuilder.widgets.fields.sizePx")}
           value={(content.iconSize as number) ?? 22}
           min={14}
           max={40}
           onChange={(v) => setContent({ iconSize: v })}
         />
         <NumberField
-          label="Espaço entre ícones (px)"
+          label={t("pages.pageBuilder.chrome.iconGap")}
           value={(content.gap as number) ?? 16}
           min={4}
           max={40}
           onChange={(v) => setContent({ gap: v })}
         />
         <SelectField
-          label="Estilo"
+          label={t("pages.pageBuilder.chrome.fontStyle")}
           value={(content.variant as string) ?? "filled"}
           options={[
-            { value: "filled", label: "Preenchido" },
-            { value: "outline", label: "Contorno" },
-            { value: "mono", label: "Linha simples" },
+            { value: "filled", label: t("pages.pageBuilder.chrome.filled") },
+            { value: "outline", label: t("pages.pageBuilder.chrome.outline") },
+            { value: "mono", label: t("pages.pageBuilder.chrome.mono") },
           ]}
           onChange={(v) => setContent({ variant: v })}
         />
         <ColorField
-          label="Fundo (preenchido)"
+          label={t("pages.pageBuilder.chrome.filledBg")}
           value={(content.iconBg as string) ?? "#0f172a"}
           onChange={(v) => setContent({ iconBg: v })}
         />
         <ColorField
-          label="Cor do ícone"
+          label={t("pages.pageBuilder.widgets.fields.iconColor")}
           value={(content.iconColor as string) ?? "#ffffff"}
           onChange={(v) => setContent({ iconColor: v })}
         />
@@ -3808,6 +3841,7 @@ function IconListContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   const items =
     (content.items as Array<{
       id: string;
@@ -3819,34 +3853,34 @@ function IconListContentEditor({
   return (
     <>
       <ListEditor
-        title="Itens"
+        title={t("pages.pageBuilder.chrome.items")}
         items={items}
         onChange={(next) => setContent({ items: next })}
-        itemLabel={(it) => it.title || "Item"}
+        itemLabel={(it) => it.title || t("pages.pageBuilder.chrome.itemFallback")}
         newItem={() => ({
           id: `il_${nanoid(6)}`,
           iconName: "check",
-          title: "Novo item",
-          description: "<p>Descrição breve.</p>",
+          title: t("pages.pageBuilder.defaults.newItem"),
+          description: `<p>${t("pages.pageBuilder.defaults.itemBody")}</p>`,
           href: "",
         })}
         renderFields={(item, update) => (
           <>
             <TextField
-              label="Ícone (lucide-react)"
+              label={t("pages.pageBuilder.chrome.iconLucide")}
               value={item.iconName}
               onChange={(v) => update({ iconName: v })}
-              placeholder="check, shield, star…"
+              placeholder={t("pages.pageBuilder.chrome.iconPh")}
             />
-            <TextField label="Título" value={item.title} onChange={(v) => update({ title: v })} />
+            <TextField label={t("pages.pageBuilder.widgets.fields.title")} value={item.title} onChange={(v) => update({ title: v })} />
             <TextareaField
-              label="Descrição (HTML)"
+              label={t("pages.pageBuilder.chrome.descHtml")}
               value={item.description}
               onChange={(v) => update({ description: v })}
               rows={3}
             />
             <TextField
-              label="Link (opcional)"
+              label={t("pages.pageBuilder.widgets.fields.linkOptional")}
               value={item.href}
               onChange={(v) => update({ href: v })}
               placeholder="https://…"
@@ -3854,47 +3888,47 @@ function IconListContentEditor({
           </>
         )}
       />
-      <Section title="Aparência">
+      <Section title={t("pages.pageBuilder.chrome.appearance")}>
         <NumberField
-          label="Tamanho do ícone"
+          label={t("pages.pageBuilder.chrome.iconSize")}
           value={(content.iconSize as number) ?? 22}
           min={12}
           max={40}
           onChange={(v) => setContent({ iconSize: v })}
         />
         <NumberField
-          label="Espaço entre itens (px)"
+          label={t("pages.pageBuilder.chrome.itemGap")}
           value={(content.gap as number) ?? 16}
           min={4}
           max={40}
           onChange={(v) => setContent({ gap: v })}
         />
         <ColorField
-          label="Cor do ícone"
+          label={t("pages.pageBuilder.widgets.fields.iconColor")}
           value={(content.iconColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ iconColor: v })}
         />
         <ColorField
-          label="Fundo do círculo"
+          label={t("pages.pageBuilder.chrome.circleBg")}
           value={(content.iconBg as string) ?? ""}
           onChange={(v) => setContent({ iconBg: v })}
         />
         <SelectField
-          label="Forma do ícone"
+          label={t("pages.pageBuilder.chrome.iconShape")}
           value={(content.iconShape as string) ?? "circle"}
           options={[
-            { value: "circle", label: "Círculo" },
-            { value: "rounded", label: "Arredondado" },
+            { value: "circle", label: t("pages.pageBuilder.widgets.opt.circle") },
+            { value: "rounded", label: t("pages.pageBuilder.chrome.rounded") },
           ]}
           onChange={(v) => setContent({ iconShape: v })}
         />
         <ColorField
-          label="Cor do título"
+          label={t("pages.pageBuilder.widgets.fields.titleColor")}
           value={(content.titleColor as string) ?? "#0f172a"}
           onChange={(v) => setContent({ titleColor: v })}
         />
         <ColorField
-          label="Cor da descrição"
+          label={t("pages.pageBuilder.widgets.fields.descColor")}
           value={(content.descColor as string) ?? "#64748b"}
           onChange={(v) => setContent({ descColor: v })}
         />
@@ -3912,6 +3946,7 @@ function GalleryContentEditor({
   setContent: (p: Record<string, unknown>) => void;
   widgetType: WidgetType;
 }) {
+  const { t } = useAppLocale();
   const images =
     (content.images as Array<{ id: string; src: string; alt: string; caption?: string }>) ?? [];
   const isDedicatedCarousel = widgetType === "imageCarousel";
@@ -3920,17 +3955,19 @@ function GalleryContentEditor({
     <>
       <div className="border-b border-editor-border px-3 py-2.5">
         <p className="text-[11px] leading-relaxed text-editor-fg-muted">
-          <span className="font-semibold text-editor-fg">As tuas imagens:</span> clica em «+ Adicionar» para cada
-          foto. Em cada linha, cola um <span className="font-mono text-[10px]">https://…</span> ou usa{" "}
-          <span className="font-semibold text-editor-fg">«Carregar do PC»</span> (é preciso sessão iniciada na conta).
-          Podes repetir para várias imagens e reordenar com o ícone à esquerda.
+          <span className="font-semibold text-editor-fg">{t("pages.pageBuilder.chrome.galleryLead")}</span>{" "}
+          {t("pages.pageBuilder.chrome.galleryMid")}{" "}
+          <span className="font-mono text-[10px]">https://…</span>{" "}
+          {t("pages.pageBuilder.chrome.galleryOr")}{" "}
+          <span className="font-semibold text-editor-fg">{t("pages.pageBuilder.upload.fromPc")}</span>{" "}
+          {t("pages.pageBuilder.chrome.galleryEnd")}
         </p>
       </div>
       <ListEditor
-        title="Imagens"
+        title={t("pages.pageBuilder.chrome.images")}
         items={images}
         onChange={(next) => setContent({ images: next })}
-        itemLabel={(it, i) => it.alt || (it.src ? `Imagem ${i + 1}` : `Slide ${i + 1} (sem URL)`)}
+        itemLabel={(it, i) => it.alt || (it.src ? fill(t("pages.pageBuilder.chrome.imageN"), { n: i + 1 }) : fill(t("pages.pageBuilder.chrome.slideEmpty"), { n: i + 1 }))}
         newItem={() => ({
           id: `g_${nanoid(6)}`,
           src: "",
@@ -3940,49 +3977,48 @@ function GalleryContentEditor({
         renderFields={(item, update) => (
           <>
             <BuilderImageUrlField
-              label="URL da imagem"
+              label={t("pages.pageBuilder.panel.imageUrl")}
               value={item.src}
               onChange={(v) => update({ src: v })}
-              placeholder="https://… ou carregue do PC"
+              placeholder={t("pages.pageBuilder.chrome.imagePh")}
             />
-            <TextField label="Texto alternativo" value={item.alt} onChange={(v) => update({ alt: v })} />
+            <TextField label={t("pages.pageBuilder.widgets.content.alt")} value={item.alt} onChange={(v) => update({ alt: v })} />
             <TextField
-              label="Legenda (opcional)"
+              label={t("pages.pageBuilder.widgets.content.caption")}
               value={item.caption ?? ""}
               onChange={(v) => update({ caption: v })}
             />
           </>
         )}
       />
-      <Section title="Modo de exibição">
+      <Section title={t("pages.pageBuilder.chrome.displayMode")}>
         {isDedicatedCarousel ? (
           <p className="text-xs leading-relaxed text-editor-fg-muted">
-            Este bloco é sempre um carrossel (setas, pontos e configuração de movimento). Para grelha de imagens,
-            use o widget «Galeria».
+            {t("pages.pageBuilder.chrome.carouselOnly")}
           </p>
         ) : (
           <SelectField
-            label="Tipo"
+            label={t("pages.pageBuilder.widgets.fields.type")}
             value={isCarousel ? "carousel" : "grid"}
             options={[
-              { value: "grid", label: "Grelha" },
-              { value: "carousel", label: "Carrossel" },
+              { value: "grid", label: t("pages.pageBuilder.chrome.grid") },
+              { value: "carousel", label: t("pages.pageBuilder.chrome.carousel") },
             ]}
             onChange={(v) => setContent({ layout: v })}
           />
         )}
       </Section>
       {!isCarousel ? (
-        <Section title="Grelha">
+        <Section title={t("pages.pageBuilder.chrome.grid")}>
           <NumberField
-            label="Colunas"
+            label={t("pages.pageBuilder.chrome.columns")}
             value={(content.columns as number) ?? 3}
             min={1}
             max={6}
             onChange={(v) => setContent({ columns: v })}
           />
           <NumberField
-            label="Espaço entre imagens (px)"
+            label={t("pages.pageBuilder.chrome.imageGap")}
             value={(content.gap as number) ?? 12}
             min={0}
             max={48}
@@ -3990,16 +4026,16 @@ function GalleryContentEditor({
           />
         </Section>
       ) : (
-        <Section title="Carrossel">
+        <Section title={t("pages.pageBuilder.chrome.carousel")}>
           <NumberField
-            label="Espaço entre slides (px)"
+            label={t("pages.pageBuilder.chrome.slideGap")}
             value={(content.gap as number) ?? 12}
             min={0}
             max={48}
             onChange={(v) => setContent({ gap: v })}
           />
           <SelectField
-            label="Navegação"
+            label={t("pages.pageBuilder.chrome.navigation")}
             value={(() => {
               const a = (content.carouselShowArrows as boolean) !== false;
               const d = (content.carouselShowDots as boolean) !== false;
@@ -4009,10 +4045,10 @@ function GalleryContentEditor({
               return "none";
             })()}
             options={[
-              { value: "both", label: "Setas e pontos" },
-              { value: "arrows", label: "Só setas" },
-              { value: "dots", label: "Só pontos" },
-              { value: "none", label: "Nenhuma" },
+              { value: "both", label: t("pages.pageBuilder.chrome.arrowsDots") },
+              { value: "arrows", label: t("pages.pageBuilder.chrome.arrowsOnly") },
+              { value: "dots", label: t("pages.pageBuilder.chrome.dotsOnly") },
+              { value: "none", label: t("pages.pageBuilder.widgets.opt.noneFem") },
             ]}
             onChange={(v) => {
               if (v === "both") setContent({ carouselShowArrows: true, carouselShowDots: true });
@@ -4022,64 +4058,63 @@ function GalleryContentEditor({
             }}
           />
           <NumberField
-            label="Slides visíveis (desktop)"
+            label={t("pages.pageBuilder.chrome.slidesDesktop")}
             value={(content.carouselSlidesDesktop as number) ?? 1}
             min={1}
             max={12}
             onChange={(v) => setContent({ carouselSlidesDesktop: v })}
           />
           <NumberField
-            label="Slides visíveis (tablet)"
+            label={t("pages.pageBuilder.chrome.slidesTablet")}
             value={(content.carouselSlidesTablet as number) ?? 1}
             min={1}
             max={8}
             onChange={(v) => setContent({ carouselSlidesTablet: v })}
           />
           <NumberField
-            label="Slides visíveis (mobile)"
+            label={t("pages.pageBuilder.chrome.slidesMobile")}
             value={(content.carouselSlidesMobile as number) ?? 1}
             min={1}
             max={4}
             onChange={(v) => setContent({ carouselSlidesMobile: v })}
           />
           <NumberField
-            label="Slides a rolar de cada vez"
+            label={t("pages.pageBuilder.chrome.slidesScroll")}
             value={(content.carouselSlidesToScroll as number) ?? 1}
             min={1}
             max={6}
             onChange={(v) => setContent({ carouselSlidesToScroll: v })}
           />
           <SelectField
-            label="Preencher slide (imagem)"
+            label={t("pages.pageBuilder.chrome.fillSlide")}
             value={(content.carouselObjectFit as string) === "contain" ? "contain" : "cover"}
             options={[
-              { value: "cover", label: "Sim (cobre o espaço)" },
-              { value: "contain", label: "Não (miniatura, sem cortar)" },
+              { value: "cover", label: t("pages.pageBuilder.chrome.fillYes") },
+              { value: "contain", label: t("pages.pageBuilder.chrome.fillNo") },
             ]}
             onChange={(v) => setContent({ carouselObjectFit: v })}
           />
           <NumberField
-            label="Largura fixa miniatura (px, 0 = automático)"
+            label={t("pages.pageBuilder.chrome.thumbWidth")}
             value={(content.carouselThumbWidthPx as number) ?? 0}
             min={0}
             max={400}
             onChange={(v) => setContent({ carouselThumbWidthPx: v })}
           />
           <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-            Com largura fixa (ex.: 150), cabem tantas miniaturas quanto o ecrã permitir; o número de slides visíveis
-            funciona como limite máximo.
+            {t("pages.pageBuilder.chrome.thumbHint")}
           </p>
           <SelectField
-            label="Avanço automático"
+            label={t("pages.pageBuilder.chrome.autoAdvance")}
             value={((content.carouselAutoplay as boolean) ?? true) ? "yes" : "no"}
             options={[
-              { value: "yes", label: "Sim" },
-              { value: "no", label: "Não" },
+              { value: "yes", label: t("common.yes") },
+              { value: "no", label: t("common.no") },
             ]}
             onChange={(v) => setContent({ carouselAutoplay: v === "yes" })}
           />
           <NumberField
-            label="Intervalo (ms)"
+            label={t("pages.pageBuilder.chrome.interval")}
             value={(content.carouselIntervalMs as number) ?? 4500}
             min={2000}
             max={12000}
@@ -4087,7 +4122,7 @@ function GalleryContentEditor({
             onChange={(v) => setContent({ carouselIntervalMs: v })}
           />
           <NumberField
-            label="Velocidade da transição (ms)"
+            label={t("pages.pageBuilder.chrome.transition")}
             value={(content.carouselTransitionMs as number) ?? 450}
             min={100}
             max={2000}
@@ -4095,41 +4130,41 @@ function GalleryContentEditor({
             onChange={(v) => setContent({ carouselTransitionMs: v })}
           />
           <SelectField
-            label="Pausar ao passar o rato"
+            label={t("pages.pageBuilder.chrome.pauseHover")}
             value={((content.carouselPauseOnHover as boolean) ?? true) ? "yes" : "no"}
             options={[
-              { value: "yes", label: "Sim" },
-              { value: "no", label: "Não" },
+              { value: "yes", label: t("common.yes") },
+              { value: "no", label: t("common.no") },
             ]}
             onChange={(v) => setContent({ carouselPauseOnHover: v === "yes" })}
           />
         </Section>
       )}
-      <Section title="Aparência">
+      <Section title={t("pages.pageBuilder.chrome.appearance")}>
         <NumberField
-          label="Raio das bordas (px)"
+          label={t("pages.pageBuilder.chrome.borderRadius")}
           value={(content.borderRadius as number) ?? 8}
           min={0}
           max={32}
           onChange={(v) => setContent({ borderRadius: v })}
         />
         <SelectField
-          label="Proporção"
+          label={t("pages.pageBuilder.chrome.aspect")}
           value={(content.aspectRatio as string) ?? "square"}
           options={[
-            { value: "auto", label: "Original" },
-            { value: "square", label: "Quadrado 1:1" },
-            { value: "landscape", label: "Paisagem 16:9" },
-            { value: "portrait", label: "Retrato 3:4" },
+            { value: "auto", label: t("pages.pageBuilder.chrome.original") },
+            { value: "square", label: t("pages.pageBuilder.chrome.square") },
+            { value: "landscape", label: t("pages.pageBuilder.chrome.landscape") },
+            { value: "portrait", label: t("pages.pageBuilder.chrome.portrait") },
           ]}
           onChange={(v) => setContent({ aspectRatio: v })}
         />
         <SelectField
-          label="Lightbox ao clicar"
+          label={t("pages.pageBuilder.chrome.lightbox")}
           value={((content.enableLightbox as boolean) ?? true) ? "yes" : "no"}
           options={[
-            { value: "yes", label: "Sim" },
-            { value: "no", label: "Não" },
+            { value: "yes", label: t("common.yes") },
+            { value: "no", label: t("common.no") },
           ]}
           onChange={(v) => setContent({ enableLightbox: v === "yes" })}
         />
@@ -4147,28 +4182,29 @@ function AnimatedHeadlineContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   const words = (content.rotatingWords as string[]) ?? [];
   return (
     <>
-      <Section title="Texto">
+      <Section title={t("pages.pageBuilder.widgets.fields.text")}>
         <TextField
-          label="Prefixo"
+          label={t("pages.pageBuilder.widgets.fields.prefix")}
           value={(content.prefix as string) ?? ""}
           onChange={(v) => setContent({ prefix: v })}
         />
         <TextareaField
-          label="Palavras rotativas (uma por linha)"
+          label={t("pages.pageBuilder.chrome.rotating")}
           value={words.join("\n")}
           onChange={(v) => setContent({ rotatingWords: v.split("\n").filter(Boolean) })}
           rows={4}
         />
         <TextField
-          label="Sufixo"
+          label={t("pages.pageBuilder.widgets.fields.suffix")}
           value={(content.suffix as string) ?? ""}
           onChange={(v) => setContent({ suffix: v })}
         />
         <SelectField
-          label="Tag HTML"
+          label={t("pages.pageBuilder.widgets.content.htmlTag")}
           value={(content.tag as string) ?? "h2"}
           options={[
             { value: "h1", label: "H1" },
@@ -4178,20 +4214,20 @@ function AnimatedHeadlineContentEditor({
           onChange={(v) => setContent({ tag: v })}
         />
       </Section>
-      <Section title="Animação">
+      <Section title={t("pages.pageBuilder.chrome.animation")}>
         <SelectField
-          label="Tipo"
+          label={t("pages.pageBuilder.widgets.fields.type")}
           value={(content.animation as string) ?? "fade"}
           options={[
-            { value: "fade", label: "Aparecer (suave)" },
-            { value: "slide", label: "Deslizar" },
-            { value: "typed", label: "A escrever" },
-            { value: "highlight", label: "Destaque" },
+            { value: "fade", label: t("pages.pageBuilder.chrome.animFade") },
+            { value: "slide", label: t("pages.pageBuilder.chrome.animSlide") },
+            { value: "typed", label: t("pages.pageBuilder.chrome.animTyped") },
+            { value: "highlight", label: t("pages.pageBuilder.chrome.animHighlight") },
           ]}
           onChange={(v) => setContent({ animation: v })}
         />
         <NumberField
-          label="Intervalo (ms)"
+          label={t("pages.pageBuilder.chrome.interval")}
           value={(content.intervalMs as number) ?? 2200}
           min={800}
           max={10000}
@@ -4199,7 +4235,7 @@ function AnimatedHeadlineContentEditor({
           onChange={(v) => setContent({ intervalMs: v })}
         />
         <ColorField
-          label="Cor de destaque"
+          label={t("pages.pageBuilder.chrome.accent")}
           value={(content.highlightColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ highlightColor: v })}
         />
@@ -4215,11 +4251,12 @@ function LivePlansContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   return (
     <>
-      <Section title="Planos vivos (API)">
+      <Section title={t("pages.pageBuilder.chrome.liveTitle")}>
         <p className="text-[11px] leading-snug text-editor-fg-muted">
-          Os cartões vêm dos planos reais na base de dados. Edite preços e limites em Admin → Planos.
+          {t("pages.pageBuilder.chrome.liveHint")}
         </p>
         <label className="flex items-center gap-2 text-xs text-editor-fg">
           <input
@@ -4228,48 +4265,48 @@ function LivePlansContentEditor({
             checked={content.showHeader !== false}
             onChange={(e) => setContent({ showHeader: e.target.checked })}
           />
-          Mostrar cabeçalho da secção
+          {t("pages.pageBuilder.chrome.showHeader")}
         </label>
         <TextField
-          label="Etiqueta"
+          label={t("pages.pageBuilder.chrome.eyebrow")}
           value={(content.sectionLabel as string) ?? ""}
           onChange={(v) => setContent({ sectionLabel: v })}
         />
         <TextField
-          label="Título"
+          label={t("pages.pageBuilder.widgets.fields.title")}
           value={(content.title as string) ?? ""}
           onChange={(v) => setContent({ title: v })}
         />
         <TextareaField
-          label="Subtítulo"
+          label={t("pages.pageBuilder.chrome.subtitle")}
           value={(content.subtitle as string) ?? ""}
           onChange={(v) => setContent({ subtitle: v })}
           rows={3}
         />
       </Section>
-      <Section title="Cores">
+      <Section title={t("pages.pageBuilder.colors")}>
         <ColorField
-          label="Destaque"
+          label={t("pages.pageBuilder.chrome.accentShort")}
           value={(content.accentColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ accentColor: v })}
         />
         <ColorField
-          label="Fundo do cartão"
+          label={t("pages.pageBuilder.chrome.cardBg")}
           value={(content.cardBg as string) ?? "#ffffff"}
           onChange={(v) => setContent({ cardBg: v })}
         />
         <ColorField
-          label="Texto"
+          label={t("pages.pageBuilder.widgets.fields.text")}
           value={(content.textColor as string) ?? "#0f172a"}
           onChange={(v) => setContent({ textColor: v })}
         />
         <ColorField
-          label="Botão (fundo)"
+          label={t("pages.pageBuilder.chrome.buttonBg")}
           value={(content.ctaBg as string) ?? "#e63946"}
           onChange={(v) => setContent({ ctaBg: v })}
         />
         <ColorField
-          label="Botão (texto)"
+          label={t("pages.pageBuilder.chrome.buttonFg")}
           value={(content.ctaColor as string) ?? "#ffffff"}
           onChange={(v) => setContent({ ctaColor: v })}
         />
@@ -4285,59 +4322,60 @@ function PriceTableContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   const features =
     (content.features as Array<{ id: string; text: string; included: boolean }>) ?? [];
   return (
     <>
-      <Section title="Cabeçalho">
+      <Section title={t("pages.pageBuilder.chrome.header")}>
         <TextField
-          label="Badge (opcional)"
+          label={t("pages.pageBuilder.chrome.badgeOpt")}
           value={(content.badge as string) ?? ""}
           onChange={(v) => setContent({ badge: v })}
         />
         <TextField
-          label="Título"
+          label={t("pages.pageBuilder.widgets.fields.title")}
           value={(content.title as string) ?? ""}
           onChange={(v) => setContent({ title: v })}
         />
         <TextField
-          label="Subtítulo"
+          label={t("pages.pageBuilder.chrome.subtitle")}
           value={(content.subtitle as string) ?? ""}
           onChange={(v) => setContent({ subtitle: v })}
         />
       </Section>
-      <Section title="Preço">
+      <Section title={t("pages.pageBuilder.chrome.price")}>
         <TextField
-          label="Moeda"
+          label={t("pages.pageBuilder.chrome.currency")}
           value={(content.currency as string) ?? "R$"}
           onChange={(v) => setContent({ currency: v })}
         />
         <TextField
-          label="Valor"
+          label={t("pages.pageBuilder.chrome.amount")}
           value={(content.price as string) ?? ""}
           onChange={(v) => setContent({ price: v })}
         />
         <TextField
-          label="Período"
-          value={(content.period as string) ?? "/mês"}
+          label={t("common.period")}
+          value={(content.period as string) ?? t("pages.pageBuilder.livePlans.perMonth")}
           onChange={(v) => setContent({ period: v })}
         />
       </Section>
       <ListEditor
-        title="Recursos"
+        title={t("pages.pageBuilder.chrome.features")}
         items={features}
         onChange={(next) => setContent({ features: next })}
-        itemLabel={(it) => it.text || "Recurso"}
-        newItem={() => ({ id: `pf_${nanoid(6)}`, text: "Novo recurso", included: true })}
+        itemLabel={(it) => it.text || t("pages.pageBuilder.chrome.featureFallback")}
+        newItem={() => ({ id: `pf_${nanoid(6)}`, text: t("pages.pageBuilder.defaults.newFeature"), included: true })}
         renderFields={(item, update) => (
           <>
-            <TextField label="Texto" value={item.text} onChange={(v) => update({ text: v })} />
+            <TextField label={t("pages.pageBuilder.widgets.fields.text")} value={item.text} onChange={(v) => update({ text: v })} />
             <SelectField
-              label="Incluído?"
+              label={t("pages.pageBuilder.chrome.included")}
               value={item.included ? "yes" : "no"}
               options={[
-                { value: "yes", label: "Sim ✓" },
-                { value: "no", label: "Não ✗" },
+                { value: "yes", label: t("pages.pageBuilder.chrome.yesCheck") },
+                { value: "no", label: t("pages.pageBuilder.chrome.noCross") },
               ]}
               onChange={(v) => update({ included: v === "yes" })}
             />
@@ -4346,53 +4384,53 @@ function PriceTableContentEditor({
       />
       <Section title="CTA">
         <TextField
-          label="Texto do botão"
+          label={t("pages.pageBuilder.widgets.fields.buttonText")}
           value={(content.ctaText as string) ?? ""}
           onChange={(v) => setContent({ ctaText: v })}
         />
         <TextField
-          label="Link"
+          label={t("pages.pageBuilder.widgets.opt.link")}
           value={(content.ctaHref as string) ?? "#"}
           onChange={(v) => setContent({ ctaHref: v })}
         />
       </Section>
-      <Section title="Aparência">
+      <Section title={t("pages.pageBuilder.chrome.appearance")}>
         <SelectField
-          label="Destacado"
+          label={t("pages.pageBuilder.chrome.highlighted")}
           value={(content.highlighted as boolean) ? "yes" : "no"}
           options={[
-            { value: "no", label: "Não" },
-            { value: "yes", label: "Sim (com borda colorida)" },
+            { value: "no", label: t("common.no") },
+            { value: "yes", label: t("pages.pageBuilder.chrome.highlightedYes") },
           ]}
           onChange={(v) => setContent({ highlighted: v === "yes" })}
         />
         <ColorField
-          label="Fundo do card"
+          label={t("pages.pageBuilder.chrome.cardBg")}
           value={(content.cardBg as string) ?? "#ffffff"}
           onChange={(v) => setContent({ cardBg: v })}
         />
         <ColorField
-          label="Cor do texto"
+          label={t("pages.pageBuilder.panel.textColor")}
           value={(content.textColor as string) ?? "#1a1a1a"}
           onChange={(v) => setContent({ textColor: v })}
         />
         <ColorField
-          label="Cor de destaque"
+          label={t("pages.pageBuilder.chrome.accent")}
           value={(content.accentColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ accentColor: v })}
         />
         <ColorField
-          label="Fundo do CTA"
+          label={t("pages.pageBuilder.chrome.ctaBg")}
           value={(content.ctaBg as string) ?? "#e63946"}
           onChange={(v) => setContent({ ctaBg: v })}
         />
         <ColorField
-          label="Cor do CTA"
+          label={t("pages.pageBuilder.chrome.ctaColor")}
           value={(content.ctaColor as string) ?? "#ffffff"}
           onChange={(v) => setContent({ ctaColor: v })}
         />
         <NumberField
-          label="Raio (px)"
+          label={t("pages.pageBuilder.panel.radius")}
           value={(content.borderRadius as number) ?? 12}
           min={0}
           max={32}
@@ -4410,89 +4448,90 @@ function CtaBoxContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   return (
     <>
-      <Section title="Conteúdo">
+      <Section title={t("pages.pageBuilder.content")}>
         <TextField
-          label="Título"
+          label={t("pages.pageBuilder.widgets.fields.title")}
           value={(content.title as string) ?? ""}
           onChange={(v) => setContent({ title: v })}
         />
         <TextareaField
-          label="Descrição"
+          label={t("pages.pageBuilder.widgets.fields.description")}
           value={(content.description as string) ?? ""}
           onChange={(v) => setContent({ description: v })}
           rows={3}
         />
       </Section>
-      <Section title="Botões">
+      <Section title={t("pages.pageBuilder.chrome.buttons")}>
         <TextField
-          label="Botão primário (texto)"
+          label={t("pages.pageBuilder.chrome.primaryText")}
           value={(content.primaryText as string) ?? ""}
           onChange={(v) => setContent({ primaryText: v })}
         />
         <TextField
-          label="Botão primário (link)"
+          label={t("pages.pageBuilder.chrome.primaryLink")}
           value={(content.primaryHref as string) ?? "#"}
           onChange={(v) => setContent({ primaryHref: v })}
         />
         <TextField
-          label="Botão secundário (texto, opcional)"
+          label={t("pages.pageBuilder.chrome.secondaryText")}
           value={(content.secondaryText as string) ?? ""}
           onChange={(v) => setContent({ secondaryText: v })}
         />
         <TextField
-          label="Botão secundário (link)"
+          label={t("pages.pageBuilder.chrome.secondaryLink")}
           value={(content.secondaryHref as string) ?? "#"}
           onChange={(v) => setContent({ secondaryHref: v })}
         />
       </Section>
-      <Section title="Disposição">
+      <Section title={t("pages.pageBuilder.disposition")}>
         <SelectField
-          label="Disposição"
+          label={t("pages.pageBuilder.disposition")}
           value={(content.layout as string) ?? "centered"}
           options={[
-            { value: "centered", label: "Centralizado" },
-            { value: "split", label: "Dividido (texto + imagem)" },
+            { value: "centered", label: t("pages.pageBuilder.chrome.centered") },
+            { value: "split", label: t("pages.pageBuilder.chrome.split") },
           ]}
           onChange={(v) => setContent({ layout: v })}
         />
         <BuilderImageUrlField
-          label="Imagem (layout dividido)"
+          label={t("pages.pageBuilder.chrome.splitImage")}
           value={(content.imageUrl as string) ?? ""}
           onChange={(v) => setContent({ imageUrl: v })}
-          placeholder="https://… ou Carregar do PC"
+          placeholder={t("pages.pageBuilder.chrome.imagePh")}
         />
       </Section>
-      <Section title="Aparência">
+      <Section title={t("pages.pageBuilder.chrome.appearance")}>
         <ColorField
-          label="Fundo"
+          label={t("pages.pageBuilder.background")}
           value={(content.background as string) ?? "#0f172a"}
           onChange={(v) => setContent({ background: v })}
         />
         <TextField
-          label="Gradiente CSS (opcional)"
+          label={t("pages.pageBuilder.chrome.gradient")}
           value={(content.gradient as string) ?? ""}
           placeholder="linear-gradient(...)"
           onChange={(v) => setContent({ gradient: v })}
         />
         <ColorField
-          label="Cor do texto"
+          label={t("pages.pageBuilder.panel.textColor")}
           value={(content.textColor as string) ?? "#ffffff"}
           onChange={(v) => setContent({ textColor: v })}
         />
         <ColorField
-          label="Fundo do botão primário"
+          label={t("pages.pageBuilder.chrome.primaryBg")}
           value={(content.primaryBg as string) ?? "#e63946"}
           onChange={(v) => setContent({ primaryBg: v })}
         />
         <ColorField
-          label="Cor do botão primário"
+          label={t("pages.pageBuilder.chrome.primaryColor")}
           value={(content.primaryColor as string) ?? "#ffffff"}
           onChange={(v) => setContent({ primaryColor: v })}
         />
         <NumberField
-          label="Raio (px)"
+          label={t("pages.pageBuilder.panel.radius")}
           value={(content.borderRadius as number) ?? 16}
           min={0}
           max={48}
@@ -4510,106 +4549,107 @@ function FlipBoxContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   return (
     <>
-      <Section title="Frente">
+      <Section title={t("pages.pageBuilder.chrome.front")}>
         <TextField
-          label="Ícone (emoji)"
+          label={t("pages.pageBuilder.chrome.iconEmoji")}
           value={(content.frontIcon as string) ?? ""}
           onChange={(v) => setContent({ frontIcon: v })}
         />
         <TextField
-          label="Título"
+          label={t("pages.pageBuilder.widgets.fields.title")}
           value={(content.frontTitle as string) ?? ""}
           onChange={(v) => setContent({ frontTitle: v })}
         />
         <TextField
-          label="Subtítulo"
+          label={t("pages.pageBuilder.chrome.subtitle")}
           value={(content.frontSubtitle as string) ?? ""}
           onChange={(v) => setContent({ frontSubtitle: v })}
         />
         <ColorField
-          label="Fundo"
+          label={t("pages.pageBuilder.background")}
           value={(content.frontBg as string) ?? "#1f2937"}
           onChange={(v) => setContent({ frontBg: v })}
         />
         <ColorField
-          label="Cor do texto"
+          label={t("pages.pageBuilder.panel.textColor")}
           value={(content.frontTextColor as string) ?? "#ffffff"}
           onChange={(v) => setContent({ frontTextColor: v })}
         />
       </Section>
-      <Section title="Verso">
+      <Section title={t("pages.pageBuilder.chrome.back")}>
         <TextField
-          label="Título"
+          label={t("pages.pageBuilder.widgets.fields.title")}
           value={(content.backTitle as string) ?? ""}
           onChange={(v) => setContent({ backTitle: v })}
         />
         <TextareaField
-          label="Descrição"
+          label={t("pages.pageBuilder.widgets.fields.description")}
           value={(content.backDescription as string) ?? ""}
           onChange={(v) => setContent({ backDescription: v })}
           rows={3}
         />
         <TextField
-          label="CTA (texto, opcional)"
+          label={t("pages.pageBuilder.chrome.ctaTextOpt")}
           value={(content.backCtaText as string) ?? ""}
           onChange={(v) => setContent({ backCtaText: v })}
         />
         <TextField
-          label="CTA (link)"
+          label={t("pages.pageBuilder.chrome.ctaLink")}
           value={(content.backCtaHref as string) ?? "#"}
           onChange={(v) => setContent({ backCtaHref: v })}
         />
         <ColorField
-          label="Fundo"
+          label={t("pages.pageBuilder.background")}
           value={(content.backBg as string) ?? "#e63946"}
           onChange={(v) => setContent({ backBg: v })}
         />
         <ColorField
-          label="Cor do texto"
+          label={t("pages.pageBuilder.panel.textColor")}
           value={(content.backTextColor as string) ?? "#ffffff"}
           onChange={(v) => setContent({ backTextColor: v })}
         />
         <ColorField
-          label="Fundo do CTA"
+          label={t("pages.pageBuilder.chrome.ctaBg")}
           value={(content.backCtaBg as string) ?? "#ffffff"}
           onChange={(v) => setContent({ backCtaBg: v })}
         />
         <ColorField
-          label="Cor do CTA"
+          label={t("pages.pageBuilder.chrome.ctaColor")}
           value={(content.backCtaColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ backCtaColor: v })}
         />
       </Section>
-      <Section title="Comportamento">
+      <Section title={t("pages.pageBuilder.chrome.behavior")}>
         <SelectField
-          label="Gatilho do flip"
+          label={t("pages.pageBuilder.chrome.flipTrigger")}
           value={(content.trigger as string) ?? "hover"}
           options={[
-            { value: "hover", label: "Ao passar o rato" },
-            { value: "click", label: "Ao clicar" },
+            { value: "hover", label: t("pages.pageBuilder.chrome.onHover") },
+            { value: "click", label: t("pages.pageBuilder.chrome.onClick") },
           ]}
           onChange={(v) => setContent({ trigger: v })}
         />
         <SelectField
-          label="Direção"
+          label={t("pages.pageBuilder.chrome.direction")}
           value={(content.flipDirection as string) ?? "horizontal"}
           options={[
-            { value: "horizontal", label: "Horizontal" },
-            { value: "vertical", label: "Vertical" },
+            { value: "horizontal", label: t("pages.pageBuilder.chrome.horizontal") },
+            { value: "vertical", label: t("pages.pageBuilder.chrome.vertical") },
           ]}
           onChange={(v) => setContent({ flipDirection: v })}
         />
         <NumberField
-          label="Altura (px)"
+          label={t("pages.pageBuilder.widgets.fields.heightPx")}
           value={(content.height as number) ?? 280}
           min={120}
           max={600}
           onChange={(v) => setContent({ height: v })}
         />
         <NumberField
-          label="Raio (px)"
+          label={t("pages.pageBuilder.panel.radius")}
           value={(content.borderRadius as number) ?? 12}
           min={0}
           max={32}
@@ -4627,89 +4667,90 @@ function ProgressTrackerContentEditor({
   content: Record<string, unknown>;
   setContent: (p: Record<string, unknown>) => void;
 }) {
+  const { t } = useAppLocale();
   const items =
     (content.items as Array<{ id: string; label: string; value: number; color?: string }>) ?? [];
   type PItem = { id: string; label: string; value: number; color?: string };
   return (
     <>
       <ListEditor
-        title="Itens de progresso"
+        title={t("pages.pageBuilder.chrome.progressItems")}
         items={items}
         onChange={(next) => setContent({ items: next })}
         itemLabel={(it) => `${it.label} — ${it.value}%`}
         newItem={() => ({ id: `pb_${nanoid(6)}`, label: "Novo", value: 50, color: "" }) as PItem}
         renderFields={(item, update) => (
           <>
-            <TextField label="Rótulo" value={item.label} onChange={(v) => update({ label: v })} />
+            <TextField label={t("pages.pageBuilder.chrome.fieldLabel")} value={item.label} onChange={(v) => update({ label: v })} />
             <NumberField
-              label="Valor (0-100)"
+              label={t("pages.pageBuilder.chrome.valueRange")}
               value={item.value}
               min={0}
               max={100}
               onChange={(v) => update({ value: Math.max(0, Math.min(100, v)) })}
             />
             <ColorField
-              label="Cor (opcional)"
+              label={t("pages.pageBuilder.chrome.colorOpt")}
               value={item.color ?? ""}
               onChange={(v) => update({ color: v })}
             />
           </>
         )}
       />
-      <Section title="Estilo">
+      <Section title={t("pages.pageBuilder.chrome.fontStyle")}>
         <SelectField
-          label="Tipo"
+          label={t("pages.pageBuilder.widgets.fields.type")}
           value={(content.variant as string) ?? "bar"}
           options={[
-            { value: "bar", label: "Barras horizontais" },
-            { value: "circle", label: "Círculos (SVG)" },
+            { value: "bar", label: t("pages.pageBuilder.chrome.bars") },
+            { value: "circle", label: t("pages.pageBuilder.chrome.circles") },
           ]}
           onChange={(v) => setContent({ variant: v })}
         />
         <SelectField
-          label="Mostrar percentual"
+          label={t("pages.pageBuilder.chrome.showPercent")}
           value={(content.showPercent as boolean) ?? true ? "yes" : "no"}
           options={[
-            { value: "yes", label: "Sim" },
-            { value: "no", label: "Não" },
+            { value: "yes", label: t("common.yes") },
+            { value: "no", label: t("common.no") },
           ]}
           onChange={(v) => setContent({ showPercent: v === "yes" })}
         />
         <SelectField
-          label="Animar ao entrar na tela"
+          label={t("pages.pageBuilder.chrome.animateIn")}
           value={(content.animate as boolean) ?? true ? "yes" : "no"}
           options={[
-            { value: "yes", label: "Sim" },
-            { value: "no", label: "Não" },
+            { value: "yes", label: t("common.yes") },
+            { value: "no", label: t("common.no") },
           ]}
           onChange={(v) => setContent({ animate: v === "yes" })}
         />
         <NumberField
-          label="Altura da barra (px)"
+          label={t("pages.pageBuilder.chrome.barHeight")}
           value={(content.height as number) ?? 10}
           min={4}
           max={40}
           onChange={(v) => setContent({ height: v })}
         />
         <NumberField
-          label="Espaço entre itens (px)"
+          label={t("pages.pageBuilder.chrome.itemGap")}
           value={(content.gap as number) ?? 20}
           min={4}
           max={60}
           onChange={(v) => setContent({ gap: v })}
         />
         <ColorField
-          label="Cor do trilho"
+          label={t("pages.pageBuilder.chrome.trackColor")}
           value={(content.trackColor as string) ?? "#e5e7eb"}
           onChange={(v) => setContent({ trackColor: v })}
         />
         <ColorField
-          label="Cor do preenchimento"
+          label={t("pages.pageBuilder.chrome.fillColor")}
           value={(content.fillColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ fillColor: v })}
         />
         <ColorField
-          label="Cor do rótulo"
+          label={t("pages.pageBuilder.chrome.labelColor")}
           value={(content.labelColor as string) ?? "#1a1a1a"}
           onChange={(v) => setContent({ labelColor: v })}
         />

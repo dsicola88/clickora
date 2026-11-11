@@ -58,7 +58,7 @@ describe("mirrorHtmlToEditableWidgets", () => {
           columns: [{ id: "col_1", widthPercent: { desktop: 100 }, styles: {}, widgets: [htmlW] }],
         },
       ],
-      settings: {},
+      settings: { maxContentWidth: 1200 },
       updatedAt: 1,
     };
     expect(isMonolithicHtmlFold(doc)).toBe(true);
@@ -138,7 +138,7 @@ describe("mirrorHtmlToEditableWidgets", () => {
           columns: [{ id: "col_1", widthPercent: { desktop: 100 }, styles: {}, widgets: [htmlW] }],
         },
       ],
-      settings: {},
+      settings: { maxContentWidth: 1200 },
       updatedAt: 1,
     };
     const expanded = expandMonolithicHtmlDocument(doc);

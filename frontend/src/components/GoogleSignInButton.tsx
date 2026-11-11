@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAuth, type SignInResult } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 declare global {
   interface Window {
@@ -28,6 +29,7 @@ type Props = {
 const GSI_SCRIPT = "https://accounts.google.com/gsi/client";
 
 export function GoogleSignInButton({ onSuccess, onMfaRequired }: Props) {
+  const { t } = useAppLocale();
   const { signInWithGoogle } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
@@ -58,11 +60,11 @@ export function GoogleSignInButton({ onSuccess, onMfaRequired }: Props) {
             return;
           }
           if (result.mfa) {
-            toast.message("Confirme o código MFA para continuar.");
+            toast.message(t("auth.mfaContinue"));
             onMfaRequired?.(result.mfa);
             return;
           }
-          toast.success("Login com Google realizado!");
+          toast.success(t("auth.ssoSuccess"));
           onSuccess();
         },
       });
@@ -92,7 +94,7 @@ export function GoogleSignInButton({ onSuccess, onMfaRequired }: Props) {
       window.google?.accounts.id.cancel();
       el.innerHTML = "";
     };
-  }, [clientId, onMfaRequired, onSuccess, signInWithGoogle]);
+  }, [clientId, onMfaRequired, onSuccess, signInWithGoogle, t]);
 
   if (!clientId) {
     return null;

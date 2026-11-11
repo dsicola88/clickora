@@ -81,7 +81,7 @@ export default function Plans() {
 
   const handleSelectPlan = async (plan: Plan) => {
     if (user && plan.type === userPlan?.plan_type) {
-      toast.info("Você já está neste plano.");
+      toast.info(t("pages.plans.alreadyOnPlan"));
       return;
     }
 
@@ -92,12 +92,12 @@ export default function Plans() {
 
     if (!user) {
       if (plan.price_cents === 0) {
-        toast.info("Crie uma conta ou entre para ativar o plano grátis.");
+        toast.info(t("pages.plans.signInForFree"));
         navigate("/auth");
         return;
       }
       toast.error(
-        "O checkout deste plano ainda não está ligado. Contacte o suporte.",
+        t("pages.plans.checkoutUnlinked"),
       );
       return;
     }
@@ -116,7 +116,7 @@ export default function Plans() {
       return;
     }
     await refreshUser();
-    toast.success("Plano atualizado com sucesso!");
+    toast.success(t("pages.plans.updated"));
   };
 
   const builderDoc =
@@ -133,8 +133,8 @@ export default function Plans() {
     const chrome = landingExtrasEarly.site_chrome ?? DEFAULT_LANDING_SITE_CHROME;
     const brandLabel = chrome.brand_label?.trim() || DEFAULT_LANDING_SITE_CHROME.brand_label || "dclickora";
     const brandLogo = chrome.brand_logo_url?.trim() || DEFAULT_LANDING_SITE_CHROME.brand_logo_url;
-    const loginLabel = chrome.login_label?.trim() || DEFAULT_LANDING_SITE_CHROME.login_label || "Entrar";
-    const panelLabel = chrome.panel_label?.trim() || DEFAULT_LANDING_SITE_CHROME.panel_label || "Painel";
+    const loginLabel = chrome.login_label?.trim() || DEFAULT_LANDING_SITE_CHROME.login_label || t("chrome.signIn");
+    const panelLabel = chrome.panel_label?.trim() || DEFAULT_LANDING_SITE_CHROME.panel_label || t("pages.plans.panel");
     const salesThemed = resolveLandingPageTheme(landingExtrasEarly.theme);
     const pageBg =
       (typeof builderDoc.settings?.background === "string" && builderDoc.settings.background) ||
@@ -160,7 +160,7 @@ export default function Plans() {
         >
           <nav
             className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 md:px-6"
-            aria-label="Ações da página"
+            aria-label={t("pages.plans.pageActions")}
           >
             <Link
               to="/"
@@ -196,7 +196,7 @@ export default function Plans() {
                 }}
                 asChild
               >
-                <a href="#planos">{chrome.buy_label?.trim() || "Comprar"}</a>
+                <a href="#planos">{chrome.buy_label?.trim() || t("pages.plans.buy")}</a>
               </Button>
             </div>
           </nav>
@@ -206,13 +206,13 @@ export default function Plans() {
     );
   }
 
-  if (isLoading) return <LoadingState message="Carregando planos..." />;
-  if (isError) return <ErrorState message="Erro ao carregar planos." onRetry={() => refetch()} />;
-  if (plans.length === 0) return <ErrorState message="Nenhum plano disponivel no momento." onRetry={() => refetch()} />;
+  if (isLoading) return <LoadingState message={t("pages.plans.loading")} />;
+  if (isError) return <ErrorState message={t("pages.plans.loadError")} onRetry={() => refetch()} />;
+  if (plans.length === 0) return <ErrorState message={t("pages.plans.empty")} onRetry={() => refetch()} />;
 
-  const defaultHeroTitle = "CONHEÇA O TRACKING E A PRESELL QUE FECHAM O FUNIL";
+  const defaultHeroTitle = t("pages.plans.defaultHeroTitle");
   const defaultHeroSubtitle =
-    "Trackeie cliques e vendas com precisão. Publique presells sem WordPress e aumente o controlo do funil — teste grátis sem cartão nesta página.";
+    t("pages.plans.defaultHeroSubtitle");
   /** Respeita o que o SuperAdmin gravou; só usa default se estiver vazio. */
   const heroTitle = landing?.hero_title?.trim() || defaultHeroTitle;
   const heroSubtitle = landing?.hero_subtitle?.trim() || defaultHeroSubtitle;
@@ -240,16 +240,16 @@ export default function Plans() {
   const chrome = extras.site_chrome ?? DEFAULT_LANDING_SITE_CHROME;
   const brandLabel = chrome.brand_label?.trim() || DEFAULT_LANDING_SITE_CHROME.brand_label || "dclickora";
   const brandLogo = chrome.brand_logo_url?.trim() || DEFAULT_LANDING_SITE_CHROME.brand_logo_url;
-  const buyLabel = chrome.buy_label?.trim() || DEFAULT_LANDING_SITE_CHROME.buy_label || "Comprar";
-  const loginLabel = chrome.login_label?.trim() || DEFAULT_LANDING_SITE_CHROME.login_label || "Entrar";
-  const panelLabel = chrome.panel_label?.trim() || DEFAULT_LANDING_SITE_CHROME.panel_label || "Painel";
+  const buyLabel = chrome.buy_label?.trim() || DEFAULT_LANDING_SITE_CHROME.buy_label || t("pages.plans.buy");
+  const loginLabel = chrome.login_label?.trim() || DEFAULT_LANDING_SITE_CHROME.login_label || t("chrome.signIn");
+  const panelLabel = chrome.panel_label?.trim() || DEFAULT_LANDING_SITE_CHROME.panel_label || t("pages.plans.panel");
   const secondaryCtaOn =
     chrome.hero_secondary_cta_enabled !== false &&
     Boolean(chrome.hero_secondary_cta_label?.trim() || DEFAULT_LANDING_SITE_CHROME.hero_secondary_cta_label);
   const secondaryCtaLabel =
     chrome.hero_secondary_cta_label?.trim() ||
     DEFAULT_LANDING_SITE_CHROME.hero_secondary_cta_label ||
-    "Falar com especialista";
+    t("pages.plans.talkToExpert");
   const secondaryCtaHref =
     chrome.hero_secondary_cta_href?.trim() ||
     DEFAULT_LANDING_SITE_CHROME.hero_secondary_cta_href ||
@@ -318,7 +318,7 @@ export default function Plans() {
               ? "mx-auto flex w-full max-w-6xl items-center justify-between gap-4"
               : "mx-auto grid w-full max-w-2xl grid-cols-1 gap-2 sm:max-w-lg sm:grid-cols-2 sm:gap-3",
           )}
-          aria-label="Ações da página"
+          aria-label={t("pages.plans.pageActions")}
         >
           {salesDark ? (
             <Link to="/" className="flex items-center gap-2 text-base font-semibold tracking-tight text-white">
@@ -442,7 +442,7 @@ export default function Plans() {
           "mb-4 flex flex-col gap-1.5 rounded-lg border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-center sm:gap-3",
           salesDark ? "border-white/15 bg-white/5" : "border-border/50 bg-muted/35",
         )}
-        aria-label="Soluções por objetivo"
+        aria-label={t("pages.plans.objectivesAria")}
       >
         <span
           className={cn(
@@ -450,7 +450,7 @@ export default function Plans() {
             salesDark ? "text-white/50" : "text-muted-foreground",
           )}
         >
-          {chrome.objective_nav_label?.trim() || "Por objetivo"}
+          {chrome.objective_nav_label?.trim() || t("pages.plans.byGoal")}
         </span>
         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
           {chrome.objective_links.map((link, idx) => (
@@ -485,13 +485,15 @@ export default function Plans() {
           )}
         >
           <p className={cn("text-sm", salesDark ? "text-white/75" : "text-muted-foreground")}>
-            <span className={cn("font-medium", salesDark ? "text-white" : "text-foreground")}>Super administrador:</span> edite a landing pública desta página (textos, imagem, tipografia) no
-            painel — separador <span className={cn("font-medium", salesDark ? "text-white" : "text-foreground")}>Planos</span>, bloco no topo.
+            <span className={cn("font-medium", salesDark ? "text-white" : "text-foreground")}>{t("pages.plans.superAdminLead")}</span>{" "}
+            {t("pages.plans.superAdminBody")}{" "}
+            <span className={cn("font-medium", salesDark ? "text-white" : "text-foreground")}>{t("pages.plans.superAdminTab")}</span>
+            {t("pages.plans.superAdminTail")}
           </p>
           <Button variant="secondary" size="sm" className="shrink-0 gap-2" asChild>
             <Link to="/admin/plans">
               <LayoutTemplate className="h-4 w-4" />
-              Abrir editor da landing
+              {t("pages.plans.openEditor")}
             </Link>
           </Button>
         </div>

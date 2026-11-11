@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { fill, type MessageKey } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,14 +47,6 @@ type MatchSel = "exact" | "phrase" | "broad";
 
 type StudioSnippetHeader = "Brands" | "Services" | "Types" | "Models" | "Destinations";
 
-const SNIPPET_HEADER_LABEL: Record<StudioSnippetHeader, string> = {
-  Brands: "Marcas",
-  Services: "Serviços",
-  Types: "Tipos",
-  Models: "Modelos",
-  Destinations: "Destinos",
-};
-
 const STUDIO_SNIPPET_HEADERS: StudioSnippetHeader[] = [
   "Brands",
   "Services",
@@ -90,10 +84,18 @@ function isManualCpc(bidding: Record<string, unknown> | undefined): boolean {
   return (g as { strategy?: string }).strategy === "manual_cpc";
 }
 
-function matchTypeLabel(m: MatchSel): string {
-  if (m === "broad") return "Ampla";
-  if (m === "exact") return "Exacta";
-  return "Expressão";
+function matchTypeLabel(m: MatchSel, tr: (key: MessageKey) => string): string {
+  if (m === "broad") return tr("pages.dpilot.google.studio.matchBroad");
+  if (m === "exact") return tr("pages.dpilot.google.studio.matchExact");
+  return tr("pages.dpilot.google.studio.matchPhrase");
+}
+
+function snippetHeaderLabel(h: StudioSnippetHeader, tr: (key: MessageKey) => string): string {
+  if (h === "Brands") return tr("pages.dpilot.google.studio.snippetBrands");
+  if (h === "Services") return tr("pages.dpilot.google.studio.snippetServices");
+  if (h === "Types") return tr("pages.dpilot.google.studio.snippetTypes");
+  if (h === "Models") return tr("pages.dpilot.google.studio.snippetModels");
+  return tr("pages.dpilot.google.studio.snippetDestinations");
 }
 
 function linesToNegKeywords(
@@ -288,6 +290,7 @@ function BadgeEntityStatus({ s }: { s: string }) {
 }
 
 export function DpilotGoogleCampaignStudioPage() {
+  const { t } = useAppLocale();
   const { projectId, campaignId } = useParams();
   const { overview, reload: reloadPaid } = useDpilotPaid();
   const lgLayout = useViewportMinWidth(VIEWPORT_LG_MIN_PX);
@@ -368,7 +371,7 @@ export function DpilotGoogleCampaignStudioPage() {
     const { data, error } = await paidAdsService.getGoogleCampaignStudio(projectId, campaignId);
     setLoading(false);
     if (error || !data) {
-      toast.error(error || "Não foi possível carregar o estúdio.");
+      toast.error(error || t("pages.dpilot.google.studio.loadFailed"));
       setStudio(null);
       return;
     }
@@ -455,7 +458,7 @@ export function DpilotGoogleCampaignStudioPage() {
     setPreviewAgId((prev) =>
       prev && data.ad_groups.some((g) => g.id === prev) ? prev : data.ad_groups[0]?.id ?? null,
     );
-  }, [ok, projectId, campaignId]);
+  }, [ok, projectId, campaignId, t]);
 
   useEffect(() => {
     void loadStudio();
@@ -506,9 +509,11 @@ export function DpilotGoogleCampaignStudioPage() {
       return;
     }
     if (data?.change_request?.status === "applied") {
-      toast.success(isAutopilot ? "Alteração aplicada na Google (modo automático)." : "Alteração aplicada.");
+      toast.success(
+        isAutopilot ? t("pages.dpilot.google.studio.appliedAuto") : t("pages.dpilot.google.studio.applied"),
+      );
     } else {
-      toast.success("Pedido registado na fila de aprovações.");
+      toast.success(t("pages.dpilot.google.studio.queued"));
     }
     await loadStudio();
     await reloadPaid();
@@ -544,11 +549,11 @@ export function DpilotGoogleCampaignStudioPage() {
     const fallback = (rsa0.final_urls?.[0] ?? "").trim();
     const urlResolved = rawUrl || fallback;
     if (!/^https:\/\/.+/i.test(urlResolved)) {
-      toast.error("Indique uma URL final válida começando por https://");
+      toast.error(t("pages.dpilot.google.studio.finalUrlInvalid"));
       return;
     }
     if (headlines.length < 3 || descriptions.length < 2) {
-      toast.error("Anúncio: mínimo 3 títulos e 2 descrições.");
+      toast.error(t("pages.dpilot.google.studio.rsaMin"));
       return;
     }
     const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
@@ -562,7 +567,7 @@ export function DpilotGoogleCampaignStudioPage() {
     });
     if (error) toast.error(error);
     else {
-      toast.success("Pedido de anúncio enviado.");
+      toast.success(t("pages.dpilot.google.studio.adRequestSent"));
       await loadStudio();
       await reloadPaid();
     }
@@ -575,7 +580,7 @@ export function DpilotGoogleCampaignStudioPage() {
       ? campaignObjectiveDraft.trim().slice(0, 4000)
       : null;
     if (!name) {
-      toast.error("Introduza o nome da campanha.");
+      toast.error(t("pages.dpilot.google.studio.nameRequired"));
       return;
     }
     const { error } = await paidAdsService.patchGoogleCampaignDraft(projectId!, campaignId!, {
@@ -584,7 +589,7 @@ export function DpilotGoogleCampaignStudioPage() {
     });
     if (error) toast.error(error);
     else {
-      toast.success("Dados da campanha atualizados no rascunho.");
+      toast.success(t("pages.dpilot.google.studio.draftMetaSaved"));
       await loadStudio();
       await reloadPaid();
     }
@@ -597,19 +602,19 @@ export function DpilotGoogleCampaignStudioPage() {
     const nMax = bidStrategy === "manual_cpc" ? Number(bidMaxCpcUsd.replace(",", ".")) : null;
     if (bidStrategy === "target_cpa") {
       if (!Number.isFinite(nCpa as number) || (nCpa as number) <= 0) {
-        toast.error("Indique um CPA alvo válido (USD).");
+        toast.error(t("pages.dpilot.google.studio.cpaInvalid"));
         return;
       }
     }
     if (bidStrategy === "target_roas") {
       if (!Number.isFinite(nRoas as number) || (nRoas as number) <= 0) {
-        toast.error("Indique um ROAS alvo válido.");
+        toast.error(t("pages.dpilot.google.studio.roasInvalid"));
         return;
       }
     }
     if (bidStrategy === "manual_cpc" && bidMaxCpcUsd.trim() !== "") {
       if (!Number.isFinite(nMax as number) || (nMax as number) <= 0) {
-        toast.error("CPC máximo inválido (USD), ou deixe em branco.");
+        toast.error(t("pages.dpilot.google.studio.maxCpcInvalid"));
         return;
       }
     }
@@ -631,7 +636,7 @@ export function DpilotGoogleCampaignStudioPage() {
       const { error, data } = await paidAdsService.patchGoogleCampaignDraft(projectId!, campaignId!, patchBody);
       if (error) toast.error(error);
       else {
-        toast.success("Estratégia de licitação gravada no rascunho.");
+        toast.success(t("pages.dpilot.google.studio.biddingSaved"));
         if (data?.studio) setStudio(data.studio);
         await reloadPaid();
       }
@@ -656,19 +661,19 @@ export function DpilotGoogleCampaignStudioPage() {
       return;
     }
     if (!data) {
-      setPerfErr("Resposta vazia.");
+      setPerfErr(t("pages.dpilot.google.studio.emptyResponse"));
       setPerfRows([]);
       setPerfTotals(null);
       return;
     }
     setPerfRows(data.rows);
     setPerfTotals(data.totals);
-  }, [ok, published, projectId, campaignId, perfFrom, perfTo]);
+  }, [ok, published, projectId, campaignId, perfFrom, perfTo, t]);
 
   async function saveBudget(publishedCampaign: boolean) {
     const n = Number(budgetUsd.replace(",", "."));
     if (!Number.isFinite(n) || n <= 0) {
-      toast.error("Introduza um orçamento diário válido (USD).");
+      toast.error(t("pages.dpilot.google.studio.budgetInvalid"));
       return;
     }
     if (!ok) return;
@@ -681,7 +686,7 @@ export function DpilotGoogleCampaignStudioPage() {
       });
       if (error) toast.error(error);
       else {
-        toast.success("Orçamento de rascunho actualizado.");
+        toast.success(t("pages.dpilot.google.studio.budgetSaved"));
         await loadStudio();
       }
     }
@@ -726,15 +731,15 @@ export function DpilotGoogleCampaignStudioPage() {
       const prevUrl = (rsa0.final_urls?.[0] ?? "").trim();
       const urlResolved = rawUrl || prevUrl;
       if (!/^https:\/\/.+/i.test(urlResolved)) {
-        toast.error(`Grupo «${ag.name}»: URL final obrigatória (https://…).`);
+        toast.error(fill(t("pages.dpilot.google.studio.groupFinalUrl"), { name: ag.name }));
         return;
       }
       if (hLines.length < 3 || dLines.length < 2) {
-        toast.error(`Grupo «${ag.name}»: o anúncio precisa de pelo menos 3 títulos e 2 descrições (linhas).`);
+        toast.error(fill(t("pages.dpilot.google.studio.groupRsaMin"), { name: ag.name }));
         return;
       }
       if (lines.length < 1) {
-        toast.error(`Grupo «${ag.name}»: indique pelo menos uma palavra-chave (uma por linha).`);
+        toast.error(fill(t("pages.dpilot.google.studio.groupKeyword"), { name: ag.name }));
         return;
       }
       ad_groups.push({
@@ -757,7 +762,7 @@ export function DpilotGoogleCampaignStudioPage() {
     });
     if (error) toast.error(error);
     else {
-      toast.success("Rascunho gravado (palavras-chave, anúncio, negativas e extensões).");
+      toast.success(t("pages.dpilot.google.studio.draftSaved"));
       if (data?.studio) setStudio(data.studio);
       await reloadPaid();
     }
@@ -814,9 +819,13 @@ export function DpilotGoogleCampaignStudioPage() {
       lastStatus = r.status;
 
       if (lastStatus === "applied") {
-        toast.success(isAutopilot ? "Negativas e extensões aplicadas na Google." : "Pedidos aplicados.");
+        toast.success(
+          isAutopilot
+            ? t("pages.dpilot.google.studio.negativesAppliedAuto")
+            : t("pages.dpilot.google.studio.requestsApplied"),
+        );
       } else {
-        toast.success("Pedidos registados na fila de aprovações.");
+        toast.success(t("pages.dpilot.google.studio.requestsQueued"));
       }
       await loadStudio();
       await reloadPaid();
@@ -826,7 +835,7 @@ export function DpilotGoogleCampaignStudioPage() {
     const { error, data } = await paidAdsService.patchGoogleCampaignDraft(projectId, campaignId, nx);
     if (error) toast.error(error);
     else {
-      toast.success("Negativas e extensões gravadas no rascunho.");
+      toast.success(t("pages.dpilot.google.studio.negativesSaved"));
       if (data?.studio) setStudio(data.studio);
       await reloadPaid();
     }
@@ -836,7 +845,7 @@ export function DpilotGoogleCampaignStudioPage() {
     if (!ok || !projectId || !campaign) return;
     const k = insightKw.trim();
     if (!k) {
-      toast.error("Escreva uma palavra-chave.");
+      toast.error(t("pages.dpilot.google.studio.keywordRequired"));
       return;
     }
     setInsightLoading(true);
@@ -859,7 +868,7 @@ export function DpilotGoogleCampaignStudioPage() {
     ) => React.ReactNode,
   ) {
     if (!studio?.ad_groups?.length) {
-      return <p className="text-sm text-muted-foreground">Sem grupos de anúncios nesta campanha.</p>;
+      return <p className="text-sm text-muted-foreground">{t("pages.dpilot.google.studio.noAdGroups")}</p>;
     }
     return (
       <div className="space-y-8">
@@ -879,10 +888,10 @@ export function DpilotGoogleCampaignStudioPage() {
               </div>
               {!published ? (
                 <CardDescription>
-                  Edita em baixo; no fim da secção usa «Gravar rascunho completo» (inclui negativas e extensões definidas no menu).
+                  {t("pages.dpilot.google.studio.draftHint")}
                 </CardDescription>
               ) : (
-                <CardDescription>Alterações na rede passam pela fila (ou são aplicadas de imediato em modo automático).</CardDescription>
+                <CardDescription>{t("pages.dpilot.google.studio.liveHint")}</CardDescription>
               )}
             </CardHeader>
             <CardContent className="space-y-4">{renderer(ag, i)}</CardContent>
@@ -893,34 +902,34 @@ export function DpilotGoogleCampaignStudioPage() {
   }
 
   if (!ok) {
-    return <p className="p-4 text-sm text-destructive">Campanha ou projecto inválido.</p>;
+    return <p className="p-4 text-sm text-destructive">{t("pages.dpilot.google.studio.invalidIds")}</p>;
   }
 
   return (
     <Gate>
       <PageHeader
-        title="Gestão da campanha"
+        title={t("pages.dpilot.google.studio.pageTitle")}
         description={
           campaign ? (
             <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
               <span className="inline-flex items-center rounded border border-[#1a73e8]/35 bg-[#1a73e8]/08 px-2 py-0.5 text-xs font-semibold text-[#174ea6] dark:border-blue-400/40 dark:bg-blue-500/15 dark:text-blue-300">
-                Google Ads · Pesquisa
+                {t("pages.dpilot.google.wizard.badge")}
               </span>
               <span>
-                {campaign.name} · {published ? "Publicada" : "Rascunho"} · {campaignStatusLabel(campaign.status)}
+                {campaign.name} · {published ? t("pages.dpilot.google.studio.published") : t("pages.dpilot.google.studio.draft")} · {campaignStatusLabel(campaign.status)}
               </span>
             </span>
           ) : (
-            "A carregar…"
+            t("common.loading")
           )
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/campanhas`}>Voltar às campanhas</Link>
+              <Link to={`/tracking/dpilot/p/${projectId}/campanhas`}>{t("pages.dpilot.google.studio.backCampaigns")}</Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/aprovacoes`}>Fila de aprovações</Link>
+              <Link to={`/tracking/dpilot/p/${projectId}/aprovacoes`}>{t("pages.dpilot.google.studio.approvals")}</Link>
             </Button>
           </div>
         }
@@ -930,7 +939,7 @@ export function DpilotGoogleCampaignStudioPage() {
         {hint ? <p className="text-xs text-muted-foreground leading-snug max-w-prose">{hint}</p> : null}
 
         <Alert variant="default" className="border-neutral-200 bg-neutral-50/80 dark:border-border dark:bg-muted/25">
-          <AlertTitle className="text-sm">Estúdio Google Ads (Pesquisa)</AlertTitle>
+          <AlertTitle className="text-sm">{t("pages.dpilot.google.studio.studioTitle")}</AlertTitle>
           <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
             Layout alinhado ao fluxo da consola: navegação à esquerda, formulário ao centro e{" "}
             <strong className="font-medium text-foreground">pré-visualização</strong> à direita. Licitações por dispositivo,
@@ -945,16 +954,16 @@ export function DpilotGoogleCampaignStudioPage() {
         {loading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground py-12">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            A carregar…
+            {t("common.loading")}
           </p>
         ) : !campaign || !studio ? (
-          <p className="text-sm text-muted-foreground">Campanha não encontrada.</p>
+          <p className="text-sm text-muted-foreground">{t("pages.dpilot.google.studio.notFound")}</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-neutral-200 bg-[#f8f9fa] shadow-sm dark:border-border dark:bg-muted/10">
             <div className="h-1 w-full bg-[#1a73e8]" aria-hidden />
             {lgLayout ? (
               <p className="border-b border-neutral-200/90 bg-background/80 px-3 py-2 text-[10px] leading-snug text-muted-foreground dark:border-border">
-                Arraste as barras entre colunas para ajustar índice, formulário e pré-visualização (como na Google Ads).
+                {t("pages.dpilot.google.studio.dragHint")}
               </p>
             ) : null}
             <ResizablePanelGroup
@@ -982,45 +991,45 @@ export function DpilotGoogleCampaignStudioPage() {
                       ? "h-full overflow-y-auto border-r border-neutral-200 pb-4 pr-3 dark:border-border/70"
                       : "border-b border-neutral-200 pb-6 dark:border-border",
                   )}
-                  aria-label="Secções do estúdio"
+                  aria-label={t("pages.dpilot.google.studio.navAria")}
                 >
               <div>
                 <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Campanha
+                  {t("pages.dpilot.google.studio.navCampaign")}
                 </p>
                 <div className="space-y-0.5">
                   <button type="button" onClick={() => setStudioSection("visao")} className={studioNavItemClass("visao")}>
-                    Visão geral
+                    {t("pages.dpilot.google.studio.navOverview")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setStudioSection("conteudos")}
                     className={studioNavItemClass("conteudos")}
                   >
-                    Palavras-chave e anúncios
+                    {t("pages.dpilot.google.studio.navKeywords")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setStudioSection("negativas_extensoes")}
                     className={studioNavItemClass("negativas_extensoes")}
                   >
-                    Negativas e extensões
+                    {t("pages.dpilot.google.studio.navNegatives")}
                   </button>
                   <button type="button" onClick={() => setStudioSection("leiloes")} className={studioNavItemClass("leiloes")}>
-                    Orçamento e licitação
+                    {t("pages.dpilot.google.studio.navBudget")}
                   </button>
                   <button type="button" onClick={() => setStudioSection("controlo")} className={studioNavItemClass("controlo")}>
-                    {published ? "Estado e pausas" : "Estado do rascunho"}
+                    {published ? t("pages.dpilot.google.studio.navLiveStatus") : t("pages.dpilot.google.studio.navDraftStatus")}
                   </button>
                 </div>
               </div>
               <div>
                 <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Ferramentas
+                  {t("pages.dpilot.google.studio.navTools")}
                 </p>
                 <div className="space-y-0.5">
                   <button type="button" onClick={() => setStudioSection("insights")} className={studioNavItemClass("insights")}>
-                    Planeamento e relatórios
+                    {t("pages.dpilot.google.studio.navInsights")}
                   </button>
                 </div>
               </div>
@@ -1084,7 +1093,7 @@ export function DpilotGoogleCampaignStudioPage() {
                   {!published ? (
                     <Collapsible defaultOpen={false} className="group/camp-id overflow-hidden rounded-lg border border-neutral-300/90 bg-muted/15 dark:border-border">
                       <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium hover:bg-muted/30">
-                        <span>Nome e objectivo (rascunho · personalizável)</span>
+                        <span>{t("pages.dpilot.google.studio.identityTrigger")}</span>
                         <ChevronDown
                           className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/camp-id:rotate-180"
                           aria-hidden
@@ -1092,7 +1101,7 @@ export function DpilotGoogleCampaignStudioPage() {
                       </CollapsibleTrigger>
                       <CollapsibleContent className="space-y-3 border-t border-neutral-200/90 px-4 py-4 dark:border-border">
                         <div className="space-y-1.5">
-                          <Label htmlFor="studio-camp-name">Nome da campanha</Label>
+                          <Label htmlFor="studio-camp-name">{t("pages.dpilot.google.studio.nameLabel")}</Label>
                           <Input
                             id="studio-camp-name"
                             value={campaignIdentityName}
@@ -1101,7 +1110,7 @@ export function DpilotGoogleCampaignStudioPage() {
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label htmlFor="studio-camp-obj">Resumo do objectivo</Label>
+                          <Label htmlFor="studio-camp-obj">{t("pages.dpilot.google.studio.objectiveLabel")}</Label>
                           <Textarea
                             id="studio-camp-obj"
                             value={campaignObjectiveDraft}
@@ -1113,7 +1122,7 @@ export function DpilotGoogleCampaignStudioPage() {
                         </div>
                         <div className="flex justify-end">
                           <Button type="button" size="sm" variant="secondary" onClick={() => void saveCampaignDraftMeta()}>
-                            Guardar nome e objectivo
+                            {t("pages.dpilot.google.studio.saveName")}
                           </Button>
                         </div>
                       </CollapsibleContent>
@@ -1161,7 +1170,7 @@ export function DpilotGoogleCampaignStudioPage() {
 
               {!published ? (
                 <Alert>
-                  <AlertTitle>Rascunho</AlertTitle>
+                  <AlertTitle>{t("pages.dpilot.google.studio.draftAlertTitle")}</AlertTitle>
                   <AlertDescription>
                     Não há ligação a um ID de campanha na Google até publicar pela fila («Aplicações» / Autopilot).
                     Palavras-chave, anúncios, negativas e extensões gravam-se no rascunho com «Gravar rascunho completo» em Palavras-chave e anúncios,
@@ -1189,7 +1198,7 @@ export function DpilotGoogleCampaignStudioPage() {
                       <StudioSettingsPanel>
                         <StudioSettingsRow
                           label="Palavras‑chave"
-                          value={`${countNonEmptyLines(draftKwText[ag.id] ?? "")} linhas · ${matchTypeLabel(draftKwMatch[ag.id] ?? "phrase")}`}
+                          value={`${countNonEmptyLines(draftKwText[ag.id] ?? "")} linhas · ${matchTypeLabel(draftKwMatch[ag.id] ?? "phrase", t)}`}
                         />
                         <StudioSettingsRow
                           label="Anúncio · destino · caminho"
@@ -1261,9 +1270,9 @@ export function DpilotGoogleCampaignStudioPage() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="broad">Ampla</SelectItem>
-                                <SelectItem value="phrase">Expressão</SelectItem>
-                                <SelectItem value="exact">Exacta</SelectItem>
+                                <SelectItem value="broad">{t("pages.dpilot.google.studio.matchBroad")}</SelectItem>
+                                <SelectItem value="phrase">{t("pages.dpilot.google.studio.matchPhrase")}</SelectItem>
+                                <SelectItem value="exact">{t("pages.dpilot.google.studio.matchExact")}</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1320,7 +1329,7 @@ export function DpilotGoogleCampaignStudioPage() {
                       className="rounded-lg px-8 font-semibold shadow-md transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-lg"
                       onClick={() => void saveDraftAll()}
                     >
-                      Gravar rascunho completo (grupos + negativas + extensões)
+                      {t("pages.dpilot.google.studio.saveFullDraft")}
                     </Button>
                   </div>
                 </>
@@ -1356,7 +1365,7 @@ export function DpilotGoogleCampaignStudioPage() {
                             value={
                               ag.rsa[0]
                                 ? `${ag.rsa[0].headlines.length} títulos · ${ag.rsa[0].descriptions.length} descrições`
-                                : "Sem anúncio neste grupo"
+                                : t("pages.dpilot.google.studio.noAd")
                             }
                             subdued
                           />
@@ -1394,7 +1403,7 @@ export function DpilotGoogleCampaignStudioPage() {
                                     <td className="p-2 align-middle">{kw.text}</td>
                                     <td className="p-2 align-middle text-muted-foreground text-xs">{kw.match_type}</td>
                                     <td className="p-2 align-middle">
-                                      <BadgeEntityStatus s={kw.status === "paused" ? "Pausado" : "Activo"} />
+                                      <BadgeEntityStatus s={kw.status === "paused" ? t("pages.dpilot.google.studio.paused") : t("pages.dpilot.google.studio.active")} />
                                     </td>
                                     <td className="p-2 align-middle text-right">
                                       <div className="flex flex-wrap justify-end gap-1">
@@ -1471,9 +1480,9 @@ export function DpilotGoogleCampaignStudioPage() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="broad">Ampla</SelectItem>
-                                  <SelectItem value="phrase">Expressão</SelectItem>
-                                  <SelectItem value="exact">Exacta</SelectItem>
+                                  <SelectItem value="broad">{t("pages.dpilot.google.studio.matchBroad")}</SelectItem>
+                                  <SelectItem value="phrase">{t("pages.dpilot.google.studio.matchPhrase")}</SelectItem>
+                                  <SelectItem value="exact">{t("pages.dpilot.google.studio.matchExact")}</SelectItem>
                                 </SelectContent>
                               </Select>
                               <Button
@@ -1548,12 +1557,12 @@ export function DpilotGoogleCampaignStudioPage() {
                               />
                               <div className="flex justify-end border-t border-border/60 pt-4">
                                 <Button type="button" onClick={() => void submitLiveRsa(ag)}>
-                                  Gravar textos na rede (fila / Autopilot)
+                                  {t("pages.dpilot.google.studio.saveRsaLive")}
                                 </Button>
                               </div>
                             </div>
                           ) : (
-                            <p className="text-sm text-muted-foreground">Sem anúncio neste grupo.</p>
+                            <p className="text-sm text-muted-foreground">{t("pages.dpilot.google.studio.noAd")}</p>
                           )}
                         </div>
                           </CollapsibleContent>
@@ -1570,7 +1579,7 @@ export function DpilotGoogleCampaignStudioPage() {
               <div className="space-y-6">
                 <Card className="border-muted-foreground/15 shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Palavras-chave negativas</CardTitle>
+                    <CardTitle className="text-base">{t("pages.dpilot.google.studio.negativesTitle")}</CardTitle>
                     <CardDescription>
                       {published
                         ? "Substitui as negativas na conta Google (remove critérios antigos e cria esta lista). Em Copilot, segue a fila de aprovações."
@@ -1601,9 +1610,9 @@ export function DpilotGoogleCampaignStudioPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="broad">{matchTypeLabel("broad")}</SelectItem>
-                              <SelectItem value="phrase">{matchTypeLabel("phrase")}</SelectItem>
-                              <SelectItem value="exact">{matchTypeLabel("exact")}</SelectItem>
+                              <SelectItem value="broad">{matchTypeLabel("broad", t)}</SelectItem>
+                              <SelectItem value="phrase">{matchTypeLabel("phrase", t)}</SelectItem>
+                              <SelectItem value="exact">{matchTypeLabel("exact", t)}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1650,9 +1659,9 @@ export function DpilotGoogleCampaignStudioPage() {
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="broad">{matchTypeLabel("broad")}</SelectItem>
-                                    <SelectItem value="phrase">{matchTypeLabel("phrase")}</SelectItem>
-                                    <SelectItem value="exact">{matchTypeLabel("exact")}</SelectItem>
+                                    <SelectItem value="broad">{matchTypeLabel("broad", t)}</SelectItem>
+                                    <SelectItem value="phrase">{matchTypeLabel("phrase", t)}</SelectItem>
+                                    <SelectItem value="exact">{matchTypeLabel("exact", t)}</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -1666,7 +1675,7 @@ export function DpilotGoogleCampaignStudioPage() {
 
                 <Card className="border-muted-foreground/15 shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Extensões de pesquisa (links do site, destaques, fragmento)</CardTitle>
+                    <CardTitle className="text-base">{t("pages.dpilot.google.studio.extensionsTitle")}</CardTitle>
                     <CardDescription>
                       Ao nível da campanha (como na Google). Links do site: pelo menos <strong>2</strong> válidos (texto +
                       URL https) para enviar; até <strong>{EXT_SITELINK_MAX_ROWS}</strong>. Descrições do link são
@@ -1861,7 +1870,7 @@ export function DpilotGoogleCampaignStudioPage() {
                             <SelectContent>
                               {STUDIO_SNIPPET_HEADERS.map((h) => (
                                 <SelectItem key={h} value={h}>
-                                  {SNIPPET_HEADER_LABEL[h]}
+                                  {snippetHeaderLabel(h, t)}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -1924,7 +1933,7 @@ export function DpilotGoogleCampaignStudioPage() {
                     disabled={!studio}
                     onClick={() => void saveNegativesExtensions()}
                   >
-                    {published ? "Enviar negativas e extensões (fila / rede)" : "Gravar negativas e extensões no rascunho"}
+                    {published ? t("pages.dpilot.google.studio.sendNegatives") : t("pages.dpilot.google.studio.saveNegatives")}
                   </Button>
                 </div>
               </div>
@@ -1934,7 +1943,7 @@ export function DpilotGoogleCampaignStudioPage() {
             <div className="space-y-6">
               <Card className="border-muted-foreground/15 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Orçamento e licitação</CardTitle>
+                  <CardTitle className="text-base">{t("pages.dpilot.google.studio.budgetTitle")}</CardTitle>
                   <CardDescription>
                     URL final e textos dos anúncios ficam em «Palavras-chave e anúncios». Aqui ajusta orçamento diário, estratégia de
                     licitação (CPC, CPA, ROAS, maximizar conversões) e consulta métricas da rede quando a campanha já
@@ -2019,7 +2028,7 @@ export function DpilotGoogleCampaignStudioPage() {
                     </div>
                     <div className="flex justify-end pt-2">
                       <Button type="button" onClick={() => void saveCampaignBiddingConfig()}>
-                        {published ? "Enviar estratégia à rede (fila / Autopilot)" : "Gravar estratégia no rascunho"}
+                        {published ? t("pages.dpilot.google.studio.sendBidding") : t("pages.dpilot.google.studio.saveBidding")}
                       </Button>
                     </div>
                   </div>
@@ -2044,7 +2053,7 @@ export function DpilotGoogleCampaignStudioPage() {
                             ) : null}
                           </div>
                           <Button type="button" onClick={() => void saveBudget(published)}>
-                            Gravar orçamento
+                            {t("pages.dpilot.google.studio.saveBudget")}
                           </Button>
                         </div>
                       }
@@ -2055,7 +2064,7 @@ export function DpilotGoogleCampaignStudioPage() {
 
               <Card className="border-muted-foreground/15 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Desempenho na rede</CardTitle>
+                  <CardTitle className="text-base">{t("pages.dpilot.google.studio.performanceTitle")}</CardTitle>
                   <CardDescription>
                     Dados reportados pela Google Ads para esta campanha (soma por dia no intervalo).
                   </CardDescription>
@@ -2092,10 +2101,10 @@ export function DpilotGoogleCampaignStudioPage() {
                           {perfLoading ? (
                             <span className="inline-flex items-center gap-2">
                               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                              A carregar…
+                              {t("common.loading")}
                             </span>
                           ) : (
-                            "Carregar métricas"
+                            t("pages.dpilot.google.studio.loadMetrics")
                           )}
                         </Button>
                       </div>
@@ -2205,15 +2214,15 @@ export function DpilotGoogleCampaignStudioPage() {
             <div className="space-y-6">
               {!published ? (
                 <Alert>
-                  <AlertTitle>Rascunho</AlertTitle>
+                  <AlertTitle>{t("pages.dpilot.google.studio.draftAlertTitle")}</AlertTitle>
                   <AlertDescription>
-                    Pausar ou activar recursos só está disponível após a campanha existir na Google com IDs remotos.
+                    {t("pages.dpilot.google.studio.draftAlertBody")}
                   </AlertDescription>
                 </Alert>
               ) : (
                 <Card className="border-muted-foreground/15 shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Estado na rede</CardTitle>
+                    <CardTitle className="text-base">{t("pages.dpilot.google.studio.statusTitle")}</CardTitle>
                     <CardDescription>
                       Pausas e activações — equivalente rápido a «Estado da campanha» e controlos por grupo na Google.
                     </CardDescription>
@@ -2225,30 +2234,30 @@ export function DpilotGoogleCampaignStudioPage() {
                     </p>
                     <StudioSettingsPanel>
                       <StudioSettingsRow
-                        label="Campanha inteira"
+                        label={t("pages.dpilot.google.studio.rowWhole")}
                         value={
                           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                             <BadgeEntityStatus s={campaignStatusLabel(campaign.status)} />
                             {campaign.status === "paused" ? (
                               <Button type="button" size="sm" onClick={() => void enqueue({ action: "resume_campaign" })}>
-                                Reactivar campanha
+                                {t("pages.dpilot.google.studio.resumeCampaign")}
                               </Button>
                             ) : (
                               <Button type="button" variant="destructive" size="sm" onClick={() => void enqueue({ action: "pause_campaign" })}>
-                                Pausar campanha inteira
+                                {t("pages.dpilot.google.studio.pauseCampaign")}
                               </Button>
                             )}
                           </div>
                         }
                       />
                     </StudioSettingsPanel>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Grupos e anúncios</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t("pages.dpilot.google.studio.groupsAndAds")}</p>
                     <div className="space-y-3">
                       {studio.ad_groups.map((ag) => (
                         <StudioSettingsPanel key={ag.id}>
                           <StudioSettingsRow label="Grupo" value={<span className="font-medium">{ag.name}</span>} />
                           <StudioSettingsRow
-                            label="Estado do grupo"
+                            label={t("pages.dpilot.google.studio.rowGroupStatus")}
                             value={
                               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                                 <BadgeEntityStatus s={campaignStatusLabel(ag.status)} />
@@ -2259,7 +2268,7 @@ export function DpilotGoogleCampaignStudioPage() {
                                     type="button"
                                     onClick={() => void enqueue({ action: "resume_ad_group", ad_group_id: ag.id })}
                                   >
-                                    Reactivar grupo
+                                    {t("pages.dpilot.google.studio.resumeGroup")}
                                   </Button>
                                 ) : (
                                   <Button
@@ -2268,7 +2277,7 @@ export function DpilotGoogleCampaignStudioPage() {
                                     type="button"
                                     onClick={() => void enqueue({ action: "pause_ad_group", ad_group_id: ag.id })}
                                   >
-                                    Pausar grupo
+                                    {t("pages.dpilot.google.studio.pauseGroup")}
                                   </Button>
                                 )}
                               </div>
@@ -2277,17 +2286,17 @@ export function DpilotGoogleCampaignStudioPage() {
                           {ag.rsa.map((r) => (
                             <StudioSettingsRow
                               key={r.id}
-                              label="Anúncio"
+                              label={t("pages.dpilot.google.studio.rowAd")}
                               value={
                                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                                  <BadgeEntityStatus s={r.status === "paused" ? "Pausado" : "Activo"} />
+                                  <BadgeEntityStatus s={r.status === "paused" ? t("pages.dpilot.google.studio.paused") : t("pages.dpilot.google.studio.active")} />
                                   {r.status === "paused" ? (
                                     <Button variant="outline" size="sm" type="button" onClick={() => void enqueue({ action: "resume_rsa", rsa_id: r.id })}>
-                                      Activar anúncio
+                                      {t("pages.dpilot.google.studio.resumeAd")}
                                     </Button>
                                   ) : (
                                     <Button variant="outline" size="sm" type="button" onClick={() => void enqueue({ action: "pause_rsa", rsa_id: r.id })}>
-                                      Pausar anúncio
+                                      {t("pages.dpilot.google.studio.pauseAd")}
                                     </Button>
                                   )}
                                 </div>
@@ -2307,7 +2316,7 @@ export function DpilotGoogleCampaignStudioPage() {
             <div className="space-y-6">
               <Card className="border-muted-foreground/15 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Planeamento em palavra‑chave</CardTitle>
+                  <CardTitle className="text-base">{t("pages.dpilot.google.studio.plannerTitle")}</CardTitle>
                   <CardDescription>
                     Ligação rápida ao Planner (quando disponível). Parâmetros usados pelo pedido de análise:
                   </CardDescription>
@@ -2323,17 +2332,17 @@ export function DpilotGoogleCampaignStudioPage() {
                     />
                   </StudioSettingsPanel>
                   <div className="space-y-1.5">
-                    <Label>Palavra‑chave</Label>
+                    <Label>{t("pages.dpilot.google.studio.keywordLabel")}</Label>
                     <Input value={insightKw} onChange={(e) => setInsightKw(e.target.value)} placeholder="ex.: sapato couro lisboa" />
                   </div>
                   <Button type="button" variant="secondary" disabled={insightLoading} onClick={() => void analyzeKeyword()}>
                     {insightLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                        A analisar…
+                        {t("pages.dpilot.common.analyzing")}
                       </>
                     ) : (
-                      "Obter insights"
+                      t("pages.dpilot.google.studio.getInsights")
                     )}
                   </Button>
                   {insightResult ? (
@@ -2365,7 +2374,7 @@ export function DpilotGoogleCampaignStudioPage() {
 
               <Card className="border-muted-foreground/15 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-base">Relatórios completos na Google</CardTitle>
+                  <CardTitle className="text-base">{t("pages.dpilot.google.studio.reportsTitle")}</CardTitle>
                   <CardDescription>
                     Como no menu «Estatísticas e relatórios» da consola Google Ads: métricas detalhadas, termos de pesquisa,
                     leilões, horários e localização, páginas de destino e painéis. Aqui ficam só um atalho e o planner de
@@ -2380,7 +2389,7 @@ export function DpilotGoogleCampaignStudioPage() {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 font-medium text-primary underline-offset-4 hover:underline"
                     >
-                      Abrir Google Ads
+                      {t("pages.dpilot.google.studio.openGoogleAds")}
                       <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
                     </a>
                     <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-muted-foreground leading-relaxed">
@@ -2479,6 +2488,7 @@ function AdGroupCpcEditors({
   groups: GoogleStudioAdGroupRow[];
   enqueueFn: (a: Record<string, unknown>) => Promise<void>;
 }) {
+  const { t } = useAppLocale();
   const [usd, setUsd] = useState<Record<string, string>>(() => {
     const o: Record<string, string> = {};
     for (const ag of groups) {
@@ -2506,11 +2516,8 @@ function AdGroupCpcEditors({
   return (
     <Card className="border-muted-foreground/15 shadow-sm">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">CPC máximo por grupo</CardTitle>
-        <CardDescription>
-          Com estratégia CPC manual na campanha, defina um teto por grupo. A conta Google pode rejeitar valores fora dos
-          limites.
-        </CardDescription>
+        <CardTitle className="text-base">{t("pages.dpilot.google.studio.cpcTitle")}</CardTitle>
+        <CardDescription>{t("pages.dpilot.google.studio.cpcDesc")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         <StudioSettingsPanel>
@@ -2542,7 +2549,7 @@ function AdGroupCpcEditors({
                       });
                     }}
                   >
-                    Aplicar
+                    {t("pages.dpilot.google.studio.cpcApply")}
                   </Button>
                 </div>
               }

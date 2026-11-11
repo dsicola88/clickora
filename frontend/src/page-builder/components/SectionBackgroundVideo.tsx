@@ -2,6 +2,7 @@ import {
   embedUrlForSectionBackground,
   resolvePageBuilderVideoUrl,
 } from "../videoEmbed";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 /**
  * Camada de vídeo atrás do conteúdo da secção (YouTube / Bunny).
@@ -14,6 +15,7 @@ export function SectionBackgroundVideo({
   rawUrl: string;
   pointerEventsNone?: boolean;
 }) {
+  const { t } = useAppLocale();
   const resolved = resolvePageBuilderVideoUrl(rawUrl.trim());
   if (!resolved) return null;
   const src = embedUrlForSectionBackground(resolved);
@@ -42,7 +44,7 @@ export function SectionBackgroundVideo({
         }}
       >
         <iframe
-          title="Vídeo de fundo da seção"
+          title={t("pages.pageBuilder.chrome.bgVideoTitle")}
           src={src}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           style={{

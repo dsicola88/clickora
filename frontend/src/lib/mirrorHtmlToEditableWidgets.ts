@@ -727,7 +727,7 @@ export function sectionsFromMirrorHtml(editableHtml: string): SectionNode[] {
     id: "tmp",
     name: "tmp",
     sections: [sectionFromWidgets(widgets)],
-    settings: {},
+    settings: { maxContentWidth: 1200 },
     updatedAt: Date.now(),
   });
   return doc.sections;

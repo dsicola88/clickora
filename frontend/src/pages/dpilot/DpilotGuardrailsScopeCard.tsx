@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Globe, Shield } from "lucide-react";
 import { toast } from "sonner";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ function microsToUsdInput(m: number | null | undefined): string {
 
 /** Países permitidos, palavras bloqueadas e limites complementares (mensal, CPC, aprovação). Apenas admins do workspace. */
 export function DpilotGuardrailsScopeCard() {
+  const { t } = useAppLocale();
   const { projectId, overview, reload } = useDpilotPaid();
   const gr = overview?.guardrails as Gr | undefined;
 
@@ -54,12 +56,12 @@ export function DpilotGuardrailsScopeCard() {
 
   const onSave = async () => {
     if (!gr) {
-      toast.error("Guardrails ainda não carregados.");
+      toast.error(t("pages.dpilot.common.guardrailsNotLoaded"));
       return;
     }
     const monthly = parseFloat(monthlyUsd.replace(",", ".").trim());
     if (!Number.isFinite(monthly) || monthly <= 0) {
-      toast.error("Gasto mensal máximo: indique um valor USD positivo.");
+      toast.error(t("pages.dpilot.guardrails.scope.monthlyInvalid"));
       return;
     }
 
@@ -67,7 +69,7 @@ export function DpilotGuardrailsScopeCard() {
     if (maxCpcUsd.trim() !== "") {
       const x = parseFloat(maxCpcUsd.replace(",", "."));
       if (!Number.isFinite(x) || x <= 0) {
-        toast.error("CPC máximo: número USD positivo ou deixe vazio.");
+        toast.error(t("pages.dpilot.guardrails.scope.cpcInvalid"));
         return;
       }
       maxCpcMicros = Math.round(x * 1_000_000);
@@ -77,7 +79,7 @@ export function DpilotGuardrailsScopeCard() {
     if (approvalUsd.trim() !== "") {
       const x = parseFloat(approvalUsd.replace(",", "."));
       if (!Number.isFinite(x) || x < 0) {
-        toast.error("Limiar de aprovação: número USD ≥ 0 ou deixe vazio.");
+        toast.error(t("pages.dpilot.guardrails.scope.approvalInvalid"));
         return;
       }
       requireApprovalAboveMicros = Math.round(x * 1_000_000);
@@ -106,11 +108,11 @@ export function DpilotGuardrailsScopeCard() {
         toast.error(error);
         return;
       }
-      toast.success("Escopo e políticas guardados.", {
+      toast.success(t("pages.dpilot.guardrails.scope.saved"), {
         description:
           allowedNorm.length === 0
-            ? "Sem lista de países nos guardrails — qualquer mercado ISO permitido nas campanhas (Google, Meta, TikTok)."
-            : "Novos planos só aceitam segmentações nestes países; palavras-chave bloqueadas aplicam-se sobretudo à pesquisa.",
+            ? t("pages.dpilot.guardrails.scope.savedOpen")
+            : t("pages.dpilot.guardrails.scope.savedClosed"),
       });
       reload();
     } finally {
@@ -128,25 +130,26 @@ export function DpilotGuardrailsScopeCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Shield className="h-4 w-4 shrink-0 text-violet-600 dark:text-violet-400" aria-hidden />
-          Escopo: país, bloqueios e limites extras
+          {t("pages.dpilot.guardrails.scope.title")}
         </CardTitle>
         <CardDescription>
-          Lista de país vazio = sem bloqueio geográfico específico neste projeto (dentro das regras de cada rede e do{" "}
-          <strong>teto diário</strong>). Palavras-chave bloqueadas aplicam-se sobretudo à pesquisa.
+          {t("pages.dpilot.guardrails.scope.descBefore")}
+          <strong>{t("pages.dpilot.guardrails.scope.dailyCap")}</strong>
+          {t("pages.dpilot.guardrails.scope.descAfter")}
         </CardDescription>
         {dailyPreview != null ? (
           <p className="text-xs text-muted-foreground pt-1">
-            Teto diário (referência):{" "}
-            <strong className="tabular-nums text-foreground">{formatUsdFromMicros(dailyPreview)}</strong> / dia.
+            {t("pages.dpilot.guardrails.scope.dailyRef")}{" "}
+            <strong className="tabular-nums text-foreground">{formatUsdFromMicros(dailyPreview)}</strong>
           </p>
         ) : null}
       </CardHeader>
       <CardContent className="space-y-5">
         <GoogleAdsCountriesSelect
-          label="Restringir a países (opcional)"
-          hint="Lista vazia = sem limite geográfico nos guardrails — todas as segmentações ISO válidas nas redes."
-          searchPlaceholder="Pesquisar país…"
-          emptyText="Nenhum país encontrado."
+          label={t("pages.dpilot.guardrails.scope.countriesLabel")}
+          hint={t("pages.dpilot.guardrails.scope.countriesHint")}
+          searchPlaceholder={t("pages.dpilot.guardrails.scope.searchPlaceholder")}
+          emptyText={t("pages.dpilot.guardrails.scope.emptyCountries")}
           options={GOOGLE_ADS_COUNTRY_OPTIONS}
           value={countries}
           onChange={setCountries}
@@ -154,15 +157,15 @@ export function DpilotGuardrailsScopeCard() {
         />
 
         <div className="flex flex-wrap gap-2">
-          <span className="text-[11px] text-muted-foreground w-full">Atalhos:</span>
+          <span className="text-[11px] text-muted-foreground w-full">{t("pages.dpilot.guardrails.scope.shortcuts")}</span>
           <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setCountries([])}>
-            Todos os países (sem lista)
+            {t("pages.dpilot.guardrails.scope.allCountries")}
           </Button>
           <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setCountries(["BR", "PT"])}>
-            BR + PT
+            {t("pages.dpilot.guardrails.scope.brPt")}
           </Button>
           <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setCountries(["US"])}>
-            Só US
+            {t("pages.dpilot.guardrails.scope.usOnly")}
           </Button>
           <Button
             type="button"
@@ -177,70 +180,65 @@ export function DpilotGuardrailsScopeCard() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="gr-blocked">Palavras ou termos bloqueados (opcional)</Label>
+            <Label htmlFor="gr-blocked">{t("pages.dpilot.guardrails.scope.blockedLabel")}</Label>
             <Textarea
               id="gr-blocked"
               value={blockedText}
               onChange={(e) => setBlockedText(e.target.value)}
               rows={4}
-              placeholder={"Um por linha — aplicável sobretudo a palavras-chave Search.\nex.: marca concorrente"}
+              placeholder={t("pages.dpilot.guardrails.scope.blockedPlaceholder")}
               className="font-mono text-xs sm:text-sm"
             />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              O sistema rejeita planos que incluam estas palavras nas keywords geradas.
+              {t("pages.dpilot.guardrails.scope.blockedHelp")}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="gr-monthly">Gasto mensal máximo — todas as campanhas (USD)</Label>
+            <Label htmlFor="gr-monthly">{t("pages.dpilot.guardrails.scope.monthlyLabel")}</Label>
             <Input
               id="gr-monthly"
               inputMode="decimal"
               autoComplete="off"
               value={monthlyUsd}
               onChange={(e) => setMonthlyUsd(e.target.value)}
-              placeholder="Ex.: 1500"
+              placeholder={t("pages.dpilot.guardrails.scope.monthlyPlaceholder")}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="gr-approval">Orçamento diário acima do qual exige aprovação (USD, opcional)</Label>
+            <Label htmlFor="gr-approval">{t("pages.dpilot.guardrails.scope.approvalLabel")}</Label>
             <Input
               id="gr-approval"
               inputMode="decimal"
               autoComplete="off"
               value={approvalUsd}
               onChange={(e) => setApprovalUsd(e.target.value)}
-              placeholder="Vazio = só limites rígidos"
+              placeholder={t("pages.dpilot.guardrails.scope.approvalPlaceholder")}
             />
-            <p className="text-[11px] text-muted-foreground">
-              Acima deste valor diário, o pedido pode entrar na fila mesmo em Autopilot.
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t("pages.dpilot.guardrails.scope.approvalHelp")}</p>
           </div>
 
           <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="gr-cpc">CPC máximo por clique — Search (USD, opcional)</Label>
+            <Label htmlFor="gr-cpc">{t("pages.dpilot.guardrails.scope.cpcLabel")}</Label>
             <Input
               id="gr-cpc"
               inputMode="decimal"
               autoComplete="off"
               value={maxCpcUsd}
               onChange={(e) => setMaxCpcUsd(e.target.value)}
-              placeholder="Ex.: 4.50 — vazio = sem teto por CPC"
+              placeholder={t("pages.dpilot.guardrails.scope.cpcPlaceholder")}
             />
           </div>
         </div>
 
         <div className="flex items-start gap-2 rounded-lg border border-border bg-background/60 px-3 py-2 text-xs text-muted-foreground">
           <Globe className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" aria-hidden />
-          <p className="leading-relaxed">
-            Se definir uma lista fechada aqui, só esses códigos ISO passam na validação. Com lista vazia, o sistema não
-            bloqueia países nos guardrails — continua a aplicar orçamentos, palavras bloqueadas e demais limites.
-          </p>
+          <p className="leading-relaxed">{t("pages.dpilot.guardrails.scope.footnote")}</p>
         </div>
 
         <Button type="button" size="sm" onClick={() => void onSave()} disabled={saving || !gr}>
-          {saving ? "A guardar…" : "Guardar escopo e políticas"}
+          {saving ? t("pages.dpilot.common.saving") : t("pages.dpilot.guardrails.scope.save")}
         </Button>
       </CardContent>
     </Card>

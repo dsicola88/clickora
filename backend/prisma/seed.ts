@@ -231,8 +231,11 @@ async function main() {
   const planMonthly = plans.find((p) => p.id === "plan_monthly")!;
   const planAnnual = plans.find((p) => p.id === "plan_annual")!;
 
-  /** Mesma password para as contas de seed legadas. */
-  const seedPassword = "Dpa211088@";
+  /** Mesma password para as contas de seed legadas. Em CI usa CI_SEED_PASSWORD (nunca produção). */
+  const seedPassword =
+    process.env.CI === "true" && process.env.CI_SEED_PASSWORD
+      ? process.env.CI_SEED_PASSWORD
+      : "Dpa211088@";
 
   await upsertUserWithRoleAndPlan({
     email: "danielclickora@gmail.com",

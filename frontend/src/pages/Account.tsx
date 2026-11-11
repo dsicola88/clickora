@@ -31,6 +31,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
+import { fill, numberLocaleFor } from "@/i18n";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import {
   Dialog,
@@ -48,14 +49,16 @@ function initials(name: string, email: string) {
   return e.toUpperCase();
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  owner: "Dono",
-  admin: "Administrador",
-  member: "Membro",
-  viewer: "Só leitura",
-};
+function roleLabel(t: ReturnType<typeof useAppLocale>["t"], role: string) {
+  if (role === "owner") return t("pages.account.roleOwner");
+  if (role === "admin") return t("pages.account.roleAdmin");
+  if (role === "member") return t("pages.account.roleMember");
+  if (role === "viewer") return t("pages.account.roleViewer");
+  return role;
+}
 
 function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
+  const { t, locale } = useAppLocale();
   const qc = useQueryClient();
   const { applySession } = useAuth();
   const [open, setOpen] = useState(false);
@@ -70,14 +73,14 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
     mutationFn: async () => {
       const { data, error } = await workspaceService.switchWorkspace(row.workspace_id);
       if (error) throw new Error(error);
-      if (!data?.token || !data.user) throw new Error("Resposta de switch inválida.");
+      if (!data?.token || !data.user) throw new Error(t("pages.account.switchInvalid"));
       return data;
     },
     onSuccess: (data) => {
       applySession(data.token, data.user);
       qc.clear();
       void qc.invalidateQueries({ queryKey: ["workspaces", "mine"] });
-      toast.success(`Workspace activo: ${data.user.workspace_name || row.name}`);
+      toast.success(fill(t("pages.account.workspaceActive"), { name: data.user.workspace_name || row.name }));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -105,12 +108,12 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
   const addMut = useMutation({
     mutationFn: async () => {
       const email = inviteEmail.trim();
-      if (!email) throw new Error("Indique o e-mail.");
+      if (!email) throw new Error(t("pages.account.emailRequired"));
       const { error } = await workspaceService.addMember(row.workspace_id, { email, role: inviteRole });
       if (error) throw new Error(error);
     },
     onSuccess: () => {
-      toast.success("Membro adicionado. O utilizador pode alternar para este workspace após iniciar sessão.");
+      toast.success(t("pages.account.memberAdded"));
       setInviteEmail("");
       qc.invalidateQueries({ queryKey: ["workspace-members", row.workspace_id] });
     },
@@ -123,7 +126,7 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
       if (error) throw new Error(error);
     },
     onSuccess: () => {
-      toast.success("Membro removido.");
+      toast.success(t("pages.account.memberRemoved"));
       qc.invalidateQueries({ queryKey: ["workspace-members", row.workspace_id] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -135,7 +138,7 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
       if (error) throw new Error(error);
     },
     onSuccess: () => {
-      toast.success("Permissões actualizadas.");
+      toast.success(t("pages.account.permsUpdated"));
       qc.invalidateQueries({ queryKey: ["workspace-members", row.workspace_id] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -163,12 +166,12 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
                 <span className="truncate">{row.name}</span>
                 {isActive ? (
                   <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                    Activo
+                    {t("common.active")}
                   </span>
                 ) : null}
               </p>
               <p className="text-xs text-muted-foreground">
-                O seu papel: <span className="text-foreground/90">{ROLE_LABELS[row.role] ?? row.role}</span>
+                {fill(t("pages.account.yourRole"), { role: roleLabel(t, row.role) })}
               </p>
             </div>
             {open ? <ChevronUp className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronDown className="h-4 w-4 shrink-0 opacity-70" />}
@@ -183,7 +186,7 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
             disabled={switchMut.isPending}
             onClick={() => switchMut.mutate()}
           >
-            {switchMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Entrar"}
+            {switchMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("pages.account.enterWorkspace")}
           </Button>
         ) : null}
       </div>
@@ -198,12 +201,12 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-muted/40 text-xs text-muted-foreground">
-                    <th className="py-2 px-3 font-medium">E-mail</th>
-                    <th className="py-2 px-3 font-medium">Nome</th>
-                    <th className="py-2 px-3 font-medium">Papel</th>
+                    <th className="py-2 px-3 font-medium">{t("pages.account.colEmail")}</th>
+                    <th className="py-2 px-3 font-medium">{t("pages.account.colName")}</th>
+                    <th className="py-2 px-3 font-medium">{t("pages.account.colRole")}</th>
                     <th className="py-2 px-3 font-medium text-[10px] max-w-[200px]">
-                      Escrita extra
-                      <span className="block font-normal text-muted-foreground normal-case">(útil para «Só leitura»)</span>
+                      {t("pages.account.extraWrite")}
+                      <span className="block font-normal text-muted-foreground normal-case">{t("pages.account.extraWriteHint")}</span>
                     </th>
                     {canManage ? <th className="py-2 px-3 font-medium w-[100px]" /> : null}
                   </tr>
@@ -213,14 +216,14 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
                     <tr key={m.user_id} className="border-t border-border/50">
                       <td className="py-2 px-3 text-xs break-all">{m.email}</td>
                       <td className="py-2 px-3 text-xs">{m.name?.trim() || "—"}</td>
-                      <td className="py-2 px-3 text-xs">{ROLE_LABELS[m.role] ?? m.role}</td>
+                      <td className="py-2 px-3 text-xs">{roleLabel(t, m.role)}</td>
                       <td className="py-2 px-3 text-xs align-top">
                         {m.role === "owner" ? (
                           <span className="text-muted-foreground">—</span>
                         ) : m.role === "viewer" && canManage ? (
                           <div className="flex flex-col gap-2 min-w-[140px]">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] text-muted-foreground">Integrações</span>
+                              <span className="text-[10px] text-muted-foreground">{t("pages.account.integrations")}</span>
                               <Switch
                                 checked={(m.permissions ?? []).includes(WORKSPACE_EXTRA_PERMS.integrations_write)}
                                 disabled={patchPermsMut.isPending}
@@ -228,7 +231,7 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
                               />
                             </div>
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] text-muted-foreground">Rotadores</span>
+                              <span className="text-[10px] text-muted-foreground">{t("pages.account.rotators")}</span>
                               <Switch
                                 checked={(m.permissions ?? []).includes(WORKSPACE_EXTRA_PERMS.rotators_write)}
                                 disabled={patchPermsMut.isPending}
@@ -236,7 +239,7 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
                               />
                             </div>
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] text-muted-foreground">Presells</span>
+                              <span className="text-[10px] text-muted-foreground">{t("pages.account.presells")}</span>
                               <Switch
                                 checked={(m.permissions ?? []).includes(WORKSPACE_EXTRA_PERMS.presells_write)}
                                 disabled={patchPermsMut.isPending}
@@ -262,10 +265,10 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
                               className="h-8 text-xs text-destructive"
                               disabled={removeMut.isPending}
                               onClick={() => {
-                                if (confirm(`Remover ${m.email} deste workspace?`)) removeMut.mutate(m.user_id);
+                                if (confirm(fill(t("pages.account.removeConfirm"), { email: m.email }))) removeMut.mutate(m.user_id);
                               }}
                             >
-                              Remover
+                              {t("pages.account.removeMember")}
                             </Button>
                           ) : null}
                         </td>
@@ -278,11 +281,11 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
 
             {canManage ? (
               <div className="space-y-2 rounded-md border border-border/50 p-3 bg-background/50">
-                <Label className="text-xs text-muted-foreground">Convidar por e-mail</Label>
+                <Label className="text-xs text-muted-foreground">{t("pages.account.inviteByEmail")}</Label>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                   <Input
                     type="email"
-                    placeholder="colega@empresa.com"
+                    placeholder={t("pages.account.invitePlaceholder")}
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     className="flex-1"
@@ -292,18 +295,17 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                      <SelectItem value="member">Membro</SelectItem>
-                      <SelectItem value="viewer">Só leitura</SelectItem>
+                      <SelectItem value="admin">{t("pages.account.roleAdmin")}</SelectItem>
+                      <SelectItem value="member">{t("pages.account.roleMember")}</SelectItem>
+                      <SelectItem value="viewer">{t("pages.account.roleViewer")}</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button type="button" size="sm" disabled={addMut.isPending} onClick={() => addMut.mutate()}>
-                    {addMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Convidar"}
+                    {addMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t("pages.account.invite")}
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  O convidado precisa de uma conta Clickora. Para utilizadores «Só leitura», pode conceder escrita em
-                  integrações, rotadores ou presells com os interruptores na tabela.
+                  {t("pages.account.inviteHint")}
                 </p>
               </div>
             ) : null}
@@ -311,7 +313,7 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
             <Collapsible open={auditOpen} onOpenChange={setAuditOpen} className="rounded-md border border-border/40">
               <CollapsibleTrigger asChild>
                 <Button type="button" variant="ghost" size="sm" className="w-full justify-between h-9 px-3 text-xs">
-                  <span>Auditoria recente</span>
+                  <span>{t("pages.account.recentAudit")}</span>
                   {auditOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </Button>
               </CollapsibleTrigger>
@@ -319,12 +321,12 @@ function WorkspaceTeamCard({ row }: { row: WorkspaceMineRow }) {
                 {loadingAudit ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : audit.length === 0 ? (
-                  <p>Sem eventos.</p>
+                  <p>{t("pages.account.noEvents")}</p>
                 ) : (
                   audit.map((a) => (
                     <div key={a.id} className="border-b border-border/30 pb-1 last:border-0">
                       <span className="text-foreground/80">{a.action}</span> ·{" "}
-                      {new Date(a.created_at).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" })}
+                      {new Date(a.created_at).toLocaleString(numberLocaleFor(locale), { dateStyle: "short", timeStyle: "short" })}
                     </div>
                   ))
                 )}
@@ -379,7 +381,7 @@ export default function Account() {
   const saveName = async () => {
     const name = fullName.trim();
     if (!name) {
-      toast.error("Indique um nome.");
+      toast.error(t("pages.account.nameRequired"));
       return;
     }
     setSavingName(true);
@@ -389,7 +391,7 @@ export default function Account() {
         toast.error(error);
         return;
       }
-      toast.success("Nome atualizado.");
+      toast.success(t("pages.account.nameUpdated"));
       await refreshUser();
     } finally {
       setSavingName(false);
@@ -399,7 +401,7 @@ export default function Account() {
   const saveAvatarUrl = async () => {
     const url = avatarUrlInput.trim();
     if (url && !/^https?:\/\//i.test(url)) {
-      toast.error("Use um URL que comece por http:// ou https://");
+      toast.error(t("pages.account.urlInvalid"));
       return;
     }
     setSavingUrl(true);
@@ -411,7 +413,7 @@ export default function Account() {
         toast.error(error);
         return;
       }
-      toast.success(url ? "Foto (URL) guardada." : "Foto removida.");
+      toast.success(url ? t("pages.account.photoUrlSaved") : t("pages.account.photoRemoved"));
       await refreshUser();
     } finally {
       setSavingUrl(false);
@@ -429,7 +431,7 @@ export default function Account() {
         toast.error(error);
         return;
       }
-      toast.success("Foto de perfil atualizada.");
+      toast.success(t("pages.account.photoUpdated"));
       setAvatarUrlInput("");
       await refreshUser();
     } finally {
@@ -445,7 +447,7 @@ export default function Account() {
         toast.error(error);
         return;
       }
-      toast.success("Foto removida.");
+      toast.success(t("pages.account.photoRemoved"));
       setAvatarUrlInput("");
       await refreshUser();
     } finally {
@@ -455,11 +457,11 @@ export default function Account() {
 
   const changePassword = async () => {
     if (newPassword.length < 6) {
-      toast.error("A nova senha deve ter pelo menos 6 caracteres.");
+      toast.error(t("pages.account.passwordShort"));
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error("A confirmação da nova senha não coincide.");
+      toast.error(t("pages.account.passwordMismatch"));
       return;
     }
     setChangingPw(true);
@@ -469,7 +471,7 @@ export default function Account() {
         toast.error(error);
         return;
       }
-      toast.success("Senha alterada.");
+      toast.success(t("pages.account.passwordChanged"));
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -486,32 +488,32 @@ export default function Account() {
         title={t("pages.account.title")}
         description={
           <>
-            Altere o seu nome, foto de perfil e senha.{" "}
+            {t("pages.account.descLead")}{" "}
             <Link to="/privacidade" className="text-primary underline underline-offset-2">
-              Privacidade
+              {t("pages.account.privacy")}
             </Link>
             {" · "}
             <Link to="/termos" className="text-primary underline underline-offset-2">
-              Termos
+              {t("pages.account.terms")}
             </Link>
             {" · "}
             <Link to="/ajuda#suporte" className="text-primary underline underline-offset-2">
-              Suporte
+              {t("pages.account.support")}
             </Link>
           </>
         }
       />
 
-      <SupportContactsCard className="max-w-3xl" compact title="Precisa de ajuda?" />
+      <SupportContactsCard className="max-w-3xl" compact title={t("pages.account.needHelp")} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-border/80">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Camera className="h-5 w-5 text-primary" />
-              Foto de perfil
+              {t("pages.account.photoTitle")}
             </CardTitle>
-            <CardDescription>Carregue uma imagem (JPG, PNG ou WebP até 2 MB) ou use um link público (URL).</CardDescription>
+            <CardDescription>{t("pages.account.photoDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
@@ -528,7 +530,7 @@ export default function Account() {
                   onChange={onPickFile}
                 />
                 <Button type="button" variant="secondary" size="sm" disabled={uploading} onClick={() => fileRef.current?.click()}>
-                  {uploading ? "A enviar…" : "Carregar imagem"}
+                  {uploading ? t("pages.account.uploading") : t("pages.account.uploadImage")}
                 </Button>
                 <Button
                   type="button"
@@ -539,7 +541,7 @@ export default function Account() {
                   onClick={() => removeAvatar()}
                 >
                   <Trash2 className="h-4 w-4" />
-                  Remover foto
+                  {t("pages.account.removePhoto")}
                 </Button>
               </div>
             </div>
@@ -547,8 +549,8 @@ export default function Account() {
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="avatar-url">URL da imagem (opcional)</Label>
-              <p className="text-xs text-muted-foreground">Se preencher, substitui a foto carregada. Deixe vazio e guarde para limpar o URL.</p>
+              <Label htmlFor="avatar-url">{t("pages.account.avatarUrl")}</Label>
+              <p className="text-xs text-muted-foreground">{t("pages.account.avatarUrlHint")}</p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   id="avatar-url"
@@ -559,7 +561,7 @@ export default function Account() {
                   className="flex-1"
                 />
                 <Button type="button" variant="secondary" disabled={savingUrl} onClick={() => saveAvatarUrl()}>
-                  {savingUrl ? "A guardar…" : "Guardar URL"}
+                  {savingUrl ? t("common.saving") : t("pages.account.saveUrl")}
                 </Button>
               </div>
             </div>
@@ -571,30 +573,30 @@ export default function Account() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <User className="h-5 w-5 text-primary" />
-                Nome
+                {t("pages.account.nameTitle")}
               </CardTitle>
-              <CardDescription>Como o seu nome aparece na aplicação.</CardDescription>
+              <CardDescription>{t("pages.account.nameDesc")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="full-name">Nome completo</Label>
+                <Label htmlFor="full-name">{t("pages.account.fullName")}</Label>
                 <Input id="full-name" value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={120} />
               </div>
-              <p className="text-xs text-muted-foreground">E-mail: {user.email}</p>
+              <p className="text-xs text-muted-foreground">{fill(t("pages.account.emailLine"), { email: user.email })}</p>
               <Button type="button" onClick={() => saveName()} disabled={savingName}>
-                {savingName ? "A guardar…" : "Guardar nome"}
+                {savingName ? t("common.saving") : t("pages.account.saveName")}
               </Button>
             </CardContent>
           </Card>
 
           <Card className="border-border/80">
             <CardHeader>
-              <CardTitle className="text-lg">Alterar senha</CardTitle>
-              <CardDescription>Introduza a senha atual e a nova senha.</CardDescription>
+              <CardTitle className="text-lg">{t("pages.account.passwordTitle")}</CardTitle>
+              <CardDescription>{t("pages.account.passwordDesc")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="cur-pw">Senha atual</Label>
+                <Label htmlFor="cur-pw">{t("pages.account.currentPassword")}</Label>
                 <Input
                   id="cur-pw"
                   type="password"
@@ -604,7 +606,7 @@ export default function Account() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-pw">Nova senha</Label>
+                <Label htmlFor="new-pw">{t("pages.account.newPassword")}</Label>
                 <Input
                   id="new-pw"
                   type="password"
@@ -614,7 +616,7 @@ export default function Account() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="cf-pw">Confirmar nova senha</Label>
+                <Label htmlFor="cf-pw">{t("pages.account.confirmNewPassword")}</Label>
                 <Input
                   id="cf-pw"
                   type="password"
@@ -624,7 +626,7 @@ export default function Account() {
                 />
               </div>
               <Button type="button" onClick={() => changePassword()} disabled={changingPw}>
-                {changingPw ? "A atualizar…" : "Alterar senha"}
+                {changingPw ? t("pages.account.changing") : t("pages.account.changePassword")}
               </Button>
             </CardContent>
           </Card>
@@ -636,11 +638,9 @@ export default function Account() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Shield className="h-5 w-5 text-primary" />
-              Dados e privacidade
+              {t("pages.account.privacyTitle")}
             </CardTitle>
-            <CardDescription>
-              Exporte os metadados da sua conta (portabilidade) ou elimine a conta de forma permanente nesta instalação.
-            </CardDescription>
+            <CardDescription>{t("pages.account.privacyDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -653,7 +653,7 @@ export default function Account() {
                   setExportingJson(true);
                   try {
                     const { data, error } = await authService.exportMyDataJson();
-                    if (error || !data) throw new Error(error || "Resposta vazia");
+                    if (error || !data) throw new Error(error || t("pages.account.exportEmpty"));
                     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
@@ -661,21 +661,20 @@ export default function Account() {
                     a.download = `clickora-dados-${new Date().toISOString().slice(0, 10)}.json`;
                     a.click();
                     URL.revokeObjectURL(url);
-                    toast.success("Ficheiro JSON descarregado.");
+                    toast.success(t("pages.account.exportDone"));
                   } catch (e: unknown) {
-                    toast.error(e instanceof Error ? e.message : "Erro ao exportar");
+                    toast.error(e instanceof Error ? e.message : t("pages.account.exportFailed"));
                   } finally {
                     setExportingJson(false);
                   }
                 }}
               >
                 {exportingJson ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                Descarregar os meus dados (JSON)
+                {t("pages.account.exportJson")}
               </Button>
               {isAdmin ? (
                 <p className="text-sm text-muted-foreground sm:flex-1 sm:min-w-[240px]">
-                  Contas de administrador da plataforma não podem ser eliminadas por aqui. Contacte outro super
-                  administrador se precisar de encerrar o acesso.
+                  {t("pages.account.adminNoDelete")}
                 </p>
               ) : (
                 <Button
@@ -687,14 +686,12 @@ export default function Account() {
                     setDeleteDialogOpen(true);
                   }}
                 >
-                  Eliminar a minha conta
+                  {t("pages.account.deleteAccount")}
                 </Button>
               )}
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              A exportação inclui perfil, subscrição, listas de presells e domínios, contagens de eventos e um resumo de
-              integrações (sem tokens secretos). A eliminação remove a conta e os dados associados na base de dados;
-              não pode ser anulada.
+              {t("pages.account.exportNote")}
             </p>
           </CardContent>
         </Card>
@@ -702,13 +699,11 @@ export default function Account() {
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Eliminar conta</DialogTitle>
-              <DialogDescription>
-                Confirme com a sua palavra-passe. Todas as presells, tracking e definições desta conta serão apagados.
-              </DialogDescription>
+              <DialogTitle>{t("pages.account.deleteTitle")}</DialogTitle>
+              <DialogDescription>{t("pages.account.deleteDesc")}</DialogDescription>
             </DialogHeader>
             <div className="space-y-2 py-2">
-              <Label htmlFor="delete-acct-pw">Senha actual</Label>
+              <Label htmlFor="delete-acct-pw">{t("pages.account.currentPassword")}</Label>
               <Input
                 id="delete-acct-pw"
                 type="password"
@@ -719,7 +714,7 @@ export default function Account() {
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
               <Button type="button" variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-                Cancelar
+                {t("common.cancel")}
               </Button>
               <Button
                 type="button"
@@ -727,27 +722,27 @@ export default function Account() {
                 disabled={deleteLoading}
                 onClick={async () => {
                   if (!deletePassword.trim()) {
-                    toast.error("Introduza a senha.");
+                    toast.error(t("pages.account.passwordRequired"));
                     return;
                   }
                   setDeleteLoading(true);
                   try {
                     const { error, data } = await authService.deleteAccount(deletePassword);
                     if (error) throw new Error(error);
-                    toast.success(data?.message ?? "Conta eliminada.");
+                    toast.success(data?.message ?? t("pages.account.accountDeleted"));
                     setDeleteDialogOpen(false);
                     setDeletePassword("");
                     await signOut();
                     navigate("/", { replace: true });
                   } catch (e: unknown) {
-                    toast.error(e instanceof Error ? e.message : "Erro ao eliminar");
+                    toast.error(e instanceof Error ? e.message : t("pages.account.deleteFailed"));
                   } finally {
                     setDeleteLoading(false);
                   }
                 }}
               >
                 {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Confirmar eliminação
+                {t("pages.account.confirmDelete")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -755,21 +750,20 @@ export default function Account() {
 
         <Card className="border-border/80 lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-lg">Ajuda no dashboard</CardTitle>
+            <CardTitle className="text-lg">{t("pages.account.helpTitle")}</CardTitle>
             <CardDescription>
-              O <strong className="text-foreground/90">centro de ajuda no painel</strong> está em{" "}
+              {t("pages.account.helpBefore")}{" "}
               <Link to="/ajuda" className="font-medium text-primary underline underline-offset-2">
-                Aprender
+                {t("pages.account.learn")}
               </Link>
-              . Se ocultou o resumo no Rastreamento, pode voltá-lo a mostrar aqui; depois abra{" "}
-              <span className="text-foreground/90">Rastreamento → Dashboard</span>. Inclui{" "}
-              <strong className="text-foreground/90">macros</strong>; também em{" "}
+              . {t("pages.account.helpMid")}{" "}
+              <span className="text-foreground/90">{t("pages.account.trackingDash")}</span>. {t("pages.account.helpMacros")}{" "}
               <Link to="/tracking/links" className="font-medium text-primary underline underline-offset-2">
-                Links
+                {t("pages.account.links")}
               </Link>{" "}
-              e{" "}
+              {t("pages.account.helpAnd")}{" "}
               <Link to="/tracking/url-builder" className="font-medium text-primary underline underline-offset-2">
-                Construtor de URL
+                {t("pages.account.urlBuilder")}
               </Link>
               .
             </CardDescription>
@@ -785,10 +779,10 @@ export default function Account() {
                 } catch {
                   /* ignore */
                 }
-                toast.success("Guia do dashboard voltará a aparecer na próxima visita ao Rastreamento.");
+                toast.success(t("pages.account.guideToast"));
               }}
             >
-              Mostrar guia rápido outra vez
+              {t("pages.account.showGuide")}
             </Button>
           </CardContent>
         </Card>
@@ -797,12 +791,9 @@ export default function Account() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Users className="h-5 w-5 text-primary" />
-              Equipa e workspaces
+              {t("pages.account.teamTitle")}
             </CardTitle>
-            <CardDescription>
-              Workspaces em que participa, membros e convites. A conta de dados (presells, rotadores) é a do dono da
-              subscrição quando trabalha em equipa.
-            </CardDescription>
+            <CardDescription>{t("pages.account.teamDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {workspacesLoading ? (
@@ -810,7 +801,7 @@ export default function Account() {
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
             ) : workspaces.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Não foi possível carregar os workspaces.</p>
+              <p className="text-sm text-muted-foreground">{t("pages.account.teamLoadError")}</p>
             ) : (
               workspaces.map((w) => <WorkspaceTeamCard key={w.workspace_id} row={w} />)
             )}

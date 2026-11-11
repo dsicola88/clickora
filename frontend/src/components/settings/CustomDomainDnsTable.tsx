@@ -1,5 +1,6 @@
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 export type DnsTableRow = {
   kind: "CNAME" | "A" | "TXT";
@@ -33,6 +34,7 @@ export function CustomDomainDnsTable({
   copiedField,
   onCopy,
 }: Props) {
+  const { t } = useAppLocale();
   return (
     <div className="rounded-md border border-border/50 bg-background/60 overflow-hidden text-xs">
       <div className="border-b border-border/50 bg-muted/30 px-3 py-2 space-y-0.5">
@@ -46,10 +48,10 @@ export function CustomDomainDnsTable({
         <table className="w-full min-w-[320px] border-collapse text-left">
           <thead>
             <tr className="border-b border-border/50 bg-muted/20 text-[10px] uppercase tracking-wide text-muted-foreground">
-              <th className="px-3 py-2 font-medium w-[72px]">Tipo</th>
-              <th className="px-3 py-2 font-medium min-w-[100px]">Nome / Host</th>
-              <th className="px-3 py-2 font-medium min-w-[120px]">Valor</th>
-              <th className="px-2 py-2 font-medium w-[100px] text-right">Copiar</th>
+              <th className="px-3 py-2 font-medium w-[72px]">{t("pages.settings.dnsType")}</th>
+              <th className="px-3 py-2 font-medium min-w-[100px]">{t("pages.settings.dnsName")}</th>
+              <th className="px-3 py-2 font-medium min-w-[120px]">{t("pages.settings.dnsValue")}</th>
+              <th className="px-2 py-2 font-medium w-[100px] text-right">{t("pages.settings.dnsCopy")}</th>
             </tr>
           </thead>
           <tbody>
@@ -77,33 +79,33 @@ export function CustomDomainDnsTable({
                         variant="outline"
                         size="sm"
                         className="h-7 px-1.5 text-[10px]"
-                        title="Copiar só o nome"
+                        title={t("pages.settings.copyNameTitle")}
                         onClick={() => onCopy(`${base}-n`, row.name)}
                       >
                         {copiedField === `${base}-n` ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                        <span className="ml-0.5">Nome</span>
+                        <span className="ml-0.5">{t("pages.settings.dnsNameShort")}</span>
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         className="h-7 px-1.5 text-[10px]"
-                        title="Copiar só o valor"
+                        title={t("pages.settings.copyValueTitle")}
                         onClick={() => onCopy(`${base}-v`, row.value)}
                       >
                         {copiedField === `${base}-v` ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                        <span className="ml-0.5">Valor</span>
+                        <span className="ml-0.5">{t("pages.settings.dnsValueShort")}</span>
                       </Button>
                       <Button
                         type="button"
                         variant="secondary"
                         size="sm"
                         className="h-7 px-1.5 text-[10px]"
-                        title="Copiar linha (nome e valor)"
+                        title={t("pages.settings.copyLineTitle")}
                         onClick={() => onCopy(`${base}-l`, line)}
                       >
                         {copiedField === `${base}-l` ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                        <span className="ml-0.5">Linha</span>
+                        <span className="ml-0.5">{t("pages.settings.dnsLine")}</span>
                       </Button>
                     </div>
                   </td>
@@ -114,17 +116,16 @@ export function CustomDomainDnsTable({
         </table>
       </div>
       <p className="px-3 py-2 text-[10px] text-muted-foreground border-t border-border/40 bg-muted/10">
-        Os tipos A/CNAME seguem a{" "}
+        {t("pages.settings.dnsFootnote")}{" "}
         <a
           href="https://vercel.com/docs/projects/domains/working-with-domains"
           target="_blank"
           rel="noopener noreferrer"
           className="text-primary underline underline-offset-2"
         >
-          documentação de domínios da Vercel
+          {t("pages.settings.vercelDocs")}
         </a>{" "}
-        (apex → registo A 76.76.21.21; subdomínio → CNAME para cname.vercel-dns.com). TXT quando a Vercel os pedir para
-        verificação.
+        {t("pages.settings.dnsFootnoteTail")}
       </p>
     </div>
   );

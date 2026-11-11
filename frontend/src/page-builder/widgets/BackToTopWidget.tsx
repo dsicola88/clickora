@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowUp } from "lucide-react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { usePageBuilderT } from "../usePageBuilderT";
 
 export interface BackToTopContent {
   threshold: number;
@@ -13,6 +14,7 @@ export interface BackToTopContent {
 }
 
 export function BackToTopWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
+  const t = usePageBuilderT();
   const c = widget.content as Partial<BackToTopContent>;
   const threshold = c.threshold ?? 300;
   const position = c.position ?? "right";
@@ -34,7 +36,7 @@ export function BackToTopWidget({ widget, device }: { widget: WidgetNode; device
     <div style={stylesToCssWidgetContent(widget.styles, device)}>
       <button
         type="button"
-        aria-label="Voltar ao topo"
+        aria-label={t("pages.pageBuilder.chrome.names.backToTop")}
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         style={{
           position: "fixed",

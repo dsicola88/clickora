@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { enterpriseService } from "@/services/enterpriseService";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,7 @@ import { Copy, KeyRound, Loader2, Shield, ShieldCheck, ShieldOff } from "lucide-
  * Activar / desactivar MFA (TOTP) na conta.
  */
 export function AccountMfaSection() {
+  const { t } = useAppLocale();
   const qc = useQueryClient();
   const [setupSecret, setSetupSecret] = useState<string | null>(null);
   const [otpauthUrl, setOtpauthUrl] = useState<string | null>(null);
@@ -40,7 +43,7 @@ export function AccountMfaSection() {
       setOtpauthUrl(data.otpauth_url);
       setBackupCodes(null);
       setConfirmCode("");
-      toast.success("Segredo gerado. Adicione-o na app Authenticator.");
+      toast.success(t("pages.account.secretGenerated"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -58,7 +61,7 @@ export function AccountMfaSection() {
       setConfirmCode("");
       qc.invalidateQueries({ queryKey: ["enterprise-mfa-status"] });
       qc.invalidateQueries({ queryKey: ["enterprise-onboarding"] });
-      toast.success("MFA activado. Guarde os códigos de recuperação.");
+      toast.success(t("pages.account.mfaEnabled"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -74,7 +77,7 @@ export function AccountMfaSection() {
       setBackupCodes(null);
       qc.invalidateQueries({ queryKey: ["enterprise-mfa-status"] });
       qc.invalidateQueries({ queryKey: ["enterprise-onboarding"] });
-      toast.success("MFA desactivado.");
+      toast.success(t("pages.account.mfaDisabled"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -82,9 +85,9 @@ export function AccountMfaSection() {
   const copyText = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(`${label} copiado.`);
+      toast.success(fill(t("pages.account.copiedItem"), { label }));
     } catch {
-      toast.error("Não foi possível copiar.");
+      toast.error(t("pages.account.copyFailed"));
     }
   };
 
@@ -95,27 +98,25 @@ export function AccountMfaSection() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           {enabled ? <ShieldCheck className="h-5 w-5 text-primary" /> : <Shield className="h-5 w-5 text-primary" />}
-          Autenticação em dois factores (MFA)
+          {t("pages.account.mfaTitle")}
         </CardTitle>
-        <CardDescription>
-          Use uma app Authenticator (Google Authenticator, 1Password, Authy…) para proteger o login.
-        </CardDescription>
+        <CardDescription>{t("pages.account.mfaDesc")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading ? (
           <p className="text-sm text-muted-foreground flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" /> A carregar estado MFA…
+            <Loader2 className="h-4 w-4 animate-spin" /> {t("pages.account.mfaLoading")}
           </p>
         ) : isError ? (
           <p className="text-sm text-destructive">
-            {error instanceof Error ? error.message : "Não foi possível carregar o MFA."}
+            {error instanceof Error ? error.message : t("pages.account.mfaLoadError")}
           </p>
         ) : enabled ? (
           <div className="space-y-4">
-            <p className="text-sm text-emerald-700 dark:text-emerald-400">MFA está activo nesta conta.</p>
+            <p className="text-sm text-emerald-700 dark:text-emerald-400">{t("pages.account.mfaOn")}</p>
             <div className="grid gap-3 sm:grid-cols-2 max-w-xl">
               <div className="space-y-2">
-                <Label htmlFor="mfa-disable-code">Código MFA ou recuperação</Label>
+                <Label htmlFor="mfa-disable-code">{t("pages.account.mfaDisableCode")}</Label>
                 <Input
                   id="mfa-disable-code"
                   value={disableCode}
@@ -124,7 +125,7 @@ export function AccountMfaSection() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="mfa-disable-pw">Senha actual</Label>
+                <Label htmlFor="mfa-disable-pw">{t("pages.account.currentPassword")}</Label>
                 <Input
                   id="mfa-disable-pw"
                   type="password"
@@ -142,29 +143,29 @@ export function AccountMfaSection() {
               onClick={() => disableMut.mutate()}
             >
               {disableMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldOff className="h-4 w-4" />}
-              Desactivar MFA
+              {t("pages.account.disableMfa")}
             </Button>
           </div>
         ) : setupSecret ? (
           <div className="space-y-4 max-w-xl">
             <p className="text-sm text-muted-foreground">
-              Adicione esta chave na app Authenticator (entrada manual) e confirme com o código de 6 dígitos.
+              {t("pages.account.mfaSetupHint")}
             </p>
             <div className="rounded-lg border border-border/70 bg-muted/30 p-3 font-mono text-sm break-all">
               {setupSecret}
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="secondary" size="sm" className="gap-1" onClick={() => void copyText(setupSecret, "Segredo")}>
-                <Copy className="h-3.5 w-3.5" /> Copiar segredo
+              <Button type="button" variant="secondary" size="sm" className="gap-1" onClick={() => void copyText(setupSecret, t("pages.account.labelSecret"))}>
+                <Copy className="h-3.5 w-3.5" /> {t("pages.account.copySecret")}
               </Button>
               {otpauthUrl ? (
-                <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => void copyText(otpauthUrl, "URL otpauth")}>
-                  <KeyRound className="h-3.5 w-3.5" /> Copiar otpauth://
+                <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => void copyText(otpauthUrl, t("pages.account.labelOtpauth"))}>
+                  <KeyRound className="h-3.5 w-3.5" /> {t("pages.account.copyOtpauth")}
                 </Button>
               ) : null}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="mfa-confirm">Código da app</Label>
+              <Label htmlFor="mfa-confirm">{t("pages.account.appCode")}</Label>
               <Input
                 id="mfa-confirm"
                 value={confirmCode}
@@ -180,7 +181,7 @@ export function AccountMfaSection() {
                 disabled={confirmMut.isPending || confirmCode.trim().length < 6}
                 onClick={() => confirmMut.mutate()}
               >
-                {confirmMut.isPending ? "A confirmar…" : "Confirmar e activar"}
+                {confirmMut.isPending ? t("pages.account.confirming") : t("pages.account.confirmEnable")}
               </Button>
               <Button
                 type="button"
@@ -191,21 +192,21 @@ export function AccountMfaSection() {
                   setConfirmCode("");
                 }}
               >
-                Cancelar
+                {t("common.cancel")}
               </Button>
             </div>
           </div>
         ) : (
           <Button type="button" className="gap-2" disabled={setupMut.isPending} onClick={() => setupMut.mutate()}>
             {setupMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
-            Activar MFA
+            {t("pages.account.enableMfa")}
           </Button>
         )}
 
         {backupCodes && backupCodes.length > 0 ? (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 space-y-3">
             <p className="text-sm font-medium text-foreground">
-              Códigos de recuperação (só são mostrados uma vez — guarde-os num local seguro)
+              {t("pages.account.backupTitle")}
             </p>
             <ul className="grid gap-1 sm:grid-cols-2 font-mono text-xs">
               {backupCodes.map((c) => (
@@ -219,9 +220,9 @@ export function AccountMfaSection() {
               variant="secondary"
               size="sm"
               className="gap-1"
-              onClick={() => void copyText(backupCodes.join("\n"), "Códigos")}
+              onClick={() => void copyText(backupCodes.join("\n"), t("pages.account.labelCodes"))}
             >
-              <Copy className="h-3.5 w-3.5" /> Copiar todos
+              <Copy className="h-3.5 w-3.5" /> {t("pages.account.copyAll")}
             </Button>
           </div>
         ) : null}

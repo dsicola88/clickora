@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { TEMPLATES, TEMPLATE_CATEGORIES, type TemplateDefinition } from "../templates";
 import { documentHasImportedFold } from "../pageIdentity";
 import { useBuilder } from "../store";
@@ -6,6 +8,7 @@ import { X, LayoutTemplate, Plus } from "lucide-react";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useAppLocale();
   const [category, setCategory] = useState<TemplateDefinition["category"] | "all">("all");
   const [pendingTemplate, setPendingTemplate] = useState<TemplateDefinition | null>(null);
   const doc = useBuilder((s) => s.doc);
@@ -24,21 +27,19 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
     }
   };
 
-  const applyTemplate = (t: TemplateDefinition, mode: "replace" | "append") => {
+  const applyTemplate = (tpl: TemplateDefinition, mode: "replace" | "append") => {
     const imported = documentHasImportedFold(doc);
     const product = (identity.productName || "").toLowerCase();
     const catalogHint =
-      t.id === "presell-dtc-vision"
+      tpl.id === "presell-dtc-vision"
         ? "visivra"
-        : t.id === "presell-neotonics"
+        : tpl.id === "presell-neotonics"
           ? "neotonics"
-          : t.id === "presell-nitric-boost"
+          : tpl.id === "presell-nitric-boost"
             ? "nitric"
             : "";
     if (catalogHint && imported) {
-      window.alert(
-        `Esta página já foi importada. O modelo «${t.name}» não a substitui nem é colado no final. Edite o HTML importado ou use blocos com o nome desta oferta.`,
-      );
+      window.alert(fill(t("pages.pageBuilder.templates.importedAlert"), { name: tpl.name }));
       setPendingTemplate(null);
       return;
     }
@@ -49,23 +50,26 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
       (mode === "replace" || doc.sections.length > 0)
     ) {
       window.alert(
-        `A página em edição é «${identity.productName}». O modelo «${t.name}» é outro produto — use a receita DTC nos Blocos.`,
+        fill(t("pages.pageBuilder.templates.productMismatch"), {
+          product: identity.productName,
+          name: tpl.name,
+        }),
       );
       setPendingTemplate(null);
       return;
     }
     const state = useBuilder.getState();
-    if (mode === "replace" && t.buildDocument) {
-      state.hydrateDocument(t.buildDocument());
+    if (mode === "replace" && tpl.buildDocument) {
+      state.hydrateDocument(tpl.buildDocument());
     } else if (mode === "replace") {
-      state.replaceSections(t.build());
+      state.replaceSections(tpl.build());
     } else {
-      state.appendSections(t.build());
+      state.appendSections(tpl.build());
     }
     setPendingTemplate(null);
     onClose();
     window.dispatchEvent(
-      new CustomEvent("clickora:pb-template-applied", { detail: { id: t.id, name: t.name } }),
+      new CustomEvent("clickora:pb-template-applied", { detail: { id: tpl.id, name: tpl.name } }),
     );
   };
 
@@ -82,9 +86,9 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
           <div className="flex items-center gap-2">
             <LayoutTemplate className="h-5 w-5 text-editor-accent" />
             <div>
-              <h2 className="text-base font-semibold">Temas e modelos</h2>
+              <h2 className="text-base font-semibold">{t("pages.pageBuilder.templates.title")}</h2>
               <p className="text-[11px] text-editor-fg-muted">
-                Modelos profissionais (Navy, Agência, Fintech, Presell PAS…). Preferir «Substituir página».
+                {t("pages.pageBuilder.templates.subtitle")}
               </p>
             </div>
           </div>
@@ -92,7 +96,7 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
             type="button"
             onClick={onClose}
             className="rounded p-1.5 text-editor-fg-muted transition-colors hover:bg-editor-panel-2 hover:text-editor-fg"
-            aria-label="Fechar"
+            aria-label={t("common.close")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -100,12 +104,12 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-2 pt-1">
           <p className="pb-2 text-[10px] leading-snug text-editor-fg-muted md:hidden">
-            Em ecrãs largos pode arrastar a barra entre categorias e lista de templates.
+            {t("pages.pageBuilder.templates.dragHint")}
           </p>
           <div className="flex min-h-0 flex-1 flex-col gap-3 md:hidden">
             <aside className="shrink-0 rounded-md border border-editor-border bg-editor-panel-2/40 p-3">
               <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-editor-fg-muted">
-                Categorias
+                {t("pages.pageBuilder.templates.categories")}
               </h3>
               <TemplatesCategoryNav category={category} onCategory={setCategory} />
             </aside>
@@ -126,13 +130,13 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
             <ResizablePanel defaultSize={20} minSize={14} maxSize={38} className="min-h-0 min-w-0">
               <aside className="flex h-full min-h-0 flex-col overflow-y-auto border border-editor-border bg-editor-panel-2/30 p-3 md:rounded-l-md md:border-r-0 md:rounded-r-none">
                 <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-editor-fg-muted">
-                  Categorias
+                  {t("pages.pageBuilder.templates.categories")}
                 </h3>
                 <TemplatesCategoryNav category={category} onCategory={setCategory} />
               </aside>
             </ResizablePanel>
             <ResizableHandle
-              title="Redimensionar painéis"
+              title={t("pages.pageBuilder.templates.resize")}
               className="w-px shrink-0 bg-editor-border/95 transition-colors hover:bg-editor-accent/60 data-[resize-handle-active]:bg-editor-accent data-[resize-handle-state=drag]:bg-editor-accent"
             />
             <ResizablePanel defaultSize={80} minSize={45} className="min-h-0 min-w-0">
@@ -157,10 +161,11 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
             className="w-full max-w-md rounded-lg border border-editor-border bg-editor-panel p-5 text-editor-fg shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="mb-2 text-base font-semibold">Inserir template</h3>
+            <h3 className="mb-2 text-base font-semibold">{t("pages.pageBuilder.templates.insertTitle")}</h3>
             <p className="mb-5 text-sm text-editor-fg-muted">
-              Sua página já tem conteúdo. Como deseja inserir{" "}
-              <strong className="text-editor-fg">{pendingTemplate.name}</strong>?
+              {t("pages.pageBuilder.templates.insertBefore")}
+              <strong className="text-editor-fg">{pendingTemplate.name}</strong>
+              {t("pages.pageBuilder.templates.insertAfter")}
             </p>
             <div className="flex flex-col gap-2">
               <button
@@ -168,21 +173,21 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
                 onClick={() => applyTemplate(pendingTemplate, "append")}
                 className="rounded bg-editor-accent px-4 py-2.5 text-sm font-medium text-editor-accent-fg hover:opacity-90"
               >
-                Adicionar ao final
+                {t("pages.pageBuilder.templates.append")}
               </button>
               <button
                 type="button"
                 onClick={() => applyTemplate(pendingTemplate, "replace")}
                 className="rounded border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/20"
               >
-                Substituir página inteira
+                {t("pages.pageBuilder.templates.replaceAll")}
               </button>
               <button
                 type="button"
                 onClick={() => setPendingTemplate(null)}
                 className="rounded px-4 py-2 text-sm text-editor-fg-muted hover:text-editor-fg"
               >
-                Cancelar
+                {t("common.cancel")}
               </button>
             </div>
           </div>
@@ -199,6 +204,7 @@ function TemplatesCategoryNav({
   category: TemplateDefinition["category"] | "all";
   onCategory: (next: TemplateDefinition["category"] | "all") => void;
 }) {
+  const { t } = useAppLocale();
   return (
     <nav className="space-y-1">
       <CategoryButton
@@ -206,7 +212,7 @@ function TemplatesCategoryNav({
         onClick={() => onCategory("all")}
         count={TEMPLATES.length}
       >
-        Todos
+        {t("pages.pageBuilder.all")}
       </CategoryButton>
       {TEMPLATE_CATEGORIES.map((c) => {
         const count = TEMPLATES.filter((t) => t.category === c.id).length;
@@ -259,6 +265,7 @@ function TemplateCard({
   template: TemplateDefinition;
   onPick: (t: TemplateDefinition) => void;
 }) {
+  const { t } = useAppLocale();
   return (
     <button
       type="button"
@@ -274,7 +281,7 @@ function TemplateCard({
         />
         <div className="absolute inset-0 flex items-center justify-center bg-editor-accent/0 transition-colors group-hover:bg-editor-accent/30">
           <span className="flex items-center gap-1.5 rounded-full bg-editor-accent px-3 py-1.5 text-xs font-semibold text-editor-accent-fg opacity-0 transition-opacity group-hover:opacity-100">
-            <Plus className="h-3.5 w-3.5" /> Usar template
+            <Plus className="h-3.5 w-3.5" /> {t("pages.pageBuilder.templates.useTemplate")}
           </span>
         </div>
       </div>

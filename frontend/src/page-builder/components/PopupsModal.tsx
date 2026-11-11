@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { MessageSquarePlus, Plus, Trash2, X } from "lucide-react";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useBuilder } from "../store";
 import type {
   PagePopup,
@@ -12,18 +14,6 @@ import { createPagePopup } from "../factory";
 import { ColorField, NumberField, SelectField, TextField, TextareaField } from "./PropertyControls";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import {
-  OVERLAY_ANIMATION_OPTIONS,
-  OVERLAY_MODE_OPTIONS,
-  OVERLAY_POSITION_OPTIONS,
-} from "../overlay-placement";
-
-const TRIGGER_OPTIONS: Array<{ value: PagePopupTrigger; label: string }> = [
-  { value: "onLoad", label: "Ao carregar a página" },
-  { value: "onScroll", label: "Ao fazer scroll" },
-  { value: "exitIntent", label: "Ao sair (exit intent)" },
-  { value: "manual", label: "Só por interação (botão/elemento)" },
-];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -37,10 +27,46 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useAppLocale();
   const doc = useBuilder((s) => s.doc);
   const updatePopups = useBuilder((s) => s.updatePopups);
   const [draft, setDraft] = useState<PagePopup[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const triggerOptions: Array<{ value: PagePopupTrigger; label: string }> = [
+    { value: "onLoad", label: t("pages.pageBuilder.popups.onLoad") },
+    { value: "onScroll", label: t("pages.pageBuilder.popups.onScroll") },
+    { value: "exitIntent", label: t("pages.pageBuilder.popups.exitIntent") },
+    { value: "manual", label: t("pages.pageBuilder.popups.manual") },
+  ];
+  const modeOptions: Array<{ value: PagePopupDisplayMode; label: string }> = [
+    { value: "modal", label: t("pages.pageBuilder.popups.modeModal") },
+    { value: "bar", label: t("pages.pageBuilder.popups.modeBar") },
+    { value: "slide-in", label: t("pages.pageBuilder.popups.modeSlide") },
+    { value: "toast", label: t("pages.pageBuilder.popups.modeToast") },
+  ];
+  const positionOptions: Array<{ value: PagePopupPosition; label: string }> = [
+    { value: "center", label: t("pages.pageBuilder.popups.posCenter") },
+    { value: "top", label: t("pages.pageBuilder.popups.posTopBar") },
+    { value: "bottom", label: t("pages.pageBuilder.popups.posBottomBar") },
+    { value: "top-left", label: t("pages.pageBuilder.popups.posTopLeft") },
+    { value: "top-right", label: t("pages.pageBuilder.popups.posTopRight") },
+    { value: "bottom-left", label: t("pages.pageBuilder.popups.posBottomLeft") },
+    { value: "bottom-right", label: t("pages.pageBuilder.popups.posBottomRight") },
+    { value: "left", label: t("pages.pageBuilder.popups.posLeft") },
+    { value: "right", label: t("pages.pageBuilder.popups.posRight") },
+  ];
+  const animationOptions: Array<{ value: PagePopupAnimation; label: string }> = [
+    { value: "none", label: t("pages.pageBuilder.popups.animNone") },
+    { value: "fade", label: t("pages.pageBuilder.popups.animFade") },
+    { value: "fadeUp", label: t("pages.pageBuilder.popups.animFadeUp") },
+    { value: "fadeDown", label: t("pages.pageBuilder.popups.animFadeDown") },
+    { value: "scale", label: t("pages.pageBuilder.popups.animScale") },
+    { value: "slideLeft", label: t("pages.pageBuilder.popups.animSlideLeft") },
+    { value: "slideRight", label: t("pages.pageBuilder.popups.animSlideRight") },
+    { value: "slideUp", label: t("pages.pageBuilder.popups.animSlideUp") },
+    { value: "slideDown", label: t("pages.pageBuilder.popups.animSlideDown") },
+  ];
 
   useEffect(() => {
     if (!open) return;
@@ -59,7 +85,9 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
   };
 
   const addPopup = () => {
-    const p = createPagePopup(`Popup ${draft.length + 1}`);
+    const p = createPagePopup(
+      fill(t("pages.pageBuilder.popups.defaultName"), { n: draft.length + 1 }),
+    );
     setDraft((prev) => [...prev, p]);
     setSelectedId(p.id);
   };
@@ -91,15 +119,16 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
           <div className="flex items-center gap-2">
             <MessageSquarePlus className="h-5 w-5 text-editor-accent" />
             <div>
-              <h2 className="text-base font-semibold">Popups da página</h2>
+              <h2 className="text-base font-semibold">{t("pages.pageBuilder.popups.title")}</h2>
               <p className="text-[11px] text-editor-fg-muted">
-                Modo, posição, tempo de entrada e efeitos — como cookies e overlays.
+                {t("pages.pageBuilder.popups.subtitle")}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
+            aria-label={t("common.close")}
             className="rounded p-1 text-editor-fg-muted hover:bg-editor-panel-2 hover:text-editor-fg"
           >
             <X className="h-4 w-4" />
@@ -114,12 +143,12 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
               className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-md bg-editor-accent px-2 py-1.5 text-xs font-semibold text-editor-accent-fg"
             >
               <Plus className="h-3.5 w-3.5" />
-              Novo popup
+              {t("pages.pageBuilder.popups.new")}
             </button>
             <ul className="space-y-1">
               {draft.length === 0 ? (
                 <li className="px-1 py-2 text-[11px] text-editor-fg-muted">
-                  Ainda sem popups. Crie um para ofertas, avisos ou captura.
+                  {t("pages.pageBuilder.popups.empty")}
                 </li>
               ) : (
                 draft.map((p) => (
@@ -133,12 +162,12 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
                           : "text-editor-fg-muted hover:bg-editor-panel-2"
                       }`}
                     >
-                      {p.name || "Sem nome"}
+                      {p.name || t("pages.pageBuilder.popups.unnamed")}
                       <span className="mt-0.5 block text-[10px] opacity-70">
-                        {TRIGGER_OPTIONS.find((t) => t.value === p.trigger)?.label ?? p.trigger}
+                        {triggerOptions.find((opt) => opt.value === p.trigger)?.label ?? p.trigger}
                         {" · "}
-                        {OVERLAY_MODE_OPTIONS.find((m) => m.value === (p.displayMode ?? "modal"))
-                          ?.label ?? "Modal"}
+                        {modeOptions.find((m) => m.value === (p.displayMode ?? "modal"))?.label ??
+                          t("pages.pageBuilder.popups.modalFallback")}
                       </span>
                     </button>
                   </li>
@@ -149,13 +178,13 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
 
           <div className="editor-scrollbar min-h-0 space-y-3 overflow-y-auto p-4">
             {!selected ? (
-              <p className="text-sm text-editor-fg-muted">Seleccione ou crie um popup.</p>
+              <p className="text-sm text-editor-fg-muted">{t("pages.pageBuilder.popups.selectOrCreate")}</p>
             ) : (
               <>
-                <Section title="Geral">
+                <Section title={t("pages.pageBuilder.popups.general")}>
                   <div className="flex items-start justify-between gap-2">
                     <TextField
-                      label="Nome interno"
+                      label={t("pages.pageBuilder.popups.internalName")}
                       value={selected.name}
                       onChange={(v) => patchSelected({ name: v })}
                     />
@@ -165,11 +194,11 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
                       className="mt-5 flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs text-red-400 hover:bg-red-500/10"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                      Apagar
+                      {t("common.delete")}
                     </button>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <Label className="text-[11px] text-editor-fg">Activo</Label>
+                    <Label className="text-[11px] text-editor-fg">{t("common.active")}</Label>
                     <Switch
                       checked={selected.enabled !== false}
                       onCheckedChange={(v) => patchSelected({ enabled: v })}
@@ -177,16 +206,16 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
                   </div>
                 </Section>
 
-                <Section title="Disparo e tempo">
+                <Section title={t("pages.pageBuilder.popups.triggerTime")}>
                   <SelectField
-                    label="Disparo"
+                    label={t("pages.pageBuilder.popups.trigger")}
                     value={selected.trigger}
-                    options={TRIGGER_OPTIONS}
+                    options={triggerOptions}
                     onChange={(v) => patchSelected({ trigger: v as PagePopupTrigger })}
                   />
                   {selected.trigger === "onScroll" ? (
                     <NumberField
-                      label="Scroll (%)"
+                      label={t("pages.pageBuilder.popups.scrollPercent")}
                       value={selected.scrollPercent ?? 40}
                       min={1}
                       max={100}
@@ -195,7 +224,7 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
                   ) : null}
                   {selected.trigger !== "manual" ? (
                     <NumberField
-                      label="Atraso de entrada (ms)"
+                      label={t("pages.pageBuilder.popups.entryDelay")}
                       value={selected.delayMs ?? 0}
                       min={0}
                       max={60000}
@@ -203,12 +232,14 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
                     />
                   ) : (
                     <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-                      ID para interações de widget:{" "}
+                      {t("pages.pageBuilder.popups.interactionId")}{" "}
                       <span className="font-mono text-editor-fg">{selected.id}</span>
                     </p>
                   )}
                   <div className="flex items-center justify-between gap-2">
-                    <Label className="text-[11px] text-editor-fg">Só uma vez por sessão</Label>
+                    <Label className="text-[11px] text-editor-fg">
+                      {t("pages.pageBuilder.popups.oncePerSession")}
+                    </Label>
                     <Switch
                       checked={selected.oncePerSession !== false}
                       onCheckedChange={(v) => patchSelected({ oncePerSession: v })}
@@ -216,11 +247,11 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
                   </div>
                 </Section>
 
-                <Section title="Modo e posição">
+                <Section title={t("pages.pageBuilder.popups.modePosition")}>
                   <SelectField
-                    label="Modo"
+                    label={t("pages.pageBuilder.popups.mode")}
                     value={selected.displayMode ?? "modal"}
-                    options={OVERLAY_MODE_OPTIONS}
+                    options={modeOptions}
                     onChange={(v) => {
                       const displayMode = v as PagePopupDisplayMode;
                       const patch: Partial<PagePopup> = { displayMode };
@@ -235,7 +266,7 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
                     }}
                   />
                   <SelectField
-                    label="Posição"
+                    label={t("pages.pageBuilder.popups.position")}
                     value={
                       mode === "modal"
                         ? "center"
@@ -243,23 +274,23 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
                     }
                     options={
                       mode === "modal"
-                        ? OVERLAY_POSITION_OPTIONS.filter((o) => o.value === "center")
+                        ? positionOptions.filter((o) => o.value === "center")
                         : mode === "bar"
-                          ? OVERLAY_POSITION_OPTIONS.filter((o) => o.value === "top" || o.value === "bottom")
-                          : OVERLAY_POSITION_OPTIONS
+                          ? positionOptions.filter((o) => o.value === "top" || o.value === "bottom")
+                          : positionOptions
                     }
                     onChange={(v) => patchSelected({ position: v as PagePopupPosition })}
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <NumberField
-                      label="Offset X (px)"
+                      label={t("pages.pageBuilder.popups.offsetX")}
                       value={selected.offsetXPx ?? 16}
                       min={0}
                       max={120}
                       onChange={(v) => patchSelected({ offsetXPx: v })}
                     />
                     <NumberField
-                      label="Offset Y (px)"
+                      label={t("pages.pageBuilder.popups.offsetY")}
                       value={selected.offsetYPx ?? 16}
                       min={0}
                       max={120}
@@ -267,14 +298,14 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
                     />
                   </div>
                   <NumberField
-                    label="Largura máx. (px)"
+                    label={t("pages.pageBuilder.popups.maxWidth")}
                     value={selected.maxWidthPx ?? 480}
                     min={240}
                     max={960}
                     onChange={(v) => patchSelected({ maxWidthPx: v })}
                   />
                   <NumberField
-                    label="Z-index"
+                    label={t("pages.pageBuilder.popups.zIndex")}
                     value={selected.zIndex ?? 99990}
                     min={1}
                     max={2147483000}
@@ -282,53 +313,55 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
                   />
                 </Section>
 
-                <Section title="Animação de entrada">
+                <Section title={t("pages.pageBuilder.popups.entrance")}>
                   <SelectField
-                    label="Efeito"
+                    label={t("pages.pageBuilder.popups.effect")}
                     value={selected.animation ?? "fadeUp"}
-                    options={OVERLAY_ANIMATION_OPTIONS}
+                    options={animationOptions}
                     onChange={(v) => patchSelected({ animation: v as PagePopupAnimation })}
                   />
                   <NumberField
-                    label="Duração (ms)"
+                    label={t("pages.pageBuilder.widgets.fields.durationMs")}
                     value={selected.animationDurationMs ?? 320}
                     min={80}
                     max={3000}
                     onChange={(v) => patchSelected({ animationDurationMs: v })}
                   />
                   <TextField
-                    label="Curva CSS (easing)"
+                    label={t("pages.pageBuilder.popups.easing")}
                     value={selected.animationEasing ?? ""}
                     onChange={(v) => patchSelected({ animationEasing: v || undefined })}
-                    placeholder="cubic-bezier(0.22, 1, 0.36, 1)"
+                    placeholder={t("pages.pageBuilder.popups.easingPlaceholder")}
                   />
                 </Section>
 
-                <Section title="Conteúdo">
+                <Section title={t("pages.pageBuilder.content")}>
                   <TextField
-                    label="Título"
+                    label={t("pages.pageBuilder.widgets.fields.title")}
                     value={selected.title ?? ""}
                     onChange={(v) => patchSelected({ title: v })}
                   />
                   <TextareaField
-                    label="Conteúdo (HTML)"
+                    label={t("pages.pageBuilder.popups.html")}
                     value={selected.html ?? ""}
                     onChange={(v) => patchSelected({ html: v })}
                     rows={4}
                   />
                   <TextField
-                    label="Texto do botão"
+                    label={t("pages.pageBuilder.widgets.fields.buttonText")}
                     value={selected.ctaLabel ?? ""}
                     onChange={(v) => patchSelected({ ctaLabel: v })}
                   />
                   <TextField
-                    label="Link do botão"
+                    label={t("pages.pageBuilder.popups.buttonLink")}
                     value={selected.ctaHref ?? ""}
                     onChange={(v) => patchSelected({ ctaHref: v })}
-                    placeholder="https://… ou #secção"
+                    placeholder={t("pages.pageBuilder.popups.buttonLinkPlaceholder")}
                   />
                   <div className="flex items-center justify-between gap-2">
-                    <Label className="text-[11px] text-editor-fg">Botão fechar (×)</Label>
+                    <Label className="text-[11px] text-editor-fg">
+                      {t("pages.pageBuilder.popups.closeButton")}
+                    </Label>
                     <Switch
                       checked={selected.showCloseButton !== false}
                       onCheckedChange={(v) => patchSelected({ showCloseButton: v })}
@@ -336,52 +369,56 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
                   </div>
                 </Section>
 
-                <Section title="Estilo">
+                <Section title={t("pages.pageBuilder.style")}>
                   <NumberField
-                    label="Raio (px)"
+                    label={t("pages.pageBuilder.panel.radius")}
                     value={selected.borderRadiusPx ?? 16}
                     min={0}
                     max={48}
                     onChange={(v) => patchSelected({ borderRadiusPx: v })}
                   />
                   <ColorField
-                    label="Fundo"
+                    label={t("pages.pageBuilder.background")}
                     value={selected.background ?? "#ffffff"}
                     onChange={(v) => patchSelected({ background: v })}
                   />
                   <ColorField
-                    label="Texto"
+                    label={t("pages.pageBuilder.widgets.fields.text")}
                     value={selected.textColor ?? "#0f172a"}
                     onChange={(v) => patchSelected({ textColor: v })}
                   />
                   <ColorField
-                    label="Botão — fundo"
+                    label={t("pages.pageBuilder.popups.buttonBg")}
                     value={selected.ctaBg ?? "#e63946"}
                     onChange={(v) => patchSelected({ ctaBg: v })}
                   />
                   <ColorField
-                    label="Botão — texto"
+                    label={t("pages.pageBuilder.popups.buttonTextColor")}
                     value={selected.ctaColor ?? "#ffffff"}
                     onChange={(v) => patchSelected({ ctaColor: v })}
                   />
                   {mode === "modal" ? (
                     <>
                       <div className="flex items-center justify-between gap-2">
-                        <Label className="text-[11px] text-editor-fg">Backdrop</Label>
+                        <Label className="text-[11px] text-editor-fg">
+                          {t("pages.pageBuilder.popups.backdrop")}
+                        </Label>
                         <Switch
                           checked={selected.backdrop !== false}
                           onCheckedChange={(v) => patchSelected({ backdrop: v })}
                         />
                       </div>
                       <NumberField
-                        label="Opacidade do backdrop (%)"
+                        label={t("pages.pageBuilder.popups.backdropOpacity")}
                         value={selected.backdropOpacity ?? 55}
                         min={0}
                         max={90}
                         onChange={(v) => patchSelected({ backdropOpacity: v })}
                       />
                       <div className="flex items-center justify-between gap-2">
-                        <Label className="text-[11px] text-editor-fg">Fechar ao clicar no fundo</Label>
+                        <Label className="text-[11px] text-editor-fg">
+                          {t("pages.pageBuilder.popups.backdropClose")}
+                        </Label>
                         <Switch
                           checked={selected.backdropClose !== false}
                           onCheckedChange={(v) => patchSelected({ backdropClose: v })}
@@ -401,14 +438,14 @@ export function PopupsModal({ open, onClose }: { open: boolean; onClose: () => v
             onClick={onClose}
             className="rounded-md px-3 py-1.5 text-xs text-editor-fg-muted hover:bg-editor-panel-2"
           >
-            Cancelar
+            {t("common.cancel")}
           </button>
           <button
             type="button"
             onClick={handleSave}
             className="rounded-md bg-editor-accent px-3 py-1.5 text-xs font-semibold text-editor-accent-fg"
           >
-            Guardar
+            {t("common.save")}
           </button>
         </footer>
       </div>

@@ -322,9 +322,9 @@ export const adminController = {
     const { userId } = req.params;
     const { plan_type } = req.body as { plan_type?: string };
 
-    const allowed: PlanType[] = ["free_trial", "monthly", "quarterly", "annual"];
+    const allowed: PlanType[] = ["free_trial", "monthly", "annual"];
     if (!plan_type || !allowed.includes(plan_type as PlanType)) {
-      return res.status(400).json({ error: "plan_type inválido" });
+      return res.status(400).json({ error: "plan_type inválido (free_trial | monthly | annual)" });
     }
 
     const plan = await prismaAdmin.plan.findFirst({ where: { type: plan_type as PlanType } });

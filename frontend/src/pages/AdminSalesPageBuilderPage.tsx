@@ -1,5 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink, Globe, LayoutTemplate, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -40,6 +42,7 @@ function readLocalDraft(): PageDocument | null {
 }
 
 export default function AdminSalesPageBuilderPage() {
+  const { t } = useAppLocale();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isSuperAdmin, loading: authLoading } = useAuth();
@@ -49,10 +52,10 @@ export default function AdminSalesPageBuilderPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!isSuperAdmin) {
-      toast.error("Apenas o super administrador pode editar a página de vendas.");
+      toast.error(t("pages.pageBuilder.sales.onlySuperAdmin"));
       navigate("/admin/plans", { replace: true });
     }
-  }, [authLoading, isSuperAdmin, navigate]);
+  }, [authLoading, isSuperAdmin, navigate, t]);
 
   useEffect(() => {
     setPageBuilderStorageKey(STORAGE_KEY);
@@ -63,13 +66,13 @@ export default function AdminSalesPageBuilderPage() {
       const detail = (ev as CustomEvent<{ name?: string }>).detail;
       toast.message(
         detail?.name
-          ? `Tema «${detail.name}» no canvas. Clique Publicar para ir ao ar em /planos.`
-          : "Tema aplicado no canvas. Clique Publicar para ir ao ar em /planos.",
+          ? fill(t("pages.pageBuilder.sales.themeNamed"), { name: detail.name })
+          : t("pages.pageBuilder.sales.themeApplied"),
       );
     };
     window.addEventListener("clickora:pb-template-applied", onApplied);
     return () => window.removeEventListener("clickora:pb-template-applied", onApplied);
-  }, []);
+  }, [t]);
 
   const landingQuery = useQuery({
     queryKey: ADMIN_KEY,
@@ -127,7 +130,7 @@ export default function AdminSalesPageBuilderPage() {
     mutationFn: async () => {
       const doc = useBuilder.getState().doc;
       if (!doc.sections?.length) {
-        throw new Error("Adicione pelo menos uma secção antes de publicar.");
+        throw new Error(t("pages.pageBuilder.sales.needSection"));
       }
       const { data, error } = await adminService.patchPlansLanding({
         landing_extras: {
@@ -141,9 +144,7 @@ export default function AdminSalesPageBuilderPage() {
         coerceLandingExtras((data as { landing_extras?: unknown } | null)?.landing_extras).page_document,
       );
       if (!saved?.sections?.length) {
-        throw new Error(
-          "A cloud não gravou o documento visual. Guarde de novo ou contacte suporte.",
-        );
+        throw new Error(t("pages.pageBuilder.sales.cloudNotSaved"));
       }
       return { data, saved };
     },
@@ -163,10 +164,10 @@ export default function AdminSalesPageBuilderPage() {
       }
       void queryClient.invalidateQueries({ queryKey: ADMIN_KEY });
       void queryClient.invalidateQueries({ queryKey: PUBLIC_KEY });
-      toast.success("Publicado em /planos (modo visual activo).");
+      toast.success(t("pages.pageBuilder.sales.published"));
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Não foi possível publicar.");
+      toast.error(err.message || t("pages.pageBuilder.sales.publishFailed"));
     },
   });
 
@@ -186,7 +187,8 @@ export default function AdminSalesPageBuilderPage() {
   if (authLoading || !isSuperAdmin) {
     return (
       <div className="flex min-h-svh items-center justify-center gap-2 bg-background text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" />A verificar permissões…
+        <Loader2 className="h-5 w-5 animate-spin" />
+        {t("pages.pageBuilder.sales.checking")}
       </div>
     );
   }
@@ -195,10 +197,10 @@ export default function AdminSalesPageBuilderPage() {
     return (
       <div className="flex min-h-svh flex-col items-center justify-center gap-3 bg-background px-6 text-center">
         <p className="text-sm text-destructive">
-          {(landingQuery.error as Error)?.message || "Erro ao carregar a landing."}
+          {(landingQuery.error as Error)?.message || t("pages.pageBuilder.sales.loadFailed")}
         </p>
         <Button variant="outline" asChild>
-          <Link to="/admin/plans">Voltar ao admin</Link>
+          <Link to="/admin/plans">{t("pages.pageBuilder.sales.backAdmin")}</Link>
         </Button>
       </div>
     );
@@ -207,7 +209,8 @@ export default function AdminSalesPageBuilderPage() {
   if (!editorReady || landingQuery.isLoading) {
     return (
       <div className="flex min-h-svh items-center justify-center gap-2 bg-background text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" />A preparar o editor visual…
+        <Loader2 className="h-5 w-5 animate-spin" />
+        {t("pages.pageBuilder.sales.preparing")}
       </div>
     );
   }
@@ -225,10 +228,10 @@ export default function AdminSalesPageBuilderPage() {
               onClick={() => navigate("/admin/plans")}
             >
               <ArrowLeft className="mr-1 h-3.5 w-3.5" />
-              Voltar
+              {t("common.back")}
             </Button>
             <p className="min-w-0 flex-1 truncate text-xs text-editor-fg-muted sm:text-sm">
-              Temas (modelos) e Publicar estão nesta barra — e também na barra do editor abaixo.
+              {t("pages.pageBuilder.sales.chromeHint")}
             </p>
             <Button
               type="button"
@@ -238,7 +241,7 @@ export default function AdminSalesPageBuilderPage() {
               onClick={() => window.dispatchEvent(new Event("clickora:pb-open-templates"))}
             >
               <LayoutTemplate className="mr-1 h-3.5 w-3.5 text-sky-400" />
-              Temas
+              {t("pages.pageBuilder.topbar.themes")}
             </Button>
             <Button
               type="button"
@@ -248,7 +251,9 @@ export default function AdminSalesPageBuilderPage() {
               onClick={onRequestSave}
             >
               <Globe className="mr-1 h-3.5 w-3.5" />
-              {saveMutation.isPending ? "A publicar…" : "Publicar"}
+              {saveMutation.isPending
+                ? t("pages.pageBuilder.topbar.publishing")
+                : t("pages.pageBuilder.topbar.publish")}
             </Button>
             <Button
               type="button"
@@ -259,7 +264,7 @@ export default function AdminSalesPageBuilderPage() {
             >
               <a href="/planos" target="_blank" rel="noreferrer">
                 <ExternalLink className="mr-1 h-3.5 w-3.5" />
-                Ver /planos
+                {t("pages.pageBuilder.sales.viewLive")}
               </a>
             </Button>
           </div>
@@ -267,7 +272,8 @@ export default function AdminSalesPageBuilderPage() {
             <Suspense
               fallback={
                 <div className="flex h-full items-center justify-center text-sm text-editor-fg-muted">
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />A carregar o editor…
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  {t("common.loadingEditor")}
                 </div>
               }
             >

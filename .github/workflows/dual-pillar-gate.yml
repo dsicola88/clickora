@@ -24,6 +24,86 @@ jobs:
         env:
           DUAL_PILLAR_SKIP_FRONTEND: "1"
 
+  backend-quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Paid tests
+        run: npm run test:paid
+      - name: Load-test safety guards
+        run: npm run test:load-safety
+      - name: Longevity guards (soft)
+        run: npm run check:longevity
+
+  backend-isolation:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: clickora
+          POSTGRES_PASSWORD: clickora
+          POSTGRES_DB: clickora
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U clickora -d clickora"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: postgresql://clickora:clickora@127.0.0.1:5432/clickora?schema=public
+      JWT_SECRET: ci-jwt-secret-at-least-32-chars-long
+      FRONTEND_URL: http://127.0.0.1:8080
+      NODE_ENV: development
+      PORT: "3011"
+      CI: "true"
+      CI_SEED_PASSWORD: ci-isolation-password-32chars-min
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npx prisma db seed
+      - name: Start API
+        run: |
+          npm run build
+          node dist/server.js &
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3011/api/health >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "API health timeout"; exit 1
+      - name: IDOR isolation suite
+        env:
+          LOAD_TEST_BASE_URL: http://127.0.0.1:3011
+          ALLOW_MUTATING_LOAD_TEST: "1"
+          LOAD_TEST_EMAIL: danielclickora1@gmail.com
+          LOAD_TEST_EMAIL_B: danielclickora2@gmail.com
+          LOAD_TEST_PASSWORD: ci-isolation-password-32chars-min
+        run: npm run test:security-isolation
+
   frontend-presell:
     runs-on: ubuntu-latest
     defaults:
@@ -37,4 +117,71 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - run: npx vitest run src/lib/presellPublishReadiness.test.ts src/lib/presellOfferHrefBake.test.ts src/lib/presellCtaBake.test.ts src/lib/publishPresellFlow.test.ts src/lib/presellEliteQuality.test.ts src/components/RotatorRulesBuilder.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Presell + i18n + workspace vitest
+        run: >-
+          npx vitest run
+          src/lib/presellPublishReadiness.test.ts
+          src/lib/presellOfferHrefBake.test.ts
+          src/lib/presellCtaBake.test.ts
+          src/lib/publishPresellFlow.test.ts
+          src/lib/presellEliteQuality.test.ts
+          src/components/RotatorRulesBuilder.test.ts
+          src/lib/workspaceSwitcher.e2e.test.ts
+          src/lib/publicPresellOrigin.test.ts
+          src/lib/mirrorHtmlToEditableWidgets.test.ts
+          src/lib/customDomainSslDisplay.test.ts
+          src/i18n/i18n.test.ts
+
+  frontend-e2e-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: clickora
+          POSTGRES_PASSWORD: clickora
+          POSTGRES_DB: clickora
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U clickora -d clickora"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://clickora:clickora@127.0.0.1:5432/clickora?schema=public
+      REDIS_URL: ""
+      JWT_SECRET: ci-jwt-secret-at-least-32-chars-long
+      FRONTEND_URL: http://127.0.0.1:5174
+      VITE_API_URL: http://127.0.0.1:3001/api
+      NODE_ENV: development
+      PORT: "3001"
+      CI: "true"
+      CI_SEED_PASSWORD: ci-isolation-password-32chars-min
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: Install backend
+        working-directory: backend
+        run: npm ci
+      - name: Migrate + seed
+        working-directory: backend
+        run: |
+          npx prisma migrate deploy
+          npx prisma db seed
+      - name: Install frontend + Playwright
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: E2E smoke (login + legal + tracking)
+        working-directory: frontend
+        run: npx playwright test e2e/login.spec.ts e2e/legal-pages.spec.ts e2e/tracking-dashboard.spec.ts --reporter=github

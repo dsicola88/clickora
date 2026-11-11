@@ -1,3 +1,4 @@
+import { fill } from "@/i18n";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useCallback, useEffect, useMemo, useState, memo, startTransition } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -53,7 +54,7 @@ export function Gate({ children }: { children: React.ReactNode }) {
   const { loading, err, overview, reload, loadingExtras } = useDpilotPaid();
   if (loading) {
     return (
-      <div className="space-y-4 py-2" aria-busy="true" aria-label="A carregar dados do projecto">
+      <div className="space-y-4 py-2" aria-busy="true" aria-label={t("pages.dpilot.hub.loadingAria")}>
         <Skeleton className="h-8 w-56 max-w-full" />
         <Skeleton className="h-24 w-full max-w-2xl" />
         <Skeleton className="h-24 w-full max-w-2xl" />
@@ -70,7 +71,7 @@ export function Gate({ children }: { children: React.ReactNode }) {
           {loadingExtras ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-              A actualizar…
+              {t("pages.dpilot.hub.updating")}
             </>
           ) : (
             t("common.retry")
@@ -104,12 +105,12 @@ export function DpilotVisaoPage() {
       </div>
       {p.overview && (
         <p className="mt-4 text-xs text-muted-foreground">
-          ID do projecto (suporte): <code className="rounded bg-muted px-1 py-0.5">{p.projectId}</code>
+          {t("pages.dpilot.hub.projectId")} <code className="rounded bg-muted px-1 py-0.5">{p.projectId}</code>
         </p>
       )}
       <Card className="mt-4 border-border/80 bg-muted/20">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Fluxo rápido</CardTitle>
+          <CardTitle className="text-base">{t("pages.dpilot.hub.quickFlow")}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
           <div className="flex gap-3 rounded-lg border border-border/60 bg-background/80 p-3">
@@ -120,9 +121,9 @@ export function DpilotVisaoPage() {
               1
             </span>
             <div className="min-w-0 space-y-1">
-              <p className="text-sm font-medium">Ligar conta</p>
+              <p className="text-sm font-medium">{t("pages.dpilot.hub.connectAccount")}</p>
               <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                <Link to={`/tracking/dpilot/p/${p.projectId}/ligacoes`}>Abrir ligações</Link>
+                <Link to={`/tracking/dpilot/p/${p.projectId}/ligacoes`}>{t("pages.dpilot.hub.openConnections")}</Link>
               </Button>
             </div>
           </div>
@@ -134,13 +135,13 @@ export function DpilotVisaoPage() {
               2
             </span>
             <div className="min-w-0 space-y-1">
-              <p className="text-sm font-medium">Presell e criativos nas redes</p>
+              <p className="text-sm font-medium">{t("pages.dpilot.hub.presellCreatives")}</p>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5">
                 <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                  <Link to="/presell/dashboard">Presells / landings</Link>
+                  <Link to="/presell/dashboard">{t("pages.dpilot.hub.presells")}</Link>
                 </Button>
                 <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                  <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas`}>Campanhas</Link>
+                  <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas`}>{t("pages.dpilot.hub.campaignsLink")}</Link>
                 </Button>
               </div>
             </div>
@@ -153,9 +154,9 @@ export function DpilotVisaoPage() {
               3
             </span>
             <div className="min-w-0 space-y-1">
-              <p className="text-sm font-medium">Aprovações</p>
+              <p className="text-sm font-medium">{t("pages.dpilot.hub.approvalsLink")}</p>
               <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                <Link to={`/tracking/dpilot/p/${p.projectId}/aprovacoes`}>Ir para aprovações</Link>
+                <Link to={`/tracking/dpilot/p/${p.projectId}/aprovacoes`}>{t("pages.dpilot.hub.goApprovals")}</Link>
               </Button>
             </div>
           </div>
@@ -172,7 +173,7 @@ export function DpilotVisaoPage() {
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Modo</CardTitle>
+            <CardTitle className="text-base">{t("pages.dpilot.hub.mode")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{paidModeLabel}</p>
@@ -187,9 +188,9 @@ export function DpilotVisaoPage() {
             <p className="text-sm">
               {(p.overview?.connection as { status?: string; account_name?: string | null })?.status ===
               "connected" ? (
-                <span className="text-emerald-600 dark:text-emerald-400">Ligado</span>
+                <span className="text-emerald-600 dark:text-emerald-400">{t("pages.dpilot.hub.connected")}</span>
               ) : (
-                <span className="text-muted-foreground">Não ligado</span>
+                <span className="text-muted-foreground">{t("pages.dpilot.hub.notConnected")}</span>
               )}{" "}
               {
                 (p.overview?.connection as { account_name?: string | null })?.account_name
@@ -202,8 +203,8 @@ export function DpilotVisaoPage() {
         <DpilotGuardrailsCeilingCard />
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Filas</CardTitle>
-            <CardDescription>Pendentes</CardDescription>
+            <CardTitle className="text-base">{t("pages.dpilot.hub.queues")}</CardTitle>
+            <CardDescription>{t("pages.dpilot.hub.pending")}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{p.overview?.pending_approvals ?? "—"}</p>
@@ -223,16 +224,13 @@ export function DpilotVisaoPage() {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <Activity className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-            Registo do piloto / motor
+            {t("pages.dpilot.hub.motorLog")}
           </CardTitle>
-          <CardDescription>
-            Opcional — histórico de decisões técnicas. Na rotina pode ignorar esta página inteira e usar só Assistência e
-            Aprovações.
-          </CardDescription>
+          <CardDescription>{t("pages.dpilot.hub.motorLogDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
           <Button variant="secondary" size="sm" asChild>
-            <Link to={`/tracking/dpilot/p/${p.projectId}/auditoria`}>Abrir auditoria e execuções</Link>
+            <Link to={`/tracking/dpilot/p/${p.projectId}/auditoria`}>{t("pages.dpilot.hub.openAudit")}</Link>
           </Button>
         </CardContent>
       </Card>
@@ -241,9 +239,10 @@ export function DpilotVisaoPage() {
 }
 
 export function DpilotLigacoesPage() {
+  const { t } = useAppLocale();
   return (
     <Gate>
-      <PageHeader title="Ligações às redes" />
+      <PageHeader title={t("pages.dpilot.hub.connectionsTitle")} />
       <div className="mt-4">
         <DpilotPaidOauthGrid only="all" />
       </div>
@@ -252,6 +251,7 @@ export function DpilotLigacoesPage() {
 }
 
 export function DpilotGooglePage() {
+  const { t } = useAppLocale();
   const { projectId } = useDpilotPaid();
   return (
     <Gate>
@@ -259,7 +259,7 @@ export function DpilotGooglePage() {
         title="Google Ads"
         actions={
           <Button asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha Google</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>{t("pages.dpilot.hub.newGoogle")}</Link>
           </Button>
         }
       />
@@ -271,14 +271,15 @@ export function DpilotGooglePage() {
 }
 
 export function DpilotMetaPage() {
+  const { t } = useAppLocale();
   const { projectId, metaConn, isConnConnected, metaCounts, oauthConfig } = useDpilotPaid();
   return (
     <Gate>
       <PageHeader
-        title="Meta (Facebook + Instagram)"
+        title={t("pages.dpilot.hub.metaTitle")}
         actions={
           <Button asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/meta/nova`}>Nova campanha Meta</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/meta/nova`}>{t("pages.dpilot.hub.newMeta")}</Link>
           </Button>
         }
       />
@@ -286,32 +287,33 @@ export function DpilotMetaPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Campanhas</CardTitle>
+              <CardTitle className="text-sm">{t("pages.dpilot.hub.countCampaigns")}</CardTitle>
             </CardHeader>
             <CardContent className="text-2xl font-semibold">{metaCounts?.campaigns ?? "—"}</CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Rascunhos</CardTitle>
+              <CardTitle className="text-sm">{t("pages.dpilot.hub.countDrafts")}</CardTitle>
             </CardHeader>
             <CardContent className="text-2xl font-semibold">{metaCounts?.drafts ?? "—"}</CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Pendentes (pedidos)</CardTitle>
+              <CardTitle className="text-sm">{t("pages.dpilot.hub.countPending")}</CardTitle>
             </CardHeader>
             <CardContent className="text-2xl font-semibold">{metaCounts?.pending ?? "—"}</CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Criativos</CardTitle>
+              <CardTitle className="text-sm">{t("pages.dpilot.hub.countCreatives")}</CardTitle>
             </CardHeader>
             <CardContent className="text-2xl font-semibold">{metaCounts?.creatives ?? "—"}</CardContent>
           </Card>
         </div>
         {oauthConfig?.meta?.available && (
           <p className="text-sm text-muted-foreground">
-            Conta: {isConnConnected(metaConn) ? (metaConn?.account_name ?? "Ligada") : "Não ligada — usa &quot;Ligações&quot; para OAuth."}
+            {t("pages.dpilot.hub.accountPrefix")}{" "}
+            {isConnConnected(metaConn) ? (metaConn?.account_name ?? t("pages.dpilot.hub.accountConnected")) : t("pages.dpilot.hub.accountOffMeta")}
           </p>
         )}
         <DpilotPaidOauthGrid only="meta" />
@@ -321,14 +323,15 @@ export function DpilotMetaPage() {
 }
 
 export function DpilotTiktokPage() {
+  const { t } = useAppLocale();
   const { projectId, tikConn, isConnConnected, tiktokCounts, oauthConfig } = useDpilotPaid();
   return (
     <Gate>
       <PageHeader
-        title="TikTok Ads"
+        title={t("pages.dpilot.hub.tiktokTitle")}
         actions={
           <Button asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/tiktok/nova`}>Nova campanha TikTok</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/tiktok/nova`}>{t("pages.dpilot.hub.newTiktok")}</Link>
           </Button>
         }
       />
@@ -336,26 +339,27 @@ export function DpilotTiktokPage() {
         <div className="grid gap-4 sm:grid-cols-3">
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Campanhas</CardTitle>
+              <CardTitle className="text-sm">{t("pages.dpilot.hub.countCampaigns")}</CardTitle>
             </CardHeader>
             <CardContent className="text-2xl font-semibold">{tiktokCounts?.campaigns ?? "—"}</CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Rascunhos</CardTitle>
+              <CardTitle className="text-sm">{t("pages.dpilot.hub.countDrafts")}</CardTitle>
             </CardHeader>
             <CardContent className="text-2xl font-semibold">{tiktokCounts?.drafts ?? "—"}</CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Pendentes (pedidos)</CardTitle>
+              <CardTitle className="text-sm">{t("pages.dpilot.hub.countPending")}</CardTitle>
             </CardHeader>
             <CardContent className="text-2xl font-semibold">{tiktokCounts?.pending ?? "—"}</CardContent>
           </Card>
         </div>
         {oauthConfig?.tiktok?.available && (
           <p className="text-sm text-muted-foreground">
-            Conta: {isConnConnected(tikConn) ? (tikConn?.account_name ?? "Ligada") : "Não ligada — usa &quot;Ligações&quot;."}
+            {t("pages.dpilot.hub.accountPrefix")}{" "}
+            {isConnConnected(tikConn) ? (tikConn?.account_name ?? t("pages.dpilot.hub.accountConnected")) : t("pages.dpilot.hub.accountOffTiktok")}
           </p>
         )}
         <DpilotPaidOauthGrid only="tiktok" />
@@ -558,26 +562,18 @@ function campaignsTable(
 }
 
 export function DpilotCampanhasPage() {
+  const { t } = useAppLocale();
   const { campaigns, projectId, reload } = useDpilotPaid();
   return (
     <Gate>
       <PageHeader
-        title="Campanhas"
+        title={t("pages.dpilot.hub.campaignsTitle")}
         description={
-          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            <strong className="font-medium text-foreground">Google Ads · Pesquisa</strong> neste projecto estrutura-se em dois
-            momentos. Na <strong className="font-medium text-foreground">criação</strong>, «Nova campanha Google» permite gerar o
-            plano com assistência de IA ou defini-lo na totalidade de forma manual até à primeira publicação, respeitando os
-            guardrails do projecto. Na <strong className="font-medium text-foreground">operação contínua</strong>, o botão{" "}
-            <strong className="font-medium text-foreground">Gestão</strong> ao nível das linhas Google abre o estúdio onde
-            pode afinar estruturas, RSA, CPC, pausas e orçamento de forma próxima ao gestor de Pesquisa na conta: as mudanças
-            na rede seguem o modo Copilot («Aprovações») ou Autopilot (aplicação imediata). Outras redes usam os respectivos
-            assistentes.
-          </p>
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">{t("pages.dpilot.hub.campaignsDesc")}</p>
         }
         actions={
           <Button asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha Google</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>{t("pages.dpilot.hub.newGoogle")}</Link>
           </Button>
         }
       />
@@ -588,7 +584,7 @@ export function DpilotCampanhasPage() {
             projectId={projectId}
             reload={reload}
             showPlatformFilter
-            empty="Ainda não há campanhas neste projecto. Crie uma com «Nova campanha Google», conclua o assistente ou aplique o pedido em «Aprovações» conforme Copilot ou Autopilot. Para campanhas Google já visíveis, use «Gestão» para operações tipo gestor da rede."
+            empty={t("pages.dpilot.hub.campaignsEmpty")}
           />
         </CardContent>
       </Card>
@@ -597,15 +593,16 @@ export function DpilotCampanhasPage() {
 }
 
 export function DpilotMetaCampanhasPage() {
+  const { t } = useAppLocale();
   const { campaigns, projectId, reload } = useDpilotPaid();
   const list = useMemo(() => campaigns.filter((c) => c.platform === "meta_ads"), [campaigns]);
   return (
     <Gate>
       <PageHeader
-        title="Meta · campanhas"
+        title={t("pages.dpilot.hub.metaCampaigns")}
         actions={
           <Button asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/meta/nova`}>Nova campanha Meta</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/meta/nova`}>{t("pages.dpilot.hub.newMeta")}</Link>
           </Button>
         }
       />
@@ -616,7 +613,7 @@ export function DpilotMetaCampanhasPage() {
             projectId={projectId}
             reload={reload}
             showPlatformFilter={false}
-            empty="Sem campanhas Meta ainda. Ligue a conta em «Ligações às redes», crie uma campanha pelo assistente e, em modo Copilot, autorize os pedidos pendentes em «Aprovações»."
+            empty={t("pages.dpilot.hub.metaEmpty")}
           />
         </CardContent>
       </Card>
@@ -625,15 +622,16 @@ export function DpilotMetaCampanhasPage() {
 }
 
 export function DpilotTiktokCampanhasPage() {
+  const { t } = useAppLocale();
   const { campaigns, projectId, reload } = useDpilotPaid();
   const list = useMemo(() => campaigns.filter((c) => c.platform === "tiktok_ads"), [campaigns]);
   return (
     <Gate>
       <PageHeader
-        title="TikTok · campanhas"
+        title={t("pages.dpilot.hub.tiktokCampaigns")}
         actions={
           <Button asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/tiktok/nova`}>Nova campanha TikTok</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/tiktok/nova`}>{t("pages.dpilot.hub.newTiktok")}</Link>
           </Button>
         }
       />
@@ -644,7 +642,7 @@ export function DpilotTiktokCampanhasPage() {
             projectId={projectId}
             reload={reload}
             showPlatformFilter={false}
-            empty="Sem campanhas TikTok ainda."
+            empty={t("pages.dpilot.hub.tiktokEmpty")}
           />
         </CardContent>
       </Card>
@@ -796,6 +794,7 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
   const busy = reviewBusyChangeRequestId === cr.id;
   const editCampaignId = changeRequestCampaignIdFromPayload(cr.payload ?? null);
   const errFriendly = friendlyGoogleAdsNetworkError(cr.error_message);
+  const { t } = useAppLocale();
   const [snapBusy, setSnapBusy] = useState<null | "budget" | "geo">(null);
 
   const budgetSnap = useMemo(
@@ -821,17 +820,19 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
         return;
       }
       if (data?.adjusted) {
-        toast.success("Orçamento alinhado ao limite", {
-          description: `Definido para ${formatUsdFromMicros(budgetSnap.suggestedMicros)} por dia (guardrails).`,
+        toast.success(t("pages.dpilot.hub.budgetAligned"), {
+          description: fill(t("pages.dpilot.hub.budgetAlignedDesc"), {
+            amount: formatUsdFromMicros(budgetSnap.suggestedMicros),
+          }),
         });
       } else {
-        toast.info("Orçamento já estava dentro do limite.");
+        toast.info(t("pages.dpilot.hub.budgetAlready"));
       }
       reload();
     } finally {
       setSnapBusy(null);
     }
-  }, [budgetSnap.campaignId, budgetSnap.suggestedMicros, projectId, reload]);
+  }, [budgetSnap.campaignId, budgetSnap.suggestedMicros, projectId, reload, t]);
 
   const onSnapGeo = useCallback(async () => {
     if (!geoSnap.campaignId || geoSnap.suggestedCountries.length === 0) return;
@@ -843,17 +844,19 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
         return;
       }
       if (data?.adjusted) {
-        toast.success("Países alinhados aos guardrails", {
-          description: `Segmentação: ${geoSnap.suggestedCountries.join(", ")}.`,
+        toast.success(t("pages.dpilot.hub.geoAligned"), {
+          description: fill(t("pages.dpilot.hub.geoAlignedDesc"), {
+            countries: geoSnap.suggestedCountries.join(", "),
+          }),
         });
       } else {
-        toast.info("A segmentação já coincidia com a lista permitida.");
+        toast.info(t("pages.dpilot.hub.geoAlready"));
       }
       reload();
     } finally {
       setSnapBusy(null);
     }
-  }, [geoSnap.campaignId, geoSnap.suggestedCountries, projectId, reload]);
+  }, [geoSnap.campaignId, geoSnap.suggestedCountries, projectId, reload, t]);
 
   return (
     <div className="rounded-xl border border-border/80 bg-card/50 p-4 shadow-sm">
@@ -1191,6 +1194,7 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
 ChangeRequestCard.displayName = "ChangeRequestCard";
 
 export function DpilotAprovacoesPage() {
+  const { t } = useAppLocale();
   const p = useDpilotPaid();
   const sorted = useMemo(() => sortChangeRequests(p.changeRequests), [p.changeRequests]);
   const { reviewBusyChangeRequestId, projectId, overview, campaigns, reload } = p;
@@ -1198,29 +1202,20 @@ export function DpilotAprovacoesPage() {
   return (
     <Gate>
       <PageHeader
-        title="Aprovações"
-        description="Fila dos pedidos a revisar antes de aplicar na rede quando o modo do projecto o exige. Inclui criações novas e alterações vindas da Gestão Google Search (keywords, RSA, orçamento, pausas) sempre que estas não são enviadas de imediato à Google."
+        title={t("pages.dpilot.hub.approvalsTitle")}
+        description={t("pages.dpilot.hub.approvalsDesc")}
       />
       <Alert className="mt-4 border-primary/20 bg-primary/5">
         <Info className="h-4 w-4 text-primary" aria-hidden />
-        <AlertTitle className="text-sm font-semibold">Fluxo recomendado</AlertTitle>
+        <AlertTitle className="text-sm font-semibold">{t("pages.dpilot.hub.approvalsFlowTitle")}</AlertTitle>
         <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
-          <strong className="font-medium text-foreground">Aprovar</strong> apenas confirma no Clickora que o plano está
-          aceite. Para alterar de facto a conta Google Ads, Meta ou TikTok, utilize{" "}
-          <strong className="font-medium text-foreground">Aplicar na rede</strong>. Em cada cartão abaixo, leia «Porque
-          está aqui» — explica o papel do modo do projecto e dos guardrails. Pedidos{" "}
-          <strong className="font-medium text-foreground">rejeitados</strong> ou{" "}
-          <strong className="font-medium text-foreground">falhados</strong> podem ser removidos da fila com «Apagar da
-          lista» (admin do projecto).
+          {t("pages.dpilot.hub.approvalsFlowBody")}
         </AlertDescription>
       </Alert>
       <Card className="mt-4">
         <CardContent className="pt-6">
           {sorted.length === 0 ? (
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Nenhum pedido em fila. Quando criar uma campanha em modo Copilot, ou quando os limites de segurança
-              exigirem revisão, os pedidos aparecem aqui com um resumo legível.
-            </p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{t("pages.dpilot.hub.approvalsEmpty")}</p>
           ) : (
             <div className="space-y-4">
               {sorted.map((cr) => (
@@ -1246,6 +1241,7 @@ export function DpilotAprovacoesPage() {
 const MOTOR_PAGE_SIZE = 40;
 
 export function DpilotAuditoriaPage() {
+  const { t } = useAppLocale();
   const { projectId } = useDpilotPaid();
   const [motorRows, setMotorRows] = useState<OptimizerDecisionRow[]>([]);
   const [motorTotal, setMotorTotal] = useState(0);
@@ -1311,14 +1307,14 @@ export function DpilotAuditoriaPage() {
   return (
     <Gate>
       <PageHeader
-        title="Auditoria & conformidade"
+        title={t("pages.dpilot.hub.auditTitle")}
       />
 
       <Card className="mt-4 border-border/80">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Activity className="h-4 w-4 text-primary" aria-hidden />
-            Motor automático — decisões recentes
+            {t("pages.dpilot.hub.motorTitle")}
           </CardTitle>
           <CardDescription>
             Paginação offset/limit no servidor; cada linha corresponde a um evento persistido na base de dados com
@@ -1461,14 +1457,14 @@ export function DpilotAuditoriaPage() {
 
       <Card className="mt-8 border-border/80">
         <CardHeader>
-          <CardTitle className="text-base">Execuções de IA (assistente)</CardTitle>
+          <CardTitle className="text-base">{t("pages.dpilot.hub.aiTitle")}</CardTitle>
           <CardDescription>Últimos pedidos ao modelo para gerar planos de campanha neste projecto.</CardDescription>
         </CardHeader>
         <CardContent>
           {aiLoading ? (
-            <p className="text-sm text-muted-foreground">A carregar…</p>
+            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
           ) : aiRows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem registos de IA para este projecto.</p>
+            <p className="text-sm text-muted-foreground">{t("pages.dpilot.hub.aiEmpty")}</p>
           ) : (
             <ul className="space-y-2">
               {aiRows.map((r, i) => (
@@ -1485,19 +1481,20 @@ export function DpilotAuditoriaPage() {
 }
 
 export function DpilotEquipaPage() {
+  const { t } = useAppLocale();
   return (
     <div>
       <PageHeader
-        title="Equipa e permissões"
+        title={t("pages.dpilot.hub.teamTitle")}
       />
       <Card className="mt-4">
         <CardContent className="pt-6 text-sm text-muted-foreground leading-relaxed">
           <p>
-            Convites e papéis são tratados na área{" "}
+            {t("pages.dpilot.hub.teamBefore")}{" "}
             <Button variant="link" className="h-auto p-0" asChild>
-              <Link to="/conta">Conta</Link>
+              <Link to="/conta">{t("pages.dpilot.hub.accountLink")}</Link>
             </Button>
-            — membros autorizados acedem aos mesmos projectos de anúncios conforme o seu nível de acesso.
+            {t("pages.dpilot.hub.teamAfter")}
           </p>
         </CardContent>
       </Card>
@@ -1506,19 +1503,17 @@ export function DpilotEquipaPage() {
 }
 
 export function DpilotLandingsPage() {
+  const { t } = useAppLocale();
   return (
     <div>
       <PageHeader
-        title="Páginas de destino"
+        title={t("pages.dpilot.hub.landingsTitle")}
       />
       <Card className="mt-4">
         <CardContent className="pt-6 space-y-3 text-sm text-muted-foreground">
-          <p>
-            A URL final do anúncio é a presell publicada. Em Presells, use o megafone ou «Anunciar no Google Ads»
-            depois de gerar a página — o assistente abre já com esse link.
-          </p>
+          <p>{t("pages.dpilot.hub.landingsBody")}</p>
           <Button asChild>
-            <Link to="/presell/dashboard">Abrir minhas presells / landings</Link>
+            <Link to="/presell/dashboard">{t("pages.dpilot.hub.openPresells")}</Link>
           </Button>
         </CardContent>
       </Card>

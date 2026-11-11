@@ -48,6 +48,16 @@ import { normalizeUtmDimension, isUnreplacedAdMacro } from "../lib/adUrlMacros";
 import { planAllowsAffiliateWebhook } from "../lib/planAffiliateWebhook";
 import { recordTrackRedirectLatency } from "../lib/opsObservability";
 import { extractClientIp } from "../lib/clientIp";
+import {
+  cleanAdClickId,
+  compactTrackingMeta,
+  firstQueryString,
+  parseCsvSimple,
+  realClickIdQuery,
+  realUtmDimensionBody,
+  realUtmDimensionQuery,
+  requestCookieValue,
+} from "../lib/trackQueryHelpers";
 import { formatDeviceLabel, parseUserAgent } from "../lib/parseUserAgent";
 import { isFunnelStep, recordAffiliateFunnelStep } from "../lib/funnelStepEvent";
 import { fillMissingAdClickIds, forwardAdQueryToUrl, rotatorMetaFromParentClick } from "../lib/rotatorParentAttribution";
@@ -110,12 +120,6 @@ const eventSchema = z.object({
   campaign: z.string().optional(),
   referrer: z.string().optional(),
 });
-
-function cleanAdClickId(raw: string | undefined | null): string | undefined {
-  const v = typeof raw === "string" ? raw.trim() : "";
-  if (!v || isUnreplacedAdMacro(v)) return undefined;
-  return v;
-}
 
 const redirectSchema = z
   .object({
@@ -231,54 +235,6 @@ async function recordFunnelStepFromPixel(req: Request, res: Response) {
   });
 
   return sendTrackingPixelGif(res);
-}
-
-function firstQueryString(q: Request["query"], key: string): string | undefined {
-  const v = q[key];
-  if (typeof v === "string" && v.trim()) return v.trim();
-  if (Array.isArray(v) && typeof v[0] === "string" && v[0].trim()) return v[0].trim();
-  return undefined;
-}
-
-/** Descarta macros não substituídas (`{gclid}`, `{{campaign.name}}`, …). */
-function realClickIdQuery(q: Request["query"], key: string): string | undefined {
-  const v = firstQueryString(q, key);
-  if (!v || isUnreplacedAdMacro(v)) return undefined;
-  return v;
-}
-
-/** utm_term / utm_content: ignora `{keyword}` literal (teste manual ou URL mal gerada). */
-function realUtmDimensionQuery(q: Request["query"], key: string): string | undefined {
-  return normalizeUtmDimension(firstQueryString(q, key)) ?? undefined;
-}
-
-function realUtmDimensionBody(raw: string | undefined | null): string | undefined {
-  return normalizeUtmDimension(raw) ?? undefined;
-}
-
-function compactTrackingMeta(obj: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (v === undefined || v === null) continue;
-    if (typeof v === "string" && !v.trim()) continue;
-    out[k] = v;
-  }
-  return out;
-}
-
-/** Lê cookie de primeiro partido no pedido (ex.: `_fbp` / `_ttp` no host da lander). */
-function requestCookieValue(req: Request, name: string): string | undefined {
-  const raw = req.headers.cookie;
-  if (!raw || typeof raw !== "string") return undefined;
-  const re = new RegExp(`(?:^|;\\s*)${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]*)`);
-  const m = raw.match(re);
-  if (!m?.[1]) return undefined;
-  try {
-    const v = decodeURIComponent(m[1].trim());
-    return v || undefined;
-  } catch {
-    return m[1].trim() || undefined;
-  }
 }
 
 /** Query string do GET /track/pixel/… — mesma atribuição que o redirect de clique (UTMs + IDs de rede). */
@@ -1902,18 +1858,6 @@ export const trackController = {
     });
   },
 };
-
-function parseCsvSimple(text: string): string[][] {
-  const rows: string[][] = [];
-  for (const line of text.split(/\r?\n/)) {
-    const t = line.trim();
-    if (!t) continue;
-    rows.push(
-      t.split(",").map((cell) => cell.replace(/^"|"$/g, "").trim()),
-    );
-  }
-  return rows;
-}
 
 function detectDevice(ua: string): string {
   return parseUserAgent(ua).device;

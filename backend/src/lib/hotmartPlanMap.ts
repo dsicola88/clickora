@@ -1,6 +1,7 @@
 import type { PlanType } from "@prisma/client";
 
-const VALID_PLAN_TYPES: PlanType[] = ["free_trial", "monthly", "quarterly", "annual"];
+/** Tipos comerciais activos. `quarterly` saiu do seed — não mapear (evita plan_not_configured). */
+const VALID_PLAN_TYPES: PlanType[] = ["free_trial", "monthly", "annual"];
 
 export type HotmartPlanResolution = {
   planType: PlanType;
@@ -8,6 +9,11 @@ export type HotmartPlanResolution = {
   matched: boolean;
   lookupKey: string | null;
   source: "map" | "fallback";
+  /**
+   * Mapa tem entradas mas o código da compra não bateu.
+   * Webhook não deve activar entitlement com o default (risco anual→mensal).
+   */
+  mapMissWithConfiguredMap: boolean;
 };
 
 export type HotmartPlanMapInspection = {
@@ -48,7 +54,9 @@ function resolveFallback(): { planType: PlanType; fromEnv: boolean } {
 
 /**
  * Mapeia oferta/produto Hotmart → PlanType.
- * Miss no mapa (com código presente) → fallback + warning operacional (não falha o webhook).
+ * - Hit no mapa → PlanType mapeado.
+ * - Mapa configurado + miss → `mapMissWithConfiguredMap` (webhook deve recusar activar).
+ * - Sem mapa → fallback (compat / bootstrap).
  */
 export function resolvePlanType(
   productCode: string | null,
@@ -57,23 +65,42 @@ export function resolvePlanType(
   const { map, error } = parseMap(process.env.HOTMART_PLAN_MAP || "{}");
   const { planType: fallback } = resolveFallback();
   const lookupKey = offerCode || productCode || null;
+  const mapConfigured = Object.keys(map).length > 0 && !error;
 
   if (error) {
     console.warn(`[hotmart-webhook] HOTMART_PLAN_MAP JSON inválido — a usar fallback (${error})`);
   }
 
   if (lookupKey && map[lookupKey]) {
-    return { planType: map[lookupKey], matched: true, lookupKey, source: "map" };
+    return {
+      planType: map[lookupKey],
+      matched: true,
+      lookupKey,
+      source: "map",
+      mapMissWithConfiguredMap: false,
+    };
   }
 
-  if (lookupKey) {
+  const mapMissWithConfiguredMap = Boolean(lookupKey && mapConfigured);
+
+  if (mapMissWithConfiguredMap) {
     console.warn(
-      `[hotmart-webhook] HOTMART_PLAN_MAP miss offer=${offerCode ?? "-"} product=${productCode ?? "-"} → fallback=${fallback}. ` +
-        "Confirme o mapa em produção para não sub-entregar (ex.: anual → mensal).",
+      `[hotmart-webhook] HOTMART_PLAN_MAP miss offer=${offerCode ?? "-"} product=${productCode ?? "-"} ` +
+        `(mapa com ${Object.keys(map).length} entradas) — não activar com fallback=${fallback}.`,
+    );
+  } else if (lookupKey) {
+    console.warn(
+      `[hotmart-webhook] HOTMART_PLAN_MAP vazio/ausente offer=${offerCode ?? "-"} product=${productCode ?? "-"} → fallback=${fallback}.`,
     );
   }
 
-  return { planType: fallback, matched: false, lookupKey, source: "fallback" };
+  return {
+    planType: fallback,
+    matched: false,
+    lookupKey,
+    source: "fallback",
+    mapMissWithConfiguredMap,
+  };
 }
 
 /** Vista ops (admin): estado do mapa sem secrets. */

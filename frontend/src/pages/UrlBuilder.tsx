@@ -22,6 +22,7 @@ import { UrlBuilderTokenModalBody } from "@/components/tracking/UrlBuilderTokenM
 import { AdNetworkTokensReferenceDialog } from "@/components/tracking/AdNetworkTokensReferenceDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import type { MessageKey } from "@/i18n";
 import {
   Command,
   CommandEmpty,
@@ -115,7 +116,7 @@ const defaultParams: Record<
     {
       key: "utm_campaign",
       value: "",
-      valuePlaceholder: "Slug da campanha Clickora (ex.: neotonics-us) — igual ao link da ficha",
+      valuePlaceholder: "pages.urlBuilder.slugExample",
     },
     { key: "utm_content", value: "{adgroupid}" },
     { key: "utm_term", value: "{keyword}" },
@@ -130,7 +131,7 @@ const defaultParams: Record<
     {
       key: "utm_campaign",
       value: "",
-      valuePlaceholder: "Slug da campanha Clickora (igual ao link da ficha)",
+      valuePlaceholder: "pages.urlBuilder.slugMatch",
     },
     { key: "utm_content", value: "{{ad.name}}" },
     // Meta acrescenta fbclid sozinha no URL final — não forçar fbclid= vazio.
@@ -141,7 +142,7 @@ const defaultParams: Record<
     {
       key: "utm_campaign",
       value: "",
-      valuePlaceholder: "Slug da campanha Clickora (igual ao link da ficha)",
+      valuePlaceholder: "pages.urlBuilder.slugMatch",
     },
     { key: "utm_content", value: "{adgroup_name}" },
     // TikTok acrescenta o click id — não forçar ttclid={ttclid}.
@@ -150,7 +151,7 @@ const defaultParams: Record<
     { key: "utm_source", value: "bing" },
     { key: "utm_medium", value: "cpc" },
     /** Slug Clickora — alinhado ao P&L; não {CampaignId}. */
-    { key: "utm_campaign", value: "", valuePlaceholder: "Slug da campanha Clickora (igual ao link da ficha)" },
+    { key: "utm_campaign", value: "", valuePlaceholder: "pages.urlBuilder.slugMatch" },
     { key: "utm_content", value: "{AdGroupId}" },
     { key: "utm_term", value: "{keyword}" },
     // Microsoft Ads acrescenta msclkid — não forçar msclkid={msclkid}.
@@ -161,7 +162,7 @@ const defaultParams: Record<
     {
       key: "utm_campaign",
       value: "",
-      valuePlaceholder: "Slug da campanha Clickora",
+      valuePlaceholder: "pages.urlBuilder.slugShort",
     },
     { key: "tblci", value: "{click_id}", highlight: true },
   ],
@@ -171,7 +172,7 @@ const defaultParams: Record<
     {
       key: "utm_campaign",
       value: "",
-      valuePlaceholder: "Slug da campanha Clickora",
+      valuePlaceholder: "pages.urlBuilder.slugShort",
     },
     { key: "obclid", value: "{ob_click_id}", highlight: true },
   ],
@@ -181,7 +182,7 @@ const defaultParams: Record<
     {
       key: "utm_campaign",
       value: "",
-      valuePlaceholder: "Slug da campanha Clickora",
+      valuePlaceholder: "pages.urlBuilder.slugShort",
     },
     { key: "epik", value: "{epik}", highlight: true },
   ],
@@ -191,7 +192,7 @@ const defaultParams: Record<
     {
       key: "utm_campaign",
       value: "",
-      valuePlaceholder: "Slug da campanha Clickora",
+      valuePlaceholder: "pages.urlBuilder.slugShort",
     },
     { key: "clickid", value: "{click_id}", highlight: true },
   ],
@@ -201,7 +202,7 @@ const defaultParams: Record<
     {
       key: "utm_campaign",
       value: "",
-      valuePlaceholder: "Slug da campanha Clickora",
+      valuePlaceholder: "pages.urlBuilder.slugShort",
     },
     { key: "twclid", value: "", highlight: true },
   ],
@@ -249,7 +250,7 @@ const defaultParams: Record<
       key: "subid2",
       value: "",
       keyReadonly: true,
-      valuePlaceholder: "Opcional: {gclid} ou {msclkid}",
+      valuePlaceholder: "pages.urlBuilder.optionalClickIds",
     },
     { key: "subid3", value: "", keyReadonly: true },
     { key: "subid4", value: "", keyReadonly: true },
@@ -260,7 +261,7 @@ const defaultParams: Record<
       key: "sub3",
       value: "",
       keyReadonly: true,
-      valuePlaceholder: "A Clickora preenche o ID do clique; deixe vazio no link base da oferta",
+      valuePlaceholder: "pages.urlBuilder.clickFilled",
     },
     { key: "sub1", value: "", keyReadonly: true },
     { key: "sub2", value: "", keyReadonly: true },
@@ -407,21 +408,21 @@ export default function UrlBuilder() {
   }, [baseUrl, trackingQueryString]);
 
   const handleCopy = () => {
-    if (!generatedUrl) { toast.error("Preencha com uma URL válida"); return; }
+    if (!generatedUrl) { toast.error(t("pages.urlBuilder.needUrl")); return; }
     navigator.clipboard.writeText(generatedUrl);
     setCopied(true);
-    toast.success("URL copiada!");
+    toast.success(t("pages.urlBuilder.copied"));
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleCopyGoogleAdsSuffix = () => {
     if (!trackingQueryString) {
-      toast.error("Adicione parâmetros ou escolha Google Ads para gerar o sufixo.");
+      toast.error(t("pages.urlBuilder.needSuffix"));
       return;
     }
     navigator.clipboard.writeText(trackingQueryString);
     setCopiedGoogleSuffix(true);
-    toast.success("Sufixo copiado — cole no Google Ads (sufixo do URL final).");
+    toast.success(t("pages.urlBuilder.suffixCopied"));
     setTimeout(() => setCopiedGoogleSuffix(false), 2000);
   };
 
@@ -434,25 +435,25 @@ export default function UrlBuilder() {
 
   const buildStatus = useMemo(() => {
     if (!baseUrl.trim()) {
-      return { label: "Indique o URL base", variant: "secondary" as const };
+      return { label: t("pages.urlBuilder.statusNeedBase"), variant: "secondary" as const };
     }
     if (!baseUrlValid) {
-      return { label: "URL base inválido", variant: "destructive" as const };
+      return { label: t("pages.urlBuilder.statusBadBase"), variant: "destructive" as const };
     }
     if (!platform) {
-      return { label: "Plataforma por definir", variant: "outline" as const };
+      return { label: t("pages.urlBuilder.statusNeedPlatform"), variant: "outline" as const };
     }
-    return { label: "Pronto para copiar", variant: "default" as const };
-  }, [baseUrl, baseUrlValid, platform]);
+    return { label: t("pages.urlBuilder.statusReady"), variant: "default" as const };
+  }, [baseUrl, baseUrlValid, platform, t]);
 
   const flowSteps = [
-    "Construtor: montas o link da página para a rede de anúncios escolhida.",
-    "O visitante clica no anúncio; a rede preenche os dados reais do clique.",
-    "A página abre e a Clickora regista a visita e o clique.",
-    "No botão da oferta, a Clickora liga esse clique ao teu link da rede de afiliados.",
-    "Quando há venda, o aviso da rede (Integrações) fecha a conversão na Clickora.",
-    "Com Google Ads ligado, a venda pode ser enviada de volta ao Google.",
-    "Com Microsoft/Bing, o mesmo: o aviso em Integrações fecha a venda quando a rede notificar.",
+    t("pages.urlBuilder.flow1"),
+    t("pages.urlBuilder.flow2"),
+    t("pages.urlBuilder.flow3"),
+    t("pages.urlBuilder.flow4"),
+    t("pages.urlBuilder.flow5"),
+    t("pages.urlBuilder.flow6"),
+    t("pages.urlBuilder.flow7"),
   ];
 
   return (
@@ -481,15 +482,11 @@ export default function UrlBuilder() {
 
       {showPresellWelcome ? (
         <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] px-4 py-3 sm:px-5 space-y-2">
-          <p className="text-sm font-semibold text-foreground">Seguinte passo: link para anúncios</p>
-          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-            O <strong className="text-foreground/90">URL base</strong> é o link público da tua página. Escolhe a
-            plataforma (Google, Meta, etc.), copia o URL gerado e cola no anúncio. O botão da página continua a usar
-            o teu link da oferta; as vendas fecham com o aviso de venda em Integrações.
-          </p>
+          <p className="text-sm font-semibold text-foreground">{t("pages.urlBuilder.nextStep")}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{t("pages.urlBuilder.nextStepBody")}</p>
           {presellOfferHint ? (
             <p className="text-[11px] text-muted-foreground leading-snug break-all border-t border-emerald-500/20 pt-2 mt-2">
-              <span className="font-medium text-foreground/85">Link de afiliado na presell (referência): </span>
+              <span className="font-medium text-foreground/85">{t("pages.urlBuilder.offerRef")} </span>
               {presellOfferHint}
             </p>
           ) : null}
@@ -501,13 +498,13 @@ export default function UrlBuilder() {
           <div className="min-w-0 space-y-1">
             <nav
               className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground"
-              aria-label="Navegação contextual"
+              aria-label={t("pages.urlBuilder.breadcrumb")}
             >
               <Link to="/integracoes" className="hover:text-foreground transition-colors">
-                Integrações
+                {t("pages.urlBuilder.integrations")}
               </Link>
               <ChevronRight className="h-3 w-3 shrink-0 opacity-50" aria-hidden />
-              <span className="font-medium text-foreground">Construtor de URL</span>
+              <span className="font-medium text-foreground">{t("pages.urlBuilder.crumb")}</span>
               {platform ? (
                 <>
                   <ChevronRight className="h-3 w-3 shrink-0 opacity-50" aria-hidden />
@@ -518,14 +515,14 @@ export default function UrlBuilder() {
               ) : null}
             </nav>
             <h2 className="text-base font-semibold text-foreground tracking-tight">
-              Montar link público da presell
+              {t("pages.urlBuilder.buildHeading")}
             </h2>
           </div>
           <div className="flex items-center gap-2.5 shrink-0">
             {baseUrlValid ? (
               <span
                 className="hidden sm:inline h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.45)]"
-                title="URL base HTTPS válido"
+                title={t("pages.urlBuilder.baseValidTitle")}
                 aria-hidden
               />
             ) : null}
@@ -539,19 +536,19 @@ export default function UrlBuilder() {
           <Tabs defaultValue="configure" className="w-full">
             <TabsList className="grid w-full grid-cols-3 sm:inline-flex sm:w-auto h-auto gap-1 p-1">
               <TabsTrigger value="configure" className="text-xs sm:text-sm px-2 sm:px-3">
-                Configurar
+                {t("pages.urlBuilder.tabConfigure")}
               </TabsTrigger>
               <TabsTrigger value="result" className="text-xs sm:text-sm px-2 sm:px-3">
-                Resultado
+                {t("pages.urlBuilder.tabResult")}
               </TabsTrigger>
               <TabsTrigger value="guide" className="text-xs sm:text-sm px-2 sm:px-3">
-                Guia
+                {t("pages.urlBuilder.tabGuide")}
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="configure" className="mt-5 space-y-6 outline-none">
               <div className="space-y-2">
-                <Label htmlFor="platform-combobox">Plataforma</Label>
+                <Label htmlFor="platform-combobox">{t("pages.urlBuilder.platform")}</Label>
                 <Popover open={platformOpen} onOpenChange={setPlatformOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -563,16 +560,16 @@ export default function UrlBuilder() {
                       className="w-full max-w-xl justify-between font-normal h-11 px-3"
                     >
                       <span className={cn("truncate", !platform && "text-muted-foreground")}>
-                        {platform || "Escolher plataforma (ex.: BuyGoods, Google Ads)…"}
+                        {platform || t("pages.urlBuilder.platformPlaceholder")}
                       </span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="p-0 w-[min(28rem,calc(100vw-2rem))]" align="start">
                     <Command>
-                      <CommandInput placeholder="Filtrar plataformas…" className="h-11" />
+                      <CommandInput placeholder={t("pages.urlBuilder.filterPlatforms")} className="h-11" />
                       <CommandList>
-                        <CommandEmpty>Nenhuma plataforma encontrada.</CommandEmpty>
+                        <CommandEmpty>{t("pages.urlBuilder.noPlatform")}</CommandEmpty>
                         <CommandGroup>
                           {URL_BUILDER_PLATFORMS.map((p) => (
                             <CommandItem
@@ -592,28 +589,23 @@ export default function UrlBuilder() {
                   </PopoverContent>
                 </Popover>
                 <p className="text-[11px] text-muted-foreground">
-                  Rede de afiliados ou de anúncios. Escreve para filtrar.
+                  {t("pages.urlBuilder.platformFilterHint")}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label>URL base (presell pública)</Label>
+                <Label>{t("pages.urlBuilder.baseUrl")}</Label>
                 <Input
-                  placeholder="https://dclickora.com/p/uuid-da-presell"
+                  placeholder={t("pages.urlBuilder.basePlaceholder")}
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
                   className="font-mono text-sm max-w-4xl"
                 />
                 {platform === "Google Ads" && (
                   <div className="space-y-1.5 max-w-4xl text-[11px] text-muted-foreground">
-                    <p>
-                      Usa o link da página (<span className="font-mono">/p/…</span>). Os parâmetros abaixo são
-                      preenchidos pelo Google quando alguém clica no anúncio.
-                    </p>
+                    <p>{t("pages.urlBuilder.googlePageHint")}</p>
                     <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-amber-950 dark:text-amber-100">
-                      Em Google Ads → Configurações da conta → <strong>Codificação automática = Sim</strong>. Prefere
-                      o <strong>sufixo do URL final</strong> abaixo. Não abras este link no browser para testar — usa
-                      um clique real no anúncio.
+                      {t("pages.urlBuilder.googleAutoTag")}
                     </p>
                   </div>
                 )}
@@ -622,9 +614,9 @@ export default function UrlBuilder() {
               {platform && (
                 <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-4 sm:px-5 space-y-3">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <Label className="text-sm font-semibold">Parâmetros</Label>
+                    <Label className="text-sm font-semibold">{t("pages.urlBuilder.params")}</Label>
                     <p className="text-[10px] text-muted-foreground">
-                      Valor + <span className="font-mono">+</span> para tokens Google / Microsoft (+ outras redes).
+                      {t("pages.urlBuilder.tokenRowHint")}
                     </p>
                   </div>
                   <div className="space-y-2">
@@ -638,7 +630,7 @@ export default function UrlBuilder() {
                       >
                         {param.highlight ? (
                           <p className="text-[10px] font-semibold uppercase tracking-wide text-primary mb-2">
-                            ID de clique — recomendado
+                            {t("pages.urlBuilder.clickIdRecommended")}
                           </p>
                         ) : null}
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
@@ -659,7 +651,7 @@ export default function UrlBuilder() {
                                 value={param.key}
                                 onChange={(e) => updateParam(i, "key", e.target.value)}
                                 className="font-mono text-xs h-10"
-                                placeholder="chave"
+                                placeholder={t("pages.urlBuilder.keyPlaceholder")}
                               />
                             )}
                           </div>
@@ -672,12 +664,12 @@ export default function UrlBuilder() {
                             )}
                             placeholder={
                               param.valuePlaceholder
-                                ? param.valuePlaceholder
+                                ? t(param.valuePlaceholder as MessageKey)
                                 : param.highlight
-                                  ? "Insira o token (+) ou {gclid} / {msclkid}"
+                                  ? t("pages.urlBuilder.insertToken")
                                   : param.key === "gbraid" || param.key === "wbraid"
-                                    ? "Opcional (iOS / apps)"
-                                    : "Valor ou macro"
+                                    ? t("pages.urlBuilder.optionalIos")
+                                    : t("pages.urlBuilder.valueOrMacro")
                             }
                           />
                           <div className="flex items-center gap-1 shrink-0 justify-end sm:justify-start">
@@ -686,7 +678,7 @@ export default function UrlBuilder() {
                               size="icon"
                               className="h-10 w-10 shrink-0 border-primary/30 text-primary hover:bg-primary/10"
                               onClick={() => setTokenDialog({ open: true, rowIndex: i })}
-                              title="Selecionar token"
+                              title={t("pages.urlBuilder.pickToken")}
                             >
                               <Plus className="h-4 w-4" />
                             </Button>
@@ -695,7 +687,7 @@ export default function UrlBuilder() {
                               size="icon"
                               className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
                               onClick={() => removeParam(i)}
-                              title="Remover linha"
+                              title={t("pages.urlBuilder.removeRow")}
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -705,13 +697,13 @@ export default function UrlBuilder() {
                     ))}
                   </div>
                   <Button variant="outline" size="sm" onClick={addParam} className="mt-1">
-                    <Plus className="h-3 w-3 mr-1" /> Adicionar parâmetro
+                    <Plus className="h-3 w-3 mr-1" /> {t("pages.urlBuilder.addParam")}
                   </Button>
                 </div>
               )}
 
               <p className="text-[11px] text-muted-foreground">
-                O URL completo e o sufixo Google Ads estão no separador <strong className="text-foreground/90">Resultado</strong>.
+                {t("pages.urlBuilder.resultHint")}
               </p>
             </TabsContent>
 
@@ -719,13 +711,8 @@ export default function UrlBuilder() {
               {platform === "Google Ads" && trackingQueryString ? (
                 <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.06] px-4 py-4 space-y-3">
                   <div className="space-y-1">
-                    <p className="text-sm font-semibold text-foreground">Sufixo do URL final (Google Ads)</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      No <strong className="text-foreground/90">URL final</strong> use só a presell (ex.{" "}
-                      <span className="font-mono text-[10px]">https://…/p/…</span> <strong className="text-foreground/90">sem</strong> query). Em{" "}
-                      <strong className="text-foreground/90">Sufixo do URL final</strong> cole a linha abaixo —{" "}
-                      <strong className="text-foreground/90">sem</strong> <span className="font-mono">?</span> no início.
-                    </p>
+                    <p className="text-sm font-semibold text-foreground">{t("pages.urlBuilder.suffixTitle")}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{t("pages.urlBuilder.finalUrlBody")}</p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
                     <div
@@ -741,7 +728,7 @@ export default function UrlBuilder() {
                       onClick={handleCopyGoogleAdsSuffix}
                     >
                       {copiedGoogleSuffix ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                      {copiedGoogleSuffix ? "Copiado" : "Copiar sufixo"}
+                      {copiedGoogleSuffix ? t("common.copied") : t("common.copy")}
                     </Button>
                   </div>
                 </div>
@@ -749,12 +736,12 @@ export default function UrlBuilder() {
 
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground">
-                  URL gerado (IDs de clique em negrito e sublinhados)
+                  {t("pages.urlBuilder.generatedUrl")}
                 </Label>
                 <div className="flex items-stretch gap-2">
                   <div
                     role="status"
-                    aria-label="URL gerada"
+                    aria-label={t("pages.urlBuilder.generatedUrlAria")}
                     className={cn(
                       "flex min-h-[4rem] flex-1 rounded-md border border-input bg-muted/10 px-3 py-2.5 font-mono text-xs leading-relaxed text-foreground shadow-inner",
                       !generatedUrl && "text-muted-foreground items-center",
@@ -763,17 +750,17 @@ export default function UrlBuilder() {
                     {generatedUrl ? (
                       highlightGeneratedUrlPreview(generatedUrl)
                     ) : (
-                      "Configura o URL base no separador «Configurar»."
+                      t("pages.urlBuilder.needBaseTab")
                     )}
                   </div>
                   {generatedUrl && isAbsoluteHttpUrl(generatedUrl) ? (
-                    <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" asChild title="Abrir num separador">
+                    <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" asChild title={t("pages.urlBuilder.openTab")}>
                       <a href={generatedUrl} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="h-4 w-4" />
                       </a>
                     </Button>
                   ) : null}
-                  <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" onClick={handleCopy} title="Copiar URL">
+                  <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" onClick={handleCopy} title={t("pages.urlBuilder.copyUrl")}>
                     {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
@@ -782,11 +769,8 @@ export default function UrlBuilder() {
 
             <TabsContent value="guide" className="mt-5 space-y-4 outline-none">
               <div className="rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-4 sm:px-5 space-y-3">
-                <p className="text-sm font-semibold text-foreground">Fluxo: anúncio → página → oferta → venda</p>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Montas o link da página para o anúncio; no clique a rede preenche os dados; a Clickora liga o
-                  visitante à oferta; o aviso de venda em Integrações regista a conversão.
-                </p>
+                <p className="text-sm font-semibold text-foreground">{t("pages.urlBuilder.flowTitle")}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{t("pages.urlBuilder.flowSummary")}</p>
                 <Collapsible defaultOpen={false} className="space-y-2">
                   <CollapsibleTrigger asChild>
                     <button
@@ -794,7 +778,7 @@ export default function UrlBuilder() {
                       className="flex w-full items-center gap-2 rounded-lg border border-primary/15 bg-background/60 px-3 py-2 text-left text-xs font-medium text-primary hover:bg-background/90 transition-colors [&[data-state=open]>svg]:rotate-180"
                     >
                       <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" aria-hidden />
-                      Passo a passo detalhado e nota sobre URL final na rede
+                      {t("pages.urlBuilder.flowMore")}
                     </button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-3 data-[state=closed]:animate-none">
@@ -806,9 +790,7 @@ export default function UrlBuilder() {
                       ))}
                     </ol>
                     <p className="text-[11px] text-muted-foreground leading-snug border-t border-primary/10 pt-3">
-                      Cola em <strong className="text-foreground/90">URL final</strong> da campanha o endereço público da
-                      página (o link que a Clickora dá ao publicar), não o link directo da rede. O rastreamento trata do
-                      resto. Para estatística por anúncio, use o Construtor com fonte/campanha/criativo no caminho.
+                      {t("pages.urlBuilder.flowNote")}
                     </p>
                   </CollapsibleContent>
                 </Collapsible>
@@ -824,10 +806,9 @@ export default function UrlBuilder() {
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <DialogHeader className="px-5 pt-5 pb-2 shrink-0 text-left space-y-1 border-b border-border/60">
-            <DialogTitle className="text-base sm:text-lg">Selecione um token</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">{t("pages.urlBuilder.pickToken")}</DialogTitle>
             <p className="text-xs sm:text-sm text-muted-foreground font-normal leading-relaxed pr-2">
-              Dois cliques nos marcadores Google ou Microsoft; a rede substitui no clique real. Meta, TikTok, etc. estão na
-              pesquisa abaixo.
+              {t("pages.urlBuilder.pickTokenHint")}
             </p>
           </DialogHeader>
           <div className="px-5 py-4 flex-1 min-h-0 overflow-y-auto">
@@ -835,7 +816,7 @@ export default function UrlBuilder() {
               key={tokenDialog.open ? `tok-${tokenDialog.rowIndex}` : "tok-closed"}
               onSelectToken={insertToken}
               allSectionsOrdered={tokenSectionsOrdered}
-              searchPlaceholder="Pesquisar (ex.: fbclid, campanha TikTok, Taboola)…"
+              searchPlaceholder={t("pages.urlBuilder.searchTokens")}
             />
           </div>
         </DialogContent>
