@@ -6,7 +6,8 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 WORKDIR /app
 
 COPY backend/package.json backend/package-lock.json ./backend/
-RUN cd backend && npm ci
+# Railway injecta NODE_ENV=production no build — --include=dev garante typescript/prisma para `npm run build`.
+RUN cd backend && npm ci --include=dev
 # Chromium para importar presells de landings que montam o hero em JavaScript (primeira dobra real).
 RUN cd backend && npx playwright install --with-deps chromium
 

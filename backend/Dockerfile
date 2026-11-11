@@ -6,7 +6,8 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+# Railway injecta NODE_ENV=production no build — --include=dev garante typescript/prisma para `npm run build`.
+RUN npm ci --include=dev
 RUN npx playwright install --with-deps chromium
 
 COPY . .

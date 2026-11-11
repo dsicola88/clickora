@@ -30,9 +30,8 @@ export const brandingController = {
       });
     }
     return res.json({
-      has_favicon: true,
-      updated_at: row.updatedAt.toISOString(),
       ...support,
+      has_favicon: true,
     });
   },
 
@@ -69,10 +68,9 @@ export const brandingController = {
 
       return res.json({
         message: "Favicon atualizado",
+        ...mapSiteSupportContacts(row),
         has_favicon: true,
         storage: saved.storage,
-        updated_at: row.updatedAt.toISOString(),
-        ...mapSiteSupportContacts(row),
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Falha no upload";
