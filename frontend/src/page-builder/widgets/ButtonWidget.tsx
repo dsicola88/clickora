@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useAppLocale } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
