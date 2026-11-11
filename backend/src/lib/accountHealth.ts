@@ -239,17 +239,17 @@ export async function buildAccountHealth(args: {
       ok:
         domainGoLive.verified_hosting === 0 ||
         domainGoLive.ad_ready_hosting > 0,
-      title: "Domínio pronto para anúncios (HTTPS)",
+      title: "Domínio pronto para anúncios",
       detail:
         domainGoLive.verified_hosting === 0
-          ? "A usar o domínio da app — OK para testes. Para Final URL própria, verifique o domínio e aguarde HTTPS pronto."
+          ? "A usar o domínio da app — OK para testes. Para Final URL própria, verifique o domínio e aguarde «Pronto para anúncios»."
           : domainGoLive.ad_ready_hosting > 0
             ? `${domainGoLive.ad_ready_hosting} domínio(s) hosting pronto(s) para Final URL.`
             : domainGoLive.misconfigured > 0
-              ? "DNS mal configurado na Vercel — corrija o CNAME/A em Configurações → Domínios."
+              ? "DNS mal configurado — corrija o CNAME/A em Configurações → Domínios."
               : domainGoLive.ssl_provisioning > 0
-                ? "DNS verificado, mas o SSL ainda está a provisionar — não use esse hostname em anúncios até «HTTPS pronto»."
-                : "Domínio verificado sem HTTPS pronto. Abra Configurações → Domínios.",
+                ? "DNS verificado, mas o domínio ainda não está pronto — não use esse hostname em anúncios até «Pronto para anúncios»."
+                : "Domínio verificado ainda sem «Pronto para anúncios». Abra Configurações → Domínios.",
       href: "/configuracoes",
     },
     {

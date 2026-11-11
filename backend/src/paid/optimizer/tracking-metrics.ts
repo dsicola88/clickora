@@ -38,7 +38,7 @@ export async function aggregateTrackingMetricsForCampaign(args: {
         SELECT COUNT(*)::bigint
         FROM conversions c
         INNER JOIN tracking_events te2 ON te2.id = c.click_id
-        WHERE c.user_id = ${userId}::uuid
+        WHERE c.user_id = ${userId}
           AND c.created_at >= ${since}
           AND c.status = 'approved'
           AND (
@@ -50,7 +50,7 @@ export async function aggregateTrackingMetricsForCampaign(args: {
         SELECT SUM(COALESCE(c.amount, 0))::decimal
         FROM conversions c
         INNER JOIN tracking_events te2 ON te2.id = c.click_id
-        WHERE c.user_id = ${userId}::uuid
+        WHERE c.user_id = ${userId}
           AND c.created_at >= ${since}
           AND c.status = 'approved'
           AND (
@@ -59,7 +59,7 @@ export async function aggregateTrackingMetricsForCampaign(args: {
           )
       ), 0::decimal) AS revenue_usd
     FROM tracking_events te
-    WHERE te.user_id = ${userId}::uuid
+    WHERE te.user_id = ${userId}
       AND te.created_at >= ${since}
       AND (
         (te.metadata->>'paid_ads_campaign_id') = ${campaignId}
