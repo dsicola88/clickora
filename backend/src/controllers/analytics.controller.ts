@@ -2617,7 +2617,7 @@ export const analyticsController = {
   },
 
   /**
-   * Visitas×cliques por IP + heurística bot/cloud/rato (só relatório).
+   * Visitas×cliques por IP + heurística bot/cloud/suspeito (só relatório).
    * Não bloqueia automaticamente — o afiliado decide na UI.
    */
   async getVisitorIps(req: Request, res: Response) {

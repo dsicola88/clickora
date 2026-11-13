@@ -346,7 +346,24 @@ export const analyticsService = {
     if (params?.traffic && params.traffic !== "all") query.set("traffic", params.traffic);
     if (params?.limit) query.set("limit", String(params.limit));
     const qs = query.toString();
-    return apiClient.get<{
+    type VisitorIpRow = {
+      ip: string;
+      last_seen: string;
+      visits: number;
+      clicks: number;
+      country: string | null;
+      traffic_type: "paid" | "paid_untracked" | "organic";
+      is_bot: boolean;
+      bot_label: string | null;
+      is_cloud: boolean;
+      cloud_label: string | null;
+      is_suspect: boolean;
+      suspect_reasons: string[];
+      has_sale: boolean;
+      blacklisted: boolean;
+      fuga_pct: number | null;
+    };
+    type VisitorIpReport = {
       period: { from: string; to: string };
       traffic_filter: "all" | "paid" | "organic";
       summary: {
@@ -358,24 +375,28 @@ export const analyticsService = {
         cloud: number;
         with_sale: number;
       };
-      rows: Array<{
-        ip: string;
-        last_seen: string;
-        visits: number;
-        clicks: number;
-        country: string | null;
-        traffic_type: "paid" | "paid_untracked" | "organic";
-        is_bot: boolean;
-        bot_label: string | null;
-        is_cloud: boolean;
-        cloud_label: string | null;
-        is_suspect: boolean;
-        suspect_reasons: string[];
-        has_sale: boolean;
-        blacklisted: boolean;
-        fuga_pct: number | null;
-      }>;
+      rows: VisitorIpRow[];
+    };
+    const res = await apiClient.get<VisitorIpReport & {
+      summary?: VisitorIpReport["summary"] & { ratos?: number };
+      rows?: Array<VisitorIpRow & { is_rato?: boolean }>;
     }>(`/analytics/visitor-ips${qs ? `?${qs}` : ""}`);
+    // Compat durante rollout FE/BE: payloads antigos usavam is_rato / ratos.
+    if (res.data) {
+      const summary = res.data.summary;
+      if (summary && summary.suspects == null && typeof summary.ratos === "number") {
+        summary.suspects = summary.ratos;
+      }
+      for (const row of res.data.rows ?? []) {
+        if (row.is_suspect == null && typeof row.is_rato === "boolean") {
+          row.is_suspect = row.is_rato;
+        }
+        if (!Array.isArray(row.suspect_reasons)) {
+          row.suspect_reasons = [];
+        }
+      }
+    }
+    return res as { data: VisitorIpReport | null; error: string | null };
   },
 
   async getFunnel(params?: { from?: string; to?: string; keyword?: string }) {
