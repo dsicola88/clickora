@@ -21,6 +21,8 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL,
+    // CI Chromium default (en-US) activa LegacyDomLocalizer e traduz headings legais.
+    locale: "pt-PT",
     trace: "on-first-retry",
   },
   projects: [

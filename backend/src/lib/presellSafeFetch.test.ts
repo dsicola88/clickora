@@ -189,31 +189,36 @@ describe("DNS simulado e redirecionamentos", () => {
   });
 
   it("expira quando o pedido simulado não termina", async () => {
-    const request: ImportRequest = ({ signal }) =>
-      new Promise((_, reject) => {
-        const fail = () => {
-          const error = new Error("aborted");
-          error.name = "AbortError";
-          reject(error);
-        };
-        // Se o signal já abortou, o evento "abort" não volta a disparar — sem isto a
-        // Promise fica pendente e o node:test cancela o resto da suite (event loop vazio).
-        if (signal.aborted) {
-          fail();
-          return;
-        }
-        signal.addEventListener("abort", fail, { once: true });
-      });
-    await assert.rejects(
-      () =>
-        safeImportFetch({
-          url: "https://public.test/",
-          timeoutMs: 40,
-          resolve: resolveMap({ "public.test": [PUBLIC] }),
-          request,
-        }),
-      /Timeout/,
-    );
+    // AbortSignal.timeout() usa timer unref — sem keep-alive o node:test esvazia o
+    // event loop antes do abort e cancela a suite (Promise ainda pendente).
+    const keepAlive = setInterval(() => {}, 1e6);
+    try {
+      const request: ImportRequest = ({ signal }) =>
+        new Promise((_, reject) => {
+          const fail = () => {
+            const error = new Error("aborted");
+            error.name = "AbortError";
+            reject(error);
+          };
+          if (signal.aborted) {
+            fail();
+            return;
+          }
+          signal.addEventListener("abort", fail, { once: true });
+        });
+      await assert.rejects(
+        () =>
+          safeImportFetch({
+            url: "https://public.test/",
+            timeoutMs: 40,
+            resolve: resolveMap({ "public.test": [PUBLIC] }),
+            request,
+          }),
+        /Timeout/,
+      );
+    } finally {
+      clearInterval(keepAlive);
+    }
   });
 
   it("aceita um salto entre dois endereços públicos simulados", async () => {

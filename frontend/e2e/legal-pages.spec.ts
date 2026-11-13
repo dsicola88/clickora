@@ -3,13 +3,17 @@ import { test, expect } from "@playwright/test";
 test.describe("páginas legais públicas", () => {
   test("/privacidade mostra política", async ({ page }) => {
     await page.goto("/privacidade");
-    await expect(page.getByRole("heading", { name: /Política de privacidade/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Política de privacidade|Privacy Policy/i }),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: /^(Início|Home)$/i })).toBeVisible();
   });
 
   test("/termos mostra termos", async ({ page }) => {
     await page.goto("/termos");
-    await expect(page.getByRole("heading", { name: /Termos de utilização/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Termos de utilização|Terms of Use/i }),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: /^(Início|Home)$/i })).toBeVisible();
   });
 });
