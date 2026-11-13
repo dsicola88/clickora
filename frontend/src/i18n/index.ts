@@ -13,6 +13,7 @@ export {
   APP_LOCALE_STORAGE_KEY,
   htmlLangForAppLocale,
 } from "./types";
+export { useAppLocale, useAppLocaleOptional } from "./AppLocaleProvider";
 
 /** Locale catalogs share leaf keys with `en`; values differ by language (widen from `as const`). */
 const catalogs: Record<AppLocale, AppMessages> = {
