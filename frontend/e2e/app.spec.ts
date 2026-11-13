@@ -4,7 +4,9 @@ test.describe("autenticação e rotas públicas", () => {
   test("página /auth exibe login", async ({ page }) => {
     await page.goto("/auth");
     await expect(page.getByRole("heading", { name: "Entrar na sua conta" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^(Continuar|Entrar|Continue|Sign in)$/i }),
+    ).toBeVisible();
   });
 
   test("visitante em / vê planos e pode ir ao login", async ({ page }) => {

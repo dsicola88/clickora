@@ -14,10 +14,11 @@ const E2E_PASSWORD =
 test.describe("login e-mail/senha", () => {
   test("utilizador seed entra e sai de /auth", async ({ page }) => {
     await page.goto("/auth");
-    // i18n (en default no Chromium de teste): ids #email/#password são estáveis.
+    // ids #email/#password são estáveis independentemente do locale.
     await page.locator("#email").fill("danielclickora@gmail.com");
     await page.locator("#password").fill(E2E_PASSWORD);
-    await page.getByRole("button", { name: /^(Entrar|Continue|Sign in)$/i }).click();
+    // pt-PT (playwright.config) → auth.submit = "Continuar"; en → Continue/Sign in; pt-BR legado → Entrar.
+    await page.getByRole("button", { name: /^(Continuar|Entrar|Continue|Sign in)$/i }).click();
     await page.waitForURL((url) => !url.pathname.includes("/auth"), { timeout: 20_000 });
     expect(page.url()).not.toContain("/auth");
   });

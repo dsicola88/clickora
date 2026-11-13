@@ -25,7 +25,7 @@ test.describe("tracking dashboard / P&L", () => {
     await page.goto("/auth");
     await page.locator("#email").fill("danielclickora@gmail.com");
     await page.locator("#password").fill(E2E_PASSWORD);
-    await page.getByRole("button", { name: /^(Entrar|Continue|Sign in)$/i }).click();
+    await page.getByRole("button", { name: /^(Continuar|Entrar|Continue|Sign in)$/i }).click();
     await page.waitForURL((url) => !url.pathname.includes("/auth"), { timeout: 45_000 });
 
     await page.goto("/tracking/dashboard");

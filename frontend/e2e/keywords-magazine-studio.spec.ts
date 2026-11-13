@@ -4,7 +4,7 @@ async function loginSeed(page: import("@playwright/test").Page): Promise<void> {
   await page.goto("/auth");
   await page.getByLabel("E-mail").fill("danielclickora@gmail.com");
   await page.getByLabel("Senha").fill("Dpa211088@");
-  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await page.getByRole("button", { name: /^(Continuar|Entrar|Continue|Sign in)$/i }).click();
   try {
     await page.waitForURL((url) => !url.pathname.includes("/auth"), { timeout: 25_000 });
   } catch {

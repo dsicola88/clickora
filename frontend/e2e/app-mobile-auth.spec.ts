@@ -18,7 +18,7 @@ test.describe("H9 — app autenticado mobile", () => {
     await expect(page.getByLabel(/e-mail|email/i)).toBeVisible({ timeout: 20_000 });
     await page.getByLabel(/e-mail|email/i).fill(EMAIL);
     await page.getByLabel(/senha|password/i).fill(PASSWORD);
-    await page.getByRole("button", { name: /^entrar$/i }).click();
+    await page.getByRole("button", { name: /^(Continuar|Entrar|Continue|Sign in)$/i }).click();
     await page.waitForURL((url) => !url.pathname.includes("/auth"), { timeout: 25_000 });
 
     const routes = ["/presells", "/presells/nova", "/tracking/rotadores", "/resultados", "/integracoes"];
