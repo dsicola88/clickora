@@ -99,3 +99,37 @@ export function accountHealthCheckOk(
   if (!c) return { found: false, ok: false };
   return { found: true, ok: c.ok, detail: c.detail };
 }
+
+export type AccountHealthCheckRow = {
+  id: string;
+  ok: boolean;
+  detail?: string;
+  title?: string;
+  href?: string;
+};
+
+/** Primeiro check falhado na ordem canónica do hub — next-action partilhado. */
+export function getNextAccountHealthStep(
+  checks: AccountHealthCheckRow[] | undefined | null,
+): {
+  id: string;
+  href: string;
+  titleKey: MessageKey;
+  descKey: MessageKey;
+  detail?: string;
+} | null {
+  if (!checks?.length) return null;
+  for (const step of ACCOUNT_HEALTH_HUB_STEPS) {
+    const check = checks.find((c) => c.id === step.id);
+    if (check && check.ok === false) {
+      return {
+        id: step.id,
+        href: check.href?.trim() || step.href,
+        titleKey: step.titleKey,
+        descKey: step.descKey,
+        detail: check.detail,
+      };
+    }
+  }
+  return null;
+}

@@ -70,7 +70,7 @@ export const onboardingController = {
         id: "domain",
         label: "Verificar domínio personalizado (DNS)",
         done: domains >= 1,
-        href: "/configuracoes",
+        href: "/configuracoes/dominio",
         /** Arranque funciona no domínio da app; custom domain é o próximo nível. */
         optional: true,
       },
@@ -82,7 +82,7 @@ export const onboardingController = {
         id: "domain_https",
         label: "Domínio com HTTPS pronto (Final URL)",
         done: domainGoLive.verified_hosting === 0 || domainGoLive.ad_ready_hosting >= 1,
-        href: "/configuracoes",
+        href: "/configuracoes/dominio",
         optional: true,
       },
       {

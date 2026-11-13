@@ -1,12 +1,29 @@
 /**
  * Centro «Aprender» — categorias e atalhos (estilo knowledge base / Learn).
- * Rotas alinhadas à UX actual: Presells, Campanhas, Resultados, Integrações.
+ * Textos via i18n (`pages.help.hub.*`); rotas alinhadas à UX actual.
  */
 
+import type { MessageKey } from "@/i18n";
+
+export type LearnHubLinkDef = {
+  to: string;
+  labelKey: MessageKey;
+  hintKey?: MessageKey;
+};
+
+export type LearnHubCategoryDef = {
+  id: string;
+  titleKey: MessageKey;
+  descriptionKey: MessageKey;
+  links: LearnHubLinkDef[];
+  /** Tokens multi-idioma para pesquisa (sem i18n). */
+  keywords?: string[];
+};
+
+/** Resolved for UI/search after `t(...)`. */
 export type LearnHubLink = {
   to: string;
   label: string;
-  /** Texto extra para pesquisa e contexto. */
   hint?: string;
 };
 
@@ -20,196 +37,246 @@ export type LearnHubCategory = {
 
 export const LEARN_HUB_SECTION_PERCURSOS_ID = "percursos-guiados";
 
-export const LEARN_HUB_CATEGORIES: LearnHubCategory[] = [
+export const LEARN_HUB_CATEGORY_DEFS: LearnHubCategoryDef[] = [
   {
     id: "comecar",
-    title: "Começar",
-    description: "Fluxo profissional: domínio → presell → postback → anúncio.",
-    keywords: ["início", "onboarding", "primeiros passos", "tutorial", "wordpress", "domínio"],
+    titleKey: "pages.help.hub.comecarTitle",
+    descriptionKey: "pages.help.hub.comecarDesc",
+    keywords: ["início", "inicio", "onboarding", "tutorial", "wordpress", "domínio", "domain", "start"],
     links: [
       {
         to: `/ajuda#${LEARN_HUB_SECTION_PERCURSOS_ID}`,
-        label: "Percursos passo a passo (nesta página)",
-        hint: "Domínio, presell, GCLID, BuyGoods/SmartAdv, conversões",
+        labelKey: "pages.help.hub.comecarPaths",
+        hintKey: "pages.help.hub.comecarPathsHint",
       },
-      { to: "/aulas", label: "Aulas em vídeo", hint: "YouTube e Bunny — aprender sem abrir ticket" },
-      { to: "/inicio", label: "Página inicial", hint: "Atalhos para criar e ver resultados" },
-      { to: "/presells/nova", label: "Criar presell agora", hint: "Assistente Oferta → Campanha → Publicar" },
-      { to: "/integracoes", label: "Integrações (postback + anúncios)", hint: "Obrigatório para vendas no painel" },
+      { to: "/aulas", labelKey: "pages.help.hub.comecarLessons", hintKey: "pages.help.hub.comecarLessonsHint" },
+      { to: "/inicio", labelKey: "pages.help.hub.comecarHome", hintKey: "pages.help.hub.comecarHomeHint" },
+      {
+        to: "/presells/nova",
+        labelKey: "pages.help.hub.comecarCreate",
+        hintKey: "pages.help.hub.comecarCreateHint",
+      },
+      {
+        to: "/integracoes",
+        labelKey: "pages.help.hub.comecarIntegrations",
+        hintKey: "pages.help.hub.comecarIntegrationsHint",
+      },
+      {
+        to: "/ajuda/assistente",
+        labelKey: "pages.help.hub.comecarAssistant",
+        hintKey: "pages.help.hub.comecarAssistantHint",
+      },
       {
         to: "/guia-vendas-afiliados",
-        label: "Artigo longo no site",
-        hint: "Leitura fora do painel",
+        labelKey: "pages.help.hub.comecarGuide",
+        hintKey: "pages.help.hub.comecarGuideHint",
       },
     ],
   },
   {
     id: "presells",
-    title: "Presells",
-    description: "Páginas sem WordPress — domínio próprio + link /p/… nos anúncios.",
-    keywords: ["landing", "página", "builder", "slug", "domínio", "dns", "ssl"],
+    titleKey: "pages.help.hub.presellsTitle",
+    descriptionKey: "pages.help.hub.presellsDesc",
+    keywords: ["landing", "builder", "slug", "dns", "ssl"],
     links: [
-      { to: "/presells", label: "Lista de presells", hint: "Publicadas e rascunhos" },
-      { to: "/presells/nova", label: "Nova presell (assistente)", hint: "Importa a oferta e publica" },
-      { to: "/presell/builder", label: "Editor manual", hint: "Layout livre; URL público continua /p/…" },
-      { to: "/presell/paginas-criadas", label: "Páginas do editor manual", hint: "Abrir ou exportar" },
-      { to: "/configuracoes/dominio", label: "Domínio personalizado", hint: "Pronto para anúncios → https://seu-dominio/…" },
+      { to: "/presells", labelKey: "pages.help.hub.presellsList", hintKey: "pages.help.hub.presellsListHint" },
+      { to: "/presells/nova", labelKey: "pages.help.hub.presellsNew", hintKey: "pages.help.hub.presellsNewHint" },
+      {
+        to: "/presell/builder",
+        labelKey: "pages.help.hub.presellsBuilder",
+        hintKey: "pages.help.hub.presellsBuilderHint",
+      },
+      {
+        to: "/presell/paginas-criadas",
+        labelKey: "pages.help.hub.presellsManual",
+        hintKey: "pages.help.hub.presellsManualHint",
+      },
+      {
+        to: "/configuracoes/dominio",
+        labelKey: "pages.help.hub.presellsDomain",
+        hintKey: "pages.help.hub.presellsDomainHint",
+      },
     ],
   },
   {
     id: "rastreamento",
-    title: "Rastreamento e links",
-    description: "Campanhas, UTMs, GCLID e o clique até à oferta.",
+    titleKey: "pages.help.hub.trackingTitle",
+    descriptionKey: "pages.help.hub.trackingDesc",
     keywords: ["tracking", "utm", "gclid", "fbclid", "ttclid", "click", "campanha"],
     links: [
-      { to: "/campanhas", label: "Campanhas", hint: "Copiar URL do anúncio com UTMs" },
-      { to: "/resultados", label: "Resultados (visão geral)", hint: "Cliques, receita, ROI" },
+      {
+        to: "/campanhas",
+        labelKey: "pages.help.hub.trackingCampaigns",
+        hintKey: "pages.help.hub.trackingCampaignsHint",
+      },
+      {
+        to: "/resultados",
+        labelKey: "pages.help.hub.trackingResults",
+        hintKey: "pages.help.hub.trackingResultsHint",
+      },
       {
         to: "/tracking/url-builder",
-        label: "Construtor de URL (avançado)",
-        hint: "Macros Google / Meta / BuyGoods",
+        labelKey: "pages.help.hub.trackingUrlBuilder",
+        hintKey: "pages.help.hub.trackingUrlBuilderHint",
       },
       {
         to: "/tracking/rotadores",
-        label: "Rotadores",
-        hint: "Um link, várias rotas (A/B, país)",
+        labelKey: "pages.help.hub.trackingRotators",
+        hintKey: "pages.help.hub.trackingRotatorsHint",
       },
       {
         to: "/tracking/tools/gclid",
-        label: "Verificar GCLID de um clique",
-        hint: "Confirmar se o Google ficou marcado",
+        labelKey: "pages.help.hub.trackingGclid",
+        hintKey: "pages.help.hub.trackingGclidHint",
       },
     ],
   },
   {
     id: "conversoes",
-    title: "Postback e redes de afiliados",
-    description: "Ligar vendas BuyGoods, SmartAdv, Digistore, Hotmart… ao clique.",
-    keywords: [
-      "buygoods",
-      "smartadv",
-      "digistore",
-      "hotmart",
-      "postback",
-      "webhook",
-      "subid",
-      "sub3",
-      "cid",
-      "venda",
-    ],
+    titleKey: "pages.help.hub.postbackTitle",
+    descriptionKey: "pages.help.hub.postbackDesc",
+    keywords: ["buygoods", "smartadv", "digistore", "hotmart", "postback", "webhook", "subid", "sub3", "cid"],
     links: [
       {
         to: "/integracoes/postback",
-        label: "Postback por rede (copiar URL com macros)",
-        hint: "BuyGoods {SUBID} · SmartAdv {sub3} · Digistore {cid}",
+        labelKey: "pages.help.hub.postbackByNetwork",
+        hintKey: "pages.help.hub.postbackByNetworkHint",
       },
-      { to: "/integracoes", label: "Hub Integrações", hint: "Fluxo em 4 passos" },
+      {
+        to: "/integracoes",
+        labelKey: "pages.help.hub.postbackHub",
+        hintKey: "pages.help.hub.postbackHubHint",
+      },
       {
         to: "/resultados/conversoes",
-        label: "Conversões",
-        hint: "Vendas atribuídas e não atribuídas",
+        labelKey: "pages.help.hub.postbackConversions",
+        hintKey: "pages.help.hub.postbackConversionsHint",
       },
       {
         to: "/tracking/relatorios/sem-gclid",
-        label: "Vendas sem GCLID no clique",
-        hint: "Diagnóstico Google Ads",
+        labelKey: "pages.help.hub.postbackNoGclid",
+        hintKey: "pages.help.hub.postbackNoGclidHint",
       },
     ],
   },
   {
     id: "relatorios-analytics",
-    title: "Relatórios e números",
-    description: "Resultados, conversões e exports.",
-    keywords: ["métricas", "roi", "roas", "export", "relatório"],
+    titleKey: "pages.help.hub.reportsTitle",
+    descriptionKey: "pages.help.hub.reportsDesc",
+    keywords: ["roi", "roas", "export", "métricas", "metrics"],
     links: [
-      { to: "/resultados", label: "Visão geral", hint: "Lucro, ROAS, alertas" },
-      { to: "/resultados/conversoes", label: "Conversões", hint: "" },
-      { to: "/resultados/relatorios", label: "Relatórios", hint: "Acessos e cliques" },
+      {
+        to: "/resultados",
+        labelKey: "pages.help.hub.reportsOverview",
+        hintKey: "pages.help.hub.reportsOverviewHint",
+      },
+      { to: "/resultados/conversoes", labelKey: "pages.help.hub.reportsConversions" },
+      {
+        to: "/resultados/relatorios",
+        labelKey: "pages.help.hub.reportsEvents",
+        hintKey: "pages.help.hub.reportsEventsHint",
+      },
       {
         to: "/resultados/por-presell/presells",
-        label: "Por presell",
-        hint: "Curvas e totais por página",
+        labelKey: "pages.help.hub.reportsByPresell",
+        hintKey: "pages.help.hub.reportsByPresellHint",
       },
     ],
   },
   {
     id: "integracoes",
-    title: "Anúncios (Google / Meta / TikTok)",
-    description: "Enviar vendas aprovadas de volta às contas de ads.",
+    titleKey: "pages.help.hub.adsTitle",
+    descriptionKey: "pages.help.hub.adsDesc",
     keywords: ["telegram", "google ads", "meta", "tiktok", "capi", "offline"],
     links: [
       {
         to: "/integracoes/avancado",
-        label: "Ligar Google / Meta / TikTok",
-        hint: "Requer GCLID/fbclid/ttclid no clique",
+        labelKey: "pages.help.hub.adsConnect",
+        hintKey: "pages.help.hub.adsConnectHint",
       },
-      {
-        to: "/integracoes",
-        label: "Hub Integrações",
-        hint: "Postback + anúncios",
-      },
+      { to: "/integracoes", labelKey: "pages.help.hub.adsHub", hintKey: "pages.help.hub.adsHubHint" },
       {
         to: "/tracking/tools/postbacks",
-        label: "Modelos de exemplo",
-        hint: "Campos típicos por fabricante",
+        labelKey: "pages.help.hub.adsTemplates",
+        hintKey: "pages.help.hub.adsTemplatesHint",
       },
     ],
   },
   {
     id: "ferramentas",
-    title: "Ferramentas e diagnóstico",
-    description: "GCLID, clique por ID, IP, logs.",
-    keywords: ["GCLID", "IP", "UUID", "clique", "logs"],
+    titleKey: "pages.help.hub.toolsTitle",
+    descriptionKey: "pages.help.hub.toolsDesc",
+    keywords: ["GCLID", "IP", "UUID", "logs"],
     links: [
-      { to: "/tracking/tools", label: "Índice de ferramentas", hint: "" },
-      { to: "/tracking/tools/gclid", label: "Confirmar GCLID", hint: "" },
-      { to: "/tracking/tools/clique", label: "Procurar clique por ID", hint: "" },
-      { to: "/tracking/logs", label: "Logs do sistema", hint: "Avisos de postback" },
+      { to: "/tracking/tools", labelKey: "pages.help.hub.toolsIndex" },
+      { to: "/tracking/tools/gclid", labelKey: "pages.help.hub.toolsGclid" },
+      { to: "/tracking/tools/clique", labelKey: "pages.help.hub.toolsClick" },
+      {
+        to: "/tracking/logs",
+        labelKey: "pages.help.hub.toolsLogs",
+        hintKey: "pages.help.hub.toolsLogsHint",
+      },
     ],
   },
   {
     id: "problemas",
-    title: "Algo correu menos bem",
-    description: "Sem vendas, aviso de venda ou domínio a falhar.",
-    keywords: ["erro", "falha", "não aparece", "postback", "suporte", "whatsapp", "email", "contacto"],
+    titleKey: "pages.help.hub.issuesTitle",
+    descriptionKey: "pages.help.hub.issuesDesc",
+    keywords: ["erro", "error", "falha", "postback", "suporte", "whatsapp", "email"],
     links: [
       {
         to: "/ajuda#suporte",
-        label: "Contactar suporte",
-        hint: "Email e WhatsApp oficiais",
+        labelKey: "pages.help.hub.issuesSupport",
+        hintKey: "pages.help.hub.issuesSupportHint",
       },
       {
         to: `/ajuda#${LEARN_HUB_SECTION_PERCURSOS_ID}`,
-        label: "Rever o guia completo",
-        hint: "Ordem correcta dos passos",
+        labelKey: "pages.help.hub.issuesGuide",
+        hintKey: "pages.help.hub.issuesGuideHint",
       },
       {
         to: "/integracoes/postback",
-        label: "Rever aviso de venda",
-        hint: "URL colado na rede",
+        labelKey: "pages.help.hub.issuesPostback",
+        hintKey: "pages.help.hub.issuesPostbackHint",
       },
-      {
-        to: "/tracking/relatorios/sem-gclid",
-        label: "Vendas sem ID Google",
-        hint: "",
-      },
-      {
-        to: "/tracking/tools/clique",
-        label: "Confirmar um clique",
-        hint: "",
-      },
+      { to: "/tracking/relatorios/sem-gclid", labelKey: "pages.help.hub.issuesNoGoogle" },
+      { to: "/tracking/tools/clique", labelKey: "pages.help.hub.issuesConfirmClick" },
     ],
   },
   {
     id: "conta",
-    title: "Conta e planos",
-    description: "Perfil, plano e suporte.",
+    titleKey: "pages.help.hub.accountTitle",
+    descriptionKey: "pages.help.hub.accountDesc",
     keywords: ["perfil", "plano", "billing", "suporte", "contacto"],
     links: [
-      { to: "/conta", label: "Conta e segurança", hint: "" },
-      { to: "/configuracoes", label: "Configurações", hint: "Domínio" },
-      { to: "/planos", label: "Planos", hint: "" },
-      { to: "/ajuda#suporte", label: "Contactos de suporte", hint: "Email e WhatsApp" },
+      { to: "/conta", labelKey: "pages.help.hub.accountSecurity" },
+      {
+        to: "/configuracoes",
+        labelKey: "pages.help.hub.accountSettings",
+        hintKey: "pages.help.hub.accountSettingsHint",
+      },
+      { to: "/planos", labelKey: "pages.help.hub.accountPlans" },
+      {
+        to: "/ajuda#suporte",
+        labelKey: "pages.help.hub.accountContacts",
+        hintKey: "pages.help.hub.accountContactsHint",
+      },
     ],
   },
 ];
+
+export function resolveLearnHubCategories(
+  t: (key: MessageKey) => string,
+): LearnHubCategory[] {
+  return LEARN_HUB_CATEGORY_DEFS.map((cat) => ({
+    id: cat.id,
+    title: t(cat.titleKey),
+    description: t(cat.descriptionKey),
+    keywords: cat.keywords,
+    links: cat.links.map((link) => ({
+      to: link.to,
+      label: t(link.labelKey),
+      hint: link.hintKey ? t(link.hintKey) : undefined,
+    })),
+  }));
+}

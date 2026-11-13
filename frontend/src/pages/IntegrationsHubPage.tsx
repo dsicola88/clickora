@@ -25,6 +25,7 @@ import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { PostbackMacroChecklist } from "@/components/PostbackMacroChecklist";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { ACCOUNT_HEALTH_HUB_STEPS } from "@/lib/accountHealthSteps";
+import { NextAccountActionBanner } from "@/components/NextAccountActionBanner";
 
 function fill(template: string, vars: Record<string, string | number>) {
   return Object.entries(vars).reduce(
@@ -91,6 +92,8 @@ export default function IntegrationsHubPage() {
         }
       />
 
+      <NextAccountActionBanner checks={health?.checks} />
+
       {health ? (
         <AttributionHealthBanner attribution={health.attribution} checks={health.checks} />
       ) : null}
@@ -128,14 +131,14 @@ export default function IntegrationsHubPage() {
 
       <div className="rounded-lg border border-border/70 bg-card px-4 py-3 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">Assistente</p>
+          <p className="text-sm font-semibold text-foreground">{t("pages.integrations.assistantTitle")}</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-            Domínio → Google Ads → aviso de venda → Meta/TikTok.
+            {t("pages.integrations.assistantDesc")}
           </p>
         </div>
         <Button variant="secondary" size="sm" className="gap-1.5 shrink-0" asChild>
           <Link to="/ajuda/assistente">
-            Abrir assistente
+            {t("pages.integrations.assistantOpen")}
             <ArrowRight className="h-3.5 w-3.5 opacity-70" />
           </Link>
         </Button>

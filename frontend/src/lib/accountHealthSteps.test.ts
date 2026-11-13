@@ -3,6 +3,7 @@ import {
   ACCOUNT_HEALTH_HUB_STEPS,
   SETUP_ASSISTANT_HEALTH_MAP,
   accountHealthCheckOk,
+  getNextAccountHealthStep,
 } from "./accountHealthSteps";
 
 describe("accountHealthSteps", () => {
@@ -12,6 +13,12 @@ describe("accountHealthSteps", () => {
     expect(ids).toContain("attribution");
     expect(ids).toContain("macros");
     expect(ids).toContain("presell_published");
+  });
+
+  it("domain_https aponta para a página de domínio", () => {
+    expect(ACCOUNT_HEALTH_HUB_STEPS.find((s) => s.id === "domain_https")?.href).toBe(
+      "/configuracoes/dominio",
+    );
   });
 
   it("setup map aponta para IDs do account_health", () => {
@@ -30,5 +37,24 @@ describe("accountHealthSteps", () => {
       detail: "1",
     });
     expect(accountHealthCheckOk(checks, "missing").found).toBe(false);
+  });
+
+  it("getNextAccountHealthStep segue a ordem do hub e respeita href override", () => {
+    expect(getNextAccountHealthStep([])).toBeNull();
+    expect(
+      getNextAccountHealthStep([
+        { id: "presell_published", ok: true },
+        { id: "postback_plan", ok: true },
+      ]),
+    ).toBeNull();
+
+    const next = getNextAccountHealthStep([
+      { id: "presell_published", ok: true },
+      { id: "google_ads", ok: false, detail: "ligar conta" },
+      { id: "postback_configured", ok: false, detail: "falta postback", href: "/custom-postback" },
+    ]);
+    expect(next?.id).toBe("postback_configured");
+    expect(next?.href).toBe("/custom-postback");
+    expect(next?.detail).toBe("falta postback");
   });
 });

@@ -3,7 +3,12 @@ import { en } from "./messages/en";
 import { pt } from "./messages/pt";
 import { ptBR } from "./messages/pt-BR";
 import { es } from "./messages/es";
-import { normalizeAppLocale, translate } from "./index";
+import {
+  detectBrowserAppLocale,
+  htmlLangForAppLocale,
+  normalizeAppLocale,
+  translate,
+} from "./index";
 
 function leafKeys(obj: unknown, prefix = ""): string[] {
   if (typeof obj === "string") return prefix ? [prefix] : [];
@@ -28,6 +33,27 @@ describe("app i18n catalogs", () => {
     expect(normalizeAppLocale("pt-PT")).toBe("pt");
     expect(normalizeAppLocale("pt")).toBe("pt");
     expect(normalizeAppLocale("es-MX")).toBe("es");
+  });
+
+  it("htmlLangForAppLocale cobre en/pt/pt-BR/es", () => {
+    expect(htmlLangForAppLocale("en")).toBe("en");
+    expect(htmlLangForAppLocale("pt")).toBe("pt-PT");
+    expect(htmlLangForAppLocale("pt-BR")).toBe("pt-BR");
+    expect(htmlLangForAppLocale("es")).toBe("es");
+  });
+
+  it("detectBrowserAppLocale mapeia navigator.language", () => {
+    const original = navigator.language;
+    try {
+      Object.defineProperty(navigator, "language", { configurable: true, get: () => "es-ES" });
+      expect(detectBrowserAppLocale()).toBe("es");
+      Object.defineProperty(navigator, "language", { configurable: true, get: () => "en-GB" });
+      expect(detectBrowserAppLocale()).toBe("en");
+      Object.defineProperty(navigator, "language", { configurable: true, get: () => "pt-BR" });
+      expect(detectBrowserAppLocale()).toBe("pt-BR");
+    } finally {
+      Object.defineProperty(navigator, "language", { configurable: true, get: () => original });
+    }
   });
 
   it("translate en / pt / es", () => {

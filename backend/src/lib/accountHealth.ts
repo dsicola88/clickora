@@ -250,7 +250,7 @@ export async function buildAccountHealth(args: {
               : domainGoLive.ssl_provisioning > 0
                 ? "DNS verificado, mas o domínio ainda não está pronto — não use esse hostname em anúncios até «Pronto para anúncios»."
                 : "Domínio verificado ainda sem «Pronto para anúncios». Abra Configurações → Domínios.",
-      href: "/configuracoes",
+      href: "/configuracoes/dominio",
     },
     {
       id: "meta_capi_configured",

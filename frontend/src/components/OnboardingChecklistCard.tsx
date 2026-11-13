@@ -6,6 +6,8 @@ import { enterpriseService } from "@/services/enterpriseService";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 const STORAGE_KEY = "dclickora.onboardingChecklistExpanded";
 
@@ -22,6 +24,7 @@ function readExpandedPreference(): boolean {
  * relatórios do Início ficarem em primeiro plano; o afiliado expande se quiser.
  */
 export function OnboardingChecklistCard({ compact }: { compact?: boolean }) {
+  const { t } = useAppLocale();
   const [expanded, setExpanded] = useState(readExpandedPreference);
 
   useEffect(() => {
@@ -48,6 +51,14 @@ export function OnboardingChecklistCard({ compact }: { compact?: boolean }) {
   const optionalPending = data.steps.filter((s) => !s.done && s.optional);
   const show = [...pending, ...optionalPending].slice(0, compact ? 5 : 8);
   const pct = data.progress.total ? Math.round((data.progress.done / data.progress.total) * 100) : 0;
+  const progressShort = fill(t("pages.home.checklistProgressShort"), {
+    done: data.progress.done,
+    total: data.progress.total,
+  });
+  const stepsLine = fill(t("pages.home.checklistStepsLine"), {
+    done: data.progress.done,
+    total: data.progress.total,
+  });
 
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded}>
@@ -66,21 +77,21 @@ export function OnboardingChecklistCard({ compact }: { compact?: boolean }) {
             <div className="space-y-1 min-w-0">
               <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <ListChecks className="h-4 w-4 text-primary shrink-0" />
-                Checklist de arranque
+                {t("pages.home.checklistTitle")}
                 {!expanded ? (
                   <span className="text-[11px] font-normal text-muted-foreground">
-                    · {data.progress.done}/{data.progress.total}
+                    · {progressShort}
                     {data.plan_name ? ` · ${data.plan_name}` : ""}
                   </span>
                 ) : null}
               </h2>
               {expanded ? (
                 <p className="text-xs text-muted-foreground">
-                  {data.progress.done}/{data.progress.total} passos essenciais
+                  {stepsLine}
                   {data.plan_name ? ` · ${data.plan_name}` : ""}
                 </p>
               ) : (
-                <p className="text-xs text-muted-foreground">Toque para ver os passos em falta</p>
+                <p className="text-xs text-muted-foreground">{t("pages.home.checklistExpandHint")}</p>
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -113,7 +124,7 @@ export function OnboardingChecklistCard({ compact }: { compact?: boolean }) {
                     {step.label}
                     {step.optional ? (
                       <span className="ml-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        opcional
+                        {t("pages.home.checklistOptional")}
                       </span>
                     ) : null}
                   </span>
@@ -124,13 +135,18 @@ export function OnboardingChecklistCard({ compact }: { compact?: boolean }) {
 
           {data.steps.length > show.length ? (
             <p className="mt-2 text-[11px] text-muted-foreground">
-              +{data.steps.length - show.length} passos no total (conclua os essenciais primeiro)
+              {fill(t("pages.home.checklistMoreSteps"), { n: data.steps.length - show.length })}
             </p>
           ) : null}
 
-          <Button type="button" variant="outline" size="sm" className="mt-3" asChild>
-            <Link to="/presells/nova">Continuar setup</Link>
-          </Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" asChild>
+              <Link to="/presells/nova">{t("pages.home.checklistContinue")}</Link>
+            </Button>
+            <Button type="button" variant="ghost" size="sm" asChild>
+              <Link to="/ajuda/assistente">{t("pages.home.openGuidedSetup")}</Link>
+            </Button>
+          </div>
         </CollapsibleContent>
       </div>
     </Collapsible>

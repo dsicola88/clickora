@@ -23,6 +23,11 @@ import { trafficRotatorsService } from "@/services/trafficRotatorsService";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
 import type { PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { isAffiliateTrustFooterEnabled } from "@/lib/presellAffiliateTrustFooter";
+import {
+  focusComplianceAnchor,
+  resolveComplianceJump,
+  type ComplianceJump,
+} from "@/lib/complianceJump";
 
 type Props = {
   presellId: string | null;
@@ -339,6 +344,42 @@ export function PresellAdsCompliancePanel({
   const gateOpts = { warningCount: warnings.length, notCheckedCount: notChecked.length };
   const adsScore = data?.ads_page_score ?? null;
 
+  const primaryJump: ComplianceJump | null = (() => {
+    if (suggestions.length) {
+      for (const s of suggestions) {
+        for (const need of s.requiresUserInput) {
+          const jump = resolveComplianceJump(need);
+          if (jump) return jump;
+        }
+        const fromRule = resolveComplianceJump(`${s.ruleId} ${s.title}`);
+        if (fromRule) return fromRule;
+      }
+      return { anchorId: "compliance-fix-plan", labelKey: "pages.presells.compliance.jumpToPlan" };
+    }
+    if (destinationFail) {
+      return { anchorId: "compliance-destination", labelKey: "pages.presells.compliance.jumpToDestination" };
+    }
+    if (critical.length) {
+      for (const r of critical) {
+        const jump = resolveComplianceJump(
+          `${r.ruleId} ${r.name} ${r.description} ${r.remediation} ${r.evidence?.summary || ""}`,
+        );
+        if (jump) return jump;
+      }
+      return { anchorId: "compliance-critical", labelKey: "pages.presells.compliance.jumpToCritical" };
+    }
+    return null;
+  })();
+
+  const runPrimaryJump = () => {
+    if (!primaryJump) return;
+    if (primaryJump.enableFooter && !isAffiliateTrustFooterEnabled(configSettings)) {
+      setField("showAffiliateTrustFooter", true);
+    }
+    // Retry interno cobre o re-render dos campos após ligar o footer.
+    focusComplianceAnchor(primaryJump.anchorId);
+  };
+
   if (!presellId) {
     return (
       <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
@@ -434,12 +475,29 @@ export function PresellAdsCompliancePanel({
             <span>{fill(t("pages.presells.compliance.lastAudit"), { when: new Date(data.last_compliance_audit_at).toLocaleString() })}</span>
           ) : null}
         </div>
+        {gate === "blocked" || gate === "needs_review" ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <p className="text-xs text-foreground/90 leading-relaxed flex-1 min-w-[12rem]">
+              {suggestions.length
+                ? t("pages.presells.compliance.nextStepsPlan")
+                : t("pages.presells.compliance.nextStepsRules")}
+            </p>
+            {primaryJump ? (
+              <Button type="button" size="sm" variant="secondary" className="shrink-0" onClick={runPrimaryJump}>
+                {primaryJump.enableFooter && !isAffiliateTrustFooterEnabled(configSettings)
+                  ? t("pages.presells.compliance.jumpToFooter")
+                  : t(primaryJump.labelKey)}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {destinationRules.length ? (
         <div
+          id="compliance-destination"
           className={cn(
-            "rounded-md border px-3 py-2 text-sm",
+            "rounded-md border px-3 py-2 text-sm scroll-mt-24",
             destinationFail && "border-destructive/40 bg-destructive/5",
             !destinationFail && destinationOk && "border-emerald-600/30 bg-emerald-600/5",
             !destinationFail && !destinationOk && "border-border/60 bg-muted/15",
@@ -550,7 +608,7 @@ export function PresellAdsCompliancePanel({
       ) : null}
 
       {suggestions.length ? (
-        <div className="space-y-2">
+        <div id="compliance-fix-plan" className="space-y-2 scroll-mt-24">
           <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
             {t("pages.presells.compliance.suggestedPlan")}
           </p>
@@ -625,7 +683,7 @@ export function PresellAdsCompliancePanel({
       </div>
 
       {critical.length ? (
-        <div className="space-y-2">
+        <div id="compliance-critical" className="space-y-2 scroll-mt-24">
           <p className="text-xs font-semibold uppercase tracking-wide text-destructive">{t("pages.presells.compliance.critical")}</p>
           <ul className="space-y-2">
             {critical.map((r) => (

@@ -24,10 +24,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
-  LEARN_HUB_CATEGORIES,
   LEARN_HUB_SECTION_PERCURSOS_ID,
+  resolveLearnHubCategories,
   type LearnHubCategory,
 } from "@/lib/learnHubCategories";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   comecar: Rocket,
@@ -47,22 +48,24 @@ function categorySearchBlob(cat: LearnHubCategory): string {
   return `${cat.title} ${cat.description} ${kw} ${hints}`.toLowerCase();
 }
 
-function filterCategories(query: string): LearnHubCategory[] {
+function filterCategories(categories: LearnHubCategory[], query: string): LearnHubCategory[] {
   const q = query.trim().toLowerCase();
-  if (!q) return LEARN_HUB_CATEGORIES;
+  if (!q) return categories;
 
-  return LEARN_HUB_CATEGORIES.map((cat) => {
-    const blob = categorySearchBlob(cat);
-    if (blob.includes(q)) {
-      return cat;
-    }
-    const links = cat.links.filter((l) => {
-      const lb = `${l.label} ${l.hint ?? ""} ${l.to}`.toLowerCase();
-      return lb.includes(q);
-    });
-    if (links.length === 0) return null;
-    return { ...cat, links };
-  }).filter((c): c is LearnHubCategory => c != null);
+  return categories
+    .map((cat) => {
+      const blob = categorySearchBlob(cat);
+      if (blob.includes(q)) {
+        return cat;
+      }
+      const links = cat.links.filter((l) => {
+        const lb = `${l.label} ${l.hint ?? ""} ${l.to}`.toLowerCase();
+        return lb.includes(q);
+      });
+      if (links.length === 0) return null;
+      return { ...cat, links };
+    })
+    .filter((c): c is LearnHubCategory => c != null);
 }
 
 /**
@@ -70,9 +73,11 @@ function filterCategories(query: string): LearnHubCategory[] {
  * Os percursos em accordion reutilizam o `DashboardUserGuide`.
  */
 export default function InAppUserGuidePage() {
+  const { t } = useAppLocale();
   const { hash } = useLocation();
   const [search, setSearch] = useState("");
-  const filtered = useMemo(() => filterCategories(search), [search]);
+  const categories = useMemo(() => resolveLearnHubCategories(t), [t]);
+  const filtered = useMemo(() => filterCategories(categories, search), [categories, search]);
 
   useEffect(() => {
     const id = hash.replace(/^#/, "").trim();
@@ -87,31 +92,25 @@ export default function InAppUserGuidePage() {
     <div className={cn(APP_PAGE_SHELL_LOOSE, "pb-12")}>
       <PageHeader
         centered
-        title="Ajuda e suporte"
-        description={
-          <>
-            Guias rápidos para domínio, presell, anúncios e aviso de venda. Se precisar de ajuda directa, use os
-            contactos abaixo.
-          </>
-        }
+        title={t("pages.help.title")}
+        description={t("pages.help.subtitle")}
       />
 
       <div id="suporte" className="scroll-mt-24 max-w-3xl mx-auto w-full">
-        <SupportContactsCard title="Contactos de suporte" />
+        <SupportContactsCard title={t("pages.help.supportContacts")} />
       </div>
 
       <Card className="max-w-3xl mx-auto border-primary/25 bg-primary/[0.04]">
         <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-1 min-w-0">
-            <p className="text-sm font-medium text-foreground">Aulas em vídeo</p>
+            <p className="text-sm font-medium text-foreground">{t("pages.help.lessonsTitle")}</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Veja como usar a ferramenta, módulo a módulo. Os vídeos são do YouTube ou do Bunny e estão incluídos na
-              assinatura.
+              {t("pages.help.lessonsBody")}
             </p>
           </div>
           <Button className="shrink-0 gap-2" asChild>
             <Link to="/aulas">
-              Abrir aulas <ArrowRight className="h-3.5 w-3.5" />
+              {t("pages.help.openLessons")} <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </Button>
         </CardContent>
@@ -124,15 +123,15 @@ export default function InAppUserGuidePage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Procurar (presell, domínio, aviso de venda, Google Ads…)"
+            placeholder={t("pages.help.searchPlaceholder")}
             className="pl-9 h-11 bg-background"
-            aria-label="Pesquisar no centro de ajuda"
+            aria-label={t("pages.help.searchAria")}
           />
         </div>
         <Button variant="outline" size="sm" className="shrink-0 gap-2" asChild>
           <a href={`#${LEARN_HUB_SECTION_PERCURSOS_ID}`}>
             <BookOpen className="h-4 w-4" />
-            Percursos guiados
+            {t("pages.help.guidedPaths")}
           </a>
         </Button>
       </div>
@@ -140,7 +139,7 @@ export default function InAppUserGuidePage() {
       {filtered.length > 0 ? (
         <nav
           className="flex flex-wrap gap-2 justify-center max-w-4xl mx-auto"
-          aria-label="Saltar para secção"
+          aria-label={t("pages.help.jumpSections")}
         >
           {filtered.map((cat) => (
             <a
@@ -154,7 +153,7 @@ export default function InAppUserGuidePage() {
         </nav>
       ) : (
         <p className="text-center text-sm text-muted-foreground">
-          Nenhum resultado. Limpe a pesquisa ou tente outra palavra-chave.
+          {t("pages.help.noResults")}
         </p>
       )}
 

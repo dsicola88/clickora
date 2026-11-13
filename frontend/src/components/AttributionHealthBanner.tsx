@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fill } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 type Attribution = {
   approved_sales: number;
@@ -29,6 +31,7 @@ type Props = {
  * Mostra vendas sem clique e checklist de postback.
  */
 export function AttributionHealthBanner({ attribution, checks, className, compact }: Props) {
+  const { t } = useAppLocale();
   const unattr = attribution?.unattributed_sales ?? 0;
   const postback = checks?.find((c) => c.id === "postback_configured");
   // API already returns a percent (e.g. 80.5 = 80.5%) — do not rescale.
@@ -61,24 +64,27 @@ export function AttributionHealthBanner({ attribution, checks, className, compac
         <div className="min-w-0 space-y-1">
           {unattr > 0 ? (
             <p className="font-medium leading-snug">
-              {unattr} venda(s) sem clique atribuído
-              {rate != null ? ` · taxa de atribuição ${rate}%` : ""}
+              {fill(t("pages.home.attributionUnlinked"), { n: unattr })}
+              {rate != null
+                ? fill(t("pages.home.attributionRateSuffix"), { rate })
+                : ""}
             </p>
           ) : (
             <p className="font-medium leading-snug">
-              Atribuição OK
+              {t("pages.home.attributionOk")}
               {attribution && attribution.approved_sales > 0 && rate != null
-                ? ` · ${rate}% das vendas ligadas ao clique`
+                ? fill(t("pages.home.attributionOkRate"), { rate })
                 : ""}
             </p>
           )}
           {unattr > 0 ? (
             <p className="text-xs opacity-90 leading-relaxed">
-              Confirme o postback MaxWeb/BuyGoods com{" "}
-              <code className="font-mono text-[10px]">{"{SUBID2}"}</code> e Digistore com{" "}
+              {t("pages.home.attributionHintBefore")}{" "}
+              <code className="font-mono text-[10px]">{"{SUBID2}"}</code>{" "}
+              {t("pages.home.attributionHintMid")}{" "}
               <code className="font-mono text-[10px]">{"{sid1}"}</code>.{" "}
               <Link to="/integracoes/postback" className="font-medium underline underline-offset-2">
-                Abrir postback
+                {t("pages.home.attributionOpenPostback")}
               </Link>
             </p>
           ) : null}
@@ -86,12 +92,12 @@ export function AttributionHealthBanner({ attribution, checks, className, compac
             <p className="text-xs opacity-90 flex items-start gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden />
               <span>
-                {postback.detail || "Postback ainda não configurado."}{" "}
+                {postback.detail || t("pages.home.attributionPostbackMissing")}{" "}
                 <Link
                   to={postback.href || "/integracoes/postback"}
                   className="font-medium underline underline-offset-2"
                 >
-                  Configurar
+                  {t("pages.home.attributionConfigure")}
                 </Link>
               </span>
             </p>

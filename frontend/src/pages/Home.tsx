@@ -13,8 +13,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { rangeToday } from "@/lib/dateRangePresets";
 import { OnboardingChecklistCard } from "@/components/OnboardingChecklistCard";
 import { AttributionHealthBanner } from "@/components/AttributionHealthBanner";
+import { NextAccountActionBanner } from "@/components/NextAccountActionBanner";
 import { SyncHealthBanner } from "@/components/SyncHealthBanner";
 import { TrackPathStatus } from "@/components/TrackPathStatus";
+import { getNextAccountHealthStep } from "@/lib/accountHealthSteps";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import type { AppLocale } from "@/i18n/types";
 
@@ -71,7 +73,8 @@ export default function Home() {
       if (error) throw new Error(error);
       return data;
     },
-    enabled: pages.length > 0,
+    // Também com 0 páginas: account_health alimenta next-action no first-run.
+    enabled: true,
   });
 
   if (loadingPages) return <LoadingState message={t("common.loading")} />;
@@ -110,10 +113,20 @@ export default function Home() {
           <Plus className="h-5 w-5" />
           {t("pages.home.createPresell")}
         </Button>
-        <div className="mt-8 w-full">
+        <div className="mt-8 w-full space-y-3">
+          {!loadingDash &&
+          dash?.account_health?.checks &&
+          getNextAccountHealthStep(dash.account_health.checks)?.id !== "presell_published" ? (
+            <NextAccountActionBanner checks={dash.account_health.checks} />
+          ) : null}
           <OnboardingChecklistCard />
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">
+          {t("pages.home.preferGuided")}{" "}
+          <Link to="/ajuda/assistente" className="text-primary underline-offset-2 hover:underline">
+            {t("pages.home.openGuidedSetup")}
+          </Link>
+          {" · "}
           {t("pages.home.preferLessons")}{" "}
           <Link to="/aulas" className="text-primary underline-offset-2 hover:underline">
             {t("pages.home.openLessons")}
@@ -158,6 +171,9 @@ export default function Home() {
         />
       </div>
 
+      {!loadingDash && dash?.account_health ? (
+        <NextAccountActionBanner checks={dash.account_health.checks} />
+      ) : null}
       {!loadingDash && dash?.account_health ? (
         <AttributionHealthBanner
           attribution={dash.account_health.attribution}

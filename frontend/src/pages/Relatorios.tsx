@@ -12,8 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { APP_PAGE_SHELL_PRO } from "@/lib/appPageLayout";
-import { ProPageHeader } from "@/components/enterprise/ProShell";
+import { ProInlineLink, ProPageHeader } from "@/components/enterprise/ProShell";
 import { SyncHealthBanner } from "@/components/SyncHealthBanner";
+import { NextAccountActionBanner } from "@/components/NextAccountActionBanner";
 import { analyticsService } from "@/services/analyticsService";
 import type { TrackingEvent } from "@/types/api";
 import { LoadingState } from "@/components/LoadingState";
@@ -1102,8 +1103,15 @@ export default function Relatorios() {
       <ProPageHeader
         title={t("pages.reports.title")}
         subtitle={t("pages.reports.subtitle")}
+        meta={
+          <ProInlineLink to="/integracoes">{t("pages.reports.fixTrackingLink")}</ProInlineLink>
+        }
       />
       <SyncHealthBanner className="mb-4" syncHealth={dashQuery.data?.sync_health} />
+      <NextAccountActionBanner
+        className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/[0.06] px-4 py-3"
+        checks={dashQuery.data?.account_health?.checks}
+      />
 
       {(tab === "cliques" || tab === "acessos") && trafficTypeCounts.paid_untracked > 0 ? (
         <div className="mb-4 rounded-xl border border-amber-500/35 bg-amber-500/[0.07] px-4 py-3 text-sm text-foreground">

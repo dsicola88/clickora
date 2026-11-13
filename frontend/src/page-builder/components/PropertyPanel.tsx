@@ -30,7 +30,11 @@ import { useHtmlFoldEdit } from "../htmlFoldEdit";
 import type { FormField } from "../widgets/FormWidget";
 import type { SocialNetwork } from "../widgets/SocialIconsWidget";
 import type { TabItem } from "../widgets/TabsWidget";
+import { AlertWidgetEditor } from "./editors/AlertWidgetEditor";
 import { ButtonWidgetEditor } from "./editors/ButtonWidgetEditor";
+import { CountdownWidgetEditor } from "./editors/CountdownWidgetEditor";
+import { FaqWidgetEditor } from "./editors/FaqWidgetEditor";
+import { ListEditor, type ListEditorItem } from "./editors/ListEditor";
 import { WidgetEffectsEditor } from "./WidgetEffectsEditor";
 import { WidgetInteractionsEditor } from "./WidgetInteractionsEditor";
 import { WidgetConditionsEditor, WidgetMaskEditor } from "./WidgetConditionsEditor";
@@ -810,9 +814,9 @@ function WidgetContentTab({
     case "testimonials":
       return <TestimonialsContentEditor content={c} setContent={setContent} />;
     case "faq":
-      return <FaqContentEditor content={c} setContent={setContent} />;
+      return <FaqWidgetEditor content={c} setContent={setContent} />;
     case "countdown":
-      return <CountdownContentEditor content={c} setContent={setContent} />;
+      return <CountdownWidgetEditor content={c} setContent={setContent} />;
     case "gallery":
     case "imageCarousel":
       return <GalleryContentEditor widgetType={widget.type} content={c} setContent={setContent} />;
@@ -829,7 +833,7 @@ function WidgetContentTab({
     case "progressTracker":
       return <ProgressTrackerContentEditor content={c} setContent={setContent} />;
     case "alert":
-      return <AlertContentEditor content={c} setContent={setContent} />;
+      return <AlertWidgetEditor content={c} setContent={setContent} />;
     case "tabs":
       return <TabsContentEditor content={c} setContent={setContent} />;
     case "socialIcons":
@@ -2992,88 +2996,7 @@ function FormContentEditor({
   );
 }
 
-/* ----------- TESTIMONIALS / FAQ / COUNTDOWN / GALLERY EDITORS ----------- */
-
-interface ListItem {
-  id: string;
-  [k: string]: unknown;
-}
-
-function ListEditor<T extends ListItem>({
-  title,
-  items,
-  onChange,
-  newItem,
-  renderFields,
-  itemLabel,
-}: {
-  title: string;
-  items: T[];
-  onChange: (next: T[]) => void;
-  newItem: () => T;
-  renderFields: (item: T, update: (patch: Partial<T>) => void) => React.ReactNode;
-  itemLabel: (item: T, idx: number) => string;
-}) {
-  const { t } = useAppLocale();
-  const update = (idx: number, patch: Partial<T>) =>
-    onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
-  const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx));
-  const move = (idx: number, dir: -1 | 1) => {
-    const target = idx + dir;
-    if (target < 0 || target >= items.length) return;
-    const next = [...items];
-    [next[idx], next[target]] = [next[target], next[idx]];
-    onChange(next);
-  };
-  return (
-    <Section title={title}>
-      <div className="space-y-2">
-        {items.length === 0 && (
-          <p className="rounded bg-editor-panel-2 p-3 text-center text-[11px] text-editor-fg-muted">
-            {t("pages.pageBuilder.chrome.listEmpty")}
-          </p>
-        )}
-        {items.map((item, idx) => (
-          <div
-            key={item.id}
-            className="space-y-2 rounded border border-editor-border bg-editor-panel-2 p-2.5"
-          >
-            <div className="flex items-center justify-between gap-1">
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => move(idx, -1)}
-                  disabled={idx === 0}
-                  className="text-editor-fg-muted hover:text-editor-fg disabled:opacity-30"
-                >
-                  <GripVertical className="h-3.5 w-3.5" />
-                </button>
-                <span className="text-[11px] font-semibold text-editor-fg">
-                  {itemLabel(item, idx)}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => remove(idx)}
-                className="rounded p-1 text-editor-fg-muted hover:bg-destructive/20 hover:text-destructive"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            {renderFields(item, (patch) => update(idx, patch))}
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={() => onChange([...items, newItem()])}
-          className="flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-editor-border py-2 text-[11px] font-medium text-editor-fg-muted transition-colors hover:border-editor-accent hover:text-editor-accent"
-        >
-          <Plus className="h-3.5 w-3.5" /> {t("common.add")}
-        </button>
-      </div>
-    </Section>
-  );
-}
+/* ----------- TESTIMONIALS / GALLERY EDITORS ----------- */
 
 function NavMenuContentEditor({
   content,
@@ -3118,9 +3041,9 @@ function NavMenuContentEditor({
 
   return (
     <>
-      <ListEditor<NavItem & ListItem>
+      <ListEditor<NavItem & ListEditorItem>
         title={t("pages.pageBuilder.chrome.menuLinks")}
-        items={items as Array<NavItem & ListItem>}
+        items={items as Array<NavItem & ListEditorItem>}
         onChange={(next) => setContent({ items: next })}
         itemLabel={(it) => it.label || t("pages.pageBuilder.chrome.linkFallback")}
         newItem={() => ({ id: `nav_${nanoid(6)}`, label: t("pages.pageBuilder.defaults.newLink"), href: "#" })}
@@ -3459,177 +3382,6 @@ function TestimonialsContentEditor({
   );
 }
 
-function FaqContentEditor({
-  content,
-  setContent,
-}: {
-  content: Record<string, unknown>;
-  setContent: (p: Record<string, unknown>) => void;
-}) {
-  const { t } = useAppLocale();
-  const items =
-    (content.items as Array<{ id: string; question: string; answer: string }>) ?? [];
-  return (
-    <>
-      <ListEditor
-        title={t("pages.pageBuilder.chrome.questions")}
-        items={items}
-        onChange={(next) => setContent({ items: next })}
-        itemLabel={(it) => it.question || t("pages.pageBuilder.chrome.questionFallback")}
-        newItem={() => ({
-          id: `q_${nanoid(6)}`,
-          question: "Nova pergunta?",
-          answer: "<p>Resposta...</p>",
-        })}
-        renderFields={(item, update) => (
-          <>
-            <TextField
-              label={t("pages.pageBuilder.chrome.question")}
-              value={item.question}
-              onChange={(v) => update({ question: v })}
-            />
-            <TextareaField
-              label={t("pages.pageBuilder.chrome.answerHtml")}
-              value={item.answer}
-              onChange={(v) => update({ answer: v })}
-              rows={3}
-            />
-          </>
-        )}
-      />
-      <Section title={t("pages.pageBuilder.chrome.behavior")}>
-        <SelectField
-          label={t("pages.pageBuilder.chrome.allowMultiple")}
-          value={(content.allowMultiple as boolean) ? "yes" : "no"}
-          options={[
-            { value: "no", label: t("common.no") },
-            { value: "yes", label: t("common.yes") },
-          ]}
-          onChange={(v) => setContent({ allowMultiple: v === "yes" })}
-        />
-      </Section>
-      <Section title={t("pages.pageBuilder.chrome.appearance")}>
-        <ColorField
-          label={t("pages.pageBuilder.chrome.itemBg")}
-          value={(content.itemBg as string) ?? "#ffffff"}
-          onChange={(v) => setContent({ itemBg: v })}
-        />
-        <ColorField
-          label={t("pages.pageBuilder.panel.borderColor")}
-          value={(content.itemBorderColor as string) ?? "#e5e7eb"}
-          onChange={(v) => setContent({ itemBorderColor: v })}
-        />
-        <ColorField
-          label={t("pages.pageBuilder.chrome.questionColor")}
-          value={(content.questionColor as string) ?? "#111827"}
-          onChange={(v) => setContent({ questionColor: v })}
-        />
-        <ColorField
-          label={t("pages.pageBuilder.chrome.answerColor")}
-          value={(content.answerColor as string) ?? "#4b5563"}
-          onChange={(v) => setContent({ answerColor: v })}
-        />
-        <ColorField
-          label={t("pages.pageBuilder.chrome.accent")}
-          value={(content.accentColor as string) ?? "#e63946"}
-          onChange={(v) => setContent({ accentColor: v })}
-        />
-      </Section>
-    </>
-  );
-}
-
-function CountdownContentEditor({
-  content,
-  setContent,
-}: {
-  content: Record<string, unknown>;
-  setContent: (p: Record<string, unknown>) => void;
-}) {
-  const { t } = useAppLocale();
-  const deadline = (content.deadline as string) ?? new Date(Date.now() + 86400000).toISOString();
-  const dt = new Date(deadline);
-  // datetime-local needs YYYY-MM-DDTHH:MM
-  const isoLocal = !isNaN(dt.getTime())
-    ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}T${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`
-    : "";
-
-  return (
-    <>
-      <Section title={t("pages.pageBuilder.chrome.targetDate")}>
-        <div>
-          <label className="mb-1 block text-[11px] font-medium text-editor-fg-muted">
-            {t("pages.pageBuilder.chrome.expires")}
-          </label>
-          <input
-            type="datetime-local"
-            value={isoLocal}
-            onChange={(e) => {
-              const d = new Date(e.target.value);
-              if (!isNaN(d.getTime())) setContent({ deadline: d.toISOString() });
-            }}
-            className="w-full rounded border border-editor-border bg-editor-panel-2 px-2 py-1.5 text-xs text-editor-fg focus:outline-none focus:ring-1 focus:ring-editor-accent"
-          />
-        </div>
-        <TextField
-          label={t("pages.pageBuilder.chrome.expiredLabel")}
-          value={(content.expiredMessage as string) ?? "A oferta expirou!"}
-          onChange={(v) => setContent({ expiredMessage: v })}
-        />
-      </Section>
-      <Section title={t("pages.pageBuilder.chrome.display")}>
-        <SelectField
-          label={t("pages.pageBuilder.chrome.showDays")}
-          value={(content.showDays as boolean) ?? true ? "yes" : "no"}
-          options={[
-            { value: "yes", label: t("common.yes") },
-            { value: "no", label: t("common.no") },
-          ]}
-          onChange={(v) => setContent({ showDays: v === "yes" })}
-        />
-        <SelectField
-          label={t("pages.pageBuilder.chrome.showLabels")}
-          value={(content.showLabels as boolean) ?? true ? "yes" : "no"}
-          options={[
-            { value: "yes", label: t("common.yes") },
-            { value: "no", label: t("common.no") },
-          ]}
-          onChange={(v) => setContent({ showLabels: v === "yes" })}
-        />
-        <NumberField
-          label={t("pages.pageBuilder.chrome.digitSize")}
-          value={(content.digitSize as number) ?? 48}
-          min={20}
-          max={120}
-          onChange={(v) => setContent({ digitSize: v })}
-        />
-      </Section>
-      <Section title={t("pages.pageBuilder.colors")}>
-        <ColorField
-          label={t("pages.pageBuilder.chrome.digitBg")}
-          value={(content.digitBg as string) ?? "#0f172a"}
-          onChange={(v) => setContent({ digitBg: v })}
-        />
-        <ColorField
-          label={t("pages.pageBuilder.chrome.digitColor")}
-          value={(content.digitColor as string) ?? "#ffffff"}
-          onChange={(v) => setContent({ digitColor: v })}
-        />
-        <ColorField
-          label={t("pages.pageBuilder.chrome.labelColor")}
-          value={(content.labelColor as string) ?? "#475569"}
-          onChange={(v) => setContent({ labelColor: v })}
-        />
-        <ColorField
-          label={t("pages.pageBuilder.chrome.separatorColor")}
-          value={(content.separatorColor as string) ?? "#0f172a"}
-          onChange={(v) => setContent({ separatorColor: v })}
-        />
-      </Section>
-    </>
-  );
-}
-
 const SOCIAL_NETWORK_OPTIONS: { value: SocialNetwork; label: string }[] = [
   { value: "instagram", label: "Instagram" },
   { value: "facebook", label: "Facebook" },
@@ -3641,65 +3393,6 @@ const SOCIAL_NETWORK_OPTIONS: { value: SocialNetwork; label: string }[] = [
   { value: "email", label: "E-mail" },
   { value: "link", label: "Website" },
 ];
-
-function AlertContentEditor({
-  content,
-  setContent,
-}: {
-  content: Record<string, unknown>;
-  setContent: (p: Record<string, unknown>) => void;
-}) {
-  const { t } = useAppLocale();
-  return (
-    <>
-      <Section title={t("pages.pageBuilder.content")}>
-        <SelectField
-          label={t("pages.pageBuilder.widgets.fields.type")}
-          value={(content.variant as string) ?? "info"}
-          options={[
-            { value: "info", label: t("pages.pageBuilder.chrome.variantInfo") },
-            { value: "success", label: t("pages.pageBuilder.chrome.variantSuccess") },
-            { value: "warning", label: t("pages.pageBuilder.chrome.variantWarning") },
-            { value: "danger", label: t("pages.pageBuilder.chrome.variantDanger") },
-          ]}
-          onChange={(v) => setContent({ variant: v })}
-        />
-        <TextField label={t("pages.pageBuilder.widgets.fields.title")} value={(content.title as string) ?? ""} onChange={(v) => setContent({ title: v })} />
-        <TextareaField
-          label={t("pages.pageBuilder.chrome.messageHtml")}
-          value={(content.message as string) ?? ""}
-          onChange={(v) => setContent({ message: v })}
-          rows={5}
-        />
-        <SelectField
-          label={t("pages.pageBuilder.chrome.showIcon")}
-          value={((content.showIcon as boolean) ?? true) ? "yes" : "no"}
-          options={[
-            { value: "yes", label: t("common.yes") },
-            { value: "no", label: t("common.no") },
-          ]}
-          onChange={(v) => setContent({ showIcon: v === "yes" })}
-        />
-        <SelectField
-          label={t("pages.pageBuilder.chrome.dismiss")}
-          value={((content.dismissible as boolean) ?? false) ? "yes" : "no"}
-          options={[
-            { value: "no", label: t("common.no") },
-            { value: "yes", label: t("common.yes") },
-          ]}
-          onChange={(v) => setContent({ dismissible: v === "yes" })}
-        />
-        <NumberField
-          label={t("pages.pageBuilder.chrome.borderRadius")}
-          value={(content.borderRadius as number) ?? 10}
-          min={0}
-          max={32}
-          onChange={(v) => setContent({ borderRadius: v })}
-        />
-      </Section>
-    </>
-  );
-}
 
 function TabsContentEditor({
   content,
