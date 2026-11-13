@@ -34,6 +34,7 @@ import { countPlanClicksThisMonth } from "../lib/planClickQuota";
 import { buildMediaBuyerAlerts, computePerf } from "../lib/campaignPerf";
 import { buildAccountHealth, loadPeriodSnapshot } from "../lib/accountHealth";
 import { loadConversionFunnel } from "../lib/conversionFunnel";
+import { loadVisitorIpReport, type VisitorIpTrafficFilter } from "../lib/visitorIpReport";
 import { allocatePeriodSpendByClicks } from "../lib/allocateSpendByClicks";
 import { loadSyncHealth, loadSyncQueueHealth } from "../lib/syncHealth";
 import { listApprovedConversionsWithGclid } from "../lib/conversionLedger";
@@ -2611,6 +2612,63 @@ export const analyticsController = {
       return res.status(503).json({
         error: "O funil de conversões não está disponível de momento. Tente novamente dentro de alguns instantes.",
         code: "funnel_unavailable",
+      });
+    }
+  },
+
+  /**
+   * Visitas×cliques por IP + heurística bot/cloud/rato (só relatório).
+   * Não bloqueia automaticamente — o afiliado decide na UI.
+   */
+  async getVisitorIps(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    const fromQ = req.query.from?.toString();
+    const toQ = req.query.to?.toString();
+    const trafficRaw = (req.query.traffic?.toString() || "all").toLowerCase();
+    const traffic: VisitorIpTrafficFilter =
+      trafficRaw === "paid" || trafficRaw === "organic" ? trafficRaw : "all";
+    const limit = Math.min(Math.max(Number(req.query.limit) || 150, 1), 300);
+
+    const endOfDay = (d: Date) => {
+      const x = new Date(d);
+      x.setHours(23, 59, 59, 999);
+      return x;
+    };
+
+    let rangeStart: Date;
+    let rangeEnd: Date;
+    if (fromQ && toQ) {
+      rangeStart = new Date(fromQ);
+      rangeStart.setHours(0, 0, 0, 0);
+      rangeEnd = endOfDay(new Date(toQ));
+      if (Number.isNaN(rangeStart.getTime()) || Number.isNaN(rangeEnd.getTime()) || rangeStart > rangeEnd) {
+        return res.status(400).json({
+          error: "Intervalo de datas inválido (use from e to em formato YYYY-MM-DD)",
+        });
+      }
+    } else {
+      rangeEnd = endOfDay(new Date());
+      rangeStart = new Date(rangeEnd);
+      rangeStart.setDate(rangeStart.getDate() - 29);
+      rangeStart.setHours(0, 0, 0, 0);
+    }
+
+    try {
+      const report = await loadVisitorIpReport({
+        userId,
+        rangeStart,
+        rangeEnd,
+        periodFrom: fromQ || undefined,
+        periodTo: toQ || undefined,
+        traffic,
+        limit,
+      });
+      return res.json(report);
+    } catch (e) {
+      console.error("[analytics.getVisitorIps]", e);
+      return res.status(503).json({
+        error: "O relatório de IPs não está disponível de momento. Tente novamente dentro de alguns instantes.",
+        code: "visitor_ips_unavailable",
       });
     }
   },

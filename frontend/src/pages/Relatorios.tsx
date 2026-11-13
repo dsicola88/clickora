@@ -40,6 +40,7 @@ import {
   collectDatacenterIpsForGoogleAdsExclusion,
   formatGoogleAdsIpExclusionList,
 } from "@/lib/googleAdsIpExclusion";
+import { SuspiciousTrafficPanel } from "@/components/SuspiciousTrafficPanel";
 
 /** Redes no filtro de conversões (mesma lista que Integrações / Construtor de URL). */
 const RELATORIO_PLATFORM_OPTIONS = [...new Set([...AFFILIATE_PLATFORMS, ...EXTRA_OFFER_PLATFORMS])].sort((a, b) =>
@@ -204,7 +205,7 @@ function platformMatches(rowPlatform: string, selected: string) {
   return row === sel || row.includes(sel) || sel.includes(row);
 }
 
-const RELATORIO_TABS = ["acessos", "cliques", "conversoes", "sem-gclid"] as const;
+const RELATORIO_TABS = ["acessos", "cliques", "conversoes", "sem-gclid", "suspeitos"] as const;
 type RelatorioTab = (typeof RELATORIO_TABS)[number];
 
 function isRelatorioTab(s: string | undefined): s is RelatorioTab {
@@ -1191,6 +1192,9 @@ export default function Relatorios() {
                 {noGclidAlertCount}
               </span>
             ) : null}
+          </TabsTrigger>
+          <TabsTrigger value="suspeitos" className="shrink-0" title={t("pages.reports.tabSuspectsHint")}>
+            {t("pages.reports.tabSuspects")}
           </TabsTrigger>
         </TabsList>
 
@@ -2275,6 +2279,18 @@ export default function Relatorios() {
               </>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="suspeitos" className="mt-6 space-y-4">
+          <div className="space-y-2 max-w-sm">
+            <Label>{t("common.period")}</Label>
+            <DateRangeFilter
+              from={startDate}
+              to={endDate}
+              onApply={(p) => applyDateRange(p.from, p.to, p.compare)}
+            />
+          </div>
+          <SuspiciousTrafficPanel from={applied.from} to={applied.to} />
         </TabsContent>
       </Tabs>
     </div>

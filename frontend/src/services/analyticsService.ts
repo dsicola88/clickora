@@ -334,6 +334,49 @@ export const analyticsService = {
     >(`/analytics/conversions${qs ? `?${qs}` : ""}`);
   },
 
+  async getVisitorIps(params?: {
+    from?: string;
+    to?: string;
+    traffic?: "all" | "paid" | "organic";
+    limit?: number;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    if (params?.traffic && params.traffic !== "all") query.set("traffic", params.traffic);
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return apiClient.get<{
+      period: { from: string; to: string };
+      traffic_filter: "all" | "paid" | "organic";
+      summary: {
+        visits: number;
+        clicks: number;
+        fuga_pct: number | null;
+        bots: number;
+        ratos: number;
+        cloud: number;
+        with_sale: number;
+      };
+      rows: Array<{
+        ip: string;
+        last_seen: string;
+        visits: number;
+        clicks: number;
+        country: string | null;
+        traffic_type: "paid" | "paid_untracked" | "organic";
+        is_bot: boolean;
+        bot_label: string | null;
+        is_cloud: boolean;
+        cloud_label: string | null;
+        is_rato: boolean;
+        has_sale: boolean;
+        blacklisted: boolean;
+        fuga_pct: number | null;
+      }>;
+    }>(`/analytics/visitor-ips${qs ? `?${qs}` : ""}`);
+  },
+
   async getFunnel(params?: { from?: string; to?: string; keyword?: string }) {
     const query = new URLSearchParams();
     if (params?.from) query.set("from", params.from);

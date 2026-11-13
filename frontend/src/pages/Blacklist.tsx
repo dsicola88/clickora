@@ -1,6 +1,7 @@
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { numberLocaleFor } from "@/i18n";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldBan, ShieldCheck, Search, Trash2, AlertTriangle, Bot, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -179,6 +180,19 @@ export default function Blacklist() {
           {t("pages.blacklist.readOnly")}
         </div>
       ) : null}
+
+      <div className="rounded-xl border border-primary/25 bg-primary/[0.05] px-4 py-3 text-sm mb-4">
+        <p className="font-medium text-foreground/90">{t("pages.blacklist.suspectReportTitle")}</p>
+        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+          {t("pages.blacklist.suspectReportBody")}{" "}
+          <Link
+            to="/resultados/relatorios/suspeitos"
+            className="underline underline-offset-2 text-foreground/90"
+          >
+            {t("pages.blacklist.suspectReportLink")}
+          </Link>
+        </p>
+      </div>
 
       <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3 text-sm text-muted-foreground space-y-2">
         <p className="font-medium text-foreground/90">{t("pages.blacklist.orderTitle")}</p>

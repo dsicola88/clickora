@@ -75,6 +75,7 @@ export const apiKeysController = {
         read_examples: [
           "GET /api/analytics/dashboard",
           "GET /api/analytics/funnel",
+          "GET /api/analytics/visitor-ips",
           "GET /api/campaigns",
           "GET /api/traffic-rotators",
           "GET /api/presells",

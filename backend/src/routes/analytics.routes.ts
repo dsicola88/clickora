@@ -20,6 +20,7 @@ analyticsRouter.get("/events", analyticsController.getEvents);
 analyticsRouter.get("/conversions", analyticsController.listConversions);
 analyticsRouter.get("/dashboard", analyticsController.getDashboard);
 analyticsRouter.get("/funnel", analyticsController.getFunnel);
+analyticsRouter.get("/visitor-ips", analyticsController.getVisitorIps);
 analyticsRouter.get("/google-ads-insights", analyticsController.getGoogleAdsInsights);
 analyticsRouter.get("/google-ads-offline-import.csv", analyticsController.getGoogleAdsOfflineImportCsv);
 analyticsRouter.get("/blacklist-blocks", analyticsController.getBlacklistBlocks);
