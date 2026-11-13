@@ -38,6 +38,7 @@ import {
 } from "@/lib/presellTypeMeta";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { bakePublicOfferHrefs, resolvePresellPageDocument } from "@/lib/presellVisualEdit";
+import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
 import { policyUrlsFromPresellContent, resolvePresellFooterPolicies } from "@/lib/presellFooterPolicies";
 import { PresellPublicLocaleProvider } from "@/lib/presellPublicLocale";
 const PublicBuilderPresellView = lazy(() =>
@@ -863,7 +864,8 @@ export default function PublicPresell() {
   const ctaEnabled = useMemo(() => {
     const gk = getPresellGateKind(page?.type || "");
     const ik = getInteractiveGateKind(page?.type || "");
-    // Cookies: o modal só desbloqueia a leitura (black) ou leva à oferta (white).
+    // Cookies: por defeito só desbloqueiam a página (black e white); oferta nos CTAs.
+    // Com settings.cookieRedirectToOffer, Aceitar/Fechar vão ao /track/r/.
     // CTAs do documento: cookies não bloqueiam; gates interativos sim até estarem válidos.
     if (gk === "cookies") return true;
     if (ik) return fieldGate.ctaEnabled;
@@ -1076,13 +1078,13 @@ export default function PublicPresell() {
    * O espelho importado mantém-se visível com o aviso de cookies.
    * A folha fica em baixo; fechar não troca a landing pelo modelo React nem sai para a oferta.
    */
-  const generationNiche =
-    content.generationNiche === "white" || content.generation_niche === "white" ? "white" : "black";
   const hasGenerationNiche =
     content.generationNiche === "black" ||
     content.generationNiche === "white" ||
     content.generation_niche === "black" ||
     content.generation_niche === "white";
+  /** Explícito black|white; legado sem nicho + espelho HTML → white (clone + bake /track/). */
+  const generationNiche = resolvePresellGenerationNiche(content as Record<string, unknown>);
   /** Divulgação de afiliado em todas as presells públicas (inclui antigas sem nicho), excepto fantasma. */
   /** Conformidade no idioma da presell (anúncio/criação), não no idioma escolhido pelo visitante. */
   const complianceLang = presellComplianceLanguage(page.language, uiLang);

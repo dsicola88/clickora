@@ -60,50 +60,77 @@ export function PublicBuilderPresellView({
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
         return;
       }
-      const a = e.composedPath().find((n): n is HTMLAnchorElement => n instanceof HTMLAnchorElement);
-      if (!a) return;
-      const hrefAttr = (a.getAttribute("href") || "").trim();
-      const marked = a.getAttribute("data-clickora-offer") === "1";
-      const hashOnly = !hrefAttr || hrefAttr === "#" || hrefAttr.startsWith("#");
+      const path = e.composedPath();
+      const a = path.find((n): n is HTMLAnchorElement => n instanceof HTMLAnchorElement);
+      const btn = path.find(
+        (n): n is HTMLElement =>
+          n instanceof HTMLElement &&
+          (n instanceof HTMLButtonElement ||
+            n.getAttribute?.("role") === "button" ||
+            n.getAttribute?.("data-clickora-offer") === "1"),
+      );
 
-      const labelHit = isCtaLabel(a.textContent || a.getAttribute("aria-label") || "");
-      const softHash = /^#(top|content|main|inicio|topo|footer|nav)\b/i.test(hrefAttr);
-      const isOfferIntent = (() => {
-        if (marked) return true;
-        if (labelHit && (hashOnly || !softHash)) return true;
-        if (hashOnly || hrefAttr.startsWith("mailto:") || hrefAttr.startsWith("tel:")) return false;
-        try {
-          const absolute = new URL(hrefAttr, window.location.href).href;
-          if (hrefLooksLikeOfferLink(absolute, offerUrl || "")) return true;
-          if (!offerNorm) return false;
-          const linkNorm = normalizeComparableUrl(absolute);
-          return Boolean(linkNorm && linkNorm === offerNorm);
-        } catch {
-          return false;
-        }
-      })();
+      if (a) {
+        const hrefAttr = (a.getAttribute("href") || "").trim();
+        const marked = a.getAttribute("data-clickora-offer") === "1";
+        const hashOnly = !hrefAttr || hrefAttr === "#" || hrefAttr.startsWith("#");
 
-      if (!isOfferIntent) return;
+        const labelHit = isCtaLabel(a.textContent || a.getAttribute("aria-label") || "");
+        const softHash = /^#(top|content|main|inicio|topo|footer|nav)\b/i.test(hrefAttr);
+        const isOfferIntent = (() => {
+          if (marked) return true;
+          if (labelHit && (hashOnly || !softHash)) return true;
+          if (hashOnly || hrefAttr.startsWith("mailto:") || hrefAttr.startsWith("tel:")) return false;
+          try {
+            const absolute = new URL(hrefAttr, window.location.href).href;
+            if (hrefLooksLikeOfferLink(absolute, offerUrl || "")) return true;
+            if (!offerNorm) return false;
+            const linkNorm = normalizeComparableUrl(absolute);
+            return Boolean(linkNorm && linkNorm === offerNorm);
+          } catch {
+            return false;
+          }
+        })();
 
-      if (interactionLocked) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
+        if (!isOfferIntent) return;
 
-      if (!track) return;
-
-      if (hashOnly || hrefAttr.startsWith("mailto:") || hrefAttr.startsWith("tel:") || softHash) {
-        if (labelHit || marked) {
+        if (interactionLocked) {
           e.preventDefault();
           e.stopPropagation();
-          window.location.assign(track);
+          return;
         }
+
+        if (!track) return;
+
+        if (hashOnly || hrefAttr.startsWith("mailto:") || hrefAttr.startsWith("tel:") || softHash) {
+          if (labelHit || marked) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.location.assign(track);
+          }
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.assign(track);
         return;
       }
-      e.preventDefault();
-      e.stopPropagation();
-      window.location.assign(track);
+
+      // Botões / role=button comerciais (black portal e widgets sem <a>).
+      if (btn && !a) {
+        const marked = btn.getAttribute("data-clickora-offer") === "1";
+        const labelHit = isCtaLabel(btn.textContent || btn.getAttribute("aria-label") || "");
+        if (!marked && !labelHit) return;
+        if (interactionLocked) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        if (!track) return;
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.assign(track);
+      }
     };
 
     root.addEventListener("click", onClick, true);

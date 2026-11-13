@@ -27,7 +27,7 @@ function elementLooksCommercial(el: Element): boolean {
 }
 
 /** Marca CTAs comerciais sem alterar href, classes nem texto (só metadata). */
-export function tagMirrorOfferElementsInDocument(doc: Document): void {
+export function tagMirrorOfferElementsInDocument(doc: Document, affiliateHref = ""): void {
   doc.querySelectorAll("a[href]").forEach((node) => {
     const a = node as HTMLAnchorElement;
     const href = (a.getAttribute("href") || "").trim();
@@ -40,7 +40,7 @@ export function tagMirrorOfferElementsInDocument(doc: Document): void {
       a.setAttribute("data-clickora-offer", "1");
       return;
     }
-    if (hrefLooksLikeOfferLink(href, "") || mirrorAnchorLooksCommercial(a)) {
+    if (hrefLooksLikeOfferLink(href, affiliateHref) || mirrorAnchorLooksCommercial(a)) {
       a.setAttribute("data-clickora-offer", "1");
     }
   });
@@ -98,11 +98,29 @@ export function bindMirrorOfferClickCapture(
   const offer = trackOfferHref.trim();
   if (!offer || offer === "#") return () => undefined;
 
-  tagMirrorOfferElementsInDocument(doc);
+  tagMirrorOfferElementsInDocument(doc, affiliateHref);
 
   const handler = (e: Event) => onMirrorPointerEvent(e, offer, affiliateHref);
+  const onSubmit = (e: Event) => {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    const action = (form.getAttribute("action") || "").trim();
+    if (!action || !hrefLooksLikeOfferLink(action, affiliateHref)) {
+      if (form.querySelector("[data-clickora-offer='1']")) {
+        e.preventDefault();
+        e.stopPropagation();
+        navigatePresellOfferFromMirrorEvent(e, offer);
+      }
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    navigatePresellOfferFromMirrorEvent(e, offer);
+  };
   doc.addEventListener("click", handler, true);
+  doc.addEventListener("submit", onSubmit, true);
   return () => {
     doc.removeEventListener("click", handler, true);
+    doc.removeEventListener("submit", onSubmit, true);
   };
 }

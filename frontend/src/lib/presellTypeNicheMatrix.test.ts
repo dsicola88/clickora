@@ -4,6 +4,7 @@ import {
   coercePresellTypeForNiche,
   isPresellTypeAllowedForNiche,
   presellTypeGroupsForNiche,
+  resolvePresellGenerationNiche,
 } from "./presellGenerationNiche";
 import { getInteractiveGateKind, getPresellGateKind, isGhostPresellType } from "./presellTypeMeta";
 import { bakePublicOfferHrefs, buildEditablePageDocument } from "./presellVisualEdit";
@@ -46,6 +47,16 @@ describe("matriz tipo × nicho", () => {
       "captcha",
       "modelos",
     ]);
+  });
+
+  it("resolvePresellGenerationNiche: legado com espelho → white; black explícito ganha", () => {
+    const mirror = `<!doctype html><html><body>${"x".repeat(900)}</body></html>`;
+    expect(resolvePresellGenerationNiche({ importMirrorSrcDoc: mirror })).toBe("white");
+    expect(
+      resolvePresellGenerationNiche({ generationNiche: "black", importMirrorSrcDoc: mirror }),
+    ).toBe("black");
+    expect(resolvePresellGenerationNiche({ generationNiche: "white" })).toBe("white");
+    expect(resolvePresellGenerationNiche({})).toBe("black");
   });
 
   it("black permite todos; white exclui fantasma e gates demográficos", () => {
@@ -116,6 +127,25 @@ describe("matriz tipo × nicho", () => {
         ).toBe(true);
       }
     }
+  });
+
+  it("legado sem nicho + espelho → documento white (html fromMirror)", () => {
+    const mirror = `<!doctype html><html><body><h1>Oferta</h1><p>${"Produto útil. ".repeat(80)}</p><a href="https://buygoods.com/x">Buy</a></body></html>`;
+    expect(resolvePresellGenerationNiche({ importMirrorSrcDoc: mirror })).toBe("white");
+    const doc = buildEditablePageDocument({
+      title: "Campanha",
+      type: "tsl",
+      content: {
+        title: "Gadget",
+        affiliateLink: "https://offer.example/buy",
+        importMirrorSrcDoc: mirror,
+      },
+    });
+    const html = doc.sections
+      .flatMap((s) => s.columns.flatMap((c) => c.widgets))
+      .find((w) => w.type === "html");
+    expect(html?.content.fromMirror).toBe(true);
+    expect(String(html?.content.code || "")).toContain("Oferta");
   });
 
   it("white cookies: CTA na página; cookie sem hoplink", () => {

@@ -41,6 +41,25 @@ export function normalizePresellGenerationNiche(raw: unknown): PresellGeneration
   return v === "white" ? "white" : "black";
 }
 
+/**
+ * Nicho efectivo na página pública / documento.
+ * Explícito black|white ganha; legado sem nicho com espelho HTML → white (mostrar clone + bake /track/).
+ */
+export function resolvePresellGenerationNiche(
+  content: Record<string, unknown> | null | undefined,
+  opts?: { mirrorHtmlMinLength?: number },
+): PresellGenerationNiche {
+  const c = content && typeof content === "object" ? content : {};
+  const raw = c.generationNiche ?? c.generation_niche;
+  if (raw === "white" || raw === "black") return raw;
+  const mirror =
+    (typeof c.importMirrorSrcDoc === "string" && c.importMirrorSrcDoc) ||
+    (typeof c.import_mirror_src_doc === "string" && c.import_mirror_src_doc) ||
+    "";
+  const min = opts?.mirrorHtmlMinLength ?? 800;
+  return mirror.trim().length > min ? "white" : "black";
+}
+
 export function defaultPresellTypeForNiche(niche: PresellGenerationNiche): string {
   return niche === "white" ? "tsl" : "cookies";
 }

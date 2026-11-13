@@ -6,6 +6,7 @@ const COMMERCE_HOST_MARKERS = [
   "clickbank.net",
   "clickbank.com",
   "digistore",
+  "checkout-ds24",
   "hotmart",
   "kiwify",
   "cartpanda",
@@ -20,8 +21,19 @@ const COMMERCE_HOST_MARKERS = [
   "mwebinsight.com",
   "mwebdatawatch.com",
   "mwebkivo.com",
+  "maxweb",
   "bestbuyhere",
   "hop.clickbank",
+  "monetizze",
+  "braip",
+  "eduzz",
+  "smartadv",
+  "adcombo",
+  "everflow",
+  "leadbit",
+  "dr.cash",
+  "drcash",
+  "maxbounty",
 ];
 
 const CTA_LABEL =

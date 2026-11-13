@@ -66,6 +66,9 @@ describe("bakeHtmlOfferHrefs", () => {
 
   it("reconhece hosts comerciais", () => {
     expect(hrefLooksLikeOfferLink("https://buygoods.com/x")).toBe(true);
+    expect(hrefLooksLikeOfferLink("https://go.monetizze.com.br/x")).toBe(true);
+    expect(hrefLooksLikeOfferLink("https://ev.braip.com/x")).toBe(true);
+    expect(hrefLooksLikeOfferLink("https://mwebkivo.com/1/2")).toBe(true);
     expect(hrefLooksLikeOfferLink("https://cdn.example/a.png")).toBe(false);
     expect(hrefLooksLikeOfferLink("https://shop.example/privacy")).toBe(false);
   });

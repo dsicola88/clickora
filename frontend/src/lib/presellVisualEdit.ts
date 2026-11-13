@@ -1,6 +1,7 @@
 import { createSection, createWidget, id } from "@/page-builder/factory";
 import type { PageDocument, WidgetNode } from "@/page-builder/types";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
 import { CLICKORA_MIRROR_TRACK_MARKER } from "@/lib/presellMirrorMarkers";
 import { bakeHtmlOfferHrefs } from "@/lib/presellOfferHrefBake";
 import { getPresellGateKind } from "@/lib/presellTypeMeta";
@@ -79,7 +80,7 @@ export type EditablePresellSource = {
 };
 
 function isWhiteNiche(content: Record<string, unknown>): boolean {
-  return content.generationNiche === "white" || content.generation_niche === "white";
+  return resolvePresellGenerationNiche(content) === "white";
 }
 
 function heroImageWidget(src: string, alt: string, offer = "", isHero = true): WidgetNode {
