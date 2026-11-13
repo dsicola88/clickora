@@ -228,7 +228,7 @@ Ads → GET /api/track/rot/:id  → 302 braço (forwardAdQueryToUrl + clickora_c
 |-----|--------|
 | `/track/r/` | `isRedirectToAllowedOffer` (open-redirect) — host/path vs hoplink configurado |
 | `/track/rot/` | Destino da BD (braço/backup/policy) — **sem** allowlist de hoplink; intencional |
-| Probe saúde rotador | SSRF: skip localhost/privado |
+| Probe saúde rotador | SSRF: pin IP + vet URL por hop (`rotatorDestinationHealth`) |
 
 Docs de produto **não** inventariam os 4 modos; verdade = schema + UI `Rotadores.tsx` + `trafficRotator.service.ts`.
 

@@ -17,7 +17,7 @@
 | Overrides humanos | **PASS*** | *corrigido: só aplicáveis ao fingerprint da auditoria de origem |
 | UI WARNING / NOT_CHECKED ≠ aprovado | **PASS*** | *corrigido: rótulo explícito com avisos + disclaimer |
 | SSRF import | **PASS** | `presellImportSsrf` + `presellSafeFetch` com DNS pin |
-| SSRF probe de conformidade | **FAIL** (residual) | Valida DNS por hop mas usa `fetch()` **sem** pin de IP (TOCTOU / rebinding). Import é mais forte |
+| SSRF probe de conformidade | **PASS** (corrigido pós-auditoria) | `destinationProbe` usa `vetImportUrl` + `nodeImportRequest` com pin de IP por hop (mesmo padrão do import) |
 | Rate limit auditoria | **PASS*** | *corrigido: `complianceAuditLimiter` (40/15min por conta) |
 | Separação Google vs Microsoft | **PASS** (limitado) | Estrutura separada; a maioria das regras é partilhada; fontes MS EN parcialmente `unreachable` |
 | Migração `20261015120000_presell_compliance_audits` | **PASS** (confirmado read-only) | `prisma migrate status` → schema up to date; coluna `compliance_gate` presente |
@@ -69,7 +69,7 @@ Leituras públicas (`status: "published"` em `getPublicBySlug` / root host) **n�
 |----------|-----------|
 | SSRF localhost / metadata / privado (import + probe URL assert) | PASS (testes unitários) |
 | Redirect hops revalidados (`assertExternalProductUrl` + DNS) | PASS no código do probe |
-| DNS rebinding entre lookup e connect no **probe** | **FAIL residual** — ao contrário de `presellSafeFetch`, não faz pin de IP no socket |
+| DNS rebinding entre lookup e connect no **probe** | **PASS** — pin de IP no socket (`nodeImportRequest`), alinhado ao import |
 | Timeout probe 8s | PASS |
 | Limite de tamanho do corpo da probe | **Corrigido** (Range + cancel ~512KB) |
 | Rate limit `compliance/audit` | **PASS*** — `complianceAuditLimiter` |
@@ -133,8 +133,8 @@ Nenhuma migração nova foi executada nesta auditoria.
 
 ## 8. Correções mínimas ainda pendentes (recomendadas)
 
-1. **Pin de IP no probe** (reutilizar padrão `presellSafeFetch`) — prioridade segurança.
-2. Rate limit também no `create`/`PATCH status` quando dispara probe (hoje só no endpoint `/audit`).
+1. ~~**Pin de IP no probe**~~ — **feito** (`destinationProbe` + `rotatorDestinationHealth`).
+2. ~~Rate limit em `create`/`PATCH status`~~ — **feito** (`complianceAuditLimiter` nestas rotas).
 3. Opcional: `needs_review` automático quando `warningCount` de claims/original_content > 0 e categoria regulada.
 
 ---
@@ -142,5 +142,5 @@ Nenhuma migração nova foi executada nesta auditoria.
 ## Veredicto
 
 O motor **funciona como gate de publicação no servidor** nos caminhos principais e a migração de produção está aplicada.  
-Há **riscos residuais reais** (probe sem DNS pin, ausência de rate limit, WARNINGs que não bloqueiam).  
+Residuais restantes: WARNINGs que não bloqueiam publish (intencional) — rever humanos.  
 **Não** declarar aprovação Google/Microsoft. Antes de anunciar: rever avisos humanos, destino HTTPS e divulgação na página pública.

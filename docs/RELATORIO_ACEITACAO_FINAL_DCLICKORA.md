@@ -82,7 +82,7 @@
 | Item | Motivo |
 |------|--------|
 | Staging cloud dedicado (réplicas / Redis) | Sem ambiente staging separado nesta máquina |
-| Playwright E2E completo | Tempo / browser CI |
+| Playwright E2E completo (todos os specs) | Smoke CI: login + legal + tracking; funnel HTTP track→ledger em `backend-isolation` |
 | CWV / Lighthouse produção | Fora do âmbito |
 
 ---

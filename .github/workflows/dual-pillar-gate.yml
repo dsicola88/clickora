@@ -103,6 +103,13 @@ jobs:
           LOAD_TEST_EMAIL_B: danielclickora2@gmail.com
           LOAD_TEST_PASSWORD: ci-isolation-password-32chars-min
         run: npm run test:security-isolation
+      - name: Track → ledger smoke (click + postback)
+        env:
+          LOAD_TEST_BASE_URL: http://127.0.0.1:3011
+          ALLOW_MUTATING_LOAD_TEST: "1"
+          LOAD_TEST_EMAIL: danielclickora1@gmail.com
+          LOAD_TEST_PASSWORD: ci-isolation-password-32chars-min
+        run: npm run test:track-ledger-smoke
 
   frontend-presell:
     runs-on: ubuntu-24.04

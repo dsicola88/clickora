@@ -65,8 +65,9 @@ presellRouter.post(
   presellAiController.spawnVariantPack,
 );
 presellRouter.get("/:id", presellController.getById);
-presellRouter.post("/", presellController.create);
+/** Create/status podem disparar probe de destino — mesmo tecto que /compliance/audit. */
+presellRouter.post("/", complianceAuditLimiter, presellController.create);
 presellRouter.put("/:id", presellController.update);
 presellRouter.delete("/:id", presellController.delete);
 presellRouter.post("/:id/duplicate", presellController.duplicate);
-presellRouter.patch("/:id/status", presellController.toggleStatus);
+presellRouter.patch("/:id/status", complianceAuditLimiter, presellController.toggleStatus);

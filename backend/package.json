@@ -51,7 +51,8 @@
     "load:realistic": "node --import tsx scripts/load-realistic-suite.ts",
     "load:authed-burst": "node --import tsx scripts/load-authed-burst.ts",
     "paid:optimizer:once": "tsx scripts/run-paid-optimizer-once.ts",
-    "test:security-isolation": "tsx scripts/security-isolation-suite.ts"
+    "test:security-isolation": "tsx scripts/security-isolation-suite.ts",
+    "test:track-ledger-smoke": "tsx scripts/e2e-track-ledger-smoke.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1137.0",

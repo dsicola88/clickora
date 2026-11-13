@@ -53,4 +53,14 @@ describe("rotatorDestinationHealth", () => {
     assert.equal(timed.healthy, false);
     assert.equal(timed.reason, "timeout");
   });
+
+  it("bloqueia destinos privados / metadata sem rede (SSRF)", async () => {
+    const { clearRotatorDestinationHealthCache } = await import("./rotatorDestinationHealth");
+    clearRotatorDestinationHealthCache();
+    assert.equal(isRotatorDestinationProbeable("http://127.0.0.1/"), false);
+    assert.equal(isRotatorDestinationProbeable("http://169.254.169.254/latest"), false);
+    const blocked = await probeRotatorDestinationQuick("http://127.0.0.1/admin", { bypassCache: true });
+    assert.equal(blocked.healthy, true);
+    assert.equal(blocked.reason, "skipped_host");
+  });
 });
