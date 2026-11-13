@@ -129,6 +129,80 @@ describe("finalizeMirrorSrcDocForImport (onclick → href)", () => {
     assert.match(out!, /src="https:\/\/cdn\.example\/pack_1400x\.jpg"/);
     assert.match(out!, /srcset=/);
   });
+
+  it("promove Tailwind bg-[url(...)] relativo para background-image inline absoluto", () => {
+    const html = `<!DOCTYPE html><html><head></head><body>
+<section class="hero md:tw-bg-[url('./assets/images/header-bg-v4.jpg')] tw-bg-cover">
+<h1>Offer</h1>
+</section>
+</body></html>`;
+    const out = finalizeMirrorSrcDocForImport(
+      html,
+      "https://melaramax.com/land",
+      "https://hop.example/buy",
+    );
+    assert.ok(out);
+    assert.match(
+      out!,
+      /background-image:\s*url\(https:\/\/melaramax\.com\/assets\/images\/header-bg-v4\.jpg\)/,
+    );
+    // Classe original mantém-se (CSS compilado); inline garante 1ª dobra mesmo se o CSS falhar.
+    assert.match(out!, /md:tw-bg-\[url\('\.\/assets\/images\/header-bg-v4\.jpg'\)\]/);
+  });
+
+  it("promove data-src lazy para src", () => {
+    const html = `<!DOCTYPE html><html><head></head><body>
+<img src="data:image/svg+xml,%3Csvg/%3E" data-src="/img/product.jpg" alt="P" />
+</body></html>`;
+    const out = finalizeMirrorSrcDocForImport(
+      html,
+      "https://shop.example/",
+      "https://shop.example/buy",
+    );
+    assert.ok(out);
+    assert.match(out!, /src="https:\/\/shop\.example\/img\/product\.jpg"/);
+  });
+
+  it("absolutiza url() em <style> e injeta background no .hero", () => {
+    const html = `<!DOCTYPE html><html><head>
+<style>
+.hero { --header-bg: url('assets/images/header-bg-mobile-v4.jpg'); background-image: var(--header-bg); }
+@media (min-width: 768px) { .hero { --header-bg: url('./assets/images/header-bg-v4.jpg'); } }
+</style>
+</head><body>
+<section class="hero"><h1>Offer</h1></section>
+</body></html>`;
+    const out = finalizeMirrorSrcDocForImport(
+      html,
+      "https://melaramax.com/",
+      "https://hop.example/buy",
+    );
+    assert.ok(out);
+    assert.match(out!, /url\(https:\/\/melaramax\.com\/assets\/images\/header-bg/);
+    assert.match(out!, /style="[^"]*background-image:url\(https:\/\/melaramax\.com\/assets\/images\/header-bg/);
+  });
+
+  it("absolutiza assets relativos para sobreviver à neutralização do <base>", () => {
+    const html = `<!DOCTYPE html><html><head>
+<base href="https://melaramax.com/">
+<link rel="stylesheet" href="./assets/css/theme.css">
+</head><body>
+<img src="./assets/images/pack.png" alt="Pack" />
+<img src="data:image/svg+xml,%3Csvg/%3E" data-src="./assets/images/logo.svg" alt="L" />
+</body></html>`;
+    const out = finalizeMirrorSrcDocForImport(
+      html,
+      "https://melaramax.com/",
+      "https://hop.example/buy",
+    );
+    assert.ok(out);
+    // Simula bake do cliente
+    const baked = out!.replace(/<base\b[^>]*>/gi, '<base href="./">');
+    assert.match(baked, /src="https:\/\/melaramax\.com\/assets\/images\/pack\.png"/);
+    assert.match(baked, /src="https:\/\/melaramax\.com\/assets\/images\/logo\.svg"/);
+    assert.match(baked, /href="https:\/\/melaramax\.com\/assets\/css\/theme\.css"/);
+    assert.doesNotMatch(baked, /src="\.\/assets\//);
+  });
 });
 
 describe("buildMirrorPartsFromStaticHtml", () => {

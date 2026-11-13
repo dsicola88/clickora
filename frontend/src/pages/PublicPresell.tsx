@@ -1310,7 +1310,11 @@ export default function PublicPresell() {
       <PresellPublicLocaleProvider language={uiLang}>
         <div
           className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden pb-0 ${
-            generationNiche === "black" ? "bg-slate-50" : "bg-white pb-12"
+            generationNiche === "black" && isVslLayout
+              ? "bg-slate-950 text-slate-100"
+              : generationNiche === "black"
+                ? "bg-slate-50"
+                : "bg-white pb-12"
           }`}
           data-tenant-wl={tenantBranding ? "1" : undefined}
           style={tenantCssVars}

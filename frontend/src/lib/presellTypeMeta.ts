@@ -1,15 +1,19 @@
 /**
  * Mapeamento tipo → página pública (`PublicPresell`):
  *
+ * Render por defeito (exceto `fantasma`): `resolvePresellPageDocument` → `PublicBuilderPresellView`
+ * (documento de widgets). O ramo React legado (`pageBody`) só serve o redirect fantasma.
+ *
  * | Tipo        | Comportamento |
  * |-------------|----------------|
- * | cookies     | Modal de cookies; com settings.cookieRedirectToOffer, Aceitar/Fechar → oferta rastreada; senão só libera a review. |
- * | desconto    | Faixa de urgência + modal. CTA, fechar e o fundo vão para a oferta rastreada. |
- * | fantasma    | Redirecionamento ao primeiro movimento (rato/toque/scroll). |
- * | vsl / vsl_tsl | Vídeo ou fallback no layout React; com espelho importado, o espelho substitui esse hero (regras cookies/desconto/fantasma mantêm-se). |
- * | tsl, dtc, review, advertorial | Sem espelho: layout React (hero/texto). Com espelho: iframe 1:1 + chrome fino do tipo (selo + CTA); overlays/gates mantêm-se. |
- * | sexo, idade, idade_sexo, idade_pais, sexo_pais, grupo_*, pais, captcha, modelos | Qualificação antes do CTA; com espelho HTML o formulário fica fixo no topo e os cliques no clone ficam bloqueados até validar. |
- * | builder     | Editor visual; se existir espelho importado (`importMirrorSrcDoc`), usa-se o espelho com as regras abaixo. |
+ * | cookies     | Widget `cookieBanner` no documento; `settings.cookieRedirectToOffer`: Aceitar/Fechar → oferta rastreada, senão só libera a página. CTAs da página ficam activos. |
+ * | desconto    | `DiscountPresellOverlay` (faixa + modal). CTA/fechar/fundo → oferta rastreada. |
+ * | fantasma    | Redirecionamento ao primeiro movimento (rato/toque/scroll) — só black. |
+ * | vsl         | Vídeo em destaque no documento; sem carta longa. White+espelho: clone + secção vídeo se `video_url`. |
+ * | vsl_tsl     | Vídeo + carta/artigo editorial no documento (ou espelho + vídeo). |
+ * | tsl, dtc, review, advertorial | Sem espelho: portal/artigo no documento (tema distinto). White+espelho: HTML 1:1 sem chrome Clickora por cima. |
+ * | sexo, idade, idade_sexo, idade_pais, sexo_pais, grupo_*, pais, captcha, modelos | Qualificação sticky antes do CTA (só black); cliques bloqueados até validar. |
+ * | builder     | Documento do editor; white+espelho entra no fluxo comum de espelho. |
  */
 
 /** Tipos que mostram chrome diferenciador quando o espelho HTML está activo. */

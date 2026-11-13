@@ -71,6 +71,7 @@ const createSchema = z.object({
     "tsl",
     "dtc",
     "review",
+    "advertorial",
     "vsl_tsl",
     "sexo",
     "idade",

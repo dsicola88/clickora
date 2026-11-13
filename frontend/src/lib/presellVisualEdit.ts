@@ -4,7 +4,12 @@ import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
 import { CLICKORA_MIRROR_TRACK_MARKER } from "@/lib/presellMirrorMarkers";
 import { bakeHtmlOfferHrefs } from "@/lib/presellOfferHrefBake";
-import { getPresellGateKind } from "@/lib/presellTypeMeta";
+import {
+  getPresellGateKind,
+  isVideoPresellType,
+  isVslOnlyPresellType,
+} from "@/lib/presellTypeMeta";
+import { getPresellTypeTheme } from "@/lib/presellTypeTheme";
 import { resolveHealthArticle } from "@/lib/presellHealthArticle";
 import { getPresellUiStrings } from "@/lib/presellUiStrings";
 import { isPresellDecorImage, rankPresellProductImages } from "@/lib/presellProductImagesRank";
@@ -280,6 +285,8 @@ function pushEditorialArticleSections(args: {
   restImages: string[];
   videoUrl: string;
   mode: "black" | "white";
+  /** Tipo da presell — VSL põe vídeo primeiro; VSL puro omite carta longa. */
+  presellType?: string;
 }) {
   const {
     sections,
@@ -295,7 +302,10 @@ function pushEditorialArticleSections(args: {
     restImages,
     videoUrl,
     mode,
+    presellType = "",
   } = args;
+  const vslFocus = isVideoPresellType(presellType);
+  const vslOnly = isVslOnlyPresellType(presellType);
   const sourcePageTitle =
     asString(content.sourcePageTitle) || asString(content.source_page_title);
   const portalBrand = resolvePresellPortalBrandName({
@@ -306,8 +316,14 @@ function pushEditorialArticleSections(args: {
   });
   const portalLang = language || asString(content.language) || "en";
   const headerTagline = resolvePortalHeaderTagline(content, portalBrand, portalLang);
+  const typeTheme = getPresellTypeTheme(presellType);
+  const contentForArticle: Record<string, unknown> = { ...content };
+  // Selo do tipo (Análise / Artigo / Carta…) quando o content não define kicker próprio.
+  if (!asString(content.articleKicker) && !asString(content.healthKicker) && typeTheme.badge) {
+    contentForArticle.articleKicker = typeTheme.badge;
+  }
   const article = resolveHealthArticle({
-    content,
+    content: contentForArticle,
     productName: portalBrand,
     language: portalLang || "pt-BR",
     salesText: asString(content.salesText),
@@ -334,6 +350,51 @@ function pushEditorialArticleSections(args: {
   ];
   sections.push(headerSec);
 
+  const pushVideoSection = () => {
+    if (!videoUrl) return;
+    const video = createWidget("video");
+    video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
+    const vidSec = createSection(1);
+    vidSec.contentWidth = vslFocus ? 960 : 720;
+    vidSec.styles = {
+      ...vidSec.styles,
+      padding: {
+        desktop: {
+          top: vslFocus ? 16 : 0,
+          right: 28,
+          bottom: vslFocus ? 20 : 16,
+          left: 28,
+          unit: "px",
+        },
+      },
+      background: vslFocus && mode === "black" ? "#0f172a" : "#ffffff",
+    };
+    vidSec.columns[0].widgets = [video];
+    sections.push(vidSec);
+  };
+
+  // VSL: vídeo antes do texto. VSL puro: kicker+título+CTA, sem carta longa.
+  if (vslFocus) pushVideoSection();
+  if (vslFocus && !videoUrl) {
+    const note = createWidget("text");
+    const pt = (portalLang || "").toLowerCase().startsWith("pt");
+    note.content = {
+      ...note.content,
+      html: pt
+        ? "<p><strong>Vídeo:</strong> adicione a URL do vídeo na presell para o visitante ver a VSL completa.</p>"
+        : "<p><strong>Video:</strong> add a video URL on this presell so visitors see the full VSL.</p>",
+    };
+    const noteSec = createSection(1);
+    noteSec.contentWidth = 720;
+    noteSec.styles = {
+      ...noteSec.styles,
+      padding: { desktop: { top: 12, right: 28, bottom: 8, left: 28, unit: "px" } },
+      background: mode === "black" ? "#0f172a" : "#ffffff",
+    };
+    noteSec.columns[0].widgets = [note];
+    sections.push(noteSec);
+  }
+
   const articleSec = createSection(1);
   articleSec.layout = "full";
   articleSec.contentWidth = 720;
@@ -347,24 +408,12 @@ function pushEditorialArticleSections(args: {
     articleKicker(article.kicker),
     articleTitle(article.headline),
   ];
-  if (hero) articleWidgets.push(articleProductPhoto(hero, portalBrand, offerLink));
-  articleWidgets.push(articleCopy(articleBodyHtml(article)));
+  if (!vslOnly && hero) articleWidgets.push(articleProductPhoto(hero, portalBrand, offerLink));
+  if (!vslOnly) articleWidgets.push(articleCopy(articleBodyHtml(article)));
   articleSec.columns[0].widgets = articleWidgets;
   sections.push(articleSec);
 
-  if (videoUrl) {
-    const video = createWidget("video");
-    video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
-    const vidSec = createSection(1);
-    vidSec.contentWidth = 720;
-    vidSec.styles = {
-      ...vidSec.styles,
-      padding: { desktop: { top: 0, right: 28, bottom: 16, left: 28, unit: "px" } },
-      background: "#ffffff",
-    };
-    vidSec.columns[0].widgets = [video];
-    sections.push(vidSec);
-  }
+  if (!vslFocus) pushVideoSection();
 
   if (offer) {
     const ctaSec = createSection(1);
@@ -490,11 +539,11 @@ function withAbsoluteAttr(tag: string, attr: string, base: string): string {
 /** Absolutiza src/href relativos no markup (antes do bake público neutralizar &lt;base&gt;). */
 function absolutizeBodyAssets(html: string, base: string): string {
   if (!base) return html;
-  return html.replace(
-    /<(img|source|a|video|audio|iframe)\b([^>]*)>/gi,
+  let out = html.replace(
+    /<(img|source|a|video|audio|iframe|link)\b([^>]*)>/gi,
     (_full, tag: string, attrs: string) => {
       let next = `<${tag}${attrs}>`;
-      for (const attr of ["src", "href", "poster"]) {
+      for (const attr of ["src", "href", "poster", "data-src", "data-lazy-src"]) {
         if (new RegExp(`\\b${attr}\\s*=`, "i").test(attrs)) {
           next = withAbsoluteAttr(next, attr, base);
         }
@@ -502,6 +551,13 @@ function absolutizeBodyAssets(html: string, base: string): string {
       return next;
     },
   );
+  // url() em <style> / style="" — o bake anula <base href> do merchant.
+  out = out.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (full, _q: string, raw: string) => {
+    const abs = absolutizeHref(raw, base);
+    if (!abs || abs === raw || abs.startsWith("data:")) return full;
+    return `url(${abs})`;
+  });
+  return out;
 }
 
 /** CSS da origem (base + stylesheets + <style>) e o corpo — visual fiel no HTML widget. */
@@ -569,7 +625,8 @@ function offerCookie(_offer: string, policyHref: string, language?: string | nul
 
 /**
  * White: dobra fiel ao produto (espelho ou foto+texto).
- * Black: artigo informativo — sem clonar claims da oferta; hoplink só no gate de cookies.
+ * Black: artigo informativo Ads-safe — sem clonar claims da oferta; hoplink nos CTAs
+ * (cookies: banner só desbloqueia; oferta nos botões explícitos).
  */
 export function buildEditablePageDocument(source: EditablePresellSource): PageDocument {
   const content = source.content || {};
@@ -587,11 +644,19 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
   const cookieType = getPresellGateKind(source.type || "") === "cookies";
   const offerForCtas = cookieType ? "" : offer;
   const productFold = white && Boolean(hero);
+  const typeId = source.type || "";
+  const vslFocus = isVideoPresellType(typeId);
+  const vslOnly = isVslOnlyPresellType(typeId);
   const copyWidgets: WidgetNode[] = [];
 
+  if (vslFocus && videoUrl) {
+    const video = createWidget("video");
+    video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
+    copyWidgets.push(video);
+  }
   if (title) copyWidgets.push(foldHeading(title, productFold ? "left" : "center"));
-  if (html) copyWidgets.push(foldCopy(html));
-  if (videoUrl) {
+  if (html && !vslOnly) copyWidgets.push(foldCopy(html));
+  if (!vslFocus && videoUrl) {
     const video = createWidget("video");
     video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
     copyWidgets.push(video);
@@ -685,6 +750,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       restImages,
       videoUrl,
       mode: white ? "white" : "black",
+      presellType: source.type || "",
     });
   }
 

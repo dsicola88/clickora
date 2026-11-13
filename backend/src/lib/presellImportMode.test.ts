@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { classifyPresellImport } from "./presellImportMode";
-import { assertExternalProductUrl, isBlockedPresellImportHost } from "./presellImporter";
+import {
+  assertExternalProductUrl,
+  isBlockedPresellImportHost,
+  looksLikeClickoraHostedPresellUrl,
+} from "./presellImporter";
 
 describe("classifyPresellImport", () => {
   it("não publica a página original, mesmo sem preço", () => {
@@ -124,5 +128,16 @@ describe("SSRF da importação", () => {
   it("aceita um URL público https", () => {
     assert.doesNotThrow(() => assertExternalProductUrl("https://example.com/produto"));
     assert.equal(isBlockedPresellImportHost("example.com"), false);
+  });
+
+  it("reconhece URL de presell Clickora /p/uuid (qualquer domínio)", () => {
+    assert.equal(
+      looksLikeClickoraHostedPresellUrl(
+        "https://honestverdictguide.online/p/1962cca7-b38e-4c7f-9f50-74227b530958",
+      ),
+      true,
+    );
+    assert.equal(looksLikeClickoraHostedPresellUrl("https://www.knownwalk.com/2MSQQZ2M/22JQ9DB7/"), false);
+    assert.equal(looksLikeClickoraHostedPresellUrl("https://melaramax.com/"), false);
   });
 });

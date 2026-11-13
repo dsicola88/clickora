@@ -22,6 +22,7 @@ const COMMERCE_HOST_MARKERS = [
   "hotmart",
   "kiwify",
   "cartpanda",
+  "mycartpanda",
   "paylix",
   "jvzoo",
   "warriorplus",
@@ -33,6 +34,10 @@ const COMMERCE_HOST_MARKERS = [
   "mwebinsight.com",
   "mwebdatawatch.com",
   "mwebkivo.com",
+  "knownwalk.com",
+  "everflow",
+  "maxweb",
+  "shopify",
 ];
 
 function hostLooksLikeCommerceOrCheckout(hostname: string): boolean {
@@ -442,6 +447,205 @@ export function hintedImageWidth(url: string): number {
   return 0;
 }
 
+/** Extrai URL de `bg-[url(...)]` / `tw-bg-[url(...)]` / `md:tw-bg-[url(...)]` no class. */
+const TW_BG_URL_IN_CLASS =
+  /(?:^|\s)(?:[\w-]+:)*(?:tw-)?bg-\[url\((['"]?)([^'")\]]+)\1\)\]/gi;
+
+function absolutizeMirrorAssetUrl(raw: string, base: URL): string | null {
+  const cleaned = raw.trim().replace(/^['"]|['"]$/g, "");
+  if (!cleaned || cleaned.startsWith("data:") || cleaned.startsWith("#")) return null;
+  try {
+    const abs = new URL(cleaned, base);
+    if (abs.protocol !== "http:" && abs.protocol !== "https:") return null;
+    return abs.href;
+  } catch {
+    return null;
+  }
+}
+
+function mergeInlineStyle(el: HTMLElement, patch: string): void {
+  const prev = (el.getAttribute("style") || "").trim().replace(/;?\s*$/, "");
+  el.setAttribute("style", prev ? `${prev}; ${patch}` : patch);
+}
+
+/** Reescreve `url(...)` relativos dentro de CSS para absolutos (mantém data:/http). */
+function absolutizeCssUrls(css: string, base: URL): string {
+  return css.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (full, q: string, raw: string) => {
+    const abs = absolutizeMirrorAssetUrl(raw || "", base);
+    if (!abs) return full;
+    return `url(${abs})`;
+  });
+}
+
+/**
+ * Tailwind JIT `bg-[url(...)]` só funciona se a classe exacta existir no CSS compilado.
+ * Absolutizar o path dentro da classe parte o match → 1ª dobra sem imagem.
+ * Solução: promover para `style="background-image:…"` (e lazy `data-src` → `src`).
+ */
+export function promoteMirrorBackgroundUrlsToInline(root: HTMLElement, base: URL): void {
+  root.querySelectorAll("[class]").forEach((node) => {
+    const el = node as HTMLElement;
+    const cls = el.getAttribute("class") || "";
+    if (!/bg-\[url\(/i.test(cls)) return;
+    let chosen: string | null = null;
+    TW_BG_URL_IN_CLASS.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = TW_BG_URL_IN_CLASS.exec(cls))) {
+      const abs = absolutizeMirrorAssetUrl(m[2] || "", base);
+      if (abs) chosen = abs; // última (ex. md:) ganha — tipicamente desktop
+    }
+    if (!chosen) return;
+    const style = el.getAttribute("style") || "";
+    // `background-image: var(--header-bg)` não basta se o bake anular o <base>.
+    if (/background-image\s*:\s*url\(/i.test(style)) return;
+    if (/background-image\s*:/i.test(style)) {
+      el.setAttribute(
+        "style",
+        style.replace(
+          /background-image\s*:[^;]+/i,
+          `background-image:url(${chosen})`,
+        ),
+      );
+      return;
+    }
+    mergeInlineStyle(
+      el,
+      // Sem aspas no url() — node-html-parser escapa " para &quot; e parte o CSS.
+      `background-image:url(${chosen});background-size:cover;background-position:top center;background-repeat:no-repeat;min-height:min(72vh,560px)`,
+    );
+  });
+
+  // Absolutizar url() em <style> (CSS vars / backgrounds) — scripts lazy foram removidos.
+  const varUrls = new Map<string, string>();
+  root.querySelectorAll("style").forEach((styleNode) => {
+    const css = styleNode.text || "";
+    if (!css || !/url\(/i.test(css)) return;
+    const next = absolutizeCssUrls(css, base);
+    if (next !== css) styleNode.set_content(next);
+    const re = /--([a-z0-9-_]*bg[a-z0-9-_]*)\s*:\s*url\(\s*(['"]?)([^'")]+)\2\s*\)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(next))) {
+      const abs = absolutizeMirrorAssetUrl(m[3] || "", base);
+      if (abs) varUrls.set(m[1].toLowerCase(), abs);
+    }
+  });
+
+  // Preferir desktop header; fallback mobile.
+  const headerBg = varUrls.get("header-bg");
+  if (headerBg) {
+    const hero =
+      (root.querySelector(".hero") as HTMLElement | null) ||
+      (root.querySelector("[class*='hero']") as HTMLElement | null);
+    if (hero) {
+      const style = hero.getAttribute("style") || "";
+      if (/background-image\s*:\s*url\(/i.test(style)) {
+        /* já tem url() absoluto */
+      } else if (/background-image\s*:/i.test(style)) {
+        hero.setAttribute(
+          "style",
+          style.replace(/background-image\s*:[^;]+/i, `background-image:url(${headerBg})`),
+        );
+      } else {
+        mergeInlineStyle(
+          hero,
+          `background-image:url(${headerBg});background-size:cover;background-position:top center;background-repeat:no-repeat;min-height:min(72vh,560px)`,
+        );
+      }
+    }
+  }
+}
+
+function absolutizeSrcsetAttr(raw: string, base: URL): string {
+  return raw
+    .split(",")
+    .map((part) => {
+      const trimmed = part.trim();
+      if (!trimmed) return trimmed;
+      const bits = trimmed.split(/\s+/);
+      const url = bits[0] || "";
+      const abs = absolutizeMirrorAssetUrl(url, base);
+      if (!abs) return trimmed;
+      return [abs, ...bits.slice(1)].join(" ");
+    })
+    .join(", ");
+}
+
+/**
+ * O bake do cliente neutraliza `<base href>` do merchant (`./`) para CTAs não
+ * saírem para o lander — mas isso parte `src`/`href` relativos. Absolutizar
+ * todos os assets no import torna o espelho independente do `<base>`.
+ */
+export function absolutizeMirrorDocumentAssets(root: HTMLElement, base: URL): void {
+  const bumpAttr = (el: HTMLElement, name: string) => {
+    const raw = el.getAttribute(name);
+    if (!raw || !raw.trim()) return;
+    if (name === "srcset") {
+      el.setAttribute(name, absolutizeSrcsetAttr(raw, base));
+      return;
+    }
+    const abs = absolutizeMirrorAssetUrl(raw, base);
+    if (abs) el.setAttribute(name, abs);
+  };
+
+  root.querySelectorAll("img").forEach((img) => {
+    const el = img as HTMLElement;
+    bumpAttr(el, "src");
+    bumpAttr(el, "srcset");
+    bumpAttr(el, "data-src");
+    bumpAttr(el, "data-lazy-src");
+    bumpAttr(el, "data-original");
+  });
+  root.querySelectorAll("source").forEach((source) => {
+    const el = source as HTMLElement;
+    bumpAttr(el, "src");
+    bumpAttr(el, "srcset");
+  });
+  root.querySelectorAll("video").forEach((video) => {
+    const el = video as HTMLElement;
+    bumpAttr(el, "src");
+    bumpAttr(el, "poster");
+  });
+  root.querySelectorAll("link[href]").forEach((link) => {
+    const el = link as HTMLElement;
+    const rel = (el.getAttribute("rel") || "").toLowerCase();
+    if (!/(stylesheet|preload|icon|apple-touch-icon|image_src)/.test(rel)) return;
+    bumpAttr(el, "href");
+  });
+  root.querySelectorAll("[style]").forEach((node) => {
+    const el = node as HTMLElement;
+    const style = el.getAttribute("style") || "";
+    if (!/url\(/i.test(style)) return;
+    const next = absolutizeCssUrls(style, base);
+    if (next !== style) el.setAttribute("style", next);
+  });
+}
+
+/** Lazy-load sem JS no iframe: `data-src` / `data-lazy-src` → `src`. */
+export function promoteMirrorLazyImagesToSrc(root: HTMLElement, base: URL): void {
+  root.querySelectorAll("img").forEach((img) => {
+    const el = img as HTMLElement;
+    const current = (el.getAttribute("src") || "").trim();
+    const lazy =
+      el.getAttribute("data-src") ||
+      el.getAttribute("data-lazy-src") ||
+      el.getAttribute("data-original") ||
+      "";
+    if (!lazy.trim()) return;
+    const looksEmpty =
+      !current ||
+      current.startsWith("data:image/svg") ||
+      /placeholder|spacer|blank|1x1|pixel/i.test(current) ||
+      // Mesmo path relativo no src e data-src — forçar absoluto + eager.
+      current === lazy.trim();
+    if (!looksEmpty) return;
+    const abs = absolutizeMirrorAssetUrl(lazy, base);
+    if (abs) {
+      el.setAttribute("src", abs);
+      el.removeAttribute("loading");
+    }
+  });
+}
+
 /**
  * Se o `src` é uma miniatura e o srcset (ou o `<source>` do `<picture>`) tem um ficheiro maior
  * da mesma imagem, passa esse URL para `src`. O srcset mantém-se para o browser escolher.
@@ -519,6 +723,42 @@ export function sanitizeMirrorSrcDocFromEditor(
 }
 
 /**
+ * Fallback string-level: atributos de asset relativos → absolutos.
+ * Necessário quando `node-html-parser` falha em tags com classes Tailwind `-[…]`.
+ */
+export function absolutizeRelativeAssetUrlsInHtmlString(html: string, base: URL): string {
+  const skipHref = (raw: string) => {
+    const t = raw.trim();
+    if (!t || t.startsWith("#") || t.startsWith("mailto:") || t.startsWith("tel:")) return true;
+    if (t.startsWith("javascript:") || t.startsWith("data:") || t.startsWith("blob:")) return true;
+    if (/^https?:\/\//i.test(t) || t.startsWith("//")) return true;
+    if (t.includes("__TRACK_OFFER__") || /\/track\/r\//i.test(t)) return true;
+    return false;
+  };
+
+  let out = html;
+  out = out.replace(
+    /\b(src|poster|data-src|data-lazy-src|data-original|href)\s*=\s*(["'])([^"']*)\2/gi,
+    (full, attr: string, q: string, raw: string) => {
+      if (skipHref(raw)) return full;
+      // href: só assets (css/img/font) — não reescrever rotas de página aqui
+      if (attr.toLowerCase() === "href") {
+        if (!/\.(css|js|png|jpe?g|gif|webp|svg|avif|woff2?|ttf|eot|ico)(\?|#|$)/i.test(raw)) {
+          return full;
+        }
+      }
+      const abs = absolutizeMirrorAssetUrl(raw, base);
+      return abs ? `${attr}=${q}${abs}${q}` : full;
+    },
+  );
+  out = out.replace(/\bsrcset\s*=\s*(["'])([^"']*)\1/gi, (full, q: string, raw: string) => {
+    if (!raw.trim()) return full;
+    return `srcset=${q}${absolutizeSrcsetAttr(raw, base)}${q}`;
+  });
+  return out;
+}
+
+/**
  * Remove elementos perigosos, normaliza links da oferta para marcador de tracking,
  * força `target="_top"` para sair do iframe.
  */
@@ -542,7 +782,11 @@ export function finalizeMirrorSrcDocForImport(
 
   const root = parse(srcDoc, { comment: true });
   root.querySelectorAll("script, object, embed, noscript").forEach((n) => n.remove());
+  // Antes do bake do cliente anular <base>: assets absolutos sobrevivem a href="./".
+  absolutizeMirrorDocumentAssets(root, base);
+  promoteMirrorLazyImagesToSrc(root, base);
   promoteLargestMirrorImageSrc(root, base);
+  promoteMirrorBackgroundUrlsToInline(root, base);
   sanitizeMirrorIframes(root, base);
 
   root.querySelectorAll("a").forEach((a) => {
@@ -582,6 +826,8 @@ export function finalizeMirrorSrcDocForImport(
   ensureMirrorOfferAnchorLabels(root);
 
   let out = root.toString();
+  // Tailwind `class="…[22px]…"` parte o parser em alguns nós — regex cobre o resto.
+  out = absolutizeRelativeAssetUrlsInHtmlString(out, base);
   out = out.replace(/<script\b[\s\S]*?<\/script>/gi, "");
   out = out.replace(/on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
 

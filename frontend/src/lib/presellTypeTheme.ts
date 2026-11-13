@@ -294,6 +294,14 @@ export function getPresellTypeEditorial(
             "Avaliações só aparecem quando vieram da origem — não inventamos notas.",
           ],
         },
+        advertorial: {
+          title: "Artigo de afiliado",
+          points: [
+            "Tom editorial (blog/jornal) — não é o site oficial da marca.",
+            "Confirme preço e condições no site do vendedor.",
+            "Variante útil para testar ângulo vs review clássica.",
+          ],
+        },
         desconto: {
           title: "Sobre a promoção",
           points: [
@@ -349,6 +357,14 @@ export function getPresellTypeEditorial(
             "This is not the brand’s official website.",
             "Use the content to decide; verify details with the seller.",
             "Ratings appear only when present in the source — we don’t invent scores.",
+          ],
+        },
+        advertorial: {
+          title: "Affiliate article angle",
+          points: [
+            "Editorial / blog tone — not the brand’s official site.",
+            "Confirm price and terms on the merchant site.",
+            "Useful A/B variant versus classic review framing.",
           ],
         },
         desconto: {

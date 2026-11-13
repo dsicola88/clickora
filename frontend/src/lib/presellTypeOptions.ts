@@ -29,13 +29,13 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
         id: "cookies",
         name: "Cookies (consentimento)",
         description:
-          "Modal profissional de cookies e privacidade. Na criação pode escolher: Aceitar leva directo à oferta, ou só libera a review.",
+          "Banner de cookies/privacidade no documento da página. Na criação: Aceitar pode ir à oferta rastreada, ou só liberar a leitura — CTAs da página ficam sempre disponíveis.",
       },
       {
         id: "fantasma",
         name: "Fantasma (redirect no 1.º gesto)",
         description:
-          "Redireciona no primeiro movimento. Risco elevado nas políticas de destino (bridge/cloaking). Use só com revisão humana e redes que o permitam — não é “antibloqueio”.",
+          "Redireciona no primeiro movimento (só Black). Risco elevado nas políticas de destino (bridge/cloaking). Use só com revisão humana e redes que o permitam — não é “antibloqueio”.",
       },
     ],
   },
@@ -48,50 +48,50 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
         id: "tsl",
         name: "TSL — Text Sales Letter",
         description:
-          "Carta de vendas editorial: leitura longa, contexto e decisão consciente. Com espelho: clone + chrome TSL. Sem espelho: tipografia e blocos profissionais.",
+          "Carta de vendas editorial: leitura longa e decisão consciente. White+espelho: clone 1:1 da origem (sem barra Clickora por cima). Sem espelho: artigo/portal profissional.",
       },
       {
         id: "dtc",
         name: "DTC — Direct to Consumer",
         description:
-          "Vitrine directa e limpa: produto, proposta e passo no site do vendedor. Ideal para conversão com transparência (não se apresenta como fabricante).",
+          "Vitrine directa: produto, proposta e passo no site do vendedor. White+espelho: clone fiel. Sem espelho: portal limpo (não se apresenta como fabricante).",
       },
       {
         id: "review",
         name: "Review / análise",
         description:
-          "Análise independente. Todos os botões e CTAs levam o hoplink rastreado. Rodapé só no nível legal (políticas + aviso), sem chrome da rede.",
+          "Análise independente. CTAs → hoplink rastreado. Rodapé legal (políticas + aviso). White+espelho: clone; sem espelho: artigo com selo «Análise».",
       },
       {
         id: "advertorial",
         name: "Advertorial",
         description:
-          "Artigo estilo jornal/blog com CTA rastreado. Útil para testar ângulo editorial vs review clássica (pacote de 3 variantes).",
+          "Variante editorial (tom artigo/blog) do pacote de 3 — mesmo fluxo de CTAs que review, ângulo e selo distintos para testes A/B.",
       },
       {
         id: "desconto",
         name: "Desconto + urgência",
         description:
-          "Faixa e modal de promoção. Só usa descontos escritos na origem — sem inventar preços. Confirmação final no vendedor.",
+          "Faixa e modal de promoção sobre a página. Só usa descontos da origem — sem inventar preços. Confirmação final no vendedor.",
       },
     ],
   },
   {
     id: "video",
     label: "Vídeo de vendas (VSL)",
-    hint: "Hero escuro cinematográfico; vídeo + transparência. Sem claims médicos inventados.",
+    hint: "Vídeo em destaque no documento da página + transparência. Sem claims médicos inventados.",
     types: [
       {
         id: "vsl",
         name: "VSL — foco no vídeo",
         description:
-          "Composição escura centrada no vídeo. Sem carta longa abaixo. Visitante vê, decide e confirma no destino.",
+          "Vídeo primeiro no documento; sem carta longa. Visitante vê, decide e confirma no destino. White+espelho mantém o clone e acrescenta o vídeo se houver URL.",
       },
       {
         id: "vsl_tsl",
         name: "VSL + TSL (combo)",
         description:
-          "Vídeo no topo + carta editorial abaixo. Duas camadas de valor próprio antes do checkout do comerciante.",
+          "Vídeo no topo + carta/artigo editorial abaixo (ou espelho + vídeo). Duas camadas antes do checkout do comerciante.",
       },
     ],
   },

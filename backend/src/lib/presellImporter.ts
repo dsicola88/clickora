@@ -1513,8 +1513,29 @@ function htmlLooksLikeWrongProduct(html: string, pageUrl: string): boolean {
 
 const IMPORT_FETCH_MS = 14_000;
 
+/** URL pública Clickora (`/p/{uuid}` ou `/l/slug`) — não é página de produto de plataforma. */
+export function looksLikeClickoraHostedPresellUrl(url: string): boolean {
+  try {
+    const u = new URL(url.trim());
+    if (/^\/p\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/?$/i.test(u.pathname)) {
+      return true;
+    }
+    if (/^\/l\/[a-z0-9_-]{2,80}\/?$/i.test(u.pathname) && /clickora|dclickora/i.test(u.hostname)) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export async function importPresellFromProductUrl(input: ImportPresellInput): Promise<ImportPresellResult> {
   assertExternalProductUrl(input.productUrl);
+  if (looksLikeClickoraHostedPresellUrl(input.productUrl)) {
+    throw new Error(
+      "Esse link é uma presell Clickora (/p/…), não a página do produto. Cole o URL público da oferta (BuyGoods, ClickBank, Shopify, Knownwalk, Hotmart, etc.).",
+    );
+  }
 
   const language = input.language || "pt-BR";
   const generationNiche = normalizePresellGenerationNiche(input.generationNiche);

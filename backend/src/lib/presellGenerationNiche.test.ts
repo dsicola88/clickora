@@ -40,6 +40,19 @@ describe("presellGenerationNiche", () => {
       }),
       "white",
     );
+    // Limiar alinhado ao frontend (800) — evita SPA white vs update black.
+    assert.equal(
+      resolvePresellGenerationNicheFromContent({
+        importMirrorSrcDoc: "x".repeat(801),
+      }),
+      "white",
+    );
+    assert.equal(
+      resolvePresellGenerationNicheFromContent({
+        importMirrorSrcDoc: "x".repeat(800),
+      }),
+      "black",
+    );
     assert.equal(
       resolvePresellGenerationNicheFromContent({
         generationNiche: "black",

@@ -6,6 +6,9 @@ export function normalizePresellGenerationNiche(raw: unknown): PresellGeneration
   return v === "white" ? "white" : "black";
 }
 
+/** Alinhado ao frontend (`resolvePresellGenerationNiche`) e ao import (`>= 800` publishable). */
+export const PRESELL_MIRROR_NICHE_MIN_CHARS = 800;
+
 /**
  * Nicho efectivo a partir do content.
  * Sem chave explícita + espelho HTML longo → white (evita cair no portal black após edits que perdem o campo).
@@ -18,8 +21,8 @@ export function resolvePresellGenerationNicheFromContent(
   if (typeof raw === "string" && raw.trim()) {
     return normalizePresellGenerationNiche(raw);
   }
-  const mirrorLen = String(c.importMirrorSrcDoc ?? c.import_mirror_src_doc ?? "").length;
-  if (mirrorLen >= 2500) return "white";
+  const mirrorLen = String(c.importMirrorSrcDoc ?? c.import_mirror_src_doc ?? "").trim().length;
+  if (mirrorLen > PRESELL_MIRROR_NICHE_MIN_CHARS) return "white";
   return "black";
 }
 

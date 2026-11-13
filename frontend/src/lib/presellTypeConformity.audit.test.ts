@@ -4,7 +4,10 @@
  */
 import { describe, expect, it } from "vitest";
 import { PRESELL_TYPE_OPTIONS } from "./presellTypeOptions";
-import { isPresellTypeAllowedForNiche, presellTypeGroupsForNiche } from "./presellGenerationNiche";
+import {
+  isPresellTypeAllowedForNiche,
+  presellTypeGroupsForNiche,
+} from "./presellGenerationNiche";
 import {
   getInteractiveGateKind,
   getPresellGateKind,
@@ -106,6 +109,103 @@ describe("conformidade estrutural WHITE (todos os tipos)", () => {
       }
     });
   }
+
+  it("review / tsl / cookies / desconto / vsl_tsl: smoke black+white", () => {
+    const types = ["review", "tsl", "cookies", "desconto", "vsl", "vsl_tsl"] as const;
+    for (const type of types) {
+      for (const niche of ["black", "white"] as const) {
+        const doc = buildEditablePageDocument({
+          title: "Campanha",
+          type,
+          videoUrl: type.startsWith("vsl") ? "https://www.youtube.com/watch?v=abc" : null,
+          language: "en",
+          content: {
+            title: "GadgetX",
+            productName: "GadgetX",
+            salesText: "Useful device for home use with clear terms.",
+            ctaText: "Buy",
+            affiliateLink: "https://offer.example/buy",
+            productImages: niche === "white" ? [] : ["https://cdn.example/g.jpg"],
+            generationNiche: niche,
+          },
+        });
+        const widgets = widgetsOf(doc);
+        expect(widgets.length).toBeGreaterThan(0);
+        if (type === "cookies") {
+          expect(widgets.some((w) => w.type === "cookieBanner")).toBe(true);
+        }
+        if (type === "review") {
+          const kick = textBlob(doc);
+          expect(kick).toMatch(/análise|review|an[aá]lise/i);
+        }
+        if (type.startsWith("vsl")) {
+          expect(widgets.some((w) => w.type === "video")).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("idade e pais: só fazem sentido no black (white coerces no nicho)", () => {
+    expect(isPresellTypeAllowedForNiche("idade", "white")).toBe(false);
+    expect(isPresellTypeAllowedForNiche("pais", "white")).toBe(false);
+    expect(isPresellTypeAllowedForNiche("idade", "black")).toBe(true);
+    expect(isPresellTypeAllowedForNiche("pais", "black")).toBe(true);
+    const doc = buildEditablePageDocument({
+      title: "Campanha",
+      type: "idade",
+      language: "pt-BR",
+      content: {
+        title: "StopWatt",
+        productName: "StopWatt",
+        ctaText: "Ver oferta",
+        affiliateLink: "https://offer.example/buy",
+        generationNiche: "black",
+      },
+    });
+    expect(widgetsOf(doc).some((w) => w.type === "button")).toBe(true);
+  });
+
+  it("black / vsl: vídeo antes da carta; vsl puro sem corpo longo", () => {
+    const vsl = buildEditablePageDocument({
+      title: "Campanha",
+      type: "vsl",
+      videoUrl: "https://www.youtube.com/watch?v=abc",
+      language: "pt-BR",
+      content: {
+        title: "StopWatt",
+        productName: "StopWatt",
+        salesText: "Texto longo de carta que não deve dominar o VSL puro.",
+        ctaText: "Ver oferta",
+        affiliateLink: "https://offer.example/buy",
+        generationNiche: "black",
+      },
+    });
+    const vslWidgets = widgetsOf(vsl);
+    const videoIdx = vslWidgets.findIndex((w) => w.type === "video");
+    const copyIdx = vslWidgets.findIndex(
+      (w) => w.type === "text" && String(w.content.html || "").includes("carta"),
+    );
+    expect(videoIdx).toBeGreaterThanOrEqual(0);
+    expect(copyIdx).toBe(-1);
+
+    const combo = buildEditablePageDocument({
+      title: "Campanha",
+      type: "vsl_tsl",
+      videoUrl: "https://www.youtube.com/watch?v=abc",
+      language: "pt-BR",
+      content: {
+        title: "StopWatt",
+        productName: "StopWatt",
+        salesText: "Contexto editorial abaixo do vídeo.",
+        ctaText: "Ver oferta",
+        affiliateLink: "https://offer.example/buy",
+        generationNiche: "black",
+      },
+    });
+    const comboWidgets = widgetsOf(combo);
+    expect(comboWidgets.findIndex((w) => w.type === "video")).toBeGreaterThanOrEqual(0);
+    expect(comboWidgets.some((w) => w.type === "text" || w.type === "heading")).toBe(true);
+  });
 });
 
 describe("conformidade estrutural BLACK (todos os tipos)", () => {
