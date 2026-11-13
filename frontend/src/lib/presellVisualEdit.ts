@@ -749,17 +749,26 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
 }
 
 /**
- * White: reutiliza o documento guardado (espelho/edição).
- * Black: regenera o artigo limpo — layouts antigos com hero viewport ficavam desalinhados.
+ * White / builder / edição manual publicada: reutiliza `pageDocument`.
+ * Black sem edição manual: regenera o artigo limpo (layouts antigos desalinhados).
  */
 export function resolvePresellPageDocument(
   stored: unknown,
   source: EditablePresellSource,
 ): PageDocument {
-  if (!isWhiteNiche(source.content || {})) {
+  const content = (source.content || {}) as Record<string, unknown>;
+  const parsed = parsePresellBuilderPageDocument(stored);
+  const preferStored =
+    Boolean(parsed) &&
+    (isWhiteNiche(content) ||
+      source.type === "builder" ||
+      content.manualVisualEdit === true ||
+      content.manual_visual_edit === true);
+  if (preferStored && parsed) return parsed;
+  if (!isWhiteNiche(content)) {
     return buildEditablePageDocument(source);
   }
-  return parsePresellBuilderPageDocument(stored) ?? buildEditablePageDocument(source);
+  return parsed ?? buildEditablePageDocument(source);
 }
 
 export type BakePublicOfferOptions = {

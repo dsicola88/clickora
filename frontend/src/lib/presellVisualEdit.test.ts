@@ -352,7 +352,7 @@ describe("buildEditablePageDocument", () => {
     expect(String(resolved.sections[0].columns[1].widgets[0].content.text)).toMatch(/Guardado/);
   });
 
-  it("black: regenera o artigo limpo mesmo com documento antigo guardado", () => {
+  it("black sem edição manual: regenera o artigo limpo mesmo com documento antigo guardado", () => {
     const stored = buildEditablePageDocument({
       title: "A",
       type: "cookies",
@@ -381,5 +381,69 @@ describe("buildEditablePageDocument", () => {
       .flatMap((s) => s.columns.flatMap((c) => c.widgets))
       .find((w) => w.type === "heading" && w.content.tag === "h1");
     expect(String(headline?.content.text).toLowerCase()).toContain("stopwatt");
+  });
+
+  it("black com manualVisualEdit: reusa o pageDocument publicado (não regenera)", () => {
+    const stored = buildEditablePageDocument({
+      title: "A",
+      type: "cookies",
+      content: {
+        title: "Editado no canvas",
+        generationNiche: "black",
+        productImages: ["https://cdn.example/old.jpg"],
+      },
+    });
+    const marker = "MARK_MANUAL_VISUAL_KEEP";
+    stored.sections[0].columns[0].widgets[0].content = {
+      ...stored.sections[0].columns[0].widgets[0].content,
+      code: `<p>${marker}</p>`,
+      text: marker,
+    };
+    const resolved = resolvePresellPageDocument(
+      { pageDocument: stored, manualVisualEdit: true },
+      {
+        title: "B",
+        type: "cookies",
+        language: "en",
+        content: {
+          title: "StopWatt",
+          productName: "StopWatt",
+          generationNiche: "black",
+          manualVisualEdit: true,
+          productImages: ["https://cdn.example/pack.jpg"],
+          affiliateLink: "https://offer.example/buy",
+        },
+      },
+    );
+    const blob = JSON.stringify(resolved);
+    expect(blob).toContain(marker);
+    expect(blob).not.toContain("pack.jpg");
+  });
+
+  it("builder: reusa o documento guardado mesmo em niche black", () => {
+    const stored = buildEditablePageDocument({
+      title: "A",
+      type: "builder",
+      content: { title: "Canvas builder", generationNiche: "black" },
+    });
+    const marker = "MARK_BUILDER_KEEP";
+    stored.sections[0].columns[0].widgets[0].content = {
+      ...stored.sections[0].columns[0].widgets[0].content,
+      code: `<p>${marker}</p>`,
+      text: marker,
+    };
+    const resolved = resolvePresellPageDocument(
+      { pageDocument: stored },
+      {
+        title: "B",
+        type: "builder",
+        content: {
+          title: "Outro",
+          generationNiche: "black",
+          productName: "Ignored",
+        },
+      },
+    );
+    expect(JSON.stringify(resolved)).toContain(marker);
   });
 });

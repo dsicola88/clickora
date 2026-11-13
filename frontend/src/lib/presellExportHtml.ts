@@ -25,7 +25,8 @@ import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { coerceTrackingSnippetToHtml } from "@/lib/injectPresellCustomCode";
 import { buildPresellOptionalSettingsMarketing } from "@/lib/presellOptionalSettingsMarketing";
 import { exportPageToHtml } from "@/page-builder/export-html";
-import { bakePublicOfferHrefs } from "@/lib/presellVisualEdit";
+import { bakePublicOfferHrefs, resolvePresellPageDocument } from "@/lib/presellVisualEdit";
+import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
 import { isCookieRedirectToOfferEnabled } from "@/components/presell/PresellTypeControls";
 import {
   getPresellUiStrings,
@@ -557,16 +558,33 @@ function injectPresellSettingsIntoFullHtml(
  */
 export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOptions): string {
   const format: PresellExportFormat = opts.format ?? "htmlWidget";
+  const exportContent = (page.content || {}) as Record<string, unknown>;
+  const hasStoredPageDocument = Boolean(parsePresellBuilderPageDocument(page.content));
+  const exportAsVisualDocument =
+    isBuilderPresellType(page.type) ||
+    (hasStoredPageDocument &&
+      (exportContent.manualVisualEdit === true ||
+        exportContent.manual_visual_edit === true ||
+        resolvePresellGenerationNiche(exportContent) === "white"));
 
-  if (isBuilderPresellType(page.type)) {
-    const doc = parsePresellBuilderPageDocument(page.content);
+  // Alinhado à pública: builder / white / Publish do editor manual usam pageDocument (+ bake).
+  if (exportAsVisualDocument) {
+    const doc = isBuilderPresellType(page.type)
+      ? parsePresellBuilderPageDocument(page.content)
+      : resolvePresellPageDocument(page.content, {
+          title: page.title,
+          type: page.type,
+          videoUrl: page.video_url,
+          language: page.language,
+          content: exportContent,
+        });
     const note = `<!-- Presell Clickora (editor manual). Público: ${escapeHtml(opts.publicPageUrl)} -->\n`;
     if (!doc) {
       return format === "document"
         ? `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"><title>Presell</title></head><body>${note}<p>Documento do editor em falta.</p></body></html>`
         : `${note}<!-- Documento do editor em falta -->`;
     }
-    const builderContent = (page.content || {}) as Record<string, unknown>;
+    const builderContent = exportContent;
     const builderSettings = (page.settings || {}) as Record<string, unknown>;
     const affiliateLink =
       (typeof builderContent.affiliateLink === "string" && builderContent.affiliateLink) ||

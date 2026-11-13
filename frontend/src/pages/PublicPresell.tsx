@@ -1213,21 +1213,25 @@ export default function PublicPresell() {
   }
 
   if (!isGhostPage) {
-    const cookiesGate = getPresellGateKind(page.type) === "cookies";
-    const cookieRedirectToOffer = cookiesGate && isCookieRedirectToOfferEnabled(settings);
+    const resolvedVisualDoc = resolvePresellPageDocument(page.content, {
+      title: page.title,
+      type: page.type,
+      videoUrl: page.video_url,
+      language: uiLang || page.language,
+      content: content as Record<string, unknown>,
+    });
+    // Cookie no documento (não só page.type) — builder+espelho+banner não perde CTAs manuais.
+    const docHasCookieBanner = resolvedVisualDoc.sections.some((section) =>
+      section.columns.some((column) => column.widgets.some((widget) => widget.type === "cookieBanner")),
+    );
+    const cookieRedirectToOffer = docHasCookieBanner && isCookieRedirectToOfferEnabled(settings);
     const visualDoc = bakePublicOfferHrefs(
-      resolvePresellPageDocument(page.content, {
-        title: page.title,
-        type: page.type,
-        videoUrl: page.video_url,
-        language: uiLang || page.language,
-        content: content as Record<string, unknown>,
-      }),
+      resolvedVisualDoc,
       href,
       affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : "",
       cookiePolicyUrl,
       {
-        unlockCookieOnly: cookiesGate && !cookieRedirectToOffer,
+        unlockCookieOnly: docHasCookieBanner && !cookieRedirectToOffer,
         cookieRedirectToOffer,
       },
     );

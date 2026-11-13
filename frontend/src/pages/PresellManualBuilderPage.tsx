@@ -106,7 +106,7 @@ export default function PresellManualBuilderPage() {
   const [slugDraft, setSlugDraft] = useState("");
   const [language, setLanguage] = useState<PresellLocaleKey>("pt-BR");
   const [category, setCategory] = useState("sem");
-  /** A página pública ainda é a versão automática até a primeira publicação neste editor. */
+  /** Live pública desactualizada: wizard ainda não publicado neste editor, ou canvas ≠ pageDocument. */
   const [awaitingVisualPublish, setAwaitingVisualPublish] = useState(false);
   const [affiliateDraft, setAffiliateDraft] = useState("");
   const loadedOfferRef = useRef("");
@@ -119,6 +119,9 @@ export default function PresellManualBuilderPage() {
 
   const contentRef = useRef<Record<string, unknown>>({});
   const pageTypeRef = useRef("builder");
+  /** JSON do `pageDocument` live (após Publish) — autosave não o actualiza. */
+  const publishedDocJsonRef = useRef("");
+  const pageStatusRef = useRef<string>("draft");
   const lastCloudDocJsonRef = useRef("");
   const lastCloudSettingsJsonRef = useRef("");
   const [cloudAutosaveStatus, setCloudAutosaveStatus] = useState<
@@ -251,7 +254,19 @@ export default function PresellManualBuilderPage() {
           }
         }
       }
-      setAwaitingVisualPublish(data.type !== "builder");
+      pageStatusRef.current = data.status || "draft";
+      publishedDocJsonRef.current = publishedDoc ? JSON.stringify(publishedDoc) : "";
+      const canvasJson = JSON.stringify(doc);
+      // Wizard ainda sem Publish visual → live regenera/antigo. Depois do Publish, só se canvas ≠ pageDocument.
+      const needsFirstVisualPublish =
+        data.type !== "builder" &&
+        c.manualVisualEdit !== true &&
+        c.manual_visual_edit !== true;
+      const publishedOutOfSync =
+        pageStatusRef.current === "published" &&
+        Boolean(publishedDocJsonRef.current) &&
+        canvasJson !== publishedDocJsonRef.current;
+      setAwaitingVisualPublish(needsFirstVisualPublish || publishedOutOfSync);
       if (!doc || !Array.isArray(doc.sections)) {
         toast.error(t("pages.manualBuilder.docInvalid"));
         navigate("/presells", { replace: true });
@@ -325,9 +340,12 @@ export default function PresellManualBuilderPage() {
         pageDocument: doc,
         editorWorkingDocument: doc,
         affiliateLink: affiliate,
+        /** Live pública deve preferir este documento (incl. black) em vez de regenerar o portal. */
+        manualVisualEdit: true,
       };
       contentRef.current = content;
       lastCloudDocJsonRef.current = JSON.stringify(doc);
+      publishedDocJsonRef.current = JSON.stringify(doc);
 
       const payload: Partial<Presell> = {
         title: doc.name.trim() || t("pages.manualBuilder.defaultTitle"),
@@ -408,6 +426,7 @@ export default function PresellManualBuilderPage() {
     },
     onSuccess: async (saved) => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
+      pageStatusRef.current = "published";
       setAwaitingVisualPublish(false);
       if (!saved?.id) {
         toast.success(t("pages.manualBuilder.published"));
@@ -480,6 +499,13 @@ export default function PresellManualBuilderPage() {
     contentRef.current = content;
     setLastCloudSavedAt(Date.now());
     setCloudAutosaveStatus("saved");
+    if (
+      pageStatusRef.current === "published" &&
+      publishedDocJsonRef.current &&
+      snapshot !== publishedDocJsonRef.current
+    ) {
+      setAwaitingVisualPublish(true);
+    }
     return true;
   }, []);
 
