@@ -24,9 +24,17 @@ export function isEmbedPlayerVideoUrl(url: string): boolean {
   );
 }
 
+/** Extrai `src` se o utilizador colar o HTML completo do iframe (painel Bunny/YouTube). */
+function extractPastedVideoCandidate(raw: string): string {
+  const trimmed = raw.trim();
+  if (!/<iframe/i.test(trimmed)) return trimmed;
+  const src = trimmed.match(/\bsrc\s*=\s*["']([^"']+)["']/i);
+  return src?.[1]?.trim() || trimmed;
+}
+
 /** Aceita YouTube, Bunny play/embed, MP4, etc. — campo manual do wizard/dashboard. */
 export function resolveManualPresellVideoUrl(raw: string): string | null {
-  const trimmed = raw.trim();
+  const trimmed = extractPastedVideoCandidate(raw);
   if (!trimmed) return null;
   const yt = buildYoutubeEmbedUrlForPresell(trimmed);
   if (yt) return yt;

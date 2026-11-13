@@ -936,7 +936,7 @@ function extractDiscountSignals(html: string, language: string) {
 
 function normalizeYoutubeToEmbed(url: string): string {
   const u = url.trim();
-  const embed = u.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/i);
+  const embed = u.match(/youtube(?:-nocookie)?\.com\/embed\/([a-zA-Z0-9_-]+)/i);
   if (embed) return `https://www.youtube.com/embed/${embed[1]}`;
   const watch = u.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
   if (watch) return `https://www.youtube.com/embed/${watch[1]}`;
@@ -1127,22 +1127,34 @@ function extractVideoUrlsFromJsonLd(html: string): string[] {
   return out;
 }
 
-/** Bunny play → iframe.mediadelivery (mesmo contrato do frontend `resolvePageBuilderVideoUrl`). */
+/** Bunny play/embed → iframe.mediadelivery (mesmo contrato do frontend `resolvePageBuilderVideoUrl`). */
 function normalizeBunnyPlayToEmbed(url: string): string | null {
   try {
     const parsed = new URL(url.trim());
     const host = parsed.hostname.toLowerCase();
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const clean = (s: string) => s.split(/[?#]/)[0]?.replace(/\/+$/, "").trim() || "";
+
+    if (host.includes("mediadelivery.net")) {
+      const kind = parts[0];
+      if ((kind === "embed" || kind === "play") && parts.length >= 3) {
+        const libraryId = clean(parts[1] || "");
+        const videoId = clean(parts[2] || "");
+        if (!libraryId || !videoId) return null;
+        return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
+      }
+      return null;
+    }
+
     const isBunnyHost =
       host.includes("bunnycdn.com") ||
       host.includes("bunny.net") ||
-      host.includes("b-cdn.net") ||
-      host === "video.bunnycdn.com";
-    if (!isBunnyHost || !parsed.pathname.includes("/play/")) return null;
-    const parts = parsed.pathname.split("/").filter(Boolean);
+      host.includes("b-cdn.net");
+    if (!isBunnyHost) return null;
     const pi = parts.indexOf("play");
     if (pi < 0 || parts.length < pi + 3) return null;
-    const libraryId = parts[pi + 1];
-    const videoId = parts[pi + 2];
+    const libraryId = clean(parts[pi + 1] || "");
+    const videoId = clean(parts[pi + 2] || "");
     if (!libraryId || !videoId) return null;
     return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
   } catch {

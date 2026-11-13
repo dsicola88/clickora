@@ -36,4 +36,20 @@ describe("extractVideoUrl — VSL YouTube + Bunny", () => {
       "https://iframe.mediadelivery.net/embed/7/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
     );
   });
+
+  it("mediadelivery /play → /embed; YouTube nocookie → embed", () => {
+    const bunny = extractVideoUrl(
+      `<iframe src="https://iframe.mediadelivery.net/play/55/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee?autoplay=true"></iframe>`,
+      "https://offer.example/p",
+    );
+    assert.equal(
+      bunny,
+      "https://iframe.mediadelivery.net/embed/55/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    );
+    const yt = extractVideoUrl(
+      `<iframe src="https://www.youtube-nocookie.com/embed/DbVOLSyjP5I"></iframe>`,
+      "https://offer.example/p",
+    );
+    assert.ok(yt && /youtube\.com\/embed\/DbVOLSyjP5I/i.test(yt));
+  });
 });

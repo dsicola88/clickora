@@ -18,34 +18,55 @@ function youtubeEmbedFromUrl(url: string): string | null {
   }
   const watch = u.match(/[?&]v=([\w-]{11})/);
   if (watch) return `https://www.youtube.com/embed/${watch[1]}`;
-  const embed = u.match(/youtube\.com\/embed\/([\w-]{11})/);
-  if (embed) return `https://www.youtube.com/embed/${embed[1]}`;
+  // Wizard/dashboard gravam youtube-nocookie.com/embed/… — o VideoWidget público
+  // tem de aceitar esse host (não só youtube.com/embed).
+  const embed = u.match(/youtube(?:-nocookie)?\.com\/embed\/([\w-]{11})/i);
+  if (embed?.[1]) {
+    const host = /youtube-nocookie/i.test(u) ? "www.youtube-nocookie.com" : "www.youtube.com";
+    return `https://${host}/embed/${embed[1]}`;
+  }
   const short = u.match(/youtu\.be\/([\w-]{11})/);
   if (short) return `https://www.youtube.com/embed/${short[1]}`;
   return null;
 }
 
-function bunnyPlayToEmbed(url: URL): string | null {
+function cleanBunnyPathSegment(raw: string): string {
+  return raw.split(/[?#]/)[0]?.replace(/\/+$/, "").trim() || "";
+}
+
+/** Bunny play (bunnycdn/bunny.net) ou mediadelivery /play|/embed → iframe embed estável. */
+function bunnyToEmbed(url: URL): string | null {
   const host = url.hostname.toLowerCase();
+  const parts = url.pathname.split("/").filter(Boolean);
+
+  if (host.includes("mediadelivery.net")) {
+    const kind = parts[0];
+    if ((kind === "embed" || kind === "play") && parts.length >= 3) {
+      const libraryId = cleanBunnyPathSegment(parts[1] || "");
+      const videoId = cleanBunnyPathSegment(parts[2] || "");
+      if (!libraryId || !videoId) return null;
+      return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
+    }
+    return null;
+  }
+
   const isBunnyHost =
     host.includes("bunnycdn.com") ||
     host.includes("bunny.net") ||
-    host.includes("b-cdn.net") ||
-    host === "video.bunnycdn.com";
-  if (!isBunnyHost || !url.pathname.includes("/play/")) return null;
-  const parts = url.pathname.split("/").filter(Boolean);
+    host.includes("b-cdn.net");
+  if (!isBunnyHost) return null;
   const pi = parts.indexOf("play");
   if (pi < 0 || parts.length < pi + 3) return null;
-  const libraryId = parts[pi + 1];
-  const videoId = parts[pi + 2];
+  const libraryId = cleanBunnyPathSegment(parts[pi + 1] || "");
+  const videoId = cleanBunnyPathSegment(parts[pi + 2] || "");
   if (!libraryId || !videoId) return null;
   return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
 }
 
 /**
  * Aceita:
- * - YouTube: watch?v=, youtu.be/, embed/, /shorts/
- * - Bunny: URL completa do iframe `iframe.mediadelivery.net/embed/...`
+ * - YouTube: watch?v=, youtu.be/, embed/, youtube-nocookie embed/, /shorts/
+ * - Bunny: `iframe.mediadelivery.net/embed|play/{library}/{video}`
  * - Bunny: página Play `https://video.bunnycdn.com/play/{libraryId}/{videoId}` (e variantes bunny.net)
  */
 export function resolvePageBuilderVideoUrl(raw: string): ResolvedVideoEmbed | null {
@@ -68,17 +89,14 @@ export function resolvePageBuilderVideoUrl(raw: string): ResolvedVideoEmbed | nu
       return { kind: "html5", embedUrl: parsed.toString() };
     }
 
-    if (host.includes("mediadelivery.net") && parsed.pathname.includes("/embed/")) {
-      return { kind: "iframe", embedUrl: parsed.toString() };
-    }
-
-    const bunnyEmbed = bunnyPlayToEmbed(parsed);
+    const bunnyEmbed = bunnyToEmbed(parsed);
     if (bunnyEmbed) return { kind: "iframe", embedUrl: bunnyEmbed };
 
-    // Colar diretamente o src do iframe Bunny
-    if (url.includes("iframe.mediadelivery.net/embed/")) {
+    // Colar src Bunny sem esquema (ou host mediadelivery em texto)
+    if (/mediadelivery\.net\/(?:embed|play)\//i.test(url)) {
       const fixed = url.startsWith("http") ? url : `https://${url}`;
-      return { kind: "iframe", embedUrl: fixed };
+      const again = bunnyToEmbed(new URL(fixed));
+      if (again) return { kind: "iframe", embedUrl: again };
     }
 
     // Vimeo player

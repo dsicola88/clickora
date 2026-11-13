@@ -63,5 +63,23 @@ describe("isEmbedPlayerVideoUrl + resolveManualPresellVideoUrl (wizard/dashboard
     expect(resolveManualPresellVideoUrl("https://example.com/not-a-video-page")).toBeNull();
     expect(resolveManualPresellVideoUrl("")).toBeNull();
   });
+
+  it("manual: iframe HTML colado (Bunny/YouTube) e nocookie persistido", () => {
+    expect(
+      resolveManualPresellVideoUrl(
+        '<iframe src="https://iframe.mediadelivery.net/embed/3/cccccccc-cccc-cccc-cccc-cccccccccccc" width="100%"></iframe>',
+      ),
+    ).toBe("https://iframe.mediadelivery.net/embed/3/cccccccc-cccc-cccc-cccc-cccccccccccc");
+    expect(
+      resolveManualPresellVideoUrl(
+        '<div><iframe src="https://www.youtube.com/watch?v=DbVOLSyjP5I"></iframe></div>',
+      ),
+    ).toContain("youtube-nocookie.com/embed/DbVOLSyjP5I");
+    expect(
+      resolveManualPresellVideoUrl(
+        "https://www.youtube-nocookie.com/embed/DbVOLSyjP5I?modestbranding=1&rel=0",
+      ),
+    ).toContain("youtube-nocookie.com/embed/DbVOLSyjP5I");
+  });
 });
 

@@ -188,6 +188,32 @@ test.describe("H8 — gates + VSL browser", () => {
     expect(src || "").toMatch(/youtube-nocookie\.com\/embed\/dQw4w9WgXcQ|youtube\.com\/embed/);
   });
 
+  test("vsl: YouTube já gravado como youtube-nocookie embed (wizard)", async ({ page }) => {
+    const id = "b8e11e11-1111-4111-8111-111111111108";
+    const persisted =
+      "https://www.youtube-nocookie.com/embed/DbVOLSyjP5I?modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&fs=1";
+    await mockPresell(
+      page,
+      basePage(id, {
+        type: "vsl_tsl",
+        video_url: persisted,
+        content: {
+          title: "VSL nocookie persistido",
+          productName: "VSL nocookie",
+          subtitle: "Combo",
+          salesText: "URL já normalizado pelo wizard não pode dar Ligação não suportada.",
+          ctaText: "Ver oferta",
+          affiliateLink: HOP,
+          images: ["https://upload.wikimedia.org/wikipedia/commons/d/d3/Longjing_tea_steeping_in_gaiwan.jpg"],
+        },
+      }),
+    );
+    await page.goto(`/p/${id}`, { waitUntil: "domcontentloaded" });
+    const iframe = page.locator("iframe[src*='DbVOLSyjP5I']");
+    await expect(iframe.first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Ligação não suportada/i)).toHaveCount(0);
+  });
+
   test("vsl: Bunny play → iframe mediadelivery", async ({ page }) => {
     const id = "b8e11e11-1111-4111-8111-111111111106";
     const bunnyPlay =
@@ -244,6 +270,34 @@ test.describe("H8 — gates + VSL browser", () => {
     await expect(page.getByRole("link", { name: /ver oferta/i }).first()).toBeVisible({
       timeout: 10_000,
     });
+  });
+
+  test("vsl_tsl: Bunny play URL → mediadelivery sem Ligação não suportada", async ({ page }) => {
+    const id = "b8e11e11-1111-4111-8111-111111111109";
+    await mockPresell(
+      page,
+      basePage(id, {
+        type: "vsl_tsl",
+        video_url:
+          "https://video.bunnycdn.com/play/12345/abcdef01-2345-6789-abcd-ef0123456789",
+        content: {
+          title: "Combo Bunny play",
+          productName: "Combo Bunny play",
+          subtitle: "Combo",
+          salesText: "Combo com página Play do Bunny Stream.",
+          ctaText: "Ver oferta",
+          affiliateLink: HOP,
+          images: ["https://upload.wikimedia.org/wikipedia/commons/d/d3/Longjing_tea_steeping_in_gaiwan.jpg"],
+        },
+      }),
+    );
+    await page.goto(`/p/${id}`, { waitUntil: "domcontentloaded" });
+    const iframe = page.locator(
+      "iframe[src*='iframe.mediadelivery.net/embed/12345/abcdef01-2345-6789-abcd-ef0123456789']",
+    );
+    await expect(iframe.first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Ligação não suportada/i)).toHaveCount(0);
+    await expect(page.locator('video[src*="bunnycdn"]')).toHaveCount(0);
   });
 });
 

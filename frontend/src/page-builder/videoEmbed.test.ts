@@ -11,6 +11,17 @@ describe("resolvePageBuilderVideoUrl", () => {
     );
   });
 
+  it("aceita youtube-nocookie embed já persistido pelo wizard (ex. Qr / DbVOLSyjP5I)", () => {
+    const raw =
+      "https://www.youtube-nocookie.com/embed/DbVOLSyjP5I?modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&fs=1";
+    const out = resolvePageBuilderVideoUrl(raw);
+    expect(out?.kind).toBe("youtube");
+    expect(out?.embedUrl).toBe("https://www.youtube-nocookie.com/embed/DbVOLSyjP5I");
+    expect(resolvePageBuilderVideoUrl("https://www.youtube.com/watch?v=DbVOLSyjP5I")?.embedUrl).toBe(
+      "https://www.youtube.com/embed/DbVOLSyjP5I",
+    );
+  });
+
   it("resolve MP4/WebM directo para html5 (combo VSL de sales pages)", () => {
     const mp4 = resolvePageBuilderVideoUrl("https://cdn.example.com/assets/videos/vsl.mp4");
     expect(mp4).toEqual({ kind: "html5", embedUrl: "https://cdn.example.com/assets/videos/vsl.mp4" });
@@ -36,6 +47,22 @@ describe("resolvePageBuilderVideoUrl", () => {
     );
     expect(embed?.kind).toBe("iframe");
     expect(embed?.embedUrl).toContain("iframe.mediadelivery.net/embed/99/");
+  });
+
+  it("Bunny: mediadelivery /play → /embed; query string não parte o id", () => {
+    expect(
+      resolvePageBuilderVideoUrl(
+        "https://iframe.mediadelivery.net/play/55/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee?autoplay=true",
+      ),
+    ).toEqual({
+      kind: "iframe",
+      embedUrl: "https://iframe.mediadelivery.net/embed/55/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    });
+    expect(
+      resolvePageBuilderVideoUrl(
+        "https://video.bunnycdn.com/play/9/bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee/?x=1",
+      )?.embedUrl,
+    ).toBe("https://iframe.mediadelivery.net/embed/9/bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee");
   });
 
   it("resolve YouTube Shorts e youtu.be", () => {
