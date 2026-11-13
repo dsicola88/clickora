@@ -7,7 +7,7 @@ on:
 
 jobs:
   backend-gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: backend
@@ -25,7 +25,7 @@ jobs:
           DUAL_PILLAR_SKIP_FRONTEND: "1"
 
   backend-quality:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: backend
@@ -50,7 +50,7 @@ jobs:
         run: npm run check:longevity
 
   backend-isolation:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -105,7 +105,7 @@ jobs:
         run: npm run test:security-isolation
 
   frontend-presell:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -135,7 +135,7 @@ jobs:
           src/i18n/i18n.test.ts
 
   frontend-e2e-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16

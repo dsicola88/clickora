@@ -191,11 +191,18 @@ describe("DNS simulado e redirecionamentos", () => {
   it("expira quando o pedido simulado não termina", async () => {
     const request: ImportRequest = ({ signal }) =>
       new Promise((_, reject) => {
-        signal.addEventListener("abort", () => {
+        const fail = () => {
           const error = new Error("aborted");
           error.name = "AbortError";
           reject(error);
-        });
+        };
+        // Se o signal já abortou, o evento "abort" não volta a disparar — sem isto a
+        // Promise fica pendente e o node:test cancela o resto da suite (event loop vazio).
+        if (signal.aborted) {
+          fail();
+          return;
+        }
+        signal.addEventListener("abort", fail, { once: true });
       });
     await assert.rejects(
       () =>
