@@ -1,7 +1,8 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { userHasSubscriptionAccess } from "@/lib/subscriptionAccess";
 import {
   clearCachedRootPresellId,
   writeCachedRootPresellId,
@@ -41,6 +42,7 @@ function useTenantNoindexHead() {
  */
 function CustomDomainRootRedirect() {
   useTenantNoindexHead();
+  const location = useLocation();
   const mainSite =
     import.meta.env.VITE_PUBLIC_SITE_ORIGIN?.trim()?.replace(/\/+$/, "") || "https://www.dclickora.com";
 
@@ -76,7 +78,8 @@ function CustomDomainRootRedirect() {
   }
 
   if (data?.kind === "presell" && data.id) {
-    return <Navigate to={`/p/${data.id}`} replace />;
+    // Preservar gclid/utm/fbclid — PublicPresell lê window.location.search.
+    return <Navigate to={`/p/${data.id}${location.search}${location.hash}`} replace />;
   }
 
   if (data?.kind === "tracking") {
@@ -140,7 +143,14 @@ export function LandingRoot() {
     return <CustomDomainRootRedirect />;
   }
 
-  if (user) return <Navigate to="/inicio" replace />;
+  if (user) {
+    return (
+      <Navigate
+        to={userHasSubscriptionAccess(user) ? "/inicio" : "/planos"}
+        replace
+      />
+    );
+  }
 
   return <Plans />;
 }

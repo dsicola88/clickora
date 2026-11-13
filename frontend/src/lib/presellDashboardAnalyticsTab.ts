@@ -4,7 +4,7 @@ export const PRESELL_DASH_ANALYTICS_TAB_PARAM = "aba" as const;
 export type PresellDashAnalyticsTab = "rastreamento" | "pais";
 
 export function presellDashboardAnalyticsHref(tab: PresellDashAnalyticsTab): string {
-  return `/presell/dashboard?${PRESELL_DASH_ANALYTICS_TAB_PARAM}=${tab}`;
+  return `/presells?${PRESELL_DASH_ANALYTICS_TAB_PARAM}=${tab}`;
 }
 
 export function parsePresellDashAnalyticsTab(search: string): PresellDashAnalyticsTab | null {

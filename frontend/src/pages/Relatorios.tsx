@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, RotateCcw, Download, Ban, Copy } from "lucide-react";
 import { integrationsService } from "@/services/integrationsService";
@@ -230,13 +230,14 @@ export default function Relatorios() {
   const numLocale = numberLocaleFor(locale);
   const { tab: tabParam } = useParams<{ tab: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const tab: RelatorioTab = isRelatorioTab(tabParam) ? tabParam : "acessos";
 
   useEffect(() => {
     if (tabParam !== undefined && !isRelatorioTab(tabParam)) {
-      navigate("/resultados/relatorios/acessos", { replace: true });
+      navigate({ pathname: "/resultados/relatorios/acessos", search: location.search }, { replace: true });
     }
-  }, [tabParam, navigate]);
+  }, [tabParam, navigate, location.search]);
 
   const initial = defaultDateRange();
   const [startDate, setStartDate] = useState(initial.from);
@@ -1165,7 +1166,10 @@ export default function Relatorios() {
         </div>
       ) : null}
 
-      <Tabs value={tab} onValueChange={(v) => navigate(`/resultados/relatorios/${v}`)}>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => navigate({ pathname: `/resultados/relatorios/${v}`, search: location.search })}
+      >
         <TabsList className="bg-card border border-border flex flex-wrap h-auto gap-1 p-1 w-full justify-start sm:w-auto">
           <TabsTrigger value="acessos" className="shrink-0">
             {t("pages.reports.tabVisits")}

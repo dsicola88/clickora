@@ -68,6 +68,12 @@ export const en = {
     copyFailedShort: "Could not copy",
     selectStartEnd: "Select a start and end date.",
     startAfterEnd: "The start date cannot be after the end date.",
+    dismiss: "Dismiss",
+  },
+  subscription: {
+    blockedTitle: "Missing or inactive subscription",
+    blockedFallback: "Your subscription blocks this action.",
+    viewPlans: "View plans",
   },
   chrome: {
     collapseMenu: "Collapse menu",
@@ -221,8 +227,17 @@ export const en = {
     lessons: {
       title: "Lessons",
       subtitle: "Video lessons included with an active subscription.",
+      subtitleLead: "Short videos to use the tool without opening a ticket. The written guide is still in",
+      subtitleTrail: ".",
+      helpLink: "Learn",
+      loading: "Loading lessons…",
       loadError: "Could not load lessons.",
       locked: "Video lessons are part of an active subscription.",
+      viewPlans: "View plans",
+      emptyTitle: "No lessons published yet",
+      emptyBody: "When the super admin adds YouTube or Bunny videos, they appear here, grouped by module.",
+      modulesAria: "Lesson modules",
+      defaultModule: "Get started",
     },
     agency: {
       title: "Agency Ready",
@@ -2539,6 +2554,22 @@ export const en = {
     dpilot: {
       title: "dPilot",
       subtitle: "Create and manage paid campaigns.",
+      app: {
+        loading: "Loading…",
+        loadingSession: "Loading session…",
+        loadingModule: "Loading ads module…",
+        planGateTitle: "Ads",
+        planTitle: "Plan",
+        planDesc: "Upgrade to Pro Annual to unlock.",
+        viewPlans: "View plans",
+        noProjectTitle: "No ads project",
+        noProjectDesc: "Confirm the API, migrations, and seed.",
+        loadErrorTitle: "Could not load ads",
+        loadErrorDesc: "Check the API connection and try again.",
+        invalidProject: "Invalid project ID.",
+        routeUnknownBody: "Unrecognized ads route. Check the address or go back to the module.",
+        backToModule: "Back to Ads",
+      },
       common: {
         saving: "Saving…",
         loading: "Loading…",

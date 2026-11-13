@@ -14,13 +14,18 @@ import { requireActiveSubscription } from "../middleware/requireActiveSubscripti
 
 export const enterpriseRouter = Router();
 
-enterpriseRouter.use(authenticateJwtOrApiKey, tenantIsolation, requireActiveSubscription);
+enterpriseRouter.use(authenticateJwtOrApiKey, tenantIsolation);
 
-/** MFA e gestão de chaves: só sessão na app. */
+/**
+ * MFA: disponível com sessão mesmo se a assinatura estiver inactiva
+ * (Conta → segurança; alinhado ao bypass FE em `/conta`).
+ */
 enterpriseRouter.get("/mfa/status", requireSessionJwt, mfaController.status);
 enterpriseRouter.post("/mfa/setup", requireSessionJwt, mfaController.setupStart);
 enterpriseRouter.post("/mfa/confirm", requireSessionJwt, mfaController.setupConfirm);
 enterpriseRouter.post("/mfa/disable", requireSessionJwt, mfaController.disable);
+
+enterpriseRouter.use(requireActiveSubscription);
 
 enterpriseRouter.get("/api-keys", requireSessionJwt, apiKeysController.list);
 enterpriseRouter.post("/api-keys", requireSessionJwt, apiKeysController.create);

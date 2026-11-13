@@ -138,7 +138,7 @@ export function DpilotVisaoPage() {
               <p className="text-sm font-medium">{t("pages.dpilot.hub.presellCreatives")}</p>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5">
                 <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                  <Link to="/presell/dashboard">{t("pages.dpilot.hub.presells")}</Link>
+                  <Link to="/presells">{t("pages.dpilot.hub.presells")}</Link>
                 </Button>
                 <Button variant="link" className="h-auto p-0 text-xs" asChild>
                   <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas`}>{t("pages.dpilot.hub.campaignsLink")}</Link>
@@ -1513,7 +1513,7 @@ export function DpilotLandingsPage() {
         <CardContent className="pt-6 space-y-3 text-sm text-muted-foreground">
           <p>{t("pages.dpilot.hub.landingsBody")}</p>
           <Button asChild>
-            <Link to="/presell/dashboard">{t("pages.dpilot.hub.openPresells")}</Link>
+            <Link to="/presells">{t("pages.dpilot.hub.openPresells")}</Link>
           </Button>
         </CardContent>
       </Card>

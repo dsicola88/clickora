@@ -164,9 +164,15 @@ export const oidcController = {
     });
     if (!billing) return res.status(401).send("Conta inválida");
     const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
-    const subRow = isPlatformAdmin ? user.subscription : billing.subscription;
+    // Não bloquear OIDC por assinatura — FE usa subscription_allowed no JWT/session.
+    let subRow = isPlatformAdmin ? user.subscription : billing.subscription;
     const accessEval = evaluateSubscriptionAccess(subRow);
-    if (!accessEval.allowed) return res.status(403).send("Assinatura inválida");
+    if (accessEval.shouldMarkExpired && subRow && subRow.status !== "expired") {
+      await systemPrisma.subscription.update({
+        where: { id: subRow.id },
+        data: { status: "expired" },
+      });
+    }
 
     const frontend =
       process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ||

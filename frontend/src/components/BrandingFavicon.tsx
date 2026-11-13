@@ -26,18 +26,24 @@ export function BrandingFavicon() {
   useEffect(() => {
     if (isLoading) return;
 
-    const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    const icons = Array.from(
+      document.querySelectorAll<HTMLLinkElement>(
+        'link[rel="icon"], link[rel="shortcut icon"]',
+      ),
+    );
     const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
-    if (!icon && !apple) return;
+    if (!icons.length && !apple) return;
 
     if (!data?.has_favicon) {
-      if (icon) icon.href = "/favicon.svg";
-      if (apple) apple.href = "/favicon.svg";
+      for (const icon of icons) {
+        icon.href = icon.type === "image/svg+xml" ? "/favicon.svg" : "/favicon.ico";
+      }
+      if (apple) apple.href = "/apple-touch-icon.png";
       return;
     }
 
     const href = brandingService.faviconHref(data.updated_at);
-    if (icon) icon.href = href;
+    for (const icon of icons) icon.href = href;
     if (apple) apple.href = href;
   }, [data, isLoading]);
 

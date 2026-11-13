@@ -1,10 +1,11 @@
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/LoadingState";
+import { ErrorState } from "@/components/ErrorState";
 import { useAuth } from "@/contexts/AuthContext";
 import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { integrationsService } from "@/services/integrationsService";
@@ -27,6 +28,7 @@ export default function AdPixelsConnectPage() {
   const { user } = useAuth();
   const locked = !userCanWriteIntegrations(user);
   const qc = useQueryClient();
+  const [searchParams] = useSearchParams();
 
   const [metaEnabled, setMetaEnabled] = useState(false);
   const [metaPixelId, setMetaPixelId] = useState("");
@@ -38,7 +40,12 @@ export default function AdPixelsConnectPage() {
   const [ttToken, setTtToken] = useState("");
   const [ttTestCode, setTtTestCode] = useState("");
 
-  const { data: metaCapi, isLoading: loadingMeta } = useQuery({
+  const {
+    data: metaCapi,
+    isLoading: loadingMeta,
+    isError: metaError,
+    refetch: refetchMeta,
+  } = useQuery({
     queryKey: ["integrations", "meta-capi"],
     queryFn: async () => {
       const { data, error } = await integrationsService.getMetaCapiSettings();
@@ -47,7 +54,12 @@ export default function AdPixelsConnectPage() {
     },
   });
 
-  const { data: tiktokEvents, isLoading: loadingTt } = useQuery({
+  const {
+    data: tiktokEvents,
+    isLoading: loadingTt,
+    isError: ttError,
+    refetch: refetchTt,
+  } = useQuery({
     queryKey: ["integrations", "tiktok-events"],
     queryFn: async () => {
       const { data, error } = await integrationsService.getTiktokEventsSettings();
@@ -55,6 +67,14 @@ export default function AdPixelsConnectPage() {
       return data!;
     },
   });
+
+  useEffect(() => {
+    const focus = searchParams.get("focus");
+    if (focus !== "meta" && focus !== "tiktok") return;
+    const id = focus === "meta" ? "pixels-meta" : "pixels-tiktok";
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [searchParams, loadingMeta, loadingTt]);
 
   useEffect(() => {
     if (!metaCapi) return;
@@ -120,6 +140,20 @@ export default function AdPixelsConnectPage() {
     );
   }
 
+  if (metaError || ttError) {
+    return (
+      <div className={PRO_PAGE_SHELL}>
+        <ErrorState
+          message={t("common.loadFailed")}
+          onRetry={() => {
+            void refetchMeta();
+            void refetchTt();
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={PRO_PAGE_SHELL}>
       <ProPageHeader
@@ -145,35 +179,39 @@ export default function AdPixelsConnectPage() {
       />
 
       <div className="space-y-5 max-w-3xl">
-        <MetaCapiIntegrationCard
-          metaCapi={metaCapi}
-          metaEnabled={metaEnabled}
-          setMetaEnabled={setMetaEnabled}
-          metaPixelId={metaPixelId}
-          setMetaPixelId={setMetaPixelId}
-          metaToken={metaToken}
-          setMetaToken={setMetaToken}
-          metaTestCode={metaTestCode}
-          setMetaTestCode={setMetaTestCode}
-          saveMetaCapi={saveMetaCapi}
-          integrationsLocked={locked}
-          autoMode
-        />
+        <div id="pixels-meta">
+          <MetaCapiIntegrationCard
+            metaCapi={metaCapi}
+            metaEnabled={metaEnabled}
+            setMetaEnabled={setMetaEnabled}
+            metaPixelId={metaPixelId}
+            setMetaPixelId={setMetaPixelId}
+            metaToken={metaToken}
+            setMetaToken={setMetaToken}
+            metaTestCode={metaTestCode}
+            setMetaTestCode={setMetaTestCode}
+            saveMetaCapi={saveMetaCapi}
+            integrationsLocked={locked}
+            autoMode
+          />
+        </div>
 
-        <TiktokEventsIntegrationCard
-          tiktok={tiktokEvents}
-          ttEnabled={ttEnabled}
-          setTtEnabled={setTtEnabled}
-          ttPixelId={ttPixelId}
-          setTtPixelId={setTtPixelId}
-          ttToken={ttToken}
-          setTtToken={setTtToken}
-          ttTestCode={ttTestCode}
-          setTtTestCode={setTtTestCode}
-          saveTiktok={saveTiktokEvents}
-          integrationsLocked={locked}
-          autoMode
-        />
+        <div id="pixels-tiktok">
+          <TiktokEventsIntegrationCard
+            tiktok={tiktokEvents}
+            ttEnabled={ttEnabled}
+            setTtEnabled={setTtEnabled}
+            ttPixelId={ttPixelId}
+            setTtPixelId={setTtPixelId}
+            ttToken={ttToken}
+            setTtToken={setTtToken}
+            ttTestCode={ttTestCode}
+            setTtTestCode={setTtTestCode}
+            saveTiktok={saveTiktokEvents}
+            integrationsLocked={locked}
+            autoMode
+          />
+        </div>
       </div>
     </div>
   );

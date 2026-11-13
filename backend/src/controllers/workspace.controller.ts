@@ -135,7 +135,12 @@ export const workspaceController = {
         workspaceName: ws?.name ?? null,
         workspaceRole: sess.workspaceRole,
         workspacePermissions: sess.workspacePermissions,
-        planSource: isPlatformAdmin ? user : billing ?? user,
+        planSource:
+          sess.tenantUserId !== user.id
+            ? billing ?? user
+            : isPlatformAdmin
+              ? user
+              : billing ?? user,
       }),
     });
   },

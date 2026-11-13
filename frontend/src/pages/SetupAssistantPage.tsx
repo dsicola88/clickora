@@ -334,7 +334,7 @@ export default function SetupAssistantPage() {
         title: t("pages.setup.stepPresellTitle"),
         description: t("pages.setup.stepPresellDesc"),
         status: presellStatus,
-        actions: [{ to: "/presell/dashboard", label: t("pages.setup.myPresells") }],
+        actions: [{ to: "/presells", label: t("pages.setup.myPresells") }],
         hint: presellHealth.detail
           || (hasPublished
             ? fill(t("pages.setup.publishedCount"), { n: published.length })

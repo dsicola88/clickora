@@ -32,8 +32,9 @@ async function issueSession(userId: string, req: Request, res: Response) {
   if (!billing) return res.status(401).json({ error: "Conta não encontrada" });
 
   const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
+  // Emitir sessão mesmo com assinatura inactiva — FE redirecciona para /planos.
   let subRow = isPlatformAdmin ? user.subscription : billing.subscription;
-  let access = evaluateSubscriptionAccess(subRow);
+  const access = evaluateSubscriptionAccess(subRow);
   if (access.shouldMarkExpired && subRow && subRow.status !== "expired") {
     await systemPrisma.subscription.update({
       where: { id: subRow.id },
@@ -43,12 +44,12 @@ async function issueSession(userId: string, req: Request, res: Response) {
       where: { id: subRow.id },
       include: { plan: true },
     });
-  }
-  access = evaluateSubscriptionAccess(subRow);
-  if (!access.allowed) {
-    return res.status(403).json({
-      error: "Assinatura inválida ou expirada. Atualize seu plano para continuar.",
-    });
+    if (!isPlatformAdmin && subRow && billing.subscription) {
+      billing.subscription = subRow as typeof billing.subscription;
+    }
+    if (isPlatformAdmin && subRow && user.subscription) {
+      user.subscription = subRow as typeof user.subscription;
+    }
   }
 
   const token = signToken({
@@ -76,7 +77,12 @@ async function issueSession(userId: string, req: Request, res: Response) {
       workspaceName: wsName ?? null,
       workspaceRole: sess.workspaceRole,
       workspacePermissions: sess.workspacePermissions,
-      planSource: isPlatformAdmin ? user : billing,
+      planSource:
+        sess.tenantUserId !== user.id
+          ? billing
+          : isPlatformAdmin
+            ? user
+            : billing,
     }),
   });
 }

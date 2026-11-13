@@ -10,10 +10,10 @@ import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { cn } from "@/lib/utils";
 import { isSafeLessonEmbed, lessonsService, type AcademyLesson } from "@/services/lessonsService";
 
-function groupLessons(lessons: AcademyLesson[]) {
+function groupLessons(lessons: AcademyLesson[], fallbackModule: string) {
   const groups = new Map<string, AcademyLesson[]>();
   for (const lesson of lessons) {
-    const key = lesson.module?.trim() || "Começar";
+    const key = lesson.module?.trim() || fallbackModule;
     const list = groups.get(key) ?? [];
     list.push(lesson);
     groups.set(key, list);
@@ -40,10 +40,13 @@ export default function LessonsPage() {
   });
 
   const lessons = data ?? [];
-  const groups = useMemo(() => groupLessons(lessons), [lessons]);
+  const groups = useMemo(
+    () => groupLessons(lessons, t("pages.lessons.defaultModule")),
+    [lessons, t],
+  );
   const selected = lessons.find((lesson) => lesson.id === selectedId) ?? lessons[0] ?? null;
 
-  if (isLoading) return <LoadingState message="A carregar aulas…" />;
+  if (isLoading) return <LoadingState message={t("pages.lessons.loading")} />;
 
   if (isError) {
     const code = (error as Error & { code?: string | null })?.code ?? "";
@@ -54,19 +57,19 @@ export default function LessonsPage() {
           title={t("pages.lessons.title")}
           description={
             blocked
-              ? "As aulas em vídeo fazem parte da assinatura activa."
+              ? t("pages.lessons.locked")
               : error instanceof Error
                 ? error.message
-                : "Não foi possível carregar as aulas."
+                : t("pages.lessons.loadError")
           }
         />
         {blocked ? (
           <Button asChild>
-            <Link to="/planos">Ver planos</Link>
+            <Link to="/planos">{t("pages.lessons.viewPlans")}</Link>
           </Button>
         ) : (
           <Button variant="outline" onClick={() => void refetch()}>
-            Tentar novamente
+            {t("common.retry")}
           </Button>
         )}
       </div>
@@ -76,14 +79,14 @@ export default function LessonsPage() {
   return (
     <div className={APP_PAGE_SHELL}>
       <PageHeader
-        title="Aulas"
+        title={t("pages.lessons.title")}
         description={
           <>
-            Vídeos curtos para usar a ferramenta sem abrir um ticket. O guia escrito continua em{" "}
+            {t("pages.lessons.subtitleLead")}{" "}
             <Link to="/ajuda" className="font-medium text-primary underline-offset-2 hover:underline">
-              Aprender
+              {t("pages.lessons.helpLink")}
             </Link>
-            .
+            {t("pages.lessons.subtitleTrail")}
           </>
         }
       />
@@ -91,15 +94,17 @@ export default function LessonsPage() {
       {lessons.length === 0 || !selected ? (
         <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-12 text-center">
           <GraduationCap className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-3 text-sm font-medium text-foreground">Ainda não há aulas publicadas</p>
+          <p className="mt-3 text-sm font-medium text-foreground">{t("pages.lessons.emptyTitle")}</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Quando o super administrador adicionar vídeos do YouTube ou do Bunny, eles aparecem aqui, agrupados por
-            módulo.
+            {t("pages.lessons.emptyBody")}
           </p>
         </div>
       ) : (
         <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <nav className="space-y-4 rounded-xl border border-border/70 bg-card/50 p-3" aria-label="Módulos de aulas">
+          <nav
+            className="space-y-4 rounded-xl border border-border/70 bg-card/50 p-3"
+            aria-label={t("pages.lessons.modulesAria")}
+          >
             {groups.map(([moduleName, items]) => (
               <div key={moduleName}>
                 <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">

@@ -9,7 +9,7 @@ import {
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { z } from "zod";
 import { AVATAR_LOCAL_MARKER, persistUserAvatar, removeUserAvatarFiles } from "../lib/avatarUpload";
-import type { PlanType, WorkspaceRole } from "@prisma/client";
+import type { PlanType, SubscriptionStatus, WorkspaceRole } from "@prisma/client";
 import { resolveDefaultPlanForSignup } from "../lib/defaultPlan";
 import { effectiveMaxCustomDomainsFromPlan } from "../lib/customDomainLimits";
 import {
@@ -64,6 +64,8 @@ type SerialUser = {
   mfaEnabled?: boolean;
   roles: { role: string }[];
   subscription: {
+    status: SubscriptionStatus;
+    endsAt: Date | null;
     plan: {
       name: string;
       type: string;
@@ -97,6 +99,8 @@ export function serializeUser(
   const planFrom = opts?.planSource ?? user;
   const plan = planFrom.subscription?.plan;
   const workspacePermissions = opts?.workspacePermissions ?? [];
+  const actorIsPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
+  const subAccess = evaluateSubscriptionAccess(planFrom.subscription);
   return {
     id: user.id,
     name: user.fullName || "",
@@ -112,6 +116,10 @@ export function serializeUser(
     sale_notify_email: user.saleNotifyEmail ?? "",
     sale_chime: user.saleChime || "kaching",
     mfa_enabled: Boolean((user as { mfaEnabled?: boolean }).mfaEnabled),
+    /** Espelho de `requireActiveSubscription` (admins de plataforma ignoram). */
+    subscription_status: planFrom.subscription?.status ?? null,
+    subscription_allowed: actorIsPlatformAdmin || subAccess.allowed,
+    subscription_block_code: actorIsPlatformAdmin || subAccess.allowed ? null : subAccess.reason ?? "subscription_expired",
     plan: plan
       ? {
           plan_name: plan.name,
@@ -150,13 +158,20 @@ async function serializeUserWithSession(user: SerialUser, req: Request) {
     include: { subscription: { include: { plan: true } }, roles: true },
   });
   const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
+  // Em workspace alheio, o plano de UI tem de ser o do tenant de faturação (gates dPilot/webhook).
+  const planSource =
+    sess.tenantUserId !== user.id
+      ? billing ?? user
+      : isPlatformAdmin
+        ? user
+        : billing ?? user;
   return serializeUser(user, req, {
     tenantUserId: sess.tenantUserId,
     workspaceId: sess.workspaceId,
     workspaceName: sess.workspaceName ?? null,
     workspaceRole: sess.workspaceRole,
     workspacePermissions: sess.workspacePermissions,
-    planSource: isPlatformAdmin ? user : billing ?? user,
+    planSource,
   });
 }
 
@@ -192,8 +207,10 @@ export const authController = {
     }
 
     const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
+    // Persistir expired se o período acabou — não bloquear o login: o FE redirecciona
+    // para /planos via subscription_allowed (admins de plataforma passam sempre).
     let subRow = isPlatformAdmin ? user.subscription : billing.subscription;
-    let access = evaluateSubscriptionAccess(subRow);
+    const access = evaluateSubscriptionAccess(subRow);
     if (access.shouldMarkExpired && subRow && subRow.status !== "expired") {
       await systemPrisma.subscription.update({
         where: { id: subRow.id },
@@ -203,12 +220,12 @@ export const authController = {
         where: { id: subRow.id },
         include: { plan: true },
       });
-    }
-    access = evaluateSubscriptionAccess(subRow);
-    if (!access.allowed) {
-      return res.status(403).json({
-        error: "Assinatura inválida ou expirada. Atualize seu plano para continuar.",
-      });
+      if (!isPlatformAdmin && subRow && billing.subscription) {
+        billing.subscription = subRow as typeof billing.subscription;
+      }
+      if (isPlatformAdmin && subRow && user.subscription) {
+        user.subscription = subRow as typeof user.subscription;
+      }
     }
 
     if (user.mfaEnabled) {
@@ -253,7 +270,12 @@ export const authController = {
         workspaceName: wsName ?? null,
         workspaceRole: sess.workspaceRole,
         workspacePermissions: sess.workspacePermissions,
-        planSource: isPlatformAdmin ? user : billing,
+        planSource:
+          sess.tenantUserId !== user.id
+            ? billing
+            : isPlatformAdmin
+              ? user
+              : billing,
       }),
     });
   },
@@ -354,8 +376,9 @@ export const authController = {
     }
 
     const isPlatformAdmin = user.roles.some((r) => r.role === "admin" || r.role === "super_admin");
+    // Não bloquear login por assinatura — FE usa subscription_allowed → /planos.
     let subRow = isPlatformAdmin ? user.subscription : billing.subscription;
-    let access = evaluateSubscriptionAccess(subRow);
+    const access = evaluateSubscriptionAccess(subRow);
     if (access.shouldMarkExpired && subRow && subRow.status !== "expired") {
       await systemPrisma.subscription.update({
         where: { id: subRow.id },
@@ -365,12 +388,12 @@ export const authController = {
         where: { id: subRow.id },
         include: { plan: true },
       });
-    }
-    access = evaluateSubscriptionAccess(subRow);
-    if (!access.allowed) {
-      return res.status(403).json({
-        error: "Assinatura inválida ou expirada. Atualize seu plano para continuar.",
-      });
+      if (!isPlatformAdmin && subRow && billing.subscription) {
+        billing.subscription = subRow as typeof billing.subscription;
+      }
+      if (isPlatformAdmin && subRow && user.subscription) {
+        user.subscription = subRow as typeof user.subscription;
+      }
     }
 
     if (user.mfaEnabled) {
@@ -415,7 +438,12 @@ export const authController = {
         workspaceName: googleWsName ?? null,
         workspaceRole: sess.workspaceRole,
         workspacePermissions: sess.workspacePermissions,
-        planSource: isPlatformAdmin ? user : billing,
+        planSource:
+          sess.tenantUserId !== user.id
+            ? billing
+            : isPlatformAdmin
+              ? user
+              : billing,
       }),
     });
   },

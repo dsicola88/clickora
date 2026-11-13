@@ -11,6 +11,15 @@ const paidRouter = Router();
 /** Assinatura activa + flag de plano de anúncios (antes só havia requireDpilotPlan). */
 paidRouter.use(authenticate, requireActiveSubscription, requireDpilotPlan);
 
+/** Encaminha rejeições async para o errorHandler (evita `void` + unhandledRejection). */
+function asyncRoute(
+  fn: (req: Request, res: Response) => Promise<unknown> | unknown,
+): (req: Request, res: Response, next: NextFunction) => void {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res)).catch(next);
+  };
+}
+
 function handleMetaAssetUpload(req: Request, res: Response, next: NextFunction) {
   paidMetaAssetUpload.single("file")(req, res, (err: unknown) => {
     if (err) {
@@ -31,121 +40,151 @@ function handleTiktokAssetUpload(req: Request, res: Response, next: NextFunction
   });
 }
 
-paidRouter.get("/oauth/config", (req, res) => void oauthController.oauthConfig(req, res));
-paidRouter.post("/oauth/google/start", (req, res) => void oauthController.googleStart(req, res));
-paidRouter.post("/oauth/meta/start", (req, res) => void oauthController.metaStart(req, res));
-paidRouter.post("/oauth/tiktok/start", (req, res) => void oauthController.tiktokStart(req, res));
-paidRouter.post("/oauth/google/disconnect", (req, res) => void oauthController.disconnectGoogle(req, res));
-paidRouter.post("/oauth/meta/disconnect", (req, res) => void oauthController.disconnectMeta(req, res));
-paidRouter.post("/oauth/tiktok/disconnect", (req, res) => void oauthController.disconnectTiktok(req, res));
+paidRouter.get("/oauth/config", asyncRoute((req, res) => oauthController.oauthConfig(req, res)));
+paidRouter.post("/oauth/google/start", asyncRoute((req, res) => oauthController.googleStart(req, res)));
+paidRouter.post("/oauth/meta/start", asyncRoute((req, res) => oauthController.metaStart(req, res)));
+paidRouter.post("/oauth/tiktok/start", asyncRoute((req, res) => oauthController.tiktokStart(req, res)));
+paidRouter.post("/oauth/google/disconnect", asyncRoute((req, res) => oauthController.disconnectGoogle(req, res)));
+paidRouter.post("/oauth/meta/disconnect", asyncRoute((req, res) => oauthController.disconnectMeta(req, res)));
+paidRouter.post("/oauth/tiktok/disconnect", asyncRoute((req, res) => oauthController.disconnectTiktok(req, res)));
 
-paidRouter.get("/projects", (req, res) => void paidController.listProjects(req, res));
-paidRouter.get("/projects/:projectId", (req, res) => void paidController.getProject(req, res));
-paidRouter.get("/projects/:projectId/overview", (req, res) => void paidController.getOverview(req, res));
-paidRouter.get("/projects/:projectId/campaigns", (req, res) => void paidController.listCampaigns(req, res));
-paidRouter.patch("/projects/:projectId/campaigns/:campaignId/optimizer-limits", (req, res) =>
-  void paidController.patchCampaignOptimizerLimits(req, res),
+paidRouter.get("/projects", asyncRoute((req, res) => paidController.listProjects(req, res)));
+paidRouter.get("/projects/:projectId", asyncRoute((req, res) => paidController.getProject(req, res)));
+paidRouter.get("/projects/:projectId/overview", asyncRoute((req, res) => paidController.getOverview(req, res)));
+paidRouter.get("/projects/:projectId/campaigns", asyncRoute((req, res) => paidController.listCampaigns(req, res)));
+paidRouter.patch(
+  "/projects/:projectId/campaigns/:campaignId/optimizer-limits",
+  asyncRoute((req, res) => paidController.patchCampaignOptimizerLimits(req, res)),
 );
-paidRouter.get("/projects/:projectId/campaigns/:campaignId/creative-swap", (req, res) =>
-  void paidController.previewCampaignCreativeSwap(req, res),
+paidRouter.get(
+  "/projects/:projectId/campaigns/:campaignId/creative-swap",
+  asyncRoute((req, res) => paidController.previewCampaignCreativeSwap(req, res)),
 );
-paidRouter.post("/projects/:projectId/campaigns/:campaignId/creative-swap/apply", (req, res) =>
-  void paidController.applyCampaignCreativeSwap(req, res),
+paidRouter.post(
+  "/projects/:projectId/campaigns/:campaignId/creative-swap/apply",
+  asyncRoute((req, res) => paidController.applyCampaignCreativeSwap(req, res)),
 );
-paidRouter.post("/projects/:projectId/campaigns/:campaignId/creative-swap/dismiss", (req, res) =>
-  void paidController.dismissCampaignCreativeSwap(req, res),
+paidRouter.post(
+  "/projects/:projectId/campaigns/:campaignId/creative-swap/dismiss",
+  asyncRoute((req, res) => paidController.dismissCampaignCreativeSwap(req, res)),
 );
-paidRouter.post("/projects/:projectId/campaigns/:campaignId/creative-swap/message-recs", (req, res) =>
-  void paidController.recommendCampaignMessageOffer(req, res),
+paidRouter.post(
+  "/projects/:projectId/campaigns/:campaignId/creative-swap/message-recs",
+  asyncRoute((req, res) => paidController.recommendCampaignMessageOffer(req, res)),
 );
-  paidRouter.get("/projects/:projectId/campaigns/:campaignId/google-performance", (req, res) =>
-    void paidController.googleCampaignPerformance(req, res),
-  );
-  paidRouter.get("/projects/:projectId/campaigns/:campaignId/google-studio", (req, res) =>
-  void paidController.getGoogleCampaignStudio(req, res),
+paidRouter.get(
+  "/projects/:projectId/campaigns/:campaignId/google-performance",
+  asyncRoute((req, res) => paidController.googleCampaignPerformance(req, res)),
 );
-paidRouter.patch("/projects/:projectId/campaigns/:campaignId/google-draft", (req, res) =>
-  void paidController.patchGoogleCampaignDraft(req, res),
+paidRouter.get(
+  "/projects/:projectId/campaigns/:campaignId/google-studio",
+  asyncRoute((req, res) => paidController.getGoogleCampaignStudio(req, res)),
 );
-paidRouter.post("/projects/:projectId/campaigns/:campaignId/google-studio-actions", (req, res) =>
-  void paidController.postGoogleCampaignStudioActions(req, res),
+paidRouter.patch(
+  "/projects/:projectId/campaigns/:campaignId/google-draft",
+  asyncRoute((req, res) => paidController.patchGoogleCampaignDraft(req, res)),
 );
-paidRouter.post("/projects/:projectId/campaigns/:campaignId/snap-daily-budget-to-guardrail", (req, res) =>
-  void paidController.snapCampaignDailyBudgetToGuardrailCeiling(req, res),
+paidRouter.post(
+  "/projects/:projectId/campaigns/:campaignId/google-studio-actions",
+  asyncRoute((req, res) => paidController.postGoogleCampaignStudioActions(req, res)),
 );
-paidRouter.post("/projects/:projectId/campaigns/:campaignId/snap-geo-to-guardrail", (req, res) =>
-  void paidController.snapCampaignGeoTargetsToGuardrailAllowed(req, res),
+paidRouter.post(
+  "/projects/:projectId/campaigns/:campaignId/snap-daily-budget-to-guardrail",
+  asyncRoute((req, res) => paidController.snapCampaignDailyBudgetToGuardrailCeiling(req, res)),
 );
-paidRouter.post("/projects/:projectId/campaigns/:campaignId/archive", (req, res) =>
-  void paidController.archiveCampaign(req, res),
+paidRouter.post(
+  "/projects/:projectId/campaigns/:campaignId/snap-geo-to-guardrail",
+  asyncRoute((req, res) => paidController.snapCampaignGeoTargetsToGuardrailAllowed(req, res)),
 );
-paidRouter.delete("/projects/:projectId/campaigns/:campaignId", (req, res) =>
-  void paidController.deleteArchivedCampaign(req, res),
+paidRouter.post(
+  "/projects/:projectId/campaigns/:campaignId/archive",
+  asyncRoute((req, res) => paidController.archiveCampaign(req, res)),
 );
-paidRouter.get("/projects/:projectId/optimizer-decisions", (req, res) =>
-  void paidController.listOptimizerDecisions(req, res),
+paidRouter.delete(
+  "/projects/:projectId/campaigns/:campaignId",
+  asyncRoute((req, res) => paidController.deleteArchivedCampaign(req, res)),
 );
-paidRouter.get("/projects/:projectId/health-summary", (req, res) =>
-  void paidController.getProjectHealthSummary(req, res),
+paidRouter.get(
+  "/projects/:projectId/optimizer-decisions",
+  asyncRoute((req, res) => paidController.listOptimizerDecisions(req, res)),
 );
-paidRouter.get("/projects/:projectId/change-requests", (req, res) =>
-  void paidController.listChangeRequests(req, res),
+paidRouter.get(
+  "/projects/:projectId/health-summary",
+  asyncRoute((req, res) => paidController.getProjectHealthSummary(req, res)),
 );
-paidRouter.post("/change-requests/review", (req, res) => void paidController.reviewChangeRequest(req, res));
-paidRouter.delete("/change-requests/:id", (req, res) => void paidController.deleteChangeRequest(req, res));
-paidRouter.get("/projects/:projectId/meta-connection", (req, res) =>
-  void paidController.getMetaConnection(req, res),
+paidRouter.get(
+  "/projects/:projectId/change-requests",
+  asyncRoute((req, res) => paidController.listChangeRequests(req, res)),
 );
-paidRouter.get("/projects/:projectId/meta-pages", (req, res) =>
-  void paidController.listMetaPages(req, res),
+paidRouter.post("/change-requests/review", asyncRoute((req, res) => paidController.reviewChangeRequest(req, res)));
+paidRouter.delete("/change-requests/:id", asyncRoute((req, res) => paidController.deleteChangeRequest(req, res)));
+paidRouter.get(
+  "/projects/:projectId/meta-connection",
+  asyncRoute((req, res) => paidController.getMetaConnection(req, res)),
 );
-paidRouter.post("/projects/:projectId/meta-page", (req, res) =>
-  void paidController.selectMetaPage(req, res),
+paidRouter.get(
+  "/projects/:projectId/meta-pages",
+  asyncRoute((req, res) => paidController.listMetaPages(req, res)),
 );
-paidRouter.get("/projects/:projectId/tiktok-connection", (req, res) =>
-  void paidController.getTikTokConnection(req, res),
+paidRouter.post(
+  "/projects/:projectId/meta-page",
+  asyncRoute((req, res) => paidController.selectMetaPage(req, res)),
 );
-paidRouter.get("/projects/:projectId/meta-overview", (req, res) =>
-  void paidController.getMetaOverviewCounts(req, res),
+paidRouter.get(
+  "/projects/:projectId/tiktok-connection",
+  asyncRoute((req, res) => paidController.getTikTokConnection(req, res)),
 );
-paidRouter.get("/projects/:projectId/tiktok-overview", (req, res) =>
-  void paidController.getTikTokOverviewCounts(req, res),
+paidRouter.get(
+  "/projects/:projectId/meta-overview",
+  asyncRoute((req, res) => paidController.getMetaOverviewCounts(req, res)),
 );
-paidRouter.post("/projects/:projectId/paid-mode", (req, res) =>
-  void paidController.updateProjectPaidMode(req, res),
+paidRouter.get(
+  "/projects/:projectId/tiktok-overview",
+  asyncRoute((req, res) => paidController.getTikTokOverviewCounts(req, res)),
 );
-paidRouter.post("/guardrails", (req, res) => void paidController.upsertGuardrails(req, res));
-paidRouter.get("/projects/:projectId/ai-runs", (req, res) => void paidController.listAiRuns(req, res));
-paidRouter.post("/projects/:projectId/reconcile-campaigns", (req, res) =>
-  void paidController.reconcileCampaigns(req, res),
+paidRouter.post(
+  "/projects/:projectId/paid-mode",
+  asyncRoute((req, res) => paidController.updateProjectPaidMode(req, res)),
 );
-paidRouter.post("/projects/:projectId/meta-campaign-plan", (req, res) =>
-  void paidController.metaCampaignPlan(req, res),
+paidRouter.post("/guardrails", asyncRoute((req, res) => paidController.upsertGuardrails(req, res)));
+paidRouter.get("/projects/:projectId/ai-runs", asyncRoute((req, res) => paidController.listAiRuns(req, res)));
+paidRouter.post(
+  "/projects/:projectId/reconcile-campaigns",
+  asyncRoute((req, res) => paidController.reconcileCampaigns(req, res)),
 );
-paidRouter.post("/projects/:projectId/google-campaign-plan", (req, res) =>
-  void paidController.googleCampaignPlan(req, res),
+paidRouter.post(
+  "/projects/:projectId/meta-campaign-plan",
+  asyncRoute((req, res) => paidController.metaCampaignPlan(req, res)),
 );
-paidRouter.post("/projects/:projectId/google-landing-extract", (req, res) =>
-  void paidController.googleLandingExtract(req, res),
+paidRouter.post(
+  "/projects/:projectId/google-campaign-plan",
+  asyncRoute((req, res) => paidController.googleCampaignPlan(req, res)),
 );
-paidRouter.post("/projects/:projectId/google-keyword-insight", (req, res) =>
-  void paidController.googleKeywordInsight(req, res),
+paidRouter.post(
+  "/projects/:projectId/google-landing-extract",
+  asyncRoute((req, res) => paidController.googleLandingExtract(req, res)),
 );
-paidRouter.post("/projects/:projectId/google-keyword-suggest", (req, res) =>
-  void paidController.googleKeywordSuggest(req, res),
+paidRouter.post(
+  "/projects/:projectId/google-keyword-insight",
+  asyncRoute((req, res) => paidController.googleKeywordInsight(req, res)),
 );
-paidRouter.post("/projects/:projectId/tiktok-campaign-plan", (req, res) =>
-  void paidController.tiktokCampaignPlan(req, res),
+paidRouter.post(
+  "/projects/:projectId/google-keyword-suggest",
+  asyncRoute((req, res) => paidController.googleKeywordSuggest(req, res)),
+);
+paidRouter.post(
+  "/projects/:projectId/tiktok-campaign-plan",
+  asyncRoute((req, res) => paidController.tiktokCampaignPlan(req, res)),
 );
 paidRouter.post(
   "/projects/:projectId/meta-assets",
   handleMetaAssetUpload,
-  (req, res) => void paidController.uploadMetaAsset(req, res),
+  asyncRoute((req, res) => paidController.uploadMetaAsset(req, res)),
 );
 paidRouter.post(
   "/projects/:projectId/tiktok-assets",
   handleTiktokAssetUpload,
-  (req, res) => void paidController.uploadTiktokAsset(req, res),
+  asyncRoute((req, res) => paidController.uploadTiktokAsset(req, res)),
 );
 
 export { paidRouter };

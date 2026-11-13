@@ -1,8 +1,13 @@
 import { fill } from "@/i18n";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { applyMarketingAuthHead } from "@/lib/marketingSiteSeo";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { postAuthPathFromLocationState } from "@/lib/postAuthRedirect";
+import {
+  pathAllowsInactiveSubscription,
+  userHasSubscriptionAccess,
+} from "@/lib/subscriptionAccess";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -313,6 +318,7 @@ function RecoveryFormComponent() {
 export default function Auth() {
   const { t } = useAppLocale();
   const navigate = useNavigate();
+  const location = useLocation();
   const { completeOidcLogin } = useAuth();
   const [searchParams] = useSearchParams();
   const trialIntent =
@@ -322,6 +328,21 @@ export default function Auth() {
   const [mode, setMode] = useState<AuthMode>(() => (trialIntent ? "register" : "login"));
   const [externalMfa, setExternalMfa] = useState<{ mfa_token: string; email: string } | null>(null);
   const [oidcBusy, setOidcBusy] = useState(false);
+
+  const redirectParam = searchParams.get("redirect");
+  const goAfterAuth = useCallback(() => {
+    let target = postAuthPathFromLocationState(location.state, redirectParam);
+    const stored = authService.getStoredUser();
+    const pathOnly = target.split(/[?#]/)[0] || target;
+    if (
+      stored &&
+      !userHasSubscriptionAccess(stored) &&
+      !pathAllowsInactiveSubscription(pathOnly)
+    ) {
+      target = "/planos";
+    }
+    navigate(target, { replace: true });
+  }, [location.state, redirectParam, navigate]);
 
   useEffect(() => {
     if (trialIntent) setMode("register");
@@ -355,23 +376,27 @@ export default function Auth() {
     let cancelled = false;
     setOidcBusy(true);
     void (async () => {
-      const { error } = await completeOidcLogin(oidcToken);
-      if (cancelled) return;
-      setOidcBusy(false);
-      if (error) {
-        toast.error(error);
-        return;
+      try {
+        const { error } = await completeOidcLogin(oidcToken);
+        if (cancelled) return;
+        if (error) {
+          toast.error(error);
+          return;
+        }
+        toast.success(t("auth.ssoSuccess"));
+        goAfterAuth();
+      } finally {
+        setOidcBusy(false);
       }
-      toast.success(t("auth.ssoSuccess"));
-      navigate("/inicio", { replace: true });
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [completeOidcLogin, navigate, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- consumir #oidc_token uma vez no mount
+  }, [completeOidcLogin, t]);
 
-  const goInicio = () => navigate("/inicio");
+  const goInicio = goAfterAuth;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">

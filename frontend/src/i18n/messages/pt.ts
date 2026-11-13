@@ -67,7 +67,13 @@ export const pt = {
     "copyCode": "Código copiado",
     "copyFailedShort": "Não foi possível copiar",
     "selectStartEnd": "Selecione data de início e de fim.",
+    "dismiss": "Dispensar",
     "startAfterEnd": "A data de início não pode ser depois da data de fim.",
+  },
+  "subscription": {
+    "blockedTitle": "Assinatura em falta ou inactiva",
+    "blockedFallback": "A sua assinatura bloqueia esta acção.",
+    "viewPlans": "Ver planos",
   },
   "chrome": {
     "collapseMenu": "Encolher menu",
@@ -221,8 +227,17 @@ export const pt = {
     "lessons": {
       "title": "Aulas",
       "subtitle": "Aulas em vídeo incluídas com assinatura activa.",
+      "subtitleLead": "Vídeos curtos para usar a ferramenta sem abrir um ticket. O guia escrito continua em",
+      "subtitleTrail": ".",
+      "helpLink": "Aprender",
+      "loading": "A carregar aulas…",
       "loadError": "Não foi possível carregar as aulas.",
       "locked": "As aulas em vídeo fazem parte da assinatura activa.",
+      "viewPlans": "Ver planos",
+      "emptyTitle": "Ainda não há aulas publicadas",
+      "emptyBody": "Quando o super administrador adicionar vídeos do YouTube ou do Bunny, eles aparecem aqui, agrupados por módulo.",
+      "modulesAria": "Módulos de aulas",
+      "defaultModule": "Começar"
     },
     "agency": {
       "title": "Pronto para Agency",
@@ -2507,6 +2522,22 @@ export const pt = {
       "postback": "Postback",
     },
     "dpilot": {
+      "app": {
+        "loading": "A carregar…",
+        "loadingSession": "A carregar sessão…",
+        "loadingModule": "A carregar módulo de anúncios…",
+        "planGateTitle": "Anúncios",
+        "planTitle": "Plano",
+        "planDesc": "Faz upgrade para Pro Anual para desbloquear.",
+        "viewPlans": "Ver planos",
+        "noProjectTitle": "Sem projecto de anúncios",
+        "noProjectDesc": "Confirma a API, migrações e seed.",
+        "loadErrorTitle": "Não foi possível carregar anúncios",
+        "loadErrorDesc": "Verifica a ligação à API e tenta novamente.",
+        "invalidProject": "ID de projecto inválido.",
+        "routeUnknownBody": "Rota de anúncios não reconhecida. Confirma o endereço ou volta ao módulo.",
+        "backToModule": "Voltar a Anúncios"
+      },
       "title": "dPilot",
       "subtitle": "Criar e gerir campanhas pagas.",
       "common": {

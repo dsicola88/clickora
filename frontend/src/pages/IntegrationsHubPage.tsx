@@ -58,11 +58,15 @@ export default function IntegrationsHubPage() {
     staleTime: 60_000,
   });
 
-  const { data: webhookInfo } = useQuery({
+  const {
+    data: webhookInfo,
+    isError: webhookError,
+    refetch: refetchWebhook,
+  } = useQuery({
     queryKey: ["integrations-hub-webhook"],
     queryFn: async () => {
       const { data, error } = await integrationsService.getAffiliateWebhookInfo();
-      if (error || !data) return null;
+      if (error) throw new Error(error);
       return data;
     },
     staleTime: 60_000,
@@ -234,6 +238,14 @@ export default function IntegrationsHubPage() {
               <p className="text-[11px] text-amber-800 dark:text-amber-300">
                 {t("pages.integrations.healthLoadError")}{" "}
                 <button type="button" className="underline" onClick={() => void refetchDash()}>
+                  {t("common.retry")}
+                </button>
+              </p>
+            ) : null}
+            {webhookError ? (
+              <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                {t("common.loadFailed")}{" "}
+                <button type="button" className="underline" onClick={() => void refetchWebhook()}>
                   {t("common.retry")}
                 </button>
               </p>

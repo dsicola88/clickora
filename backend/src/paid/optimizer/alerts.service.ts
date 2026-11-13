@@ -129,7 +129,7 @@ function enqueueOptimizerAlertEmail(payload: OptimizerWebhookPayload): void {
                 ? "Sugestão de criativo (CTR baixo)"
                 : "Erro crítico do motor";
       const auditUrl = payload.project_id
-        ? `${frontendBase()}/tracking/dpilot/p/${payload.project_id}/motor`
+        ? `${frontendBase()}/tracking/dpilot/p/${payload.project_id}/auditoria`
         : `${frontendBase()}/tracking/dpilot`;
       const mail = await sendTransactionalEmail({
         to,

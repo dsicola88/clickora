@@ -206,7 +206,7 @@ export default function PresellManualBuilderPage() {
       if (cancelled) return;
       if (error || !data) {
         toast.error(error || t("pages.manualBuilder.loadError"));
-        navigate("/presell/dashboard", { replace: true });
+        navigate("/presells", { replace: true });
         return;
       }
       const c = (data.content || {}) as Record<string, unknown>;
@@ -254,7 +254,7 @@ export default function PresellManualBuilderPage() {
       setAwaitingVisualPublish(data.type !== "builder");
       if (!doc || !Array.isArray(doc.sections)) {
         toast.error(t("pages.manualBuilder.docInvalid"));
-        navigate("/presell/dashboard", { replace: true });
+        navigate("/presells", { replace: true });
         return;
       }
       useBuilder.getState().hydrateDocument(doc, {
@@ -427,7 +427,7 @@ export default function PresellManualBuilderPage() {
       } catch {
         /* ignore */
       }
-      navigate("/presell/dashboard", { replace: true });
+      navigate("/presells", { replace: true });
     },
     onError: (e) => {
       toast.error(e instanceof Error ? e.message : t("pages.manualBuilder.publishError"));
@@ -644,7 +644,7 @@ export default function PresellManualBuilderPage() {
             variant="outline"
             size="sm"
             className="h-8 shrink-0 border-editor-border bg-editor-panel-2 text-editor-fg hover:bg-editor-border hover:text-editor-fg"
-            onClick={() => navigate("/presell/dashboard")}
+            onClick={() => navigate("/presells")}
           >
             <ArrowLeft className="mr-1 h-3.5 w-3.5" />
             {t("common.back")}

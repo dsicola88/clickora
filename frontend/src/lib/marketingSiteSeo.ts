@@ -201,7 +201,7 @@ export function applyMarketingLandingHead(
   const title = overrides?.title?.trim() || base.title;
   const description = overrides?.description?.trim() || base.description;
   const canonical = canonicalWithoutSearchHash();
-  const ogImageAbs = `${origin}/placeholder.svg`;
+  const ogImageAbs = `${origin}/icon-512.png`;
   const robots = ROBOTS_INDEX_RICH;
   const pathNorm = pathname.replace(/\/+$/, "") || "/";
   const isGuideArticle = pathNorm === "/guia-vendas-afiliados";
@@ -259,7 +259,7 @@ export function applyMarketingAuthHead(): () => void {
   const before = captureMarketingHeadSnapshot();
   const origin = resolveSiteOrigin();
   const canonical = `${origin}/auth`;
-  const ogImageAbs = `${origin}/placeholder.svg`;
+  const ogImageAbs = `${origin}/icon-512.png`;
   const robots = "index, follow, max-image-preview:large";
 
   document.title = AUTH_TITLE;

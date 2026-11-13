@@ -86,6 +86,12 @@ export interface User {
   sale_chime?: string;
   /** MFA TOTP activo na conta (vindo de `/auth/me`). */
   mfa_enabled?: boolean;
+  /** Estado da linha de subscription da conta de faturação. */
+  subscription_status?: string | null;
+  /** Espelho do middleware `requireActiveSubscription` (admins = true). */
+  subscription_allowed?: boolean;
+  /** Código `subscription_*` quando `subscription_allowed` é false. */
+  subscription_block_code?: string | null;
 }
 
 export interface UserPlan {

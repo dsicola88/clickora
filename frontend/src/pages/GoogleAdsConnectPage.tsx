@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/LoadingState";
+import { ErrorState } from "@/components/ErrorState";
 import { useAuth } from "@/contexts/AuthContext";
 import { userCanWriteIntegrations } from "@/lib/workspaceCapabilities";
 import { integrationsService } from "@/services/integrationsService";
@@ -33,7 +34,7 @@ export default function GoogleAdsConnectPage() {
   const [customerDraft, setCustomerDraft] = useState("");
   const [mccDraft, setMccDraft] = useState("");
 
-  const { data, isLoading, refetch, isFetching } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["integrations", "google-ads"],
     queryFn: async () => {
       const { data, error } = await integrationsService.getGoogleAdsSettings();
@@ -126,7 +127,15 @@ export default function GoogleAdsConnectPage() {
     );
   }
 
-  const ready = Boolean(data?.can_upload && data.has_refresh_token);
+  if (isError || !data) {
+    return (
+      <div className={PRO_PAGE_SHELL}>
+        <ErrorState message={t("common.loadFailed")} onRetry={() => void refetch()} />
+      </div>
+    );
+  }
+
+  const ready = Boolean(data.can_upload && data.has_refresh_token);
   const linked = Boolean(data?.has_refresh_token && data.google_ads_customer_id);
   const costsReady = linked;
 
