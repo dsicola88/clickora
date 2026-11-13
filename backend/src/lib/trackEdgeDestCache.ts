@@ -9,12 +9,17 @@ import { evaluateSubscriptionAccess } from "./subscription";
 
 const MEMORY_TTL_MS = 60_000;
 const REDIS_TTL_SEC = 120;
-const KEY = (id: string) => `track:edge:dest:v1:${id}`;
+const KEY = (id: string) => `track:edge:dest:v2:${id}`;
 
 type DestPayload = {
   destination: string;
   status: string;
   userId: string;
+  /** Plataforma da campanha (appendClickId no edge = origin). */
+  network: string | null;
+  /** Cloak geo deny — edge falha para origin se CF-IPCountry estiver na lista. */
+  enterpriseCloak: boolean;
+  cloakGeoDeny: string | null;
   updatedAt: number;
 };
 
@@ -77,7 +82,13 @@ export async function getCachedTrackEdgeDest(presellId: string): Promise<DestPay
       const raw = await client.get(KEY(presellId));
       if (raw) {
         const parsed = JSON.parse(raw) as DestPayload;
-        if (parsed?.destination && parsed.status) {
+        // v2 exige network/cloak; descartar payload antigo sem esses campos.
+        if (
+          parsed?.destination &&
+          parsed.status &&
+          typeof parsed.enterpriseCloak === "boolean" &&
+          ("network" in parsed)
+        ) {
           memorySet(presellId, parsed);
           return parsed;
         }
@@ -114,6 +125,7 @@ export async function resolveTrackEdgeDest(presellId: string): Promise<DestPaylo
       status: true,
       content: true,
       tracking: true,
+      settings: true,
       complianceGate: true,
       user: { include: { subscription: { include: { plan: true } } } },
     },
@@ -125,10 +137,27 @@ export async function resolveTrackEdgeDest(presellId: string): Promise<DestPaylo
   if (!access.allowed) return null;
   const destination = affiliateLinkFromPresellPage(page.content, page.tracking);
   if (!destination) return null;
+  const camp = await systemPrisma.affiliateCampaign.findFirst({
+    where: { userId: page.userId, presellId: page.id, platform: { not: null } },
+    orderBy: { updatedAt: "desc" },
+    select: { platform: true },
+  });
+  const settings =
+    page.settings && typeof page.settings === "object" && !Array.isArray(page.settings)
+      ? (page.settings as Record<string, unknown>)
+      : {};
+  const enterpriseCloak = settings.enterpriseCloak === true || settings.enterpriseCloak === "true";
+  const cloakGeoDeny =
+    typeof settings.cloakGeoDeny === "string" && settings.cloakGeoDeny.trim()
+      ? settings.cloakGeoDeny.trim()
+      : null;
   const payload: DestPayload = {
     destination,
     status: page.status,
     userId: page.userId,
+    network: camp?.platform?.trim() || null,
+    enterpriseCloak,
+    cloakGeoDeny,
     updatedAt: Date.now(),
   };
   await putCache(presellId, payload);

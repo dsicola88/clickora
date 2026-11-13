@@ -45,6 +45,7 @@ export type TrackingGuardChannel =
   | "pixel"
   | "impression_api"
   | "track_event"
+  | "funnel_pixel"
   | "public_page";
 
 /**

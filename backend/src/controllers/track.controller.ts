@@ -67,6 +67,12 @@ import {
   isRedirectToAllowedOffer,
 } from "../lib/trackOfferRedirectGuard";
 import { resolveTrackEdgeDest } from "../lib/trackEdgeDestCache";
+import {
+  cloudflareVisitorCountryFromRequest,
+  requestFromTrustedTrackEdge,
+  trackEdgeSharedSecret,
+  visitorIpFromTrustedTrackEdge,
+} from "../lib/trackEdgeAuth";
 
 /** Rate limit por IP antes do lookup da página (protege DB sob flood). */
 async function earlyTrackRateLimit(req: Request, res: Response): Promise<boolean> {
@@ -97,6 +103,13 @@ const clickSchema = z.object({
   utm_term: z.string().optional(),
   utm_content: z.string().optional(),
   msclkid: z.string().optional(),
+  /** Clique pai (rotador → lander → edge/API). */
+  parent_click_id: z.string().uuid().optional(),
+  /** Destino da oferta (edge / API). Só gravado se coincidir com o hoplink da presell. */
+  redirect_to: z.string().url().max(2048).optional(),
+  sub1: z.string().max(200).optional(),
+  sub2: z.string().max(200).optional(),
+  sub3: z.string().max(200).optional(),
 });
 
 const impressionSchema = z.object({
@@ -222,6 +235,20 @@ async function recordFunnelStepFromPixel(req: Request, res: Response) {
   const ip = extractClientIp(req);
   const userAgent = req.headers["user-agent"] || "";
   const referrer = typeof req.headers.referer === "string" ? req.headers.referer : null;
+
+  // Soft-guard: mesmas regras que o pixel (blacklist/bot/proxy opt-in). Sempre devolve GIF.
+  const funnelGuard = await enforceTrackingRules({
+    ownerUserId: decoded.userId,
+    presellPageId: null,
+    ip,
+    userAgent,
+    headers: req.headers as Record<string, string | string[] | undefined>,
+    channel: "funnel_pixel",
+    recordedEventType: "other",
+  });
+  if (!funnelGuard.ok) {
+    return sendTrackingPixelGif(res);
+  }
 
   await recordAffiliateFunnelStep({
     userId: decoded.userId,
@@ -918,6 +945,11 @@ export const trackController = {
       utm_content: bodyUtmContentRaw,
       msclkid,
       utm_source,
+      parent_click_id: parentClickIdRaw,
+      redirect_to: redirectToRaw,
+      sub1,
+      sub2,
+      sub3,
     } = parsed.data;
     const utm_term = realUtmDimensionBody(bodyUtmTermRaw);
     const utm_content = realUtmDimensionBody(bodyUtmContentRaw);
@@ -932,7 +964,8 @@ export const trackController = {
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
 
-    const ip = extractClientIp(req);
+    // Worker autenticado: IP do visitante (não o egress CF→Railway).
+    const ip = visitorIpFromTrustedTrackEdge(req) || extractClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
     const guard = await enforceTrackingRules({
       ownerUserId: page.userId,
@@ -949,7 +982,57 @@ export const trackController = {
     }
 
     const seen = visitorClickPlace(req, ip);
+    const fromEdge = requestFromTrustedTrackEdge(req);
+    const cfCountry = fromEdge ? cloudflareVisitorCountryFromRequest(req) : null;
+    const clickCountry = cfCountry ?? seen.country;
+    const clickCountryMeta = cfCountry
+      ? countrySourceMeta("cloudflare")
+      : seen.countryMeta;
     const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
+
+    const configuredOffer = affiliateLinkFromPresellPage(page.content, page.tracking);
+    const redirectTo =
+      redirectToRaw && configuredOffer && isRedirectToAllowedOffer(redirectToRaw, configuredOffer)
+        ? redirectToRaw.trim()
+        : configuredOffer || undefined;
+
+    let rotatorParentMeta: Record<string, unknown> = {};
+    let parentMetadata: unknown = null;
+    if (parentClickIdRaw) {
+      const parentEv = await systemPrisma.trackingEvent.findFirst({
+        where: { id: parentClickIdRaw, eventType: "click" },
+        select: { id: true, userId: true, metadata: true },
+      });
+      if (parentEv && parentEv.userId === page.userId) {
+        parentMetadata = parentEv.metadata;
+        rotatorParentMeta = { parent_click_id: parentEv.id };
+        const linked = rotatorMetaFromParentClick({
+          parentId: parentEv.id,
+          parentUserId: parentEv.userId,
+          ownerUserId: page.userId,
+          parentMetadata: parentEv.metadata,
+        });
+        if (linked) {
+          rotatorParentMeta = {
+            ...rotatorParentMeta,
+            parent_rotator_click_id: linked.parent_rotator_click_id,
+            rotator_id: linked.rotator_id,
+            ...(linked.rotator_arm_id ? { rotator_arm_id: linked.rotator_arm_id } : {}),
+          };
+        }
+      }
+    }
+    const adIds = fillMissingAdClickIds(
+      {
+        gclid: cleanAdClickId(gclid),
+        gbraid: cleanAdClickId(gbraid),
+        wbraid: cleanAdClickId(wbraid),
+        msclkid: cleanAdClickId(msclkid),
+        fbclid: cleanAdClickId(fbclid),
+        ttclid: cleanAdClickId(ttclid),
+      },
+      parentMetadata,
+    );
 
     const click = await systemPrisma.$transaction(async (tx) => {
       const ev = await tx.trackingEvent.create({
@@ -958,26 +1041,34 @@ export const trackController = {
           presellPageId: presell_id,
           eventType: "click",
           source, medium, campaign, referrer,
-          country: seen.country ?? undefined,
+          country: clickCountry ?? undefined,
           ipAddress: ip,
           userAgent,
           device,
           metadata: {
-            gclid,
-            gbraid,
-            wbraid,
-            fbclid,
+            gclid: adIds.gclid,
+            gbraid: adIds.gbraid,
+            wbraid: adIds.wbraid,
+            fbclid: adIds.fbclid,
             fbp,
-            ttclid,
-            msclkid,
+            ttclid: adIds.ttclid,
+            msclkid: adIds.msclkid,
             utm_term,
             utm_content,
             utm_source: utm_source ?? source,
             source,
             medium,
             campaign,
+            ...(redirectTo ? { redirect_to: redirectTo } : {}),
+            ...(fromEdge ? { via_edge: true } : {}),
+            ...(sub1 ? { sub1 } : {}),
+            ...(sub2 ? { sub2 } : {}),
+            ...(sub3 ? { sub3 } : {}),
+            // Mesmo cloud/exclude_from_kpi que /track/r/ (edge worker usa este path).
+            ...(seen.place ? datacenterClickMeta(ip) : reportCloudClickMeta(ip)),
             ...botMeta,
-            ...seen.countryMeta,
+            ...clickCountryMeta,
+            ...rotatorParentMeta,
           } as Prisma.InputJsonValue,
         },
       });
@@ -1028,7 +1119,8 @@ export const trackController = {
 
     const seen = visitorClickPlace(req, ip);
     const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
-    const impressionMeta = { ...botMeta, ...seen.countryMeta };
+    const cloudMeta = seen.place ? datacenterClickMeta(ip) : reportCloudClickMeta(ip);
+    const impressionMeta = { ...botMeta, ...seen.countryMeta, ...cloudMeta };
 
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
@@ -1081,6 +1173,7 @@ export const trackController = {
       presellPageId: presell_id,
       ip: evIp,
       userAgent: evUa,
+      headers: req.headers as Record<string, string | string[] | undefined>,
       channel: "track_event",
       recordedEventType: event_type === "click" ? "click" : "other",
     });
@@ -1833,14 +1926,9 @@ export const trackController = {
       return res.status(400).json({ error: "presellId inválido" });
     }
     /** Em produção o endpoint deixa de ser world-readable: TRACK_EDGE_SHARED_SECRET ou JWT_SECRET. */
-    const secret =
-      process.env.TRACK_EDGE_SHARED_SECRET?.trim() ||
-      (process.env.NODE_ENV === "production" || process.env.TRACK_EDGE_REQUIRE_SECRET === "1"
-        ? process.env.JWT_SECRET?.trim() || ""
-        : "");
+    const secret = trackEdgeSharedSecret();
     if (secret) {
-      const got = String(req.get("x-clickora-edge-secret") || "").trim();
-      if (got !== secret) {
+      if (!requestFromTrustedTrackEdge(req)) {
         return res.status(401).json({ error: "Não autorizado" });
       }
     }
@@ -1854,6 +1942,9 @@ export const trackController = {
     return res.json({
       destination: dest.destination,
       status: dest.status,
+      network: dest.network,
+      enterprise_cloak: dest.enterpriseCloak,
+      cloak_geo_deny: dest.cloakGeoDeny,
       updated_at: dest.updatedAt,
     });
   },

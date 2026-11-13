@@ -25,7 +25,7 @@ export function isCdn77EdgeIp(ip: string | null | undefined): boolean {
   return CDN77_EDGE_PREFIXES.some(([base, bits]) => inPrefix(n, base, bits));
 }
 
-export type VisitorCountrySource = "cdn77" | "geoip" | "none";
+export type VisitorCountrySource = "cdn77" | "geoip" | "cloudflare" | "none";
 
 export type VisitorCountry = {
   country: string | null;
@@ -171,6 +171,7 @@ export function lookupIpForTools(ip: string): IpToolLookup {
 export function countrySourceMeta(source: VisitorCountrySource): Record<string, string> {
   if (source === "cdn77") return { country_source: "cdn77" };
   if (source === "geoip") return { country_source: "visitor_ip" };
+  if (source === "cloudflare") return { country_source: "cloudflare" };
   return {};
 }
 
@@ -196,6 +197,8 @@ export function locationForStoredClick(input: {
   if (!country) return { country: null, region: null, city: null };
   if (input.countrySource === "cdn77") return { country, region: null, city: null };
   if (isFastlyEdgeIp(input.ip) || isCdn77EdgeIp(input.ip)) return { country: null, region: null, city: null };
-  if (input.countrySource === "visitor_ip") return { country, region: null, city: null };
+  if (input.countrySource === "visitor_ip" || input.countrySource === "cloudflare") {
+    return { country, region: null, city: null };
+  }
   return { country: null, region: null, city: null };
 }

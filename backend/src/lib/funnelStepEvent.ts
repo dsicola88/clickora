@@ -1,9 +1,12 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { systemPrisma } from "./prisma";
-import { countrySourceMeta, resolveVisitorCountry } from "./cdn77Visitor";
+import { countrySourceMeta, isCdn77EdgeIp, resolveVisitorCountry } from "./cdn77Visitor";
+import { isFastlyEdgeIp } from "./fastlyEdges";
 import { assessClickQuality } from "./detectBot";
+import { datacenterClickMeta, datacenterClickPlace } from "./ipNetworkClass";
 import { formatDeviceLabel, parseUserAgent } from "./parseUserAgent";
+import { reportCloudClickMeta } from "./reportCloudIpRanges";
 
 export const FUNNEL_STEPS = ["checkout", "lander"] as const;
 export type FunnelStep = (typeof FUNNEL_STEPS)[number];
@@ -160,6 +163,14 @@ export async function recordAffiliateFunnelStep(args: {
       : null;
   const { device, botMeta } = deviceAndBotMeta(ua, { headers: args.headers, ip });
   const platform = (args.platform || "affiliate").trim() || "affiliate";
+  // Alinha KPI (exclude_from_kpi) ao hop /track/r/ — Fastly/CDN77 sem marcar cloud do edge.
+  const cloudMeta =
+    !ip || isFastlyEdgeIp(ip)
+      ? {}
+      : (() => {
+          const place = isCdn77EdgeIp(ip) ? null : datacenterClickPlace(ip);
+          return place ? datacenterClickMeta(ip) : reportCloudClickMeta(ip);
+        })();
 
   const created = await systemPrisma.trackingEvent.create({
     data: {
@@ -180,6 +191,7 @@ export async function recordAffiliateFunnelStep(args: {
         attributed_click_id: click?.id ?? null,
         redirect_to: redirectTo,
         ...botMeta,
+        ...cloudMeta,
         ...countrySourceMeta(countrySource),
         ...(args.extraMeta || {}),
       } as Prisma.InputJsonValue,
