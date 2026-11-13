@@ -82,6 +82,7 @@ export async function loadCampaignPerf(args: {
       AND event_type::text = 'click'
       AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
       AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
+      AND metadata->>'parent_rotator_click_id' IS NULL
       ${fromSql}
       ${toSql}
       AND (

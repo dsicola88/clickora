@@ -1916,6 +1916,7 @@ export const analyticsController = {
           AND te.event_type::text = 'click'
           AND NOT COALESCE((te.metadata->>'is_bot') = 'true', false)
           AND NOT COALESCE((te.metadata->>'exclude_from_kpi') = 'true', false)
+          AND te.metadata->>'parent_rotator_click_id' IS NULL
         GROUP BY 1
         ORDER BY revenue DESC
         LIMIT 40

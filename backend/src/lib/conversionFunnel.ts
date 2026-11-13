@@ -28,7 +28,18 @@ export function sqlClickHasPaidNetworkId(alias: string): Prisma.Sql {
   )`;
 }
 
-/** UTM/medium de ads sem ID real — alinhado a `hasPaidAdSourceSignals` (sem inventar «Pago»). */
+/**
+ * Valor presente que não é ID real (macro `{gclid}`, lixo, etc.) —
+ * alinhado a `hasPaidAdSourceSignals` / `resolveTrafficType` → paid_untracked.
+ */
+function sqlHasUnresolvedNetworkId(expr: Prisma.Sql): Prisma.Sql {
+  return Prisma.sql`(
+    NULLIF(TRIM(COALESCE(${expr}, '')), '') IS NOT NULL
+    AND NOT ${sqlRealNetworkId(expr)}
+  )`;
+}
+
+/** UTM/medium/macros sem ID real — alinhado a `hasPaidAdSourceSignals` (sem inventar «Pago»). */
 export function sqlClickHasPaidAdSignals(alias: string): Prisma.Sql {
   const a = Prisma.raw(alias);
   return Prisma.sql`(
@@ -37,7 +48,19 @@ export function sqlClickHasPaidAdSignals(alias: string): Prisma.Sql {
          ~ '^(cpc|ppc|paid|paidsearch|paid_social|cpm|cpa|display|retargeting)$'
     OR LOWER(TRIM(COALESCE(${a}.source, ${a}.metadata->>'utm_source', '')))
          ~ '(google|gclid|bing|microsoft|yahoo|facebook|meta|fbclid|tiktok|ttclid|pinterest|taboola|outbrain|kwai|twitter|cpc|ppc|paid|ads)'
+    OR ${sqlHasUnresolvedNetworkId(Prisma.sql`${a}.metadata->>'gclid'`)}
+    OR ${sqlHasUnresolvedNetworkId(Prisma.sql`${a}.metadata->>'gbraid'`)}
+    OR ${sqlHasUnresolvedNetworkId(Prisma.sql`${a}.metadata->>'wbraid'`)}
+    OR ${sqlHasUnresolvedNetworkId(Prisma.sql`${a}.metadata->>'msclkid'`)}
+    OR ${sqlHasUnresolvedNetworkId(Prisma.sql`${a}.metadata->>'fbclid'`)}
+    OR ${sqlHasUnresolvedNetworkId(Prisma.sql`${a}.metadata->>'ttclid'`)}
   )`;
+}
+
+/** Clique raiz (Resultados `entry_clicks`) — sem hop lander pós-rotador. */
+export function sqlIsEntryClick(alias: string): Prisma.Sql {
+  const a = Prisma.raw(alias);
+  return Prisma.sql`${a}.metadata->>'parent_rotator_click_id' IS NULL`;
 }
 
 /** Normalização de utm_term (ignora macros não substituídas) — igual ao dashboard. */
@@ -263,8 +286,8 @@ function keywordClickFilter(alias: string, keyword: string | null): Prisma.Sql {
 }
 
 /**
- * Funil canónico: impressão → clique → checkout (funnel_step) → venda aprovada.
- * Mesmos filtros KPI que o dashboard (bots / exclude_from_kpi).
+ * Funil canónico: impressão → clique raiz → checkout (funnel_step) → venda aprovada.
+ * Mesmos filtros KPI + entry_clicks que Resultados (bots / exclude_from_kpi / sem filhos de rotador).
  */
 export async function loadConversionFunnel(args: {
   userId: string;
@@ -337,6 +360,7 @@ export async function loadConversionFunnel(args: {
             AND te.created_at <= ${rangeEnd}
             AND te.event_type::text = 'click'
             AND ${KPI_CLEAN_ALIAS("te")}
+            AND ${sqlIsEntryClick("te")}
             ${clickKw}
         ) AS clicks,
         (
@@ -379,6 +403,10 @@ export async function loadConversionFunnel(args: {
         AND te.created_at <= ${rangeEnd}
         AND te.event_type::text IN ('click', 'impression')
         AND ${KPI_CLEAN_ALIAS("te")}
+        AND (
+          te.event_type::text = 'impression'
+          OR ${sqlIsEntryClick("te")}
+        )
         ${clickKw}
       GROUP BY 1, 2
       ORDER BY 1 ASC
@@ -478,6 +506,7 @@ export async function loadConversionFunnel(args: {
         AND te.created_at <= ${rangeEnd}
         AND te.event_type::text = 'click'
         AND ${KPI_CLEAN_ALIAS("te")}
+        AND ${sqlIsEntryClick("te")}
         ${clickKw}
       GROUP BY 1
       ORDER BY revenue DESC, sales DESC, clicks DESC
@@ -691,12 +720,13 @@ export async function loadConversionFunnel(args: {
     keywords,
     definitions: {
       impressions: "Aberturas da página no período (sem robots nem IPs de servidor).",
-      clicks: "Cliques no botão da oferta no período (mesmos filtros limpos que Resultados).",
+      clicks:
+        "Visitantes raiz (entry_clicks) — cliques limpos sem hop lander pós-rotador, iguais a Resultados.",
       checkouts: "Visitantes que chegaram à página de checkout / oferta.",
       sales: "Vendas aprovadas avisadas pela rede — a receita que conta.",
       paid: "Venda ligada a um clique de anúncio com ID completo.",
       paid_untracked:
-        "Campanha de anúncios detectada, mas sem ID do clique — não conta como Pago atribuível.",
+        "Campanha de anúncios detectada (UTM/medium/macros), mas sem ID real do clique — igual a Sem ID nos Relatórios.",
       organic: "Sem anúncio pago no clique (ou venda sem clique associado).",
       kpi_noise: "Robots e IPs de servidor ficam fora destas contagens.",
     },

@@ -15,7 +15,7 @@ const EDGE_BOUNDS: ReadonlyArray<readonly [number, number]> = [
 
 /**
  * País no painel, igual à lista de cliques.
- * CDN77: país do IP real. visitor_ip: país do IP de quem clicou, e só se não for nó.
+ * CDN77: país do IP real. visitor_ip / cloudflare: país de quem clicou (não nó CDN).
  * País antigo sem essa origem, ou país gravado no nó, não entra.
  */
 export function sqlVisitorCountry(alias: string): Prisma.Sql {
@@ -39,7 +39,8 @@ export function sqlVisitorCountry(alias: string): Prisma.Sql {
   const isEdge = Prisma.sql`${ipNorm} ~ '^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$' AND (${edge})`;
   return Prisma.sql`CASE
     WHEN COALESCE(${meta}->>'country_source', '') = 'cdn77' THEN NULLIF(UPPER(TRIM(${country})), '')
-    WHEN COALESCE(${meta}->>'country_source', '') = 'visitor_ip' AND NOT (${isEdge}) THEN NULLIF(UPPER(TRIM(${country})), '')
+    WHEN COALESCE(${meta}->>'country_source', '') IN ('visitor_ip', 'cloudflare')
+      AND NOT (${isEdge}) THEN NULLIF(UPPER(TRIM(${country})), '')
     ELSE NULL
   END`;
 }

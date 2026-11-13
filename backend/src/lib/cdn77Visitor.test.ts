@@ -192,6 +192,7 @@ describe("CDN77 visitor country", () => {
     assert.deepEqual(ukViaCdn, { country: "GB", source: "cdn77" });
     assert.equal(countrySourceMeta("cdn77").country_source, "cdn77");
     assert.equal(countrySourceMeta("geoip").country_source, "visitor_ip");
+    assert.equal(countrySourceMeta("cloudflare").country_source, "cloudflare");
     assert.deepEqual(countrySourceMeta("none"), {});
     assert.equal(
       cdn77VisitorCountryFromHeaders(

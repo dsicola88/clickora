@@ -4,6 +4,8 @@ import {
   assertFunnelInvariants,
   buildFunnelStages,
   dayKey,
+  sqlClickHasPaidAdSignals,
+  sqlIsEntryClick,
   type ConversionFunnelResult,
 } from "./conversionFunnel";
 import { hasPaidNetworkClickId, resolveTrafficType } from "./networkClickId";
@@ -275,8 +277,17 @@ describe("contrato paid vs networkClickId", () => {
   it("macros literais nunca são Pago; gclid real é Pago", () => {
     assert.equal(hasPaidNetworkClickId({ gclid: "{gclid}" }), false);
     assert.equal(resolveTrafficType({ gclid: "{gclid}", medium: "cpc" }), "paid_untracked");
+    assert.equal(resolveTrafficType({ gclid: "{gclid}" }), "paid_untracked");
     assert.equal(hasPaidNetworkClickId({ gclid: "EAIaIQobChMI_real_click_id" }), true);
     assert.equal(resolveTrafficType({ gclid: "EAIaIQobChMI_real_click_id" }), "paid");
     assert.equal(resolveTrafficType({ source: "newsletter" }), "organic");
+  });
+
+  it("SQL funil inclui entry_clicks e macros unresolved (paridade Relatórios)", () => {
+    const entryParts = sqlIsEntryClick("te").strings.join(" ");
+    assert.match(entryParts, /parent_rotator_click_id/);
+    const signalParts = sqlClickHasPaidAdSignals("te").strings.join(" ");
+    assert.match(signalParts, /gclid/);
+    assert.match(signalParts, /gbraid|wbraid|fbclid|ttclid|msclkid/);
   });
 });
