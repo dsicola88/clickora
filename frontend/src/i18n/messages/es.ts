@@ -3639,7 +3639,9 @@ export const es = {
         "columnHint": "Ancho y fondo de esta columna. Para texto o un botón, selecciona el elemento en el lienzo o en la lista de la sección.",
         "sectionHintLead": "Estás en la",
         "sectionHintTail": "(columnas y fondo). Para tipografía, un botón o una imagen, elige un elemento en la lista de abajo o haz clic en él en el lienzo.",
+        "convertTitle": "¿Convertir HTML en bloques?",
         "convertConfirm": "Esto divide el HTML en bloques del builder y puede cambiar el layout/CSS original. ¿Continuar?",
+        "convertAction": "Convertir en bloques",
         "convertFailed": "No se pudo dividir este HTML en bloques editables.",
         "converted": "Convertido en bloques — el aspecto puede diferir del original.",
         "columnStructure": "Estructura de columnas",
@@ -3761,6 +3763,7 @@ export const es = {
         "insertBlock": "+ Insertar bloque",
         "importedAlert": "Esta página ya se importó. No se sustituye el contenido por Visivra. Inserta bloques — usan el nombre y la oferta de esta página.",
         "visivraMismatch": "La página en edición es «{product}». La plantilla Visivra no la sustituye. Usa la receta DTC (copia el nombre de esta página).",
+        "replaceTitle": "¿Sustituir página?",
         "replaceConfirm": "¿Sustituir el contenido actual por la plantilla Visivra completa?",
       },
       "topbar": {
@@ -3780,6 +3783,8 @@ export const es = {
         "preview": "Vista previa",
         "publishing": "Publicando…",
         "publish": "Publicar",
+        "exportLocal": "Exportar / local",
+        "exportLocalTitle": "No sale en vivo en Clickora — guarda en este navegador o descarga HTML",
         "more": "Más acciones",
         "savedPages": "Páginas guardadas",
         "globalDesign": "Diseño global",
@@ -3851,11 +3856,15 @@ export const es = {
         "minutesAgo": "hace {n} min",
         "hoursAgo": "hace {n} h",
         "saving": "guardando en la cuenta…",
+        "savingDraft": "guardando borrador…",
+        "draftSavedAgo": "borrador · {when}",
         "retrying": "fallo — reintentando",
-        "titleAccount": "Cada cambio se guarda automáticamente en tu cuenta (base de datos). El navegador solo es caché local.",
-        "titleLocal": "Cambios guardados en local en este navegador.",
+        "titleAccount":
+          "El borrador se guarda solo en la cuenta. Publicar (arriba a la derecha) es lo que pone la lander en vivo. El navegador solo es caché local.",
+        "titleLocal": "Cambios guardados en local en este navegador — no quedan en vivo en Clickora.",
         "account": "Autoguardado (cuenta)",
-        "local": "Autoguardado",
+        "draft": "Borrador",
+        "local": "Local",
       },
       "pageSettings": {
         "title": "Diseño global de la página",
@@ -3958,6 +3967,10 @@ export const es = {
         "animSlideDown": "Deslizar desde arriba",
       },
       "widgets": {
+        "galleryEmpty":
+          "Aún no hay imágenes. En el panel derecho, usa «+ Añadir» y luego pega una URL o «Subir del PC» en cada diapositiva.",
+        "imageUnavailable": "Imagen no disponible",
+        "imageEmpty": "Sin imagen — en el panel: URL o «Subir del PC»",
         "fields": {
           "title": "Título",
           "text": "Texto",

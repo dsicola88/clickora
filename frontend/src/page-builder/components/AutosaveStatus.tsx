@@ -36,9 +36,15 @@ export function AutosaveStatus() {
     if (!inAccount) {
       return formatRelative(lastPersistedAt, nowMs, t);
     }
-    if (cloudStatus === "pending" || cloudStatus === "saving") return t("pages.pageBuilder.autosave.saving");
+    if (cloudStatus === "pending" || cloudStatus === "saving") {
+      return t("pages.pageBuilder.autosave.savingDraft");
+    }
     if (cloudStatus === "error") return t("pages.pageBuilder.autosave.retrying");
-    if (cloudAt) return formatRelative(cloudAt, nowMs, t);
+    if (cloudAt) {
+      return fill(t("pages.pageBuilder.autosave.draftSavedAgo"), {
+        when: formatRelative(cloudAt, nowMs, t),
+      });
+    }
     return formatRelative(lastPersistedAt, nowMs, t);
   }, [cloudAt, cloudStatus, inAccount, lastPersistedAt, nowMs, t]);
 
@@ -55,13 +61,15 @@ export function AutosaveStatus() {
 
   return (
     <div
-      className="flex min-w-0 max-w-[11rem] items-center gap-2 rounded-md border border-editor-border/80 bg-editor-panel-2/90 px-2 py-1 sm:max-w-none sm:px-2.5"
+      className="flex min-w-0 max-w-[14rem] items-center gap-2 rounded-md border border-editor-border/80 bg-editor-panel-2/90 px-2 py-1 sm:max-w-[18rem] sm:px-2.5"
       title={title}
     >
-      <span className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
+      <span className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} aria-hidden />
       <span className="truncate text-[11px] text-editor-fg-muted">
         <span className="font-medium text-editor-fg/90">
-          {inAccount ? t("pages.pageBuilder.autosave.account") : t("pages.pageBuilder.autosave.local")}
+          {inAccount
+            ? t("pages.pageBuilder.autosave.draft")
+            : t("pages.pageBuilder.autosave.local")}
         </span>
         <span className="mx-1.5 text-editor-border">·</span>
         {label}

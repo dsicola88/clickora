@@ -117,6 +117,7 @@ export function EditorTopbar() {
   const [trackingOpen, setTrackingOpen] = useState(false);
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
   const [popupsOpen, setPopupsOpen] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
   useEffect(() => {
     setNameDraft(doc.name);
@@ -291,10 +292,11 @@ export function EditorTopbar() {
           <button
             type="button"
             onClick={() => setPublishOpen(true)}
-            className="flex h-8 items-center gap-1.5 rounded-md bg-editor-accent px-3 text-xs font-semibold text-editor-accent-fg hover:opacity-90"
+            title={t("pages.pageBuilder.topbar.exportLocalTitle")}
+            className="flex h-8 items-center gap-1.5 rounded-md border border-editor-border bg-editor-panel-2 px-3 text-xs font-semibold text-editor-fg hover:bg-editor-border"
           >
-            <Globe className="h-3.5 w-3.5" />
-            {t("pages.pageBuilder.topbar.publish")}
+            <Download className="h-3.5 w-3.5" />
+            {t("pages.pageBuilder.topbar.exportLocal")}
           </button>
         )}
         <DropdownMenu>
@@ -338,12 +340,7 @@ export function EditorTopbar() {
               {t("pages.pageBuilder.topbar.exportJson")}
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-editor-border" />
-            <DropdownMenuItem
-              className={menuItem}
-              onClick={() => {
-                if (confirm(t("pages.pageBuilder.topbar.clearConfirm"))) reset();
-              }}
-            >
+            <DropdownMenuItem className={menuItem} onClick={() => setClearConfirmOpen(true)}>
               <Trash2 className="mr-2 h-4 w-4" />
               {t("pages.pageBuilder.topbar.clearPage")}
             </DropdownMenuItem>
@@ -359,6 +356,39 @@ export function EditorTopbar() {
       <TrackingModal open={trackingOpen} onClose={() => setTrackingOpen(false)} />
       <PageSettingsModal open={pageSettingsOpen} onClose={() => setPageSettingsOpen(false)} />
       <PopupsModal open={popupsOpen} onClose={() => setPopupsOpen(false)} />
+      {clearConfirmOpen ? (
+        <div
+          className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setClearConfirmOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-lg border border-editor-border bg-editor-panel p-5 text-editor-fg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-2 text-base font-semibold">{t("pages.pageBuilder.topbar.clearPage")}</h3>
+            <p className="mb-5 text-sm text-editor-fg-muted">{t("pages.pageBuilder.topbar.clearConfirm")}</p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  reset();
+                  setClearConfirmOpen(false);
+                }}
+                className="rounded border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/20"
+              >
+                {t("pages.pageBuilder.topbar.clearPage")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setClearConfirmOpen(false)}
+                className="rounded px-4 py-2 text-sm text-editor-fg-muted hover:text-editor-fg"
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 }

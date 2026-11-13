@@ -11,19 +11,21 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
   const { t } = useAppLocale();
   const [category, setCategory] = useState<TemplateDefinition["category"] | "all">("all");
   const [pendingTemplate, setPendingTemplate] = useState<TemplateDefinition | null>(null);
+  const [guardMessage, setGuardMessage] = useState<string | null>(null);
   const doc = useBuilder((s) => s.doc);
   const identity = useBuilder((s) => s.pageIdentity);
 
   if (!open) return null;
 
   const items =
-    category === "all" ? TEMPLATES : TEMPLATES.filter((t) => t.category === category);
+    category === "all" ? TEMPLATES : TEMPLATES.filter((tpl) => tpl.category === category);
 
-  const handlePick = (t: TemplateDefinition) => {
+  const handlePick = (tpl: TemplateDefinition) => {
+    setGuardMessage(null);
     if (doc.sections.length > 0) {
-      setPendingTemplate(t);
+      setPendingTemplate(tpl);
     } else {
-      applyTemplate(t, "replace");
+      applyTemplate(tpl, "replace");
     }
   };
 
@@ -39,7 +41,7 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
             ? "nitric"
             : "";
     if (catalogHint && imported) {
-      window.alert(fill(t("pages.pageBuilder.templates.importedAlert"), { name: tpl.name }));
+      setGuardMessage(fill(t("pages.pageBuilder.templates.importedAlert"), { name: tpl.name }));
       setPendingTemplate(null);
       return;
     }
@@ -49,7 +51,7 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
       !product.includes(catalogHint) &&
       (mode === "replace" || doc.sections.length > 0)
     ) {
-      window.alert(
+      setGuardMessage(
         fill(t("pages.pageBuilder.templates.productMismatch"), {
           product: identity.productName,
           name: tpl.name,
@@ -67,6 +69,7 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
       state.appendSections(tpl.build());
     }
     setPendingTemplate(null);
+    setGuardMessage(null);
     onClose();
     window.dispatchEvent(
       new CustomEvent("clickora:pb-template-applied", { detail: { id: tpl.id, name: tpl.name } }),
@@ -101,6 +104,24 @@ export function TemplatesModal({ open, onClose }: { open: boolean; onClose: () =
             <X className="h-4 w-4" />
           </button>
         </header>
+
+        {guardMessage ? (
+          <div
+            role="status"
+            className="mx-4 mt-3 rounded-md border border-amber-500/35 bg-amber-500/10 px-3 py-2.5 text-[12px] leading-relaxed text-editor-fg"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <p>{guardMessage}</p>
+              <button
+                type="button"
+                onClick={() => setGuardMessage(null)}
+                className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-editor-fg-muted hover:bg-editor-panel-2 hover:text-editor-fg"
+              >
+                {t("common.close")}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-2 pt-1">
           <p className="pb-2 text-[10px] leading-snug text-editor-fg-muted md:hidden">

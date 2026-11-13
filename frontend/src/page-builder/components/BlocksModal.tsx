@@ -17,6 +17,8 @@ export function BlocksModal({ open, onClose }: { open: boolean; onClose: () => v
   const [category, setCategory] = useState<SectionBlockDefinition["category"] | "all" | "recipe">(
     "all",
   );
+  const [guardMessage, setGuardMessage] = useState<string | null>(null);
+  const [replacePending, setReplacePending] = useState(false);
   const appendSections = useBuilder((s) => s.appendSections);
   const replaceSections = useBuilder((s) => s.replaceSections);
   const doc = useBuilder((s) => s.doc);
@@ -41,24 +43,34 @@ export function BlocksModal({ open, onClose }: { open: boolean; onClose: () => v
     onClose();
   };
 
+  const commitFullTemplate = () => {
+    const tpl = TEMPLATES.find((x) => x.id === "presell-dtc-vision");
+    if (!tpl) return;
+    replaceSections(tpl.build());
+    setReplacePending(false);
+    setGuardMessage(null);
+    onClose();
+  };
+
   const applyFullTemplate = () => {
     const tpl = TEMPLATES.find((x) => x.id === "presell-dtc-vision");
     if (!tpl) return;
     if (imported) {
-      window.alert(t("pages.pageBuilder.blocks.importedAlert"));
+      setGuardMessage(t("pages.pageBuilder.blocks.importedAlert"));
       return;
     }
     const product = (identity.productName || "").toLowerCase();
     if (product && !product.includes("visivra") && doc.sections.length > 0) {
-      window.alert(fill(t("pages.pageBuilder.blocks.visivraMismatch"), { product: identity.productName }));
+      setGuardMessage(
+        fill(t("pages.pageBuilder.blocks.visivraMismatch"), { product: identity.productName }),
+      );
       return;
     }
     if (doc.sections.length > 0) {
-      const ok = window.confirm(t("pages.pageBuilder.blocks.replaceConfirm"));
-      if (!ok) return;
+      setReplacePending(true);
+      return;
     }
-    replaceSections(tpl.build());
-    onClose();
+    commitFullTemplate();
   };
 
   return (
@@ -89,6 +101,24 @@ export function BlocksModal({ open, onClose }: { open: boolean; onClose: () => v
             <X className="h-4 w-4" />
           </button>
         </header>
+
+        {guardMessage ? (
+          <div
+            role="status"
+            className="mx-4 mt-3 rounded-md border border-amber-500/35 bg-amber-500/10 px-3 py-2.5 text-[12px] leading-relaxed text-editor-fg"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <p>{guardMessage}</p>
+              <button
+                type="button"
+                onClick={() => setGuardMessage(null)}
+                className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-editor-fg-muted hover:bg-editor-panel-2 hover:text-editor-fg"
+              >
+                {t("common.close")}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex min-h-0 flex-1">
           <aside className="w-44 shrink-0 overflow-y-auto border-r border-editor-border p-3">
@@ -184,6 +214,39 @@ export function BlocksModal({ open, onClose }: { open: boolean; onClose: () => v
           </div>
         </div>
       </div>
+
+      {replacePending ? (
+        <div
+          className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setReplacePending(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-lg border border-editor-border bg-editor-panel p-5 text-editor-fg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-2 text-base font-semibold">{t("pages.pageBuilder.blocks.replaceTitle")}</h3>
+            <p className="mb-5 text-sm text-editor-fg-muted">
+              {t("pages.pageBuilder.blocks.replaceConfirm")}
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={commitFullTemplate}
+                className="rounded border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/20"
+              >
+                {t("pages.pageBuilder.templates.replaceAll")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setReplacePending(false)}
+                className="rounded px-4 py-2 text-sm text-editor-fg-muted hover:text-editor-fg"
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

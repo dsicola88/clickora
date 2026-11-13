@@ -3672,7 +3672,9 @@ export const en = {
         columnHint: "Width and background of this column. For text or a button, select the element on the canvas or in the section list.",
         sectionHintLead: "You are on the",
         sectionHintTail: "(columns and background). For type, a button, or an image, pick an element in the list below or click it on the canvas.",
+        convertTitle: "Convert HTML to blocks?",
         convertConfirm: "This splits the HTML into builder blocks and can change the original layout/CSS. Continue?",
+        convertAction: "Convert to blocks",
         convertFailed: "Could not split this HTML into editable blocks.",
         converted: "Converted to blocks — the look may differ from the original.",
         columnStructure: "Column structure",
@@ -3794,6 +3796,7 @@ export const en = {
         insertBlock: "+ Insert block",
         importedAlert: "This page was already imported. It will not be replaced with Visivra. Insert blocks — they use this page’s name and offer.",
         visivraMismatch: "The page being edited is «{product}». The Visivra template will not replace it. Use the DTC recipe (it copies this page’s name).",
+        replaceTitle: "Replace page?",
         replaceConfirm: "Replace the current content with the full Visivra template?",
       },
       topbar: {
@@ -3813,6 +3816,8 @@ export const en = {
         preview: "Preview",
         publishing: "Publishing…",
         publish: "Publish",
+        exportLocal: "Export / local",
+        exportLocalTitle: "Does not go live on Clickora — save locally in this browser or download HTML",
         more: "More actions",
         savedPages: "Saved pages",
         globalDesign: "Global design",
@@ -3884,11 +3889,15 @@ export const en = {
         minutesAgo: "{n} min ago",
         hoursAgo: "{n} h ago",
         saving: "saving to the account…",
+        savingDraft: "saving draft…",
+        draftSavedAgo: "draft · {when}",
         retrying: "failed — retrying",
-        titleAccount: "Every change is saved automatically to your account (database). The browser is only a local cache.",
-        titleLocal: "Changes saved locally in this browser.",
+        titleAccount:
+          "Draft autosaves to your account. Publishing (top-right) is what puts the lander live. The browser is only a local cache.",
+        titleLocal: "Changes saved locally in this browser — not live on Clickora.",
         account: "Autosave (account)",
-        local: "Autosave",
+        draft: "Draft",
+        local: "Local",
       },
       pageSettings: {
         title: "Global page design",
@@ -3991,6 +4000,10 @@ export const en = {
         animSlideDown: "Slide from the top",
       },
       widgets: {
+        galleryEmpty:
+          "No images yet. In the right panel, use «+ Add», then paste a URL or «Upload from PC» on each slide.",
+        imageUnavailable: "Image unavailable",
+        imageEmpty: "No image — in the panel: URL or «Upload from PC»",
         fields: {
           title: "Title",
           text: "Text",

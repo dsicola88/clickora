@@ -3637,7 +3637,9 @@ export const pt = {
         "columnHint": "Largura e fundo desta coluna. Para texto/botão, selecione o elemento no canvas ou na lista da secção.",
         "sectionHintLead": "Estás na",
         "sectionHintTail": "(colunas e fundo). Para tipografia, botão ou imagem, escolhe um elemento na lista abaixo ou clica nele no canvas.",
+        "convertTitle": "Converter HTML em blocos?",
         "convertConfirm": "Isto decompõe o HTML em blocos do builder e pode alterar o layout/CSS original. Continuar?",
+        "convertAction": "Converter em blocos",
         "convertFailed": "Não foi possível decompor este HTML em blocos editáveis.",
         "converted": "Convertido em blocos — o visual pode diferir do original.",
         "columnStructure": "Estrutura de colunas",
@@ -3759,6 +3761,7 @@ export const pt = {
         "insertBlock": "+ Inserir bloco",
         "importedAlert": "Esta página já foi importada. Não substitui o conteúdo por Visivra. Insira blocos — eles usam o nome e a oferta desta página.",
         "visivraMismatch": "A página em edição é «{product}». O modelo Visivra não a substitui. Use a receita DTC (copia o nome desta página).",
+        "replaceTitle": "Substituir página?",
         "replaceConfirm": "Substituir o conteúdo atual pelo modelo Visivra completo?",
       },
       "topbar": {
@@ -3778,6 +3781,8 @@ export const pt = {
         "preview": "Pré-visualizar",
         "publishing": "A publicar…",
         "publish": "Publicar",
+        "exportLocal": "Exportar / local",
+        "exportLocalTitle": "Não fica no ar no Clickora — guarda local neste browser ou descarrega HTML",
         "more": "Mais ações",
         "savedPages": "Páginas guardadas",
         "globalDesign": "Design global",
@@ -3849,11 +3854,15 @@ export const pt = {
         "minutesAgo": "há {n} min",
         "hoursAgo": "há {n} h",
         "saving": "a guardar na conta…",
+        "savingDraft": "a guardar rascunho…",
+        "draftSavedAgo": "rascunho · {when}",
         "retrying": "falha — a tentar de novo",
-        "titleAccount": "Cada alteração grava automaticamente na sua conta (base de dados). O browser só é cache local.",
-        "titleLocal": "Alterações gravadas localmente neste browser.",
+        "titleAccount":
+          "O rascunho grava sozinho na conta. Publicar (canto superior direito) é o que coloca a lander no ar. O browser só é cache local.",
+        "titleLocal": "Alterações gravadas localmente neste browser — não ficam no ar no Clickora.",
         "account": "Autosave (conta)",
-        "local": "Autosave",
+        "draft": "Rascunho",
+        "local": "Local",
       },
       "pageSettings": {
         "title": "Design global da página",
@@ -3956,6 +3965,10 @@ export const pt = {
         "animSlideDown": "Deslizar de cima",
       },
       "widgets": {
+        "galleryEmpty":
+          "Sem imagens ainda. No painel à direita, use «+ Adicionar» e depois cole um URL ou «Carregar do PC» em cada slide.",
+        "imageUnavailable": "Imagem indisponível",
+        "imageEmpty": "Sem imagem — no painel: URL ou «Carregar do PC»",
         "fields": {
           "title": "Título",
           "text": "Texto",

@@ -314,11 +314,13 @@ function WidgetPanel({
 }) {
   const { t } = useAppLocale();
   const [tab, setTab] = useState<Tab>("content");
+  const [convertPending, setConvertPending] = useState(false);
   const updateWidget = useBuilder((s) => s.updateWidget);
 
   /** Ao mudar de widget, o painel reutiliza o mesmo estado — voltar a «Conteúdo» para não ficar preso em «Estilo» sem o campo do vídeo/URL. */
   useEffect(() => {
     setTab("content");
+    setConvertPending(false);
   }, [widget.id]);
 
   const setContent = (patch: Record<string, unknown>) =>
@@ -342,8 +344,11 @@ function WidgetPanel({
   const updateSettings = useBuilder((s) => s.updateSettings);
   const convertHtmlToBlocks = () => {
     if (widget.type !== "html") return;
-    const ok = window.confirm(t("pages.pageBuilder.panel.convertConfirm"));
-    if (!ok) return;
+    setConvertPending(true);
+  };
+
+  const commitConvertHtmlToBlocks = () => {
+    if (widget.type !== "html") return;
     const code = String(widget.content.code ?? "");
     const parts = decomposeMirrorHtmlToWidgets(code);
     const natives = parts.filter((w) =>
@@ -351,6 +356,7 @@ function WidgetPanel({
     );
     if (natives.length < 1) {
       toast.error(t("pages.pageBuilder.panel.convertFailed"));
+      setConvertPending(false);
       return;
     }
     const idx = column.widgets.findIndex((w) => w.id === widget.id);
@@ -368,89 +374,122 @@ function WidgetPanel({
         columnId: column.id,
       });
     }
+    setConvertPending(false);
     toast.message(t("pages.pageBuilder.panel.converted"));
   };
 
   return (
-    <PanelShell
-      title={t(WIDGET_NAME_KEY[widget.type])}
-      badge={t("pages.pageBuilder.element")}
-      badgeColor="var(--editor-widget)"
-      breadcrumb={[
-        {
-          label: t("pages.pageBuilder.section"),
-          color: "var(--editor-section)",
-          onClick: () => select({ kind: "section", id: section.id }),
-        },
-        {
-          label: fill(t("pages.pageBuilder.columnN"), { n: colIndex + 1 }),
-          color: "var(--editor-column)",
-          onClick: () =>
-            select({ kind: "column", sectionId: section.id, id: column.id }),
-        },
-        { label: t(WIDGET_NAME_KEY[widget.type]), color: "var(--editor-widget)" },
-      ]}
-      hint={
-        <p className="text-[10px] leading-relaxed text-editor-fg-muted">
-          {t("pages.pageBuilder.panel.editingHint")}
-        </p>
-      }
-      tabs={[
-        { id: "content", label: t("pages.pageBuilder.content") },
-        { id: "style", label: t("pages.pageBuilder.style") },
-        { id: "advanced", label: t("pages.pageBuilder.advanced") },
-      ]}
-      active={tab}
-      onTab={setTab}
-    >
-      {tab === "content" && (
-        <WidgetContentTab
-          widget={widget}
-          section={section}
-          setContent={setContent}
-          onConvertHtmlToBlocks={widget.type === "html" ? convertHtmlToBlocks : undefined}
-          foldSelection={foldActive ? foldSelection : null}
-          onFoldPatch={foldActive ? foldApply : null}
-        />
-      )}
-      {tab === "style" && (
-        <WidgetStyleTab widget={widget} device={device} setStyles={setStyles} />
-      )}
-      {tab === "advanced" && (
-        <AdvancedTab
-          styles={widget.styles}
-          cssId={widget.cssId}
-          cssClasses={widget.cssClasses}
-          widgetCustomCss={widget.customCss}
-          device={device}
-          onStyles={setStyles}
-          onCssId={(v) => updateWidget(section.id, column.id, widget.id, { cssId: v })}
-          onClasses={(v) =>
-            updateWidget(section.id, column.id, widget.id, { cssClasses: v })
-          }
-          onWidgetCustomCss={(v) =>
-            updateWidget(section.id, column.id, widget.id, { customCss: v })
-          }
-          showLayout
-          effects={widget.effects}
-          onEffects={(effects) =>
-            updateWidget(section.id, column.id, widget.id, { effects })
-          }
-          effectsWidget={widget}
-          interactions={widget.interactions}
-          onInteractions={(interactions) =>
-            updateWidget(section.id, column.id, widget.id, { interactions })
-          }
-          conditions={widget.conditions}
-          onConditions={(conditions) =>
-            updateWidget(section.id, column.id, widget.id, { conditions })
-          }
-          cssMask={widget.cssMask}
-          cssMaskCustom={widget.cssMaskCustom}
-          onMask={(patch) => updateWidget(section.id, column.id, widget.id, patch)}
-        />
-      )}
-    </PanelShell>
+    <>
+      <PanelShell
+        title={t(WIDGET_NAME_KEY[widget.type])}
+        badge={t("pages.pageBuilder.element")}
+        badgeColor="var(--editor-widget)"
+        breadcrumb={[
+          {
+            label: t("pages.pageBuilder.section"),
+            color: "var(--editor-section)",
+            onClick: () => select({ kind: "section", id: section.id }),
+          },
+          {
+            label: fill(t("pages.pageBuilder.columnN"), { n: colIndex + 1 }),
+            color: "var(--editor-column)",
+            onClick: () =>
+              select({ kind: "column", sectionId: section.id, id: column.id }),
+          },
+          { label: t(WIDGET_NAME_KEY[widget.type]), color: "var(--editor-widget)" },
+        ]}
+        hint={
+          <p className="text-[10px] leading-relaxed text-editor-fg-muted">
+            {t("pages.pageBuilder.panel.editingHint")}
+          </p>
+        }
+        tabs={[
+          { id: "content", label: t("pages.pageBuilder.content") },
+          { id: "style", label: t("pages.pageBuilder.style") },
+          { id: "advanced", label: t("pages.pageBuilder.advanced") },
+        ]}
+        active={tab}
+        onTab={setTab}
+      >
+        {tab === "content" && (
+          <WidgetContentTab
+            widget={widget}
+            section={section}
+            setContent={setContent}
+            onConvertHtmlToBlocks={widget.type === "html" ? convertHtmlToBlocks : undefined}
+            foldSelection={foldActive ? foldSelection : null}
+            onFoldPatch={foldActive ? foldApply : null}
+          />
+        )}
+        {tab === "style" && (
+          <WidgetStyleTab widget={widget} device={device} setStyles={setStyles} />
+        )}
+        {tab === "advanced" && (
+          <AdvancedTab
+            styles={widget.styles}
+            cssId={widget.cssId}
+            cssClasses={widget.cssClasses}
+            widgetCustomCss={widget.customCss}
+            device={device}
+            onStyles={setStyles}
+            onCssId={(v) => updateWidget(section.id, column.id, widget.id, { cssId: v })}
+            onClasses={(v) =>
+              updateWidget(section.id, column.id, widget.id, { cssClasses: v })
+            }
+            onWidgetCustomCss={(v) =>
+              updateWidget(section.id, column.id, widget.id, { customCss: v })
+            }
+            showLayout
+            effects={widget.effects}
+            onEffects={(effects) =>
+              updateWidget(section.id, column.id, widget.id, { effects })
+            }
+            effectsWidget={widget}
+            interactions={widget.interactions}
+            onInteractions={(interactions) =>
+              updateWidget(section.id, column.id, widget.id, { interactions })
+            }
+            conditions={widget.conditions}
+            onConditions={(conditions) =>
+              updateWidget(section.id, column.id, widget.id, { conditions })
+            }
+            cssMask={widget.cssMask}
+            cssMaskCustom={widget.cssMaskCustom}
+            onMask={(patch) => updateWidget(section.id, column.id, widget.id, patch)}
+          />
+        )}
+      </PanelShell>
+      {convertPending ? (
+        <div
+          className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setConvertPending(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-lg border border-editor-border bg-editor-panel p-5 text-editor-fg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-2 text-base font-semibold">{t("pages.pageBuilder.panel.convertTitle")}</h3>
+            <p className="mb-5 text-sm text-editor-fg-muted">{t("pages.pageBuilder.panel.convertConfirm")}</p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={commitConvertHtmlToBlocks}
+                className="rounded bg-editor-accent px-4 py-2.5 text-sm font-medium text-editor-accent-fg hover:opacity-90"
+              >
+                {t("pages.pageBuilder.panel.convertAction")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConvertPending(false)}
+                className="rounded px-4 py-2 text-sm text-editor-fg-muted hover:text-editor-fg"
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 

@@ -4,8 +4,10 @@ import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { resolveResponsive } from "../store";
 import { useInlineEdit } from "../inline-edit";
 import { useClaimLcpMedia } from "../lcp-media";
+import { usePageBuilderT } from "../usePageBuilderT";
 
 export function ImageWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
+  const t = usePageBuilderT();
   const src = (widget.content.src as string) ?? "";
   const alt = (widget.content.alt as string) ?? "";
   const link = ((widget.content.link as string) ?? "").trim();
@@ -45,7 +47,7 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
           fontSize: 14,
         }}
       >
-        Imagem indisponível
+        {t("pages.pageBuilder.widgets.imageUnavailable")}
       </div>
     ) : hasSrc ? (
     <div
@@ -117,7 +119,7 @@ export function ImageWidget({ widget, device }: { widget: WidgetNode; device: De
         border: "1px dashed #cbd5e1",
       }}
     >
-      Sem imagem — no painel: URL ou «Carregar do PC»
+      {t("pages.pageBuilder.widgets.imageEmpty")}
     </div>
   );
 

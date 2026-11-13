@@ -230,8 +230,7 @@ export function GalleryWidget({ widget, device }: { widget: WidgetNode; device: 
     return (
       <div style={stylesToCssWidgetContent(widget.styles, device)}>
         <p style={{ textAlign: "center", color: "#64748b", fontSize: 13, lineHeight: 1.55, maxWidth: 320, margin: "0 auto" }}>
-          Sem imagens ainda. No painel à direita, use «+ Adicionar» e depois cole um URL ou «Carregar do PC» em cada
-          slide.
+          {t("pages.pageBuilder.widgets.galleryEmpty")}
         </p>
       </div>
     );
