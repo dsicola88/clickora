@@ -1,6 +1,7 @@
 /**
- * Relatório de visitas por IP (fugas / bots / “ratos”).
+ * Relatório de visitas por IP (fugas / bots / IPs suspeitos).
  * Só agrega TrackingEvent já gravados — não altera o pipeline de tracking.
+ * Nomenclatura própria dclickora: "suspeito" (não imita produtos de terceiros).
  */
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "./prisma";
@@ -8,6 +9,9 @@ import { resolveClickVisitorEvidence } from "./clickVisitorEvidence";
 import { resolveTrafficType, type TrafficTypeLabel } from "./networkClickId";
 
 export type VisitorIpTrafficFilter = "all" | "paid" | "organic";
+
+/** Mercados com muita concorrência de afiliados a “espiar” anúncios (sinal, não bloqueio). */
+const HIGH_AFFILIATE_COMPETITION_ISO2 = new Set(["BR", "IN", "ID", "PH", "NG", "PK", "BD"]);
 
 export type VisitorIpRow = {
   ip: string;
@@ -20,8 +24,9 @@ export type VisitorIpRow = {
   bot_label: string | null;
   is_cloud: boolean;
   cloud_label: string | null;
-  /** Heurística: tráfego pago repetido sem venda — sugestão, não bloqueio automático. */
-  is_rato: boolean;
+  /** Heurística dclickora — sugestão de bloqueio manual, nunca automática. */
+  is_suspect: boolean;
+  suspect_reasons: string[];
   has_sale: boolean;
   blacklisted: boolean;
   fuga_pct: number | null;
@@ -35,7 +40,7 @@ export type VisitorIpReport = {
     clicks: number;
     fuga_pct: number | null;
     bots: number;
-    ratos: number;
+    suspects: number;
     cloud: number;
     with_sale: number;
   };
@@ -64,7 +69,15 @@ function parseMeta(raw: unknown): Record<string, unknown> | null {
   return raw as Record<string, unknown>;
 }
 
-/** Regras explícitas e conservadoras — Googlebot nunca é “rato”. */
+function normalizeCountry(code: string | null | undefined): string | null {
+  const c = (code || "").trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(c) ? c : null;
+}
+
+/**
+ * Regras explícitas — Googlebot nunca é suspeito.
+ * Cada motivo fica em `suspect_reasons` para a UI explicar o sinal.
+ */
 export function classifyVisitorIpFlags(input: {
   visits: number;
   clicks: number;
@@ -73,7 +86,8 @@ export function classifyVisitorIpFlags(input: {
   bot_label: string | null;
   is_cloud: boolean;
   traffic_type: TrafficTypeLabel;
-}): { is_rato: boolean; fuga_pct: number | null } {
+  country?: string | null;
+}): { is_suspect: boolean; suspect_reasons: string[]; fuga_pct: number | null } {
   const visits = Math.max(0, Math.floor(input.visits));
   const clicks = Math.max(0, Math.floor(input.clicks));
   const fuga_pct = visits > 0 ? Math.round(((visits - Math.min(clicks, visits)) / visits) * 10000) / 100 : null;
@@ -84,17 +98,41 @@ export function classifyVisitorIpFlags(input: {
     (/google/i.test(botLabel) || /adsbot|inspectiontool|googlebot|mediapartners/i.test(botLabel));
 
   if (input.has_sale || isGoogleBot) {
-    return { is_rato: false, fuga_pct };
+    return { is_suspect: false, suspect_reasons: [], fuga_pct };
   }
 
-  const paidish = input.traffic_type === "paid" || input.traffic_type === "paid_untracked";
-  const is_rato =
-    (paidish && !input.is_bot && visits >= 5) ||
-    (paidish && !input.is_bot && clicks >= 3) ||
-    (input.is_cloud && clicks >= 2 && paidish) ||
-    (!input.is_bot && visits >= 8 && clicks >= 4);
+  const reasons: string[] = [];
+  const paid = input.traffic_type === "paid";
+  const untracked = input.traffic_type === "paid_untracked";
+  const paidish = paid || untracked;
+  const country = normalizeCountry(input.country);
 
-  return { is_rato, fuga_pct };
+  if (paidish && !input.is_bot && visits >= 3) {
+    reasons.push("paid_repeat_visits");
+  }
+  if (paidish && !input.is_bot && clicks >= 2) {
+    reasons.push("paid_repeat_clicks");
+  }
+  if (untracked && !input.is_bot && visits >= 2) {
+    reasons.push("paid_missing_click_id");
+  }
+  if (input.is_cloud && paidish && (clicks >= 1 || visits >= 2)) {
+    reasons.push("cloud_on_paid");
+  }
+  if (!input.is_bot && visits >= 6 && clicks >= 3) {
+    reasons.push("high_volume_no_sale");
+  }
+  if (
+    country &&
+    HIGH_AFFILIATE_COMPETITION_ISO2.has(country) &&
+    !input.is_bot &&
+    visits >= 2 &&
+    (paidish || visits >= 3)
+  ) {
+    reasons.push("competition_geo");
+  }
+
+  return { is_suspect: reasons.length > 0, suspect_reasons: reasons, fuga_pct };
 }
 
 function trafficMatches(filter: VisitorIpTrafficFilter, type: TrafficTypeLabel): boolean {
@@ -216,6 +254,7 @@ export async function loadVisitorIpReport(args: {
       bot_label: ev.bot_label,
       is_cloud,
       traffic_type,
+      country: raw.country,
     });
 
     matched.push({
@@ -229,19 +268,28 @@ export async function loadVisitorIpReport(args: {
       bot_label: ev.bot_label,
       is_cloud,
       cloud_label: is_cloud ? ev.ip_network : null,
-      is_rato: flags.is_rato,
+      is_suspect: flags.is_suspect,
+      suspect_reasons: flags.suspect_reasons,
       has_sale,
       blacklisted: blacklisted.has(raw.ip),
       fuga_pct: flags.fuga_pct,
     });
   }
 
-  // Resumo = lote filtrado completo; tabela = top `limit` (mais visitas).
+  // Suspeitos primeiro na lista; depois volume.
+  matched.sort((a, b) => {
+    if (a.is_suspect !== b.is_suspect) return a.is_suspect ? -1 : 1;
+    if (b.visits !== a.visits) return b.visits - a.visits;
+    return b.clicks - a.clicks;
+  });
+
   const rows = matched.slice(0, limit);
-  const visits = matched.reduce((n, r) => n + r.visits, 0);
-  const clicks = matched.reduce((n, r) => n + r.clicks, 0);
+  const totalVisits = matched.reduce((n, r) => n + r.visits, 0);
+  const totalClicks = matched.reduce((n, r) => n + r.clicks, 0);
   const fuga_pct =
-    visits > 0 ? Math.round(((visits - Math.min(clicks, visits)) / visits) * 10000) / 100 : null;
+    totalVisits > 0
+      ? Math.round(((totalVisits - Math.min(totalClicks, totalVisits)) / totalVisits) * 10000) / 100
+      : null;
 
   const fromYmd =
     args.periodFrom ||
@@ -254,11 +302,11 @@ export async function loadVisitorIpReport(args: {
     period: { from: fromYmd, to: toYmd },
     traffic_filter: traffic,
     summary: {
-      visits,
-      clicks,
+      visits: totalVisits,
+      clicks: totalClicks,
       fuga_pct,
       bots: matched.filter((r) => r.is_bot).length,
-      ratos: matched.filter((r) => r.is_rato).length,
+      suspects: matched.filter((r) => r.is_suspect).length,
       cloud: matched.filter((r) => r.is_cloud).length,
       with_sale: matched.filter((r) => r.has_sale).length,
     },

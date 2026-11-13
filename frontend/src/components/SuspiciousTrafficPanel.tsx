@@ -13,7 +13,7 @@ import {
 } from "@/lib/countryDisplay";
 import { downloadTextCsv, reportRowsToCsv } from "@/lib/reportRowsCsv";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
-import { fill, numberLocaleFor } from "@/i18n";
+import { fill, numberLocaleFor, type MessageKey } from "@/i18n";
 import { analyticsService } from "@/services/analyticsService";
 import { integrationsService } from "@/services/integrationsService";
 
@@ -21,6 +21,8 @@ type Props = {
   from: string;
   to: string;
 };
+
+type RowFilter = "all" | "suspects" | "bots" | "cloud";
 
 /** Alinhado com `parseIpv4Blacklist` no backend — só IPv4 entra na blacklist. */
 function isIpv4(ip: string): boolean {
@@ -30,6 +32,15 @@ function isIpv4(ip: string): boolean {
     return Number.isInteger(n) && n >= 0 && n <= 255;
   });
 }
+
+const REASON_KEYS: Record<string, MessageKey> = {
+  paid_repeat_visits: "pages.reports.suspectReasonPaidVisits",
+  paid_repeat_clicks: "pages.reports.suspectReasonPaidClicks",
+  paid_missing_click_id: "pages.reports.suspectReasonNoClickId",
+  cloud_on_paid: "pages.reports.suspectReasonCloudPaid",
+  high_volume_no_sale: "pages.reports.suspectReasonHighVolume",
+  competition_geo: "pages.reports.suspectReasonGeo",
+};
 
 function CountryCell({ code }: { code: string | null }) {
   const iso = normalizeIsoCountryCode(code || "");
@@ -49,6 +60,7 @@ export function SuspiciousTrafficPanel({ from, to }: Props) {
   const numLocale = numberLocaleFor(locale);
   const queryClient = useQueryClient();
   const [traffic, setTraffic] = useState<"all" | "paid" | "organic">("all");
+  const [rowFilter, setRowFilter] = useState<RowFilter>("all");
   const [blockingAll, setBlockingAll] = useState(false);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -85,13 +97,26 @@ export function SuspiciousTrafficPanel({ from, to }: Props) {
     onError: (e: Error) => toast.error(e.message || t("pages.reports.ipBlockFail")),
   });
 
-  const ratosToBlock = useMemo(
-    () => (data?.rows ?? []).filter((r) => r.is_rato && !r.blacklisted && isIpv4(r.ip)),
+  const displayRows = useMemo(() => {
+    const rows = data?.rows ?? [];
+    if (rowFilter === "suspects") return rows.filter((r) => r.is_suspect);
+    if (rowFilter === "bots") return rows.filter((r) => r.is_bot);
+    if (rowFilter === "cloud") return rows.filter((r) => r.is_cloud);
+    return rows;
+  }, [data?.rows, rowFilter]);
+
+  const suspectsToBlock = useMemo(
+    () => (data?.rows ?? []).filter((r) => r.is_suspect && !r.blacklisted && isIpv4(r.ip)),
     [data?.rows],
   );
 
+  const reasonLabel = (code: string) => {
+    const key = REASON_KEYS[code];
+    return key ? t(key) : code;
+  };
+
   const handleExport = () => {
-    if (!data?.rows.length) {
+    if (!displayRows.length) {
       toast.error(t("pages.reports.suspectEmpty"));
       return;
     }
@@ -102,7 +127,8 @@ export function SuspiciousTrafficPanel({ from, to }: Props) {
       { key: "ip", header: "IP" },
       { key: "visits", header: t("pages.reports.suspectColVisits") },
       { key: "clicks", header: t("pages.reports.tabClicks") },
-      { key: "rato", header: t("pages.reports.suspectColRat") },
+      { key: "suspect", header: t("pages.reports.suspectColSuspect") },
+      { key: "reasons", header: t("pages.reports.suspectColReasons") },
       { key: "bot", header: t("pages.reports.suspectColBot") },
       { key: "cloud", header: "Cloud" },
       { key: "country", header: t("pages.reports.colCountry") },
@@ -111,12 +137,13 @@ export function SuspiciousTrafficPanel({ from, to }: Props) {
       { key: "sale", header: t("pages.reports.suspectColSale") },
       { key: "blocked", header: t("pages.reports.suspectColBlocked") },
     ];
-    const rows = data.rows.map((r) => ({
+    const rows = displayRows.map((r) => ({
       last_seen: new Date(r.last_seen).toLocaleString(locale),
       ip: r.ip,
       visits: String(r.visits),
       clicks: String(r.clicks),
-      rato: r.is_rato ? yes : no,
+      suspect: r.is_suspect ? yes : no,
+      reasons: (r.suspect_reasons || []).map(reasonLabel).join("; "),
       bot: r.is_bot ? (r.bot_label ? `${yes} (${r.bot_label})` : yes) : no,
       cloud: r.is_cloud ? (r.cloud_label ? `${yes} (${r.cloud_label})` : yes) : no,
       country: r.country || "",
@@ -135,20 +162,20 @@ export function SuspiciousTrafficPanel({ from, to }: Props) {
     toast.success(fill(t("pages.reports.exportedRows"), { n: String(rows.length) }));
   };
 
-  const handleBlockRatos = async () => {
-    if (!ratosToBlock.length) {
-      toast.message(t("pages.reports.suspectNoRats"));
+  const handleBlockSuspects = async () => {
+    if (!suspectsToBlock.length) {
+      toast.message(t("pages.reports.suspectNoSuspects"));
       return;
     }
     const ok = window.confirm(
-      fill(t("pages.reports.suspectBlockRatsConfirm"), { n: String(ratosToBlock.length) }),
+      fill(t("pages.reports.suspectBlockSuspectsConfirm"), { n: String(suspectsToBlock.length) }),
     );
     if (!ok) return;
     setBlockingAll(true);
     let done = 0;
     let failed = 0;
     try {
-      for (const row of ratosToBlock) {
+      for (const row of suspectsToBlock) {
         const { error } = await integrationsService.addBlacklist({
           ip: row.ip,
           reason: t("pages.reports.suspectBlockReason"),
@@ -199,6 +226,25 @@ export function SuspiciousTrafficPanel({ from, to }: Props) {
                 : t("pages.funnel.labelOrganic")}
           </Button>
         ))}
+        <span className="text-xs text-muted-foreground ml-1">{t("pages.reports.suspectRowFilter")}:</span>
+        {(
+          [
+            ["all", "pages.reports.suspectFilterAll"],
+            ["suspects", "pages.reports.suspectFilterSuspects"],
+            ["bots", "pages.reports.suspectFilterBots"],
+            ["cloud", "pages.reports.suspectFilterCloud"],
+          ] as const
+        ).map(([key, labelKey]) => (
+          <Button
+            key={key}
+            type="button"
+            size="sm"
+            variant={rowFilter === key ? "secondary" : "outline"}
+            onClick={() => setRowFilter(key)}
+          >
+            {t(labelKey)}
+          </Button>
+        ))}
         <div className="flex-1" />
         <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={handleExport}>
           <Download className="h-3.5 w-3.5" />
@@ -209,12 +255,12 @@ export function SuspiciousTrafficPanel({ from, to }: Props) {
           size="sm"
           variant="destructive"
           className="gap-1.5"
-          disabled={blockingAll || !ratosToBlock.length}
-          onClick={() => void handleBlockRatos()}
+          disabled={blockingAll || !suspectsToBlock.length}
+          onClick={() => void handleBlockSuspects()}
         >
           <ShieldAlert className="h-3.5 w-3.5" />
-          {t("pages.reports.suspectBlockRats")}
-          {ratosToBlock.length ? ` (${ratosToBlock.length})` : ""}
+          {t("pages.reports.suspectBlockSuspects")}
+          {suspectsToBlock.length ? ` (${suspectsToBlock.length})` : ""}
         </Button>
       </div>
 
@@ -248,7 +294,7 @@ export function SuspiciousTrafficPanel({ from, to }: Props) {
       <div className="flex flex-wrap gap-3 text-xs">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden />
-          {t("pages.reports.suspectLegendRat")} ({s.ratos})
+          {t("pages.reports.suspectLegendSuspect")} ({s.suspects})
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-amber-500" aria-hidden />
@@ -269,7 +315,7 @@ export function SuspiciousTrafficPanel({ from, to }: Props) {
                 <th className="py-3 px-3 font-medium text-muted-foreground">{t("pages.reports.suspectColLast")}</th>
                 <th className="py-3 px-3 font-medium text-muted-foreground">IP</th>
                 <th className="py-3 px-3 font-medium text-muted-foreground">{t("pages.reports.suspectColVisits")}</th>
-                <th className="py-3 px-3 font-medium text-muted-foreground">{t("pages.reports.suspectColRat")}</th>
+                <th className="py-3 px-3 font-medium text-muted-foreground">{t("pages.reports.suspectColSuspect")}</th>
                 <th className="py-3 px-3 font-medium text-muted-foreground">{t("pages.reports.suspectColBot")}</th>
                 <th className="py-3 px-3 font-medium text-muted-foreground">{t("pages.reports.colCountry")}</th>
                 <th className="py-3 px-3 font-medium text-muted-foreground">{t("pages.reports.suspectColTraffic")}</th>
@@ -277,22 +323,23 @@ export function SuspiciousTrafficPanel({ from, to }: Props) {
               </tr>
             </thead>
             <tbody>
-              {!data.rows.length ? (
+              {!displayRows.length ? (
                 <tr>
                   <td colSpan={8} className="py-10 text-center text-muted-foreground">
                     {t("pages.reports.suspectEmpty")}
                   </td>
                 </tr>
               ) : (
-                data.rows.map((row) => {
+                displayRows.map((row) => {
                   const rowClass = row.has_sale
                     ? "bg-emerald-500/5"
                     : row.is_bot
                       ? "bg-amber-500/10"
-                      : row.is_rato
+                      : row.is_suspect
                         ? "bg-destructive/5"
                         : "";
                   const canBlock = isIpv4(row.ip);
+                  const reasonsTitle = (row.suspect_reasons || []).map(reasonLabel).join(" · ");
                   return (
                     <tr key={row.ip} className={`border-b border-border/50 ${rowClass}`}>
                       <td className="py-2.5 px-3 whitespace-nowrap text-xs tabular-nums">
@@ -308,8 +355,8 @@ export function SuspiciousTrafficPanel({ from, to }: Props) {
                         ) : null}
                       </td>
                       <td className="py-2.5 px-3 tabular-nums">{row.visits.toLocaleString(numLocale)}</td>
-                      <td className="py-2.5 px-3 font-medium">
-                        {row.is_rato ? (
+                      <td className="py-2.5 px-3 font-medium" title={reasonsTitle || undefined}>
+                        {row.is_suspect ? (
                           <span className="text-destructive">{t("common.yes")}</span>
                         ) : (
                           <span className="text-muted-foreground">{t("common.no")}</span>

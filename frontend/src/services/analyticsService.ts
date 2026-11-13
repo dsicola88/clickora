@@ -354,7 +354,7 @@ export const analyticsService = {
         clicks: number;
         fuga_pct: number | null;
         bots: number;
-        ratos: number;
+        suspects: number;
         cloud: number;
         with_sale: number;
       };
@@ -369,7 +369,8 @@ export const analyticsService = {
         bot_label: string | null;
         is_cloud: boolean;
         cloud_label: string | null;
-        is_rato: boolean;
+        is_suspect: boolean;
+        suspect_reasons: string[];
         has_sale: boolean;
         blacklisted: boolean;
         fuga_pct: number | null;
