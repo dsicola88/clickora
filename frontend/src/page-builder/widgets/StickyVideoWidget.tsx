@@ -56,15 +56,27 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
   const [vSide, hSide] = position.split("-") as ["top" | "bottom", "left" | "right"];
   const showPip = stuck && !closed && Boolean(pipSrc);
 
-  const iframe = (src: string, title: string) => (
-    <iframe
-      src={src}
-      title={title}
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-      allowFullScreen
-      style={{ width: "100%", height: "100%", border: 0 }}
-    />
-  );
+  const mediaPlayer = (src: string, title: string, forceAutoplay = false) =>
+    resolved?.kind === "html5" ? (
+      <video
+        src={src}
+        title={title}
+        controls={controls}
+        playsInline
+        preload="metadata"
+        autoPlay={forceAutoplay || autoplay}
+        muted={forceAutoplay || autoplay}
+        style={{ width: "100%", height: "100%", objectFit: "contain", background: "#000" }}
+      />
+    ) : (
+      <iframe
+        src={src}
+        title={title}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+        allowFullScreen
+        style={{ width: "100%", height: "100%", border: 0 }}
+      />
+    );
 
   const placeholder = (
     <div
@@ -101,7 +113,7 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
         {showPip ? (
           <div style={{ width: "100%", height: "100%", background: "#0f172a" }} aria-hidden />
         ) : embedSrc ? (
-          iframe(embedSrc, t("pages.pageBuilder.chrome.names.video"))
+          mediaPlayer(embedSrc, t("pages.pageBuilder.chrome.names.video"))
         ) : (
           placeholder
         )}
@@ -121,7 +133,7 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
             background: "#000",
           }}
         >
-          {iframe(pipSrc, t("pages.pageBuilder.chrome.names.stickyVideo"))}
+          {mediaPlayer(pipSrc, t("pages.pageBuilder.chrome.names.stickyVideo"), true)}
           {showCloseButton ? (
             <button
               type="button"

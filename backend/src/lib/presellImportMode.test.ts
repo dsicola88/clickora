@@ -137,6 +137,7 @@ describe("SSRF da importação", () => {
       ),
       true,
     );
+    // Knownwalk é hoplink Everflow (não /p/ Clickora); sales page é melaramax.com
     assert.equal(looksLikeClickoraHostedPresellUrl("https://www.knownwalk.com/2MSQQZ2M/22JQ9DB7/"), false);
     assert.equal(looksLikeClickoraHostedPresellUrl("https://melaramax.com/"), false);
   });

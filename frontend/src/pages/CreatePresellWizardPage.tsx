@@ -26,7 +26,7 @@ import {
   isCustomDomainHttpsPendingForPresell,
   listVerifiedHostingDomains,
 } from "@/lib/publicPresellOrigin";
-import { resolveVideoEmbedSrc, buildYoutubeEmbedUrlForPresell } from "@/lib/youtubeEmbed";
+import { resolveManualPresellVideoUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import { PresellTypeCombobox } from "@/components/presell/PresellTypeCombobox";
 import { getPresellTypeOption } from "@/lib/presellTypeOptions";
 import { PRESELL_CREATION_LANGUAGES, type PresellLocaleKey } from "@/lib/presellUiStrings";
@@ -54,17 +54,20 @@ import {
   type PublishReadinessItem,
 } from "@/components/PresellPublishReadiness";
 import { buildEliteQualityBar } from "@/lib/presellEliteQuality";
+import { looksLikeAffiliateHopOnlyUrl } from "@/lib/presellAffiliateHop";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { fill } from "@/i18n";
 
 function detectPlatform(url: string): string | null {
   const u = url.toLowerCase();
+  if (u.includes("knownwalk")) return "Knownwalk (Everflow)";
   if (u.includes("digistore")) return "Digistore24";
   if (u.includes("hotmart")) return "Hotmart";
   if (u.includes("clickbank")) return "ClickBank";
   if (u.includes("buygoods") || u.includes("buy-goods")) return "BuyGoods";
   if (u.includes("smartadv")) return "SmartAdv";
   if (u.includes("maxweb")) return "MaxWeb";
+  if (u.includes("mwebkivo") || u.includes("mwebinsight")) return "BuyGoods / MaxWeb";
   return null;
 }
 
@@ -185,13 +188,14 @@ export default function CreatePresellWizardPage() {
       const titleSeed = campaignName.trim() || t("pages.createPresell.defaultTitle");
       const slug = `${slugFromTitle(titleSeed)}-${Date.now().toString(36).slice(-4)}`;
       const offer = offerUrl.trim();
+      /** Knownwalk/SmartAdv: se não houver sales page, o backend resolve o hop no browser (como BuyGoods). */
       const productPage = productPageUrl.trim() || offer;
 
       setGenPhase("import");
       const imported = await presellService.importFromUrl({
         product_url: productPage,
         language,
-        affiliate_link: offer,
+        affiliate_link: offer || productPage,
         generation_niche: generationNiche,
       });
       if (imported.error || !imported.data) {
@@ -270,7 +274,7 @@ export default function CreatePresellWizardPage() {
             if (data.video_url) {
               video_url = resolveVideoEmbedSrc(data.video_url) || null;
             } else if (manualYoutubeUrl.trim()) {
-              const embed = buildYoutubeEmbedUrlForPresell(manualYoutubeUrl.trim());
+              const embed = resolveManualPresellVideoUrl(manualYoutubeUrl.trim());
               if (!embed) throw new Error(t("pages.createPresell.youtubeInvalid"));
               video_url = embed;
             }
@@ -827,6 +831,11 @@ export default function CreatePresellWizardPage() {
             {platform ? (
               <p className="text-xs text-muted-foreground">{fill(t("pages.createPresell.networkDetected"), { name: platform })}</p>
             ) : null}
+            {looksLikeAffiliateHopOnlyUrl(offerUrl) ? (
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                {t("pages.createPresell.hopOnlyOfferHint")}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="product-page">
@@ -845,6 +854,11 @@ export default function CreatePresellWizardPage() {
                 ? t("pages.createPresell.productBlackHint")
                 : t("pages.createPresell.productWhiteHint")}
             </p>
+            {looksLikeAffiliateHopOnlyUrl(offerUrl) && !productPageUrl.trim() ? (
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                {t("pages.createPresell.hopOnlyNeedProductHint")}
+              </p>
+            ) : null}
           </div>
           <Button
             className="w-full sm:w-auto"

@@ -353,7 +353,14 @@ function pushEditorialArticleSections(args: {
   const pushVideoSection = () => {
     if (!videoUrl) return;
     const video = createWidget("video");
-    video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
+    const isFile = /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(videoUrl);
+    video.content = {
+      ...video.content,
+      url: videoUrl,
+      provider: isFile ? "file" : "youtube",
+      controls: true,
+      autoplay: false,
+    };
     const vidSec = createSection(1);
     vidSec.contentWidth = vslFocus ? 960 : 720;
     vidSec.styles = {
@@ -649,18 +656,22 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
   const vslOnly = isVslOnlyPresellType(typeId);
   const copyWidgets: WidgetNode[] = [];
 
-  if (vslFocus && videoUrl) {
+  const makeVideoWidget = (url: string) => {
     const video = createWidget("video");
-    video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
-    copyWidgets.push(video);
-  }
+    const isFile = /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url);
+    video.content = {
+      ...video.content,
+      url,
+      provider: isFile ? "file" : "youtube",
+      controls: true,
+      autoplay: false,
+    };
+    return video;
+  };
+  if (vslFocus && videoUrl) copyWidgets.push(makeVideoWidget(videoUrl));
   if (title) copyWidgets.push(foldHeading(title, productFold ? "left" : "center"));
   if (html && !vslOnly) copyWidgets.push(foldCopy(html));
-  if (!vslFocus && videoUrl) {
-    const video = createWidget("video");
-    video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
-    copyWidgets.push(video);
-  }
+  if (!vslFocus && videoUrl) copyWidgets.push(makeVideoWidget(videoUrl));
   if (cta && offerForCtas) {
     const button = createWidget("button");
     button.content = { ...button.content, text: cta, href: offerForCtas, target: "_self" };
@@ -684,32 +695,57 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
   if (mirrorFold.length > 80) {
     // White «padrão espelho»: sempre HTML fiel (CSS/layout original).
     // Blocos nativos só via conversão explícita no editor — decompor aqui partia Visivra/mwebkivo.
-    const htmlW = createWidget("html");
-    htmlW.content = { ...htmlW.content, code: mirrorFold, fromMirror: true };
-    const fold = createSection(1);
-    fold.layout = "full";
-    fold.contentWidth = 1200;
-    fold.columnGap = { desktop: 0, tablet: 0, mobile: 0 };
-    fold.styles = {
-      ...fold.styles,
-      padding: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
-      background: "#ffffff",
+    const pushMirrorFold = () => {
+      const htmlW = createWidget("html");
+      htmlW.content = { ...htmlW.content, code: mirrorFold, fromMirror: true };
+      const fold = createSection(1);
+      fold.layout = "full";
+      fold.contentWidth = 1200;
+      fold.columnGap = { desktop: 0, tablet: 0, mobile: 0 };
+      fold.styles = {
+        ...fold.styles,
+        padding: { desktop: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" } },
+        background: "#ffffff",
+      };
+      const zeroPad = { top: 0, right: 0, bottom: 0, left: 0, unit: "px" as const };
+      fold.columns[0].styles = {
+        ...fold.columns[0].styles,
+        padding: { desktop: zeroPad, tablet: zeroPad, mobile: zeroPad },
+      };
+      fold.columns[0].widgets = [htmlW];
+      sections.push(fold);
     };
-    const zeroPad = { top: 0, right: 0, bottom: 0, left: 0, unit: "px" as const };
-    fold.columns[0].styles = {
-      ...fold.columns[0].styles,
-      padding: { desktop: zeroPad, tablet: zeroPad, mobile: zeroPad },
-    };
-    fold.columns[0].widgets = [htmlW];
-    sections.push(fold);
-    mirrorFoldMode = "faithful";
-    if (videoUrl) {
+    const pushVideoFold = () => {
+      if (!videoUrl) return;
       const video = createWidget("video");
-      video.content = { ...video.content, url: videoUrl, provider: "youtube", controls: true, autoplay: false };
+      const isFile = /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(videoUrl);
+      video.content = {
+        ...video.content,
+        url: videoUrl,
+        provider: isFile ? "file" : "youtube",
+        controls: true,
+        autoplay: false,
+      };
       const vidSec = createSection(1);
+      vidSec.layout = "full";
+      vidSec.contentWidth = 960;
+      vidSec.styles = {
+        ...vidSec.styles,
+        padding: { desktop: { top: 20, right: 24, bottom: 20, left: 24, unit: "px" } },
+        background: "#0f172a",
+      };
       vidSec.columns[0].widgets = [video];
       sections.push(vidSec);
+    };
+    // Combo VSL+TSL / VSL: vídeo primeiro (abre) + espelho da sales page (TSL) abaixo.
+    if (vslFocus) {
+      pushVideoFold();
+      pushMirrorFold();
+    } else {
+      pushMirrorFold();
+      pushVideoFold();
     }
+    mirrorFoldMode = "faithful";
   } else if (productFold && hero) {
     const fold = createSection(2);
     fold.layout = "full";

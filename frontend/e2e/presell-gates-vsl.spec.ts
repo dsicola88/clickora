@@ -161,7 +161,7 @@ test.describe("H8 — gates + VSL browser", () => {
     await expect(page.getByText(/Tracked offer/i)).toBeVisible({ timeout: 15_000 });
   });
 
-  test("vsl: player de vídeo presente", async ({ page }) => {
+  test("vsl: player YouTube (nocookie) presente", async ({ page }) => {
     const id = "b8e11e11-1111-4111-8111-111111111105";
     await mockPresell(
       page,
@@ -180,7 +180,70 @@ test.describe("H8 — gates + VSL browser", () => {
       }),
     );
     await page.goto(`/p/${id}`, { waitUntil: "domcontentloaded" });
-    const player = page.locator("iframe[src*='youtube'], iframe[src*='youtu'], video");
+    const player = page.locator(
+      "iframe[src*='youtube-nocookie'], iframe[src*='youtube'], iframe[src*='youtu'], video",
+    );
     await expect(player.first()).toBeVisible({ timeout: 20_000 });
+    const src = await player.first().getAttribute("src");
+    expect(src || "").toMatch(/youtube-nocookie\.com\/embed\/dQw4w9WgXcQ|youtube\.com\/embed/);
+  });
+
+  test("vsl: Bunny play → iframe mediadelivery", async ({ page }) => {
+    const id = "b8e11e11-1111-4111-8111-111111111106";
+    const bunnyPlay =
+      "https://video.bunnycdn.com/play/12345/abcdef01-2345-6789-abcd-ef0123456789";
+    await mockPresell(
+      page,
+      basePage(id, {
+        type: "vsl",
+        video_url: bunnyPlay,
+        content: {
+          title: "VSL Bunny",
+          productName: "VSL Bunny",
+          subtitle: "Vídeo",
+          salesText: "VSL Bunny Stream para auditoria ponta a ponta.",
+          ctaText: "Ver oferta",
+          affiliateLink: HOP,
+          images: ["https://upload.wikimedia.org/wikipedia/commons/d/d3/Longjing_tea_steeping_in_gaiwan.jpg"],
+        },
+      }),
+    );
+    await page.goto(`/p/${id}`, { waitUntil: "domcontentloaded" });
+    const iframe = page.locator("iframe[src*='mediadelivery.net']");
+    await expect(iframe.first()).toBeVisible({ timeout: 20_000 });
+    await expect(iframe.first()).toHaveAttribute(
+      "src",
+      /iframe\.mediadelivery\.net\/embed\/12345\/abcdef01-2345-6789-abcd-ef0123456789/,
+    );
+    // Não deve cair em <video src="…bunny…/play/…"> (URL de página, não ficheiro)
+    await expect(page.locator('video[src*="bunnycdn"]')).toHaveCount(0);
+  });
+
+  test("vsl_tsl: vídeo + layout combo com Bunny embed", async ({ page }) => {
+    const id = "b8e11e11-1111-4111-8111-111111111107";
+    await mockPresell(
+      page,
+      basePage(id, {
+        type: "vsl_tsl",
+        video_url: "https://iframe.mediadelivery.net/embed/99/vid-uuid-001",
+        content: {
+          title: "VSL+TSL",
+          productName: "VSL+TSL",
+          subtitle: "Combo",
+          salesText: "Combo VSL+TSL com Bunny embed directo.",
+          ctaText: "Ver oferta",
+          affiliateLink: HOP,
+          images: ["https://upload.wikimedia.org/wikipedia/commons/d/d3/Longjing_tea_steeping_in_gaiwan.jpg"],
+        },
+      }),
+    );
+    await page.goto(`/p/${id}`, { waitUntil: "domcontentloaded" });
+    await expect(page.locator("iframe[src*='mediadelivery.net/embed/99']").first()).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByRole("link", { name: /ver oferta/i }).first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });
+

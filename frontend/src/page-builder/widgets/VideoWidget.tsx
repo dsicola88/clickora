@@ -101,7 +101,24 @@ export function VideoWidget({ widget, device }: { widget: WidgetNode; device: De
           aspectRatio: "16 / 9",
         }}
       >
-        {embedSrc ? (
+        {resolved?.kind === "html5" && embedSrc ? (
+          <video
+            src={embedSrc}
+            controls={controls}
+            playsInline
+            preload="metadata"
+            autoPlay={autoplay}
+            muted={autoplay}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              background: "#0f172a",
+            }}
+          />
+        ) : embedSrc ? (
           <iframe
             src={embedSrc}
             title="Vídeo"
@@ -120,13 +137,13 @@ export function VideoWidget({ widget, device }: { widget: WidgetNode; device: De
           <VideoPlaceholder
             variant="error"
             title="Ligação não suportada"
-            subtitle="Usa um URL do YouTube ou do Bunny Stream (página Play ou iframe mediadelivery.net)."
+            subtitle="Usa YouTube, Bunny Stream, Vimeo player ou um ficheiro .mp4/.webm directo."
           />
         ) : (
           <VideoPlaceholder
             variant="empty"
             title="Escolhe o vídeo"
-            subtitle="Painel à direita → Conteúdo → YouTube ou Bunny.net — cola o link do vídeo (não é upload de ficheiro)."
+            subtitle="Painel à direita → Conteúdo — cola YouTube, Bunny, Vimeo ou URL .mp4 (não é upload de ficheiro)."
           />
         )}
       </div>

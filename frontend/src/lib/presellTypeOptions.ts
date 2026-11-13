@@ -91,7 +91,7 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
         id: "vsl_tsl",
         name: "VSL + TSL (combo)",
         description:
-          "Vídeo no topo + carta/artigo editorial abaixo (ou espelho + vídeo). Duas camadas antes do checkout do comerciante.",
+          "Combo: vídeo em destaque (abre com controlos; YouTube/Bunny/MP4) + espelho/carta TSL da página abaixo. As duas camadas antes do checkout.",
       },
     ],
   },

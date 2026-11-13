@@ -27,6 +27,7 @@
 | Auditoria E2E A→J | [AUDITORIA_MASTER_END_TO_END_DCLICKORA.md](./AUDITORIA_MASTER_END_TO_END_DCLICKORA.md) |
 | Backups Postgres | [POSTGRES-BACKUP.md](./POSTGRES-BACKUP.md) |
 | Imagens / R2 | [IMAGENS-E-ARMAZENAMENTO.md](./IMAGENS-E-ARMAZENAMENTO.md) |
+| Hoplink Knownwalk vs sales page | [PRESELL_HOPLINKS.md](./PRESELL_HOPLINKS.md) |
 
 ---
 

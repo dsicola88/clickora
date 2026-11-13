@@ -15,7 +15,7 @@ const MIRROR_MIN_CHARS = 800;
 const SOURCE_TEXT_MIN = 180;
 
 const GENERIC_TITLE =
-  /^(example domain|just a moment\.{0,3}|attention required!?|access denied|403 forbidden|404( not found)?|page not found|untitled( document)?|loading\.{0,3}|enable javascript|please wait|document|home|welcome|new (page|presell)|nova presell|oficial|official( site)?|pv\s*v?\d*|get started|text presentation)$/i;
+  /^(example domain|just a moment\.{0,3}|checking the site\.{0,3}|attention required!?|access denied|403 forbidden|404( not found)?|page not found|untitled( document)?|loading\.{0,3}|enable javascript|please wait|document|home|welcome|new (page|presell)|nova presell|oficial|official( site)?|pv\s*v?\d*|get started|text presentation)$/i;
 
 /** Frases de compra presentes no HTML da origem. Não trata «Get started» nem um texto longo como oferta. */
 const SOURCE_COMMERCIAL_CTA =

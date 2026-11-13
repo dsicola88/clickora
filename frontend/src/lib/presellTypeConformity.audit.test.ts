@@ -97,18 +97,58 @@ describe("conformidade estrutural WHITE (todos os tipos)", () => {
       }
 
       // Espelho presente quando há mirror (>80 chars)
-      expect(widgets[0].type).toBe("html");
-      expect(String(widgets[0].content.code)).toContain("Oferta original");
+      const mirrorW = widgets.find((w) => w.type === "html" && w.content.fromMirror);
+      expect(mirrorW).toBeTruthy();
+      expect(String(mirrorW!.content.code)).toContain("Oferta original");
+      // VSL / combo: vídeo primeiro, depois o espelho TSL.
+      if (isVideoPresellType(type)) {
+        expect(widgets[0].type).toBe("video");
+        expect(widgets.some((w) => w.type === "video")).toBe(true);
+        const vIdx = widgets.findIndex((w) => w.type === "video");
+        const mIdx = widgets.findIndex((w) => w.type === "html" && w.content.fromMirror);
+        expect(vIdx).toBeLessThan(mIdx);
+      } else {
+        expect(widgets[0].type).toBe("html");
+      }
 
       if (isDiscountPresellType(type)) {
         // Documento base igual; overlay é chrome em PublicPresell
         expect(isDiscountPresellType(type)).toBe(true);
       }
-      if (isVideoPresellType(type)) {
-        expect(widgets.some((w) => w.type === "video")).toBe(true);
-      }
     });
   }
+
+  it("white vsl_tsl combo: vídeo primeiro + espelho TSL (abre MP4/YouTube/Bunny)", () => {
+    const mirror = `<!doctype html><html><head><style>h1{color:red}</style></head><body><h1>Sales letter</h1><p>${"Offer copy. ".repeat(40)}</p><a href="${CLICKORA_MIRROR_TRACK_MARKER}">Buy</a></body></html>`;
+    for (const videoUrl of [
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "https://cdn.example.com/assets/videos/vsl.mp4",
+      "https://video.bunnycdn.com/play/12345/abcdef01-2345-6789-abcd-ef0123456789",
+      "https://iframe.mediadelivery.net/embed/99/vid-uuid-001",
+    ]) {
+      const doc = buildEditablePageDocument({
+        title: "Campanha",
+        type: "vsl_tsl",
+        videoUrl,
+        language: "en",
+        content: {
+          title: "GadgetX",
+          productName: "GadgetX",
+          ctaText: "Buy",
+          affiliateLink: "https://offer.example/buy",
+          generationNiche: "white",
+          importMirrorSrcDoc: mirror,
+        },
+      });
+      const widgets = widgetsOf(doc);
+      const videoIdx = widgets.findIndex((w) => w.type === "video");
+      const mirrorIdx = widgets.findIndex((w) => w.type === "html" && w.content.fromMirror);
+      expect(videoIdx).toBeGreaterThanOrEqual(0);
+      expect(mirrorIdx).toBeGreaterThanOrEqual(0);
+      expect(videoIdx).toBeLessThan(mirrorIdx);
+      expect(String(widgets[videoIdx].content.url)).toBe(videoUrl);
+    }
+  });
 
   it("review / tsl / cookies / desconto / vsl_tsl: smoke black+white", () => {
     const types = ["review", "tsl", "cookies", "desconto", "vsl", "vsl_tsl"] as const;

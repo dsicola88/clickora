@@ -495,8 +495,8 @@ export const en = {
       vslTslHint: "On the public page: featured video on top and, below, the long copy imported from the offer (TSL letters), with a CTA in the middle — VSL + TSL combo.",
       vslHint: "On the public page: focus on the video and the buttons; the imported long copy is not shown again below (it stays saved if you later switch the type to combo or TSL).",
       vslImportHint: "Import scans the page HTML (iframes, scripts, .mp4 files, YouTube in the text, etc.). Many VSLs load the video only with JavaScript after load — then the URL may not appear in the HTML and you will need to paste the YouTube link below. The video plays on the presell; buttons go to the offer, not to YouTube.",
-      youtubeOptionalLabel: "YouTube (optional, if the page has no video)",
-      youtubePlaceholder: "https://www.youtube.com/watch?v=… or https://youtu.be/…",
+      youtubeOptionalLabel: "Video (optional: YouTube or Bunny Stream)",
+      youtubePlaceholder: "YouTube watch/youtu.be or Bunny play/iframe.mediadelivery…",
       discountHint: "The public page shows a pink bar with a countdown and a discount modal. The button, close, and outside click go to the tracked offer link. Copy and social proof come from the imported page when they exist.",
       standardLayoutHint: "Standard layout (light hero): imported title, images, and copy; no video or extra form.",
       ghostHint: "The visitor is sent to the offer page on the first mouse move, touch, or scroll — useful so they do not leave without going through the affiliate link.",
@@ -730,13 +730,21 @@ export const en = {
       actionGenerate: "Generate and publish",
       nicheLabel: "Generator — campaign niche",
       offerLabel: "Network hoplink (sale destination)",
-      offerPlaceholder: "https://… (BuyGoods / Digistore / SmartAdv…)",
+      offerPlaceholder: "https://… (Knownwalk / BuyGoods / Digistore / Hotmart…)",
       networkDetected: "Network detected: {name}",
+      hopOnlyOfferHint:
+        "Knownwalk/SmartAdv: import follows the redirect to the sales page (like BuyGoods). Sale CTAs still use this hoplink.",
+      hopOnlyNeedProductHint:
+        "Optional: if Cloudflare blocks the hop, paste the public sales page (e.g. https://melaramax.com/) here.",
+      hopOnlyProductError:
+        "Could not open the sales page from this hoplink. Paste the public sales page in «Product page» (e.g. https://melaramax.com/) and keep knownwalk.com as the hoplink.",
       productBlackLabel: "Product page (name, photos — without cloning claims)",
       productWhiteLabel: "Product page (visual fidelity)",
-      productPlaceholder: "https://… sales page (optional — if empty, the hoplink is used)",
-      productBlackHint: "Black: informational portal (Google/Bing). The cookie only unlocks the article; the hoplink stays on the «official site» button. The aggressive sales page does not go into the ad.",
-      productWhiteHint: "White: the page follows the product look. On cookies the hoplink stays in the notice; on other types, the type CTA. Use the public sales page, not the checkout.",
+      productPlaceholder: "https://… sales page (e.g. melaramax.com — not the Knownwalk short link)",
+      productBlackHint:
+        "Black: informational portal (Google/Bing). The cookie only unlocks the article; the hoplink stays on the «official site» button. The aggressive sales page does not go into the ad.",
+      productWhiteHint:
+        "White: the page follows the product look. Use the public sales page (not Knownwalk/checkout). On cookies the hoplink stays in the notice; on other types, the type CTA.",
       continue: "Continue",
       defaultCampaign: "My campaign",
       campaignNameLabel: "Campaign name (and page name in the list)",

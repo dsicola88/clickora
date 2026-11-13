@@ -9,8 +9,8 @@
  * | cookies     | Widget `cookieBanner` no documento; `settings.cookieRedirectToOffer`: Aceitar/Fechar → oferta rastreada, senão só libera a página. CTAs da página ficam activos. |
  * | desconto    | `DiscountPresellOverlay` (faixa + modal). CTA/fechar/fundo → oferta rastreada. |
  * | fantasma    | Redirecionamento ao primeiro movimento (rato/toque/scroll) — só black. |
- * | vsl         | Vídeo em destaque no documento; sem carta longa. White+espelho: clone + secção vídeo se `video_url`. |
- * | vsl_tsl     | Vídeo + carta/artigo editorial no documento (ou espelho + vídeo). |
+ * | vsl         | Vídeo em destaque (YouTube/Bunny/MP4) que abre com controlos; sem carta longa. White+espelho: vídeo primeiro + clone. |
+ * | vsl_tsl     | Combo: vídeo primeiro (abre) + espelho/carta TSL abaixo. |
  * | tsl, dtc, review, advertorial | Sem espelho: portal/artigo no documento (tema distinto). White+espelho: HTML 1:1 sem chrome Clickora por cima. |
  * | sexo, idade, idade_sexo, idade_pais, sexo_pais, grupo_*, pais, captcha, modelos | Qualificação sticky antes do CTA (só black); cliques bloqueados até validar. |
  * | builder     | Documento do editor; white+espelho entra no fluxo comum de espelho. |

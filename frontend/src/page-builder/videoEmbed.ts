@@ -5,7 +5,9 @@
 
 export type ResolvedVideoEmbed =
   | { kind: "youtube"; embedUrl: string }
-  | { kind: "iframe"; embedUrl: string };
+  | { kind: "iframe"; embedUrl: string }
+  /** MP4/WebM directo da sales page — o iframe YouTube/Bunny não cobre. */
+  | { kind: "html5"; embedUrl: string };
 
 function youtubeEmbedFromUrl(url: string): string | null {
   const u = url.trim();
@@ -53,9 +55,18 @@ export function resolvePageBuilderVideoUrl(raw: string): ResolvedVideoEmbed | nu
   const yt = youtubeEmbedFromUrl(url);
   if (yt) return { kind: "youtube", embedUrl: yt };
 
+  // Ficheiro directo (muitas VSLs / Melara-style) — tem de abrir com <video controls>.
+  if (/^https?:\/\//i.test(url) && /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url)) {
+    return { kind: "html5", embedUrl: url };
+  }
+
   try {
     const parsed = new URL(url.startsWith("http") ? url : `https://${url}`);
     const host = parsed.hostname.toLowerCase();
+
+    if (/\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(parsed.pathname)) {
+      return { kind: "html5", embedUrl: parsed.toString() };
+    }
 
     if (host.includes("mediadelivery.net") && parsed.pathname.includes("/embed/")) {
       return { kind: "iframe", embedUrl: parsed.toString() };
@@ -68,6 +79,11 @@ export function resolvePageBuilderVideoUrl(raw: string): ResolvedVideoEmbed | nu
     if (url.includes("iframe.mediadelivery.net/embed/")) {
       const fixed = url.startsWith("http") ? url : `https://${url}`;
       return { kind: "iframe", embedUrl: fixed };
+    }
+
+    // Vimeo player
+    if (host.includes("player.vimeo.com") && parsed.pathname.includes("/video/")) {
+      return { kind: "iframe", embedUrl: parsed.toString() };
     }
   } catch {
     return null;
@@ -83,6 +99,9 @@ export function embedUrlWithPlayback(
 ): string {
   const autoplay = opts.autoplay === true;
   const controls = opts.controls !== false;
+  if (resolved.kind === "html5") {
+    return resolved.embedUrl;
+  }
   if (resolved.kind === "youtube") {
     const q = new URLSearchParams();
     q.set("rel", "0");

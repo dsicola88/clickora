@@ -9,7 +9,7 @@ import {
 } from "@/lib/publicPresellSeo";
 import { getTrackApiBaseUrl, resolveApiUrl } from "@/lib/apiOrigin";
 import { buildClickoraEmbedScriptHtml, stripClickoraEmbedScripts } from "@/lib/clickoraEmbedScript";
-import { resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
+import { isEmbedPlayerVideoUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import type { Presell } from "@/types/api";
 import {
   getInteractiveGateKind,
@@ -75,20 +75,6 @@ function looksLikeSectionHeading(block: string): boolean {
   if (t.length < 28 || t.length > 130) return false;
   const words = t.split(/\s+/).filter(Boolean).length;
   return words >= 4 && words <= 14;
-}
-
-function isEmbedPlayerVideoUrl(url: string): boolean {
-  const u = url.toLowerCase();
-  if (/\.(mp4|webm|ogg)(\?|#|$)/i.test(u)) return false;
-  return (
-    /youtube\.com|youtu\.be|youtube-nocookie/.test(u) ||
-    /vimeo\.com|player\.vimeo/.test(u) ||
-    /wistia\.|wi\.st|fast\.wistia/.test(u) ||
-    /loom\.com\/embed/.test(u) ||
-    /dailymotion\.com|dai\.ly/.test(u) ||
-    /cloudflarestream|videodelivery\.net/.test(u) ||
-    /brightcove|jwplatform/.test(u)
-  );
 }
 
 /** URL de clique com rastreamento (medium html_export). */

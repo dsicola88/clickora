@@ -14,10 +14,24 @@ import {
   sourceHasCommercialCta,
   type PresellImportMode,
 } from "./presellImportMode";
+import {
+  affiliateHopResolveFailedMessage,
+  brandFromSalesHostname,
+  looksLikeAffiliateHopOnlyUrl,
+  looksLikeNonProductImportBody,
+  peekAffiliateHopRedirectUrl,
+  salesOriginFromHopDestination,
+  stubHtmlForHopResolvedBrand,
+} from "./presellAffiliateHop";
 import { assertExternalProductUrl, IMPORT_MAX_HTML_BYTES, PresellImportBlockedError } from "./presellImportSsrf";
 import { safeImportFetch } from "./presellSafeFetch";
 
 export { assertExternalProductUrl, isBlockedPresellImportHost } from "./presellImportSsrf";
+export {
+  looksLikeAffiliateHopOnlyUrl,
+  looksLikeNonProductImportBody,
+  affiliateHopResolveFailedMessage,
+} from "./presellAffiliateHop";
 import {
   buildMirrorPartsFromStaticHtml,
   buildMirrorSrcDocFromParts,
@@ -971,6 +985,10 @@ function scoreVideoUrl(url: string): number {
   else if (/youtube\.com\/watch|[?&]v=[a-z0-9_-]{11}/i.test(u)) score += 10;
   if (/player\.vimeo\.com|vimeo\.com\/video|vimeo\.com\/embed/i.test(u)) score += 12;
   else if (/vimeo\.com\/\d+/i.test(u)) score += 8;
+  // Bunny Stream: iframe.mediadelivery ou página play — prioridade alta (VSL combo)
+  if (/iframe\.mediadelivery\.net\/embed\//i.test(u)) score += 13;
+  else if (/video\.bunnycdn\.com\/play\/|bunnycdn\.com\/play\/|bunny\.net\/play\//i.test(u)) score += 12;
+  else if (/mediadelivery\.net|bunnycdn\.com|bunny\.net|b-cdn\.net/i.test(u)) score += 9;
   if (/wistia\.com|wi\.st|fast\.wistia\.net/i.test(u)) score += 11;
   if (/loom\.com\/embed/i.test(u)) score += 11;
   if (/dailymotion\.com\/embed|dai\.ly\//i.test(u)) score += 9;
@@ -1054,6 +1072,10 @@ function extractVideoUrlsFromScriptsAndInline(html: string): string[] {
     /https?:\/\/(?:www\.)?youtu\.be\/[a-zA-Z0-9_-]{6,20}/gi,
     /https?:\/\/player\.vimeo\.com\/video\/\d{5,12}/gi,
     /https?:\/\/(?:www\.)?vimeo\.com\/(?:video\/)?\d{5,12}/gi,
+    /https?:\/\/iframe\.mediadelivery\.net\/embed\/[^\s"'<>]{5,400}/gi,
+    /https?:\/\/video\.bunnycdn\.com\/play\/[^\s"'<>]{5,400}/gi,
+    /https?:\/\/[^"'\s<>]*bunnycdn\.com\/play\/[^\s"'<>]{5,400}/gi,
+    /https?:\/\/[^"'\s<>]*bunny\.net\/play\/[^\s"'<>]{5,400}/gi,
     /https?:\/\/(?:fast\.)?wistia\.(?:net|com)\/[^"'\s<>]{10,500}/gi,
     /https?:\/\/[^"'\s<>]+\.(?:mp4|webm|m3u8)(?:\?[^"'\s<>]{0,120})?/gi,
     /https?:\/\/[^"'\s<>]*(?:stream|video|player|embed|cdn)[^"'\s<>]*\.(?:mp4|m3u8)(?:\?[^"'\s<>]{0,80})?/gi,
@@ -1105,17 +1127,43 @@ function extractVideoUrlsFromJsonLd(html: string): string[] {
   return out;
 }
 
+/** Bunny play → iframe.mediadelivery (mesmo contrato do frontend `resolvePageBuilderVideoUrl`). */
+function normalizeBunnyPlayToEmbed(url: string): string | null {
+  try {
+    const parsed = new URL(url.trim());
+    const host = parsed.hostname.toLowerCase();
+    const isBunnyHost =
+      host.includes("bunnycdn.com") ||
+      host.includes("bunny.net") ||
+      host.includes("b-cdn.net") ||
+      host === "video.bunnycdn.com";
+    if (!isBunnyHost || !parsed.pathname.includes("/play/")) return null;
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const pi = parts.indexOf("play");
+    if (pi < 0 || parts.length < pi + 3) return null;
+    const libraryId = parts[pi + 1];
+    const videoId = parts[pi + 2];
+    if (!libraryId || !videoId) return null;
+    return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
+  } catch {
+    return null;
+  }
+}
+
 function finalizeVideoPlayableUrl(url: string): string {
   const u = url.trim();
   if (/youtube|youtu\.be/i.test(u) && !/\.(mp4|webm)/i.test(u)) return normalizeYoutubeToEmbed(u);
+  const bunny = normalizeBunnyPlayToEmbed(u);
+  if (bunny) return bunny;
   return u;
 }
 
 /**
  * Extrai o melhor URL de vídeo da página do produtor (vários iframes, meta, JSON-LD, <video>).
  * Não executa JavaScript — páginas que só injetam o vídeo via JS podem não expor URL no HTML.
+ * Exportado para testes (import VSL Bunny/YouTube).
  */
-function extractVideoUrl(html: string, pageUrl: string): string | undefined {
+export function extractVideoUrl(html: string, pageUrl: string): string | undefined {
   const candidates: string[] = [];
 
   const ogVideo = extractMeta(html, "og:video:url") || extractMeta(html, "og:video");
@@ -1151,6 +1199,11 @@ function extractVideoUrl(html: string, pageUrl: string): string | undefined {
     const id = vimeoInText[0].match(/(\d+)\s*$/);
     if (id?.[1]) candidates.push(`https://player.vimeo.com/video/${id[1]}`);
   }
+
+  const bunnyPlayInPage = html.match(
+    /https?:\/\/(?:video\.)?(?:[^"'\s<>]*\.)?bunnycdn\.com\/play\/[^\s"'<>]+|https?:\/\/iframe\.mediadelivery\.net\/embed\/[^\s"'<>]+/i,
+  );
+  if (bunnyPlayInPage?.[0]) candidates.push(bunnyPlayInPage[0].replace(/[),.;}\]]+$/g, ""));
 
   const best = pickBestVideoUrl(candidates, pageUrl);
   if (best) return finalizeVideoPlayableUrl(best);
@@ -1459,12 +1512,16 @@ function extractCommercialCtaLabel(html: string, language: string): string | nul
  */
 export function suggestProductEnrichmentUrls(finalUrl: string, html: string): string[] {
   const out: string[] = [];
+  /** Hoplink Knownwalk/Everflow não tem sales page no próprio host — não sugerir origin/. */
+  if (looksLikeAffiliateHopOnlyUrl(finalUrl)) return out;
+
   const push = (raw: string) => {
     const t = raw.trim();
     if (!t) return;
     try {
       const abs = new URL(t, finalUrl).href;
       assertExternalProductUrl(abs);
+      if (looksLikeAffiliateHopOnlyUrl(abs)) return;
       if (abs.replace(/\/$/, "") === finalUrl.replace(/\/$/, "")) return;
       if (!out.includes(abs)) out.push(abs);
     } catch {
@@ -1502,6 +1559,8 @@ function htmlLooksLikeWrongProduct(html: string, pageUrl: string): boolean {
   }
   if (host.includes("clickora") || host.includes("dclickora")) return false;
 
+  if (looksLikeNonProductImportBody(html)) return true;
+
   const titleLower = extractTagText(html, "title").toLowerCase();
   const ogTitle = extractMeta(html, "og:title").toLowerCase();
 
@@ -1533,42 +1592,64 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   assertExternalProductUrl(input.productUrl);
   if (looksLikeClickoraHostedPresellUrl(input.productUrl)) {
     throw new Error(
-      "Esse link é uma presell Clickora (/p/…), não a página do produto. Cole o URL público da oferta (BuyGoods, ClickBank, Shopify, Knownwalk, Hotmart, etc.).",
+      "Esse link é uma presell Clickora (/p/…), não a página do produto. Cole a sales page pública do produto (ex.: https://melaramax.com/) e o hoplink da rede (Knownwalk, BuyGoods, Hotmart…) no campo «Hoplink».",
     );
   }
 
   const language = input.language || "pt-BR";
   const generationNiche = normalizePresellGenerationNiche(input.generationNiche);
   const acceptLang = acceptLanguageForPresellImport(language);
+  /** Knownwalk/SmartAdv: igual BuyGoods — hop fica no affiliate; browser segue até à sales page. */
+  const hopOnlyInput = looksLikeAffiliateHopOnlyUrl(input.productUrl);
+  const preservedAffiliate =
+    (typeof input.affiliateLink === "string" && input.affiliateLink.trim()) ||
+    (hopOnlyInput ? input.productUrl.trim() : "");
 
-  let fetched: Awaited<ReturnType<typeof safeImportFetch>>;
-  try {
-    fetched = await safeImportFetch({
-      url: input.productUrl,
-      timeoutMs: IMPORT_FETCH_MS,
-      maxBytes: IMPORT_MAX_HTML_BYTES,
-      headers: {
-        "user-agent": DEFAULT_UA,
-        accept: "text/html,application/xhtml+xml",
-        "accept-language": acceptLang,
-      },
-    });
-  } catch (e) {
-    if (e instanceof PresellImportBlockedError) throw new Error(e.message);
-    throw e;
-  }
-
-  if (fetched.status < 200 || fetched.status >= 300) {
-    throw new Error(`Não foi possível ler a página do produto (${fetched.status}).`);
-  }
-
-  let finalUrl = fetched.url;
-  assertExternalProductUrl(finalUrl);
-
-  let html = fetched.body.toString("utf8");
   const MIN_HTML_CHARS = 800;
+  let fetched: Awaited<ReturnType<typeof safeImportFetch>> | null = null;
+  let finalUrl = input.productUrl;
+  let html = "";
+  let skipStatic = hopOnlyInput;
 
-  if (htmlLooksLikeWrongProduct(html, finalUrl)) {
+  if (!skipStatic) {
+    try {
+      fetched = await safeImportFetch({
+        url: input.productUrl,
+        timeoutMs: IMPORT_FETCH_MS,
+        maxBytes: IMPORT_MAX_HTML_BYTES,
+        headers: {
+          "user-agent": DEFAULT_UA,
+          accept: "text/html,application/xhtml+xml",
+          "accept-language": acceptLang,
+        },
+      });
+    } catch (e) {
+      if (e instanceof PresellImportBlockedError) throw new Error(e.message);
+      throw e;
+    }
+
+    if (fetched.status < 200 || fetched.status >= 300) {
+      /** 520/CF no destino do hop — cai no browser (como BuyGoods com redirect). */
+      skipStatic = true;
+    } else {
+      finalUrl = fetched.url;
+      assertExternalProductUrl(finalUrl);
+      html = fetched.body.toString("utf8");
+      if (
+        looksLikeAffiliateHopOnlyUrl(finalUrl) ||
+        looksLikeNonProductImportBody(html, fetched.contentType)
+      ) {
+        skipStatic = true;
+        html = "";
+      }
+    }
+  }
+
+  if (
+    !skipStatic &&
+    html &&
+    htmlLooksLikeWrongProduct(html, finalUrl)
+  ) {
     throw new Error(
       "O conteúdo obtido parece ser do painel dclickora, não do produto. Cole o link público da oferta (ex.: theneotonics.com/...), não localhost.",
     );
@@ -1577,30 +1658,75 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   /**
    * Espelho de alta fidelidade (Playwright) — por defeito ativo (`PRESELL_IMPORT_MIRROR=0` desliga).
    * Também cobre respostas curtas / SPA sem conteúdo no HTML estático.
+   * Hoplink Knownwalk: abre o hop no browser (segue 302 → sales page; retry sem proxy se CF).
    */
   const wantMirror = process.env.PRESELL_IMPORT_MIRROR !== "0";
   const needsBrowserRender =
-    html.length < MIN_HTML_CHARS || staticHtmlLikelyMissingMainContent(html);
+    skipStatic ||
+    html.length < MIN_HTML_CHARS ||
+    staticHtmlLikelyMissingMainContent(html);
 
   let browserStatus: BrowserRenderStatus | "skipped" = "skipped";
   let browserDetail = "";
   let renderedHtml: string | null = null;
   let mirrorParts: { baseHref: string; headSnip: string; bodyInner: string } | null = null;
   if (wantMirror || needsBrowserRender) {
-    const bundle = await fetchRenderedPageBundle(finalUrl, acceptLang);
+    /** Preferir URL original do hop — o Chromium resolve o redirect como BuyGoods/MaxWeb. */
+    const browserStartUrl = hopOnlyInput || skipStatic ? input.productUrl : finalUrl;
+    const bundle = await fetchRenderedPageBundle(browserStartUrl, acceptLang, {
+      preferDirectNetwork: hopOnlyInput || skipStatic,
+    });
     browserStatus = bundle.browser;
     browserDetail = bundle.browserDetail || "";
     renderedHtml = bundle.html || null;
     mirrorParts = bundle.mirrorParts;
+    if (bundle.finalUrl && /^https?:\/\//i.test(bundle.finalUrl)) {
+      try {
+        assertExternalProductUrl(bundle.finalUrl);
+        if (!looksLikeAffiliateHopOnlyUrl(bundle.finalUrl)) {
+          finalUrl = bundle.finalUrl;
+        }
+      } catch {
+        /* mantém finalUrl anterior */
+      }
+    }
   }
 
-  if (html.length < MIN_HTML_CHARS) {
+  if (skipStatic || html.length < MIN_HTML_CHARS) {
     if (
       renderedHtml &&
       renderedHtml.length >= MIN_HTML_CHARS &&
+      !looksLikeNonProductImportBody(renderedHtml) &&
       !htmlLooksLikeWrongProduct(renderedHtml, finalUrl)
     ) {
       html = renderedHtml;
+    } else if (hopOnlyInput || skipStatic) {
+      /** CF 520 na sales page: ainda assim criar presell com brand do destino + hoplink intacto. */
+      const peeked =
+        (finalUrl && !looksLikeAffiliateHopOnlyUrl(finalUrl) ? finalUrl : null) ||
+        (await peekAffiliateHopRedirectUrl(input.productUrl));
+      const origin = peeked ? salesOriginFromHopDestination(peeked) : null;
+      if (!peeked || !origin) {
+        throw new Error(affiliateHopResolveFailedMessage());
+      }
+      assertExternalProductUrl(origin);
+      finalUrl = origin;
+      let host = "product";
+      try {
+        host = new URL(origin).hostname;
+      } catch {
+        /* ignore */
+      }
+      const brand = brandFromSalesHostname(host);
+      html = stubHtmlForHopResolvedBrand(brand, origin);
+      browserStatus = browserStatus === "skipped" ? "failed" : browserStatus;
+      browserDetail = [
+        browserDetail,
+        "Hop Knownwalk/SmartAdv resolvido até à sales page, mas o HTML foi bloqueado (Cloudflare). Nome e CTA gerados a partir do destino; o hoplink de tracking mantém-se. Para espelho white fiel, cole a sales page no 2.º campo quando o Cloudflare permitir.",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      mirrorParts = null;
     } else {
       throw new Error(
         [
@@ -1619,7 +1745,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     html = renderedHtml;
   }
 
-  const affForMirror = (input.affiliateLink || finalUrl).trim();
+  const affForMirror = (preservedAffiliate || input.affiliateLink || finalUrl).trim();
   let import_mirror_src_doc: string | undefined;
   let mirrorBaseUrl = finalUrl;
 
@@ -1779,7 +1905,8 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     }
     images = images.slice(0, 18);
   }
-  const video_url = extractVideoUrl(foldHtml, finalUrl);
+  // Página completa primeiro (VSL costuma estar abaixo da dobra); fold como fallback.
+  const video_url = extractVideoUrl(html, finalUrl) || extractVideoUrl(foldHtml, finalUrl);
 
   const metaDescription =
     extractMeta(html, "description") || extractMeta(html, "og:description") || "";
@@ -1859,7 +1986,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     cta_text,
     images,
     source_url: finalUrl,
-    affiliate_link: input.affiliateLink || finalUrl,
+    affiliate_link: preservedAffiliate || input.affiliateLink || finalUrl,
     storefront_theme,
     storefront_hero_tint: tintedLightBgHits >= 1 && storefront_theme === "default",
     official_buy_cta: officialBuyCta(language),

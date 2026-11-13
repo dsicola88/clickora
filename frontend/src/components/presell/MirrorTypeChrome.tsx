@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
 import { getPresellTypeTheme } from "@/lib/presellTypeTheme";
+import { resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
+import { resolvePageBuilderVideoUrl } from "@/page-builder/videoEmbed";
 
 type Props = {
   type: string;
@@ -35,7 +37,11 @@ export function MirrorTypeChrome({
   if (!["tsl", "dtc", "review", "vsl", "vsl_tsl"].includes(type)) return null;
 
   const isVsl = type === "vsl" || type === "vsl_tsl";
-  const showVideo = isVsl && typeof videoUrl === "string" && videoUrl.trim().length > 8;
+  const rawVideo = typeof videoUrl === "string" ? videoUrl.trim() : "";
+  const resolvedVideo = rawVideo ? resolveVideoEmbedSrc(rawVideo) : "";
+  const videoIsFile =
+    !!rawVideo && resolvePageBuilderVideoUrl(rawVideo)?.kind === "html5";
+  const showVideo = isVsl && resolvedVideo.length > 8;
   const independentLabel = (language || "").toLowerCase().startsWith("pt")
     ? "Página independente"
     : "Independent page";
@@ -88,13 +94,24 @@ export function MirrorTypeChrome({
       {showVideo ? (
         <div className="mx-auto max-w-3xl px-3 pb-3 sm:px-4">
           <div className="aspect-video w-full overflow-hidden rounded-lg border border-white/10 bg-black shadow-lg">
-            <iframe
-              title="VSL"
-              src={videoUrl!}
-              className="h-full w-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
+            {videoIsFile ? (
+              <video
+                title="VSL"
+                src={resolvedVideo}
+                className="h-full w-full object-contain bg-black"
+                controls
+                playsInline
+                preload="metadata"
+              />
+            ) : (
+              <iframe
+                title="VSL"
+                src={resolvedVideo}
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            )}
           </div>
         </div>
       ) : null}

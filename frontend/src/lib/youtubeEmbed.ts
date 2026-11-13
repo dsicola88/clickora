@@ -1,6 +1,38 @@
+import { resolvePageBuilderVideoUrl } from "@/page-builder/videoEmbed";
+
 /** Deteta URL do YouTube (watch, embed, short, nocookie). Exportado para UI (ex.: escudo de cliques no embed). */
 export function isYoutubeUrl(url: string): boolean {
   return /youtube\.com|youtu\.be|youtube-nocookie/i.test(url);
+}
+
+/**
+ * Iframe de plataforma (YouTube/Bunny/Vimeo/…) vs ficheiro .mp4/.webm.
+ * Usado na VSL pública e no export HTML — Bunny/mediadelivery têm de ser iframe.
+ */
+export function isEmbedPlayerVideoUrl(url: string): boolean {
+  const u = url.toLowerCase();
+  if (/\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(u)) return false;
+  return (
+    /youtube\.com|youtu\.be|youtube-nocookie/.test(u) ||
+    /vimeo\.com|player\.vimeo/.test(u) ||
+    /wistia\.|wi\.st|fast\.wistia/.test(u) ||
+    /loom\.com\/embed/.test(u) ||
+    /dailymotion\.com|dai\.ly/.test(u) ||
+    /cloudflarestream|videodelivery\.net/.test(u) ||
+    /bunnycdn\.com|bunny\.net|b-cdn\.net|mediadelivery\.net/.test(u) ||
+    /brightcove|jwplatform/.test(u)
+  );
+}
+
+/** Aceita YouTube, Bunny play/embed, MP4, etc. — campo manual do wizard/dashboard. */
+export function resolveManualPresellVideoUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const yt = buildYoutubeEmbedUrlForPresell(trimmed);
+  if (yt) return yt;
+  const resolved = resolvePageBuilderVideoUrl(trimmed);
+  if (resolved) return resolved.embedUrl;
+  return null;
 }
 
 /**
@@ -34,11 +66,17 @@ export function buildYoutubeEmbedUrlForPresell(input: string): string | null {
   return `https://www.youtube-nocookie.com/embed/${id}?${params.toString()}`;
 }
 
-/** Usado na página pública: YouTube → embed controlado; outros URLs inalterados. */
+/**
+ * Página pública / VSL combo: YouTube → nocookie; Bunny play → iframe.mediadelivery;
+ * MP4 fica directo. Alinhado com o page-builder (`resolvePageBuilderVideoUrl`).
+ */
 export function resolveVideoEmbedSrc(url: string): string {
-  if (!url.trim()) return url;
-  if (isYoutubeUrl(url)) {
-    return buildYoutubeEmbedUrlForPresell(url) || url;
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+  if (isYoutubeUrl(trimmed)) {
+    return buildYoutubeEmbedUrlForPresell(trimmed) || trimmed;
   }
-  return url;
+  const resolved = resolvePageBuilderVideoUrl(trimmed);
+  if (resolved) return resolved.embedUrl;
+  return trimmed;
 }

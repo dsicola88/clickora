@@ -78,7 +78,10 @@ import {
 } from "@/lib/publicPresellOrigin";
 import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
 import { useCustomDomains } from "@/hooks/useCustomDomains";
-import { buildYoutubeEmbedUrlForPresell, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
+import {
+  resolveManualPresellVideoUrl,
+  resolveVideoEmbedSrc,
+} from "@/lib/youtubeEmbed";
 import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
@@ -681,18 +684,14 @@ export default function PresellDashboard() {
         let video_url: string | null = null;
         if (isVsl) {
           if (manualYt) {
-            if (isYoutubeUrl(manualYt)) {
-              const embed = buildYoutubeEmbedUrlForPresell(manualYt);
-              if (!embed) {
-                toast.error(t("pages.presells.toastYoutubeInvalid"));
-                return;
-              }
-              video_url = embed;
-            } else {
-              video_url = resolveVideoEmbedSrc(manualYt);
+            const embed = resolveManualPresellVideoUrl(manualYt);
+            if (!embed) {
+              toast.error(t("pages.presells.toastYoutubeInvalid"));
+              return;
             }
+            video_url = embed;
           } else if (editingPage.video_url) {
-            video_url = editingPage.video_url;
+            video_url = resolveVideoEmbedSrc(editingPage.video_url);
           }
         }
         const prevContent = editingPage.content as Record<string, unknown>;
@@ -795,7 +794,7 @@ export default function PresellDashboard() {
         if (data.video_url) {
           video_url = resolveVideoEmbedSrc(data.video_url);
         } else if (manualYt) {
-          const embed = buildYoutubeEmbedUrlForPresell(manualYt);
+          const embed = resolveManualPresellVideoUrl(manualYt);
           if (!embed) {
             toast.error(t("pages.presells.toastYoutubeInvalid"));
             return;

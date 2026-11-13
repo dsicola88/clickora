@@ -60,7 +60,7 @@ import { VslProductVideoFallback } from "@/components/presell/VslProductVideoFal
 import { coerceTrackingSnippetToHtml, injectWithCleanup } from "@/lib/injectPresellCustomCode";
 import { buildPresellOptionalSettingsMarketing } from "@/lib/presellOptionalSettingsMarketing";
 import { PresellMarketingOverlays } from "@/components/presell/PresellMarketingOverlays";
-import { isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
+import { isEmbedPlayerVideoUrl, isYoutubeUrl, resolveVideoEmbedSrc } from "@/lib/youtubeEmbed";
 import { applyPublicPresellHeadMetadata } from "@/lib/publicPresellSeo";
 import { getPresellSeoPrimaryTitle } from "@/lib/publicPresellDocumentTitle";
 import { usePresellUiLanguage } from "@/lib/presellUiLanguage";
@@ -648,21 +648,6 @@ function YoutubeCornerClickShield({ embedSrc }: { embedSrc: string }) {
       className="pointer-events-auto absolute bottom-0 right-0 z-[3] h-12 w-[min(104px,28%)] select-none bg-transparent"
       aria-hidden
     />
-  );
-}
-
-/** Iframe de plataforma de vídeo vs ficheiro .mp4/.webm (importado da página). */
-function isEmbedPlayerVideoUrl(url: string): boolean {
-  const u = url.toLowerCase();
-  if (/\.(mp4|webm|ogg)(\?|#|$)/i.test(u)) return false;
-  return (
-    /youtube\.com|youtu\.be|youtube-nocookie/.test(u) ||
-    /vimeo\.com|player\.vimeo/.test(u) ||
-    /wistia\.|wi\.st|fast\.wistia/.test(u) ||
-    /loom\.com\/embed/.test(u) ||
-    /dailymotion\.com|dai\.ly/.test(u) ||
-    /cloudflarestream|videodelivery\.net/.test(u) ||
-    /brightcove|jwplatform/.test(u)
   );
 }
 
