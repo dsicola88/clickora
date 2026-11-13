@@ -5,6 +5,12 @@ import { test, expect } from "@playwright/test";
  * Playwright inicia o backend via webServer em playwright.config.ts.
  * /tracking/dashboard redirecciona para /resultados (P&L enterprise).
  */
+const E2E_PASSWORD =
+  process.env.CI_SEED_PASSWORD ||
+  process.env.E2E_PASSWORD ||
+  process.env.LOAD_TEST_PASSWORD ||
+  "Dpa211088@";
+
 test.describe("tracking dashboard / P&L", () => {
   test("utilizador seed vê o P&L sem erro 503", async ({ page }) => {
     test.setTimeout(120_000);
@@ -18,7 +24,7 @@ test.describe("tracking dashboard / P&L", () => {
 
     await page.goto("/auth");
     await page.locator("#email").fill("danielclickora@gmail.com");
-    await page.locator("#password").fill("Dpa211088@");
+    await page.locator("#password").fill(E2E_PASSWORD);
     await page.getByRole("button", { name: /^(Entrar|Continue|Sign in)$/i }).click();
     await page.waitForURL((url) => !url.pathname.includes("/auth"), { timeout: 45_000 });
 

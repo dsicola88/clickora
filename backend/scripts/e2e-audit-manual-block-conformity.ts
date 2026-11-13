@@ -92,10 +92,18 @@ async function main() {
   assert.equal(countryOnCloakDenyList({ enterpriseCloak: true, cloakGeoDeny: "AO" }, "US"), false);
   rec("cloak geo deny list manual AO/US", true);
 
-  // --- UI copy ---
+  // --- UI copy (i18n: key + PT/EN catalog leaf) ---
   const uiPath = path.join(root, "../frontend/src/pages/Blacklist.tsx");
   const ui = fs.readFileSync(uiPath, "utf8");
-  rec("Blacklist UI: bloqueio só manual", /Bloqueio só manual/.test(ui));
+  const enBlacklist = fs.readFileSync(
+    path.join(root, "../frontend/src/i18n/messages/en.ts"),
+    "utf8",
+  );
+  rec(
+    "Blacklist UI: bloqueio só manual",
+    /pages\.blacklist\.manualOnly/.test(ui) &&
+      /manualOnly:\s*"Manual block only:"/.test(enBlacklist),
+  );
   rec("Blacklist UI sem auto-blacklist AWS/CDN77", !/Auto-blacklist \(só evidência explícita\)/.test(ui));
   rec("Blacklist UI proxy opt-in (sem 'bloqueio de datacenter')", !/Complementa o bloqueio de datacenter/.test(ui));
 

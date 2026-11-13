@@ -1,5 +1,6 @@
 import {
   IMPORT_MAX_REDIRECTS,
+  PRESELL_IMPORT_BLOCKED_MESSAGE,
   PresellImportBlockedError,
   assertExternalProductUrl,
   vetImportUrl,
@@ -177,6 +178,16 @@ export async function probeDestinationUrl(rawUrl: string | null | undefined): Pr
       const msg = e.message || "";
       /** Corpo HTML grande ≠ SSRF — a oferta pública já respondeu; não bloquear publish como destino interno. */
       const bodyTooLarge = /tamanho máximo/i.test(msg);
+      /**
+       * DNS / pin CDN / connect sem resposta HTTP: o URL inicial já passou
+       * assertExternalProductUrl — não tratar como destino interno.
+       * Redirect para host interno costuma vir com status 3xx já lido.
+       */
+      const pinOrConnectWithoutHttp =
+        statusCode == null &&
+        (msg === PRESELL_IMPORT_BLOCKED_MESSAGE ||
+          /Timeout ao ligar/i.test(msg) ||
+          /Não foi possível resolver/i.test(msg));
       if (bodyTooLarge && statusCode != null && statusCode >= 200 && statusCode < 400) {
         const finalHost = hostOf(current);
         const domainChanged = Boolean(
@@ -203,7 +214,7 @@ export async function probeDestinationUrl(rawUrl: string | null | undefined): Pr
       return {
         attempted: true,
         ok: false,
-        https: bodyTooLarge ? current.startsWith("https:") : null,
+        https: bodyTooLarge || pinOrConnectWithoutHttp ? current.startsWith("https:") : null,
         statusCode,
         finalUrl: current,
         redirectCount,
@@ -213,7 +224,11 @@ export async function probeDestinationUrl(rawUrl: string | null | undefined): Pr
         initialHost,
         finalHost: hostOf(current),
         crawlerBlocked,
-        errorCode: bodyTooLarge ? "body_too_large" : "ssrf_blocked",
+        errorCode: bodyTooLarge
+          ? "body_too_large"
+          : pinOrConnectWithoutHttp
+            ? "network"
+            : "ssrf_blocked",
         errorMessage: msg,
         hops,
       };
