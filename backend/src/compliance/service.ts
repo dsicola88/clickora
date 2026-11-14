@@ -7,6 +7,7 @@ import {
   canPublishForAds,
   evaluateCompliance,
   isInstantPublishPresellType,
+  shouldAutoPauseOnComplianceBlock,
 } from "./evaluate";
 import { probeDestinationUrl } from "./destinationProbe";
 import { probeTrackingParamPreservation } from "./trackingProbe";
@@ -216,10 +217,13 @@ async function persistAudit(args: {
 
   const pageBefore = await systemPrisma.presellPage.findUnique({
     where: { id: args.pageId },
-    select: { status: true },
+    select: { status: true, type: true },
   });
-  const shouldPause =
-    evaluation.gate === "blocked" && pageBefore?.status === "published";
+  const shouldPause = shouldAutoPauseOnComplianceBlock({
+    gate: evaluation.gate,
+    pageStatus: pageBefore?.status,
+    pageType: pageBefore?.type,
+  });
 
   await systemPrisma.presellPage.update({
     where: { id: args.pageId },

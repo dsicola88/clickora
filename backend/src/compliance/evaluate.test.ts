@@ -7,6 +7,8 @@ import {
   evaluateCompliance,
   deriveGate,
   isInstantPublishPresellType,
+  shouldAutoPauseOnComplianceBlock,
+  shouldEnforceComplianceServeBlock,
 } from "./evaluate";
 import { probeTrackingParamPreservation } from "./trackingProbe";
 import { suggestCorrections } from "./correctionAssistant";
@@ -291,6 +293,46 @@ describe("presell compliance engine", () => {
     assert.equal(isInstantPublishPresellType("builder"), true);
     assert.equal(isInstantPublishPresellType("tsl"), false);
     assert.equal(isInstantPublishPresellType("cookies"), false);
+    assert.equal(
+      shouldAutoPauseOnComplianceBlock({
+        gate: "blocked",
+        pageStatus: "published",
+        pageType: "builder",
+      }),
+      false,
+    );
+    assert.equal(
+      shouldAutoPauseOnComplianceBlock({
+        gate: "blocked",
+        pageStatus: "published",
+        pageType: "tsl",
+      }),
+      true,
+    );
+    assert.equal(
+      shouldEnforceComplianceServeBlock({ gate: "blocked", pageType: "builder" }),
+      false,
+    );
+    assert.equal(
+      shouldEnforceComplianceServeBlock({ gate: "blocked", pageType: "Builder" }),
+      false,
+    );
+    assert.equal(
+      shouldEnforceComplianceServeBlock({ gate: "blocked", pageType: "review" }),
+      true,
+    );
+    assert.equal(
+      shouldAutoPauseOnComplianceBlock({
+        gate: "blocked",
+        pageStatus: "draft",
+        pageType: "tsl",
+      }),
+      false,
+    );
+    assert.equal(
+      shouldEnforceComplianceServeBlock({ gate: "ready_for_review", pageType: "tsl" }),
+      false,
+    );
   });
 
   it("19. tenant isolation is enforced by query userId (contract)", () => {

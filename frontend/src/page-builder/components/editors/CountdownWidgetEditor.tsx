@@ -60,10 +60,17 @@ export function CountdownWidgetEditor({
         />
         <NumberField
           label={t("pages.pageBuilder.chrome.digitSize")}
-          value={(content.digitSize as number) ?? 48}
-          min={20}
-          max={120}
+          value={(content.digitSize as number) ?? 36}
+          min={18}
+          max={96}
           onChange={(v) => setContent({ digitSize: v })}
+        />
+        <NumberField
+          label={t("pages.pageBuilder.panel.radius")}
+          value={(content.digitRadius as number) ?? 10}
+          min={0}
+          max={32}
+          onChange={(v) => setContent({ digitRadius: v })}
         />
       </PanelSection>
       <PanelSection title={t("pages.pageBuilder.colors")}>

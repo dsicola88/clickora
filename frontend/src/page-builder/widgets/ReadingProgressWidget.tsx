@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
+import { useBuilderSurface } from "../builder-surface";
 
 export interface ReadingProgressContent {
   height: number;
@@ -16,15 +17,16 @@ export function ReadingProgressWidget({
   widget: WidgetNode;
   device: DeviceType;
 }) {
+  const inBuilder = useBuilderSurface();
   const c = widget.content as Partial<ReadingProgressContent>;
   const height = c.height ?? 4;
   const bg = c.bg ?? "transparent";
   const fillColor = c.fillColor ?? "#e63946";
   const position = c.position ?? "top";
-  const [pct, setPct] = useState(0);
+  const [pct, setPct] = useState(inBuilder ? 35 : 0);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (inBuilder || typeof window === "undefined") return;
     const onScroll = () => {
       const total = document.documentElement.scrollHeight - window.innerHeight;
       const p = total > 0 ? Math.min(100, Math.max(0, (window.scrollY / total) * 100)) : 0;
@@ -33,13 +35,13 @@ export function ReadingProgressWidget({
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [inBuilder]);
 
   return (
     <div style={stylesToCssWidgetContent(widget.styles, device)}>
       <div
         style={{
-          position: "fixed",
+          position: inBuilder ? "absolute" : "fixed",
           left: 0,
           right: 0,
           [position]: 0,

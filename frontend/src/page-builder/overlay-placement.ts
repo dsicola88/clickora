@@ -114,6 +114,8 @@ export function overlayHostStyle(args: {
   zIndex?: number;
   backdrop?: boolean;
   backdropColor?: string;
+  /** No canvas do builder: absolute no frame (não fixed na janela). */
+  containToParent?: boolean;
 }): CSSProperties {
   const ox = Math.max(0, args.offsetXPx ?? 16);
   const oy = Math.max(0, args.offsetYPx ?? 16);
@@ -130,7 +132,7 @@ export function overlayHostStyle(args: {
   }
 
   const base: CSSProperties = {
-    position: "fixed",
+    position: args.containToParent ? "absolute" : "fixed",
     zIndex: z,
     pointerEvents: "none",
   };
@@ -186,16 +188,27 @@ export function overlayCardWidthStyle(args: {
   mode: OverlayDisplayMode;
   position: OverlayPosition;
   maxWidthPx?: number;
+  /**
+   * No canvas do builder o pai já é o frame do dispositivo —
+   * usar 100% (não 92vw da janela) para o cartão não «escapar» nem
+   * parecer mais largo no tablet do que no desktop.
+   */
+  containToParent?: boolean;
 }): CSSProperties {
   const maxW = Math.min(960, Math.max(240, args.maxWidthPx ?? 480));
+  const fluid = args.containToParent ? "100%" : "92vw";
   if (args.mode === "bar" || args.position === "top" || args.position === "bottom") {
     return { width: "100%", maxWidth: "100%", borderRadius: args.mode === "bar" ? 0 : 12 };
   }
   if (args.position === "left" || args.position === "right" || args.mode === "slide-in") {
-    return { width: `min(92vw, ${Math.min(maxW, 420)}px)`, maxWidth: "92vw", height: "100%" };
+    return {
+      width: `min(${fluid}, ${Math.min(maxW, 420)}px)`,
+      maxWidth: fluid,
+      height: "100%",
+    };
   }
   if (args.mode === "toast") {
-    return { width: `min(92vw, ${Math.min(maxW, 360)}px)` };
+    return { width: `min(${fluid}, ${Math.min(maxW, 360)}px)`, maxWidth: fluid };
   }
-  return { width: `min(92vw, ${maxW}px)` };
+  return { width: `min(${fluid}, ${maxW}px)`, maxWidth: fluid };
 }

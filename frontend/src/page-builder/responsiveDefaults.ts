@@ -4,6 +4,21 @@ import type { DeviceType, ResponsiveValue, SpacingValue, TypographyValue } from 
 export const BUILDER_MOBILE_MAX_PX = 767;
 export const BUILDER_TABLET_MAX_PX = 1024;
 
+/**
+ * Larguras fixas do frame no editor.
+ * Desktop NÃO pode ser `100%` da área útil — com sidebars isso fica mais estreito
+ * que 768px e o tablet parece «mais expandido» que o computador.
+ */
+export const BUILDER_DEVICE_FRAME_PX: Record<DeviceType, number> = {
+  desktop: 1200,
+  tablet: 768,
+  mobile: 390,
+};
+
+export function builderDeviceFrameWidth(device: DeviceType): string {
+  return `${BUILDER_DEVICE_FRAME_PX[device]}px`;
+}
+
 export function viewportToBuilderDevice(widthPx: number): DeviceType {
   if (widthPx <= BUILDER_MOBILE_MAX_PX) return "mobile";
   if (widthPx <= BUILDER_TABLET_MAX_PX) return "tablet";

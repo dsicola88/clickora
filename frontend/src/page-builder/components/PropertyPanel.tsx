@@ -608,6 +608,24 @@ function WidgetContentTab({
             ]}
             onChange={(v) => setContent({ objectFit: v })}
           />
+          <SelectField
+            label={t("pages.pageBuilder.widgets.content.imageHero")}
+            value={c.hero === true ? "yes" : "no"}
+            options={[
+              { value: "no", label: t("common.no") },
+              { value: "yes", label: t("common.yes") },
+            ]}
+            onChange={(v) => setContent({ hero: v === "yes" })}
+          />
+          <SelectField
+            label={t("pages.pageBuilder.widgets.content.imagePortalProduct")}
+            value={c.portalProduct === true ? "yes" : "no"}
+            options={[
+              { value: "no", label: t("common.no") },
+              { value: "yes", label: t("common.yes") },
+            ]}
+            onChange={(v) => setContent({ portalProduct: v === "yes" })}
+          />
           <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
             {t("pages.pageBuilder.widgets.content.imageHint")}
           </p>
@@ -1012,6 +1030,20 @@ function WidgetContentTab({
             value={(c.titleColor as string) ?? "#64748b"}
             onChange={(v) => setContent({ titleColor: v })}
           />
+          <NumberField
+            label={t("pages.pageBuilder.chrome.digitSize")}
+            value={(c.fontSize as number) ?? 36}
+            min={18}
+            max={72}
+            onChange={(v) => setContent({ fontSize: v })}
+          />
+          <NumberField
+            label={t("pages.pageBuilder.widgets.phone.fontSize")}
+            value={(c.titleFontSize as number) ?? 14}
+            min={11}
+            max={22}
+            onChange={(v) => setContent({ titleFontSize: v })}
+          />
         </Section>
       );
     case "googleMaps":
@@ -1123,6 +1155,20 @@ function WidgetContentTab({
             value={(c.buttonColor as string) ?? "#ffffff"}
             onChange={(v) => setContent({ buttonColor: v })}
           />
+          <NumberField
+            label={t("pages.pageBuilder.panel.radius")}
+            value={(c.buttonRadius as number) ?? 10}
+            min={0}
+            max={32}
+            onChange={(v) => setContent({ buttonRadius: v })}
+          />
+          <NumberField
+            label={t("pages.pageBuilder.widgets.phone.fontSize")}
+            value={(c.buttonFontSize as number) ?? 14}
+            min={11}
+            max={22}
+            onChange={(v) => setContent({ buttonFontSize: v })}
+          />
         </Section>
       );
     case "shareButtons":
@@ -1165,38 +1211,93 @@ function WidgetContentTab({
             value={(c.buttonColor as string) ?? "#ffffff"}
             onChange={(v) => setContent({ buttonColor: v })}
           />
+          <NumberField
+            label={t("pages.pageBuilder.chrome.itemGap")}
+            value={(c.gap as number) ?? 10}
+            min={4}
+            max={40}
+            onChange={(v) => setContent({ gap: v })}
+          />
+          <NumberField
+            label={t("pages.pageBuilder.panel.radius")}
+            value={(c.borderRadius as number) ?? 10}
+            min={0}
+            max={32}
+            onChange={(v) => setContent({ borderRadius: v })}
+          />
+          <NumberField
+            label={t("pages.pageBuilder.widgets.phone.fontSize")}
+            value={(c.fontSize as number) ?? 13}
+            min={11}
+            max={20}
+            onChange={(v) => setContent({ fontSize: v })}
+          />
         </Section>
       );
-    case "tableOfContents":
+    case "tableOfContents": {
+      const tocItems =
+        (c.items as Array<{ id: string; label: string; href: string }>) ?? [];
+      const tocManual = (c.auto as boolean) === false;
       return (
-        <Section title={t("pages.pageBuilder.widgets.content.toc")}>
-          <TextField
-            label={t("pages.pageBuilder.widgets.fields.title")}
-            value={(c.title as string) ?? t("pages.pageBuilder.defaults.tocTitle")}
-            placeholder={t("pages.pageBuilder.defaults.tocTitle")}
-            onChange={(v) => setContent({ title: v })}
-          />
-          <SelectField
-            label={t("pages.pageBuilder.widgets.content.autoToc")}
-            value={(c.auto as boolean) !== false ? "yes" : "no"}
-            options={[
-              { value: "yes", label: t("common.yes") },
-              { value: "no", label: t("pages.pageBuilder.widgets.opt.manualOnly") },
-            ]}
-            onChange={(v) => setContent({ auto: v === "yes" })}
-          />
-          <ColorField
-            label={t("pages.pageBuilder.widgets.content.linkColor")}
-            value={(c.linkColor as string) ?? "#0f172a"}
-            onChange={(v) => setContent({ linkColor: v })}
-          />
-          <ColorField
-            label="Hover"
-            value={(c.hoverColor as string) ?? "#e63946"}
-            onChange={(v) => setContent({ hoverColor: v })}
-          />
-        </Section>
+        <>
+          <Section title={t("pages.pageBuilder.widgets.content.toc")}>
+            <TextField
+              label={t("pages.pageBuilder.widgets.fields.title")}
+              value={(c.title as string) ?? t("pages.pageBuilder.defaults.tocTitle")}
+              placeholder={t("pages.pageBuilder.defaults.tocTitle")}
+              onChange={(v) => setContent({ title: v })}
+            />
+            <SelectField
+              label={t("pages.pageBuilder.widgets.content.autoToc")}
+              value={(c.auto as boolean) !== false ? "yes" : "no"}
+              options={[
+                { value: "yes", label: t("common.yes") },
+                { value: "no", label: t("pages.pageBuilder.widgets.opt.manualOnly") },
+              ]}
+              onChange={(v) => setContent({ auto: v === "yes" })}
+            />
+            <ColorField
+              label={t("pages.pageBuilder.widgets.content.linkColor")}
+              value={(c.linkColor as string) ?? "#0f172a"}
+              onChange={(v) => setContent({ linkColor: v })}
+            />
+            <ColorField
+              label="Hover"
+              value={(c.hoverColor as string) ?? "#e63946"}
+              onChange={(v) => setContent({ hoverColor: v })}
+            />
+          </Section>
+          {tocManual ? (
+            <ListEditor
+              title={t("pages.pageBuilder.widgets.content.tocItems")}
+              items={tocItems}
+              onChange={(next) => setContent({ items: next })}
+              itemLabel={(it) => it.label || it.href || t("pages.pageBuilder.defaults.tocSection")}
+              newItem={() => ({
+                id: `toc_${nanoid(6)}`,
+                label: t("pages.pageBuilder.defaults.tocSection"),
+                href: "#",
+              })}
+              renderFields={(item, update) => (
+                <>
+                  <TextField
+                    label={t("pages.pageBuilder.chrome.fieldLabel")}
+                    value={item.label}
+                    onChange={(v) => update({ label: v })}
+                  />
+                  <TextField
+                    label={t("pages.pageBuilder.widgets.fields.linkUrl")}
+                    value={item.href}
+                    onChange={(v) => update({ href: v })}
+                    placeholder="#secao"
+                  />
+                </>
+              )}
+            />
+          ) : null}
+        </>
       );
+    }
     case "lottie":
       return (
         <Section title="Lottie">
@@ -4168,6 +4269,27 @@ function PriceTableContentEditor({
           max={32}
           onChange={(v) => setContent({ borderRadius: v })}
         />
+        <NumberField
+          label={t("pages.pageBuilder.chrome.digitSize")}
+          value={(content.priceFontSize as number) ?? 44}
+          min={24}
+          max={72}
+          onChange={(v) => setContent({ priceFontSize: v })}
+        />
+        <NumberField
+          label={`${t("pages.pageBuilder.chrome.badgeOpt")} · ${t("pages.pageBuilder.panel.radius")}`}
+          value={(content.badgeRadius as number) ?? 8}
+          min={0}
+          max={32}
+          onChange={(v) => setContent({ badgeRadius: v })}
+        />
+        <NumberField
+          label={`CTA · ${t("pages.pageBuilder.panel.radius")}`}
+          value={(content.ctaRadius as number) ?? 10}
+          min={0}
+          max={32}
+          onChange={(v) => setContent({ ctaRadius: v })}
+        />
       </Section>
     </>
   );
@@ -4470,6 +4592,13 @@ function ProgressTrackerContentEditor({
           min={4}
           max={60}
           onChange={(v) => setContent({ gap: v })}
+        />
+        <NumberField
+          label={t("pages.pageBuilder.panel.radius")}
+          value={(content.borderRadius as number) ?? 8}
+          min={0}
+          max={32}
+          onChange={(v) => setContent({ borderRadius: v })}
         />
         <ColorField
           label={t("pages.pageBuilder.chrome.trackColor")}

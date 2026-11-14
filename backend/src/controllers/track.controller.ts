@@ -25,6 +25,7 @@ import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnter
 import { datacenterClickMeta, datacenterClickPlace } from "../lib/ipNetworkClass";
 import { reportCloudClickMeta } from "../lib/reportCloudIpRanges";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
+import { shouldEnforceComplianceServeBlock } from "../compliance/evaluate";
 import { pickRotatorDestination, stickyRotatorCookieName } from "../lib/trafficRotator.service";
 import { rewriteLocalPresellDestination } from "../lib/rewriteLocalPresellDestination";
 import {
@@ -429,6 +430,19 @@ export const trackController = {
     }
     if (page.status !== "published") {
       console.warn("[track.redirect] presell não publicada → sem oferta", { presellId, status: page.status });
+      return sendSafeVisitorPage(res, page.settings);
+    }
+    if (
+      shouldEnforceComplianceServeBlock({
+        gate: page.complianceGate,
+        pageType: page.type,
+      })
+    ) {
+      console.warn("[track.redirect] compliance blocked → sem oferta", {
+        presellId,
+        gate: page.complianceGate,
+        type: page.type,
+      });
       return sendSafeVisitorPage(res, page.settings);
     }
     const configuredOffer = affiliateLinkFromPresellPage(page.content, page.tracking);
@@ -867,6 +881,14 @@ export const trackController = {
     const attr = impressionAttributionFromPixelQuery(req.query);
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
     if (!page || page.status !== "published") return res.status(404).end();
+    if (
+      shouldEnforceComplianceServeBlock({
+        gate: page.complianceGate,
+        pageType: page.type,
+      })
+    ) {
+      return res.status(404).end();
+    }
     if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) return res.status(404).end();
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) return res.status(accessCheck.status).end();
@@ -961,6 +983,14 @@ export const trackController = {
       return res.status(404).json({ error: "Página não encontrada" });
     }
     if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
+    if (
+      shouldEnforceComplianceServeBlock({
+        gate: page.complianceGate,
+        pageType: page.type,
+      })
+    ) {
+      return res.status(403).json({ error: "Página indisponível por conformidade" });
+    }
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
 
@@ -1099,6 +1129,14 @@ export const trackController = {
       return res.status(404).json({ error: "Página não encontrada" });
     }
     if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
+    if (
+      shouldEnforceComplianceServeBlock({
+        gate: page.complianceGate,
+        pageType: page.type,
+      })
+    ) {
+      return res.status(403).json({ error: "Página indisponível por conformidade" });
+    }
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
 
@@ -1163,6 +1201,14 @@ export const trackController = {
       return res.status(404).json({ error: "Página não encontrada" });
     }
     if (page.status !== "published") return res.status(403).json({ error: "Página indisponível para tracking" });
+    if (
+      shouldEnforceComplianceServeBlock({
+        gate: page.complianceGate,
+        pageType: page.type,
+      })
+    ) {
+      return res.status(403).json({ error: "Página indisponível por conformidade" });
+    }
     const accessCheck = await validateOwnerCanTrack(page.userId);
     if (!accessCheck.ok) return res.status(accessCheck.status).json({ error: accessCheck.message });
 

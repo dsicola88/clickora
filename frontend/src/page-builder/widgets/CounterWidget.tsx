@@ -68,7 +68,10 @@ export function CounterWidget({ widget, device }: { widget: WidgetNode; device: 
       >
         <div
           style={{
-            fontSize: 42,
+            fontSize:
+              typeof c.fontSize === "number" && Number.isFinite(c.fontSize)
+                ? Math.min(72, Math.max(18, Math.round(c.fontSize)))
+                : 36,
             fontWeight: 800,
             lineHeight: 1.1,
             color: c.numberColor ?? "#0f172a",
@@ -82,7 +85,16 @@ export function CounterWidget({ widget, device }: { widget: WidgetNode; device: 
           <span>{c.suffix ?? ""}</span>
         </div>
         {c.title ? (
-          <div style={{ fontSize: 14, fontWeight: 500, color: c.titleColor ?? "#64748b" }}>
+          <div
+            style={{
+              fontSize:
+                typeof c.titleFontSize === "number" && Number.isFinite(c.titleFontSize)
+                  ? Math.min(22, Math.max(11, Math.round(c.titleFontSize)))
+                  : 14,
+              fontWeight: 500,
+              color: c.titleColor ?? "#64748b",
+            }}
+          >
             {c.title}
           </div>
         ) : null}

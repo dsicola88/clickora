@@ -1098,3 +1098,28 @@ export function canPublishForAds(gate: ComplianceGate): boolean {
 export function isInstantPublishPresellType(type: string | null | undefined): boolean {
   return (type || "").trim().toLowerCase() === "builder";
 }
+
+/**
+ * Páginas `builder` auditam em background mas não devem ser tiradas do ar nem
+ * escondidas do visitante por gate=blocked (senão «Publicar» / toggle ficam presos em Pausada).
+ */
+export function shouldEnforceComplianceServeBlock(args: {
+  gate: string | null | undefined;
+  pageType: string | null | undefined;
+}): boolean {
+  if ((args.gate || "").trim().toLowerCase() !== "blocked") return false;
+  if (isInstantPublishPresellType(args.pageType)) return false;
+  return true;
+}
+
+/** Auto-pause só para tipos com gate Ads; builder publica já e permanece publicado. */
+export function shouldAutoPauseOnComplianceBlock(args: {
+  gate: string | null | undefined;
+  pageStatus: string | null | undefined;
+  pageType: string | null | undefined;
+}): boolean {
+  if ((args.gate || "").trim().toLowerCase() !== "blocked") return false;
+  if (args.pageStatus !== "published") return false;
+  if (isInstantPublishPresellType(args.pageType)) return false;
+  return true;
+}

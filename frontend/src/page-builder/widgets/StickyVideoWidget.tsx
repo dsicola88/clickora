@@ -4,6 +4,8 @@ import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
 import { usePageBuilderT } from "../usePageBuilderT";
 import { embedUrlWithPlayback, resolvePageBuilderVideoUrl } from "../videoEmbed";
+import { useBuilderSurface } from "../builder-surface";
+import { builderContainedWidthPx } from "../builderFrameContain";
 
 export interface StickyVideoContent {
   url: string;
@@ -19,16 +21,26 @@ export interface StickyVideoContent {
 
 export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const t = usePageBuilderT();
+  const inBuilder = useBuilderSurface();
   const c = widget.content as Partial<StickyVideoContent>;
   const url = (c.url ?? "").trim();
   const position = c.position ?? "bottom-right";
   const widthPx = c.width ?? 320;
-  const width =
-    device === "mobile" ? `min(92vw, ${Math.min(widthPx, 280)}px)` : `min(92vw, ${widthPx}px)`;
+  const width = builderContainedWidthPx(widthPx, {
+    inBuilder,
+    device,
+    mobileCap: 280,
+    tabletCap: 300,
+  });
   const aspect = c.aspectRatio ?? "16/9";
   const borderRadius = c.borderRadius ?? 8;
   const showCloseButton = c.showCloseButton ?? true;
-  const inlineHeight = c.inlineHeight ?? 360;
+  const inlineHeight =
+    device === "mobile"
+      ? Math.min(c.inlineHeight ?? 360, 240)
+      : device === "tablet"
+        ? Math.min(c.inlineHeight ?? 360, 300)
+        : (c.inlineHeight ?? 360);
   const autoplay = c.autoplay === true;
   const controls = c.controls !== false;
 
@@ -132,10 +144,11 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
       {showPip && pipSrc ? (
         <div
           style={{
-            position: "fixed",
+            position: inBuilder ? "absolute" : "fixed",
             [vSide]: 20,
             [hSide]: 20,
             width,
+            maxWidth: inBuilder ? "100%" : undefined,
             aspectRatio: aspect.replace("/", " / "),
             borderRadius,
             overflow: "hidden",

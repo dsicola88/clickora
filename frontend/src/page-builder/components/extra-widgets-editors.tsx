@@ -7,7 +7,15 @@ import {
   TextareaField,
 } from "./PropertyControls";
 import { cookieBannerFollowsPageLanguage, resolveCookieBannerCopy } from "../cookieBannerCopy";
+import {
+  resolveCookieBannerVisual,
+  setCookieResponsiveLayout,
+  setCookieResponsiveNumber,
+  type CookieButtonLayout,
+} from "../cookieBannerStyle";
 import { usePresellPublicLocale } from "@/lib/presellPublicLocale";
+import { useBuilder } from "../store";
+import type { ResponsiveValue } from "../types";
 
 function Section({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
@@ -30,6 +38,7 @@ export function CookieBannerContentEditor({
   setContent: (p: Record<string, unknown>) => void;
 }) {
   const { t } = useAppLocale();
+  const device = useBuilder((s) => s.device);
   const pageLanguage = usePresellPublicLocale();
   const followsLanguage = cookieBannerFollowsPageLanguage({
     title: typeof c.title === "string" ? c.title : undefined,
@@ -47,7 +56,14 @@ export function CookieBannerContentEditor({
     },
     pageLanguage,
   );
-  const variant = (c.variant as string) ?? "modal";
+  const variant = ((c.variant as string) ?? "modal") as "modal" | "corner" | "bar";
+  const visual = resolveCookieBannerVisual(c, device, variant);
+  const deviceLabel =
+    device === "mobile"
+      ? t("pages.pageBuilder.topbar.mobile")
+      : device === "tablet"
+        ? t("pages.pageBuilder.topbar.tablet")
+        : t("pages.pageBuilder.topbar.desktop");
   const animOptions = [
     { value: "none", label: t("pages.pageBuilder.popups.animNone") },
     { value: "fade", label: t("pages.pageBuilder.popups.animFade") },
@@ -61,6 +77,133 @@ export function CookieBannerContentEditor({
   ];
   return (
     <>
+      <div className="border-b border-editor-border bg-editor-panel-2/60 px-3 py-2">
+        <p className="text-[11px] leading-relaxed text-editor-fg-muted">
+          {t("pages.pageBuilder.widgets.cookie.deviceHint").replace("{device}", deviceLabel)}
+        </p>
+      </div>
+
+      <Section title={t("pages.pageBuilder.widgets.cookie.buttons")}>
+        <TextField
+          label={t("pages.pageBuilder.widgets.cookie.accept")}
+          value={copy.allowLabel}
+          onChange={(v) => setContent({ allowLabel: v, followLanguage: false })}
+        />
+        <TextField
+          label={t("pages.pageBuilder.widgets.cookie.decline")}
+          value={copy.declineLabel}
+          onChange={(v) => setContent({ declineLabel: v, followLanguage: false })}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <ColorField
+            label={t("pages.pageBuilder.widgets.cookie.acceptBg")}
+            value={(c.allowBg as string) || (c.accentColor as string) || "#0f172a"}
+            onChange={(v) => setContent({ allowBg: v, accentColor: v })}
+          />
+          <ColorField
+            label={t("pages.pageBuilder.widgets.cookie.acceptText")}
+            value={(c.allowTextColor as string) || "#ffffff"}
+            onChange={(v) => setContent({ allowTextColor: v })}
+          />
+          <ColorField
+            label={t("pages.pageBuilder.widgets.cookie.declineBg")}
+            value={(c.declineBg as string) || "#ffffff"}
+            onChange={(v) => setContent({ declineBg: v })}
+          />
+          <ColorField
+            label={t("pages.pageBuilder.widgets.cookie.declineText")}
+            value={(c.declineTextColor as string) || "#334155"}
+            onChange={(v) => setContent({ declineTextColor: v })}
+          />
+        </div>
+        <ColorField
+          label={t("pages.pageBuilder.widgets.cookie.declineBorder")}
+          value={(c.declineBorderColor as string) || "#cbd5e1"}
+          onChange={(v) => setContent({ declineBorderColor: v })}
+        />
+        <SelectField
+          label={`${t("pages.pageBuilder.widgets.cookie.buttonLayout")} (${deviceLabel})`}
+          value={visual.buttonLayoutResolved}
+          options={[
+            { value: "row", label: t("pages.pageBuilder.widgets.cookie.layoutRow") },
+            { value: "stack", label: t("pages.pageBuilder.widgets.cookie.layoutStack") },
+          ]}
+          onChange={(v) =>
+            setContent({
+              buttonLayout: setCookieResponsiveLayout(
+                c.buttonLayout as CookieButtonLayout | ResponsiveValue<CookieButtonLayout> | undefined,
+                device,
+                v as CookieButtonLayout,
+              ),
+            })
+          }
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <NumberField
+            label={`${t("pages.pageBuilder.widgets.cookie.btnFontSize")} (${deviceLabel})`}
+            value={visual.buttonFontSize}
+            onChange={(v) =>
+              setContent({
+                buttonFontSize: setCookieResponsiveNumber(
+                  c.buttonFontSize as number | ResponsiveValue<number> | undefined,
+                  device,
+                  v,
+                  14,
+                ),
+              })
+            }
+            min={11}
+            max={22}
+          />
+          <NumberField
+            label={t("pages.pageBuilder.widgets.cookie.btnRadius")}
+            value={typeof c.buttonRadius === "number" ? c.buttonRadius : 10}
+            onChange={(v) => setContent({ buttonRadius: v })}
+            min={0}
+            max={32}
+          />
+          <NumberField
+            label={`${t("pages.pageBuilder.widgets.cookie.btnPadY")} (${deviceLabel})`}
+            value={visual.buttonPaddingY}
+            onChange={(v) =>
+              setContent({
+                buttonPaddingY: setCookieResponsiveNumber(
+                  c.buttonPaddingY as number | ResponsiveValue<number> | undefined,
+                  device,
+                  v,
+                  11,
+                ),
+              })
+            }
+            min={6}
+            max={28}
+          />
+          <NumberField
+            label={`${t("pages.pageBuilder.widgets.cookie.btnPadX")} (${deviceLabel})`}
+            value={visual.buttonPaddingX}
+            onChange={(v) =>
+              setContent({
+                buttonPaddingX: setCookieResponsiveNumber(
+                  c.buttonPaddingX as number | ResponsiveValue<number> | undefined,
+                  device,
+                  v,
+                  16,
+                ),
+              })
+            }
+            min={8}
+            max={40}
+          />
+        </div>
+        <NumberField
+          label={t("pages.pageBuilder.widgets.cookie.btnGap")}
+          value={typeof c.buttonGap === "number" ? c.buttonGap : 10}
+          onChange={(v) => setContent({ buttonGap: v })}
+          min={4}
+          max={24}
+        />
+      </Section>
+
       <Section title={t("pages.pageBuilder.popups.modePosition")}>
         <SelectField
           label={t("pages.pageBuilder.popups.mode")}
@@ -117,34 +260,36 @@ export function CookieBannerContentEditor({
           />
         </div>
         <NumberField
-          label={t("pages.pageBuilder.popups.maxWidth")}
-          value={typeof c.maxWidthPx === "number" ? c.maxWidthPx : variant === "corner" ? 340 : 420}
-          onChange={(v) => setContent({ maxWidthPx: v })}
+          label={`${t("pages.pageBuilder.popups.maxWidth")} (${deviceLabel})`}
+          value={visual.maxWidthPx}
+          onChange={(v) =>
+            setContent({
+              maxWidthPx: setCookieResponsiveNumber(
+                c.maxWidthPx as number | ResponsiveValue<number> | undefined,
+                device,
+                v,
+                variant === "corner" ? 340 : 420,
+              ),
+            })
+          }
           min={240}
           max={720}
         />
-      </Section>
-
-      <Section title={t("pages.pageBuilder.widgets.cookie.timing")}>
         <NumberField
-          label={t("pages.pageBuilder.popups.entryDelay")}
-          value={typeof c.delayMs === "number" ? c.delayMs : 0}
-          onChange={(v) => setContent({ delayMs: v })}
-          min={0}
-          max={30000}
-        />
-        <SelectField
-          label={t("pages.pageBuilder.widgets.cookie.animation")}
-          value={(c.animation as string) ?? "fadeUp"}
-          options={animOptions}
-          onChange={(v) => setContent({ animation: v })}
-        />
-        <NumberField
-          label={t("pages.pageBuilder.widgets.cookie.animDuration")}
-          value={typeof c.animationDurationMs === "number" ? c.animationDurationMs : 320}
-          onChange={(v) => setContent({ animationDurationMs: v })}
-          min={80}
-          max={3000}
+          label={`${t("pages.pageBuilder.widgets.cookie.cardPadding")} (${deviceLabel})`}
+          value={visual.cardPadding}
+          onChange={(v) =>
+            setContent({
+              cardPadding: setCookieResponsiveNumber(
+                c.cardPadding as number | ResponsiveValue<number> | undefined,
+                device,
+                v,
+                24,
+              ),
+            })
+          }
+          min={12}
+          max={48}
         />
       </Section>
 
@@ -170,16 +315,6 @@ export function CookieBannerContentEditor({
           rows={4}
         />
         <TextField
-          label={t("pages.pageBuilder.widgets.cookie.accept")}
-          value={copy.allowLabel}
-          onChange={(v) => setContent({ allowLabel: v, followLanguage: false })}
-        />
-        <TextField
-          label={t("pages.pageBuilder.widgets.cookie.decline")}
-          value={copy.declineLabel}
-          onChange={(v) => setContent({ declineLabel: v, followLanguage: false })}
-        />
-        <TextField
           label={t("pages.pageBuilder.widgets.cookie.policyLabel")}
           value={copy.policyLabel}
           onChange={(v) => setContent({ policyLabel: v, followLanguage: false })}
@@ -195,6 +330,15 @@ export function CookieBannerContentEditor({
           onChange={(v) => setContent({ policyUrl: v })}
           placeholder="/privacidade"
         />
+        <TextField
+          label={t("pages.pageBuilder.widgets.cookie.offerHref")}
+          value={(c.offerHref as string) ?? ""}
+          onChange={(v) => setContent({ offerHref: v.trim() })}
+          placeholder="https://…"
+        />
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+          {t("pages.pageBuilder.widgets.cookie.offerHrefHint")}
+        </p>
         <SelectField
           label={t("pages.pageBuilder.widgets.cookie.closeX")}
           value={c.showCloseButton === true ? "on" : "off"}
@@ -206,11 +350,95 @@ export function CookieBannerContentEditor({
         />
       </Section>
 
-      <Section title={t("pages.pageBuilder.style")}>
+      <Section title={t("pages.pageBuilder.widgets.cookie.cardStyle")}>
+        <div className="grid grid-cols-2 gap-2">
+          <ColorField
+            label={t("pages.pageBuilder.widgets.cookie.cardBg")}
+            value={(c.cardBg as string) || "#ffffff"}
+            onChange={(v) => setContent({ cardBg: v })}
+          />
+          <NumberField
+            label={t("pages.pageBuilder.widgets.cookie.cardRadius")}
+            value={typeof c.cardRadius === "number" ? c.cardRadius : 14}
+            onChange={(v) => setContent({ cardRadius: v })}
+            min={0}
+            max={28}
+          />
+          <ColorField
+            label={t("pages.pageBuilder.widgets.cookie.titleColor")}
+            value={(c.titleColor as string) || "#0f172a"}
+            onChange={(v) => setContent({ titleColor: v })}
+          />
+          <ColorField
+            label={t("pages.pageBuilder.widgets.cookie.bodyColor")}
+            value={(c.bodyColor as string) || "#475569"}
+            onChange={(v) => setContent({ bodyColor: v })}
+          />
+          <NumberField
+            label={`${t("pages.pageBuilder.widgets.cookie.titleSize")} (${deviceLabel})`}
+            value={visual.titleFontSize}
+            onChange={(v) =>
+              setContent({
+                titleFontSize: setCookieResponsiveNumber(
+                  c.titleFontSize as number | ResponsiveValue<number> | undefined,
+                  device,
+                  v,
+                  18,
+                ),
+              })
+            }
+            min={12}
+            max={32}
+          />
+          <NumberField
+            label={`${t("pages.pageBuilder.widgets.cookie.bodySize")} (${deviceLabel})`}
+            value={visual.bodyFontSize}
+            onChange={(v) =>
+              setContent({
+                bodyFontSize: setCookieResponsiveNumber(
+                  c.bodyFontSize as number | ResponsiveValue<number> | undefined,
+                  device,
+                  v,
+                  14,
+                ),
+              })
+            }
+            min={11}
+            max={20}
+          />
+        </div>
         <ColorField
-          label={t("pages.pageBuilder.widgets.cookie.acceptColor")}
-          value={(c.accentColor as string) ?? "#2563eb"}
-          onChange={(v) => setContent({ accentColor: v })}
+          label={t("pages.pageBuilder.widgets.cookie.policyLinkColor")}
+          value={(c.policyLinkColor as string) || visual.policyLinkColor}
+          onChange={(v) => setContent({ policyLinkColor: v })}
+        />
+        <ColorField
+          label={t("pages.pageBuilder.widgets.cookie.footerColor")}
+          value={(c.footerColor as string) || visual.footerColor || "#94a3b8"}
+          onChange={(v) => setContent({ footerColor: v })}
+        />
+      </Section>
+
+      <Section title={t("pages.pageBuilder.widgets.cookie.timing")}>
+        <NumberField
+          label={t("pages.pageBuilder.popups.entryDelay")}
+          value={typeof c.delayMs === "number" ? c.delayMs : 0}
+          onChange={(v) => setContent({ delayMs: v })}
+          min={0}
+          max={30000}
+        />
+        <SelectField
+          label={t("pages.pageBuilder.widgets.cookie.animation")}
+          value={(c.animation as string) ?? "fadeUp"}
+          options={animOptions}
+          onChange={(v) => setContent({ animation: v })}
+        />
+        <NumberField
+          label={t("pages.pageBuilder.widgets.cookie.animDuration")}
+          value={typeof c.animationDurationMs === "number" ? c.animationDurationMs : 320}
+          onChange={(v) => setContent({ animationDurationMs: v })}
+          min={80}
+          max={3000}
         />
         {variant === "modal" ? (
           <>
@@ -419,6 +647,24 @@ export function StickyVideoContentEditor({
         ]}
         onChange={(v) => setContent({ showCloseButton: v === "yes" })}
       />
+      <SelectField
+        label={t("pages.pageBuilder.widgets.content.autoplay")}
+        value={(c.autoplay as boolean) ? "yes" : "no"}
+        options={[
+          { value: "no", label: t("common.no") },
+          { value: "yes", label: t("pages.pageBuilder.widgets.opt.autoplayMuted") },
+        ]}
+        onChange={(v) => setContent({ autoplay: v === "yes" })}
+      />
+      <SelectField
+        label={t("pages.pageBuilder.widgets.content.controls")}
+        value={(c.controls as boolean) !== false ? "yes" : "no"}
+        options={[
+          { value: "yes", label: t("pages.pageBuilder.widgets.opt.visible") },
+          { value: "no", label: t("pages.pageBuilder.widgets.opt.hidden") },
+        ]}
+        onChange={(v) => setContent({ controls: v === "yes" })}
+      />
     </Section>
   );
 }
@@ -456,7 +702,7 @@ export function PhoneCallContentEditor({
       />
       <ColorField
         label={t("pages.pageBuilder.background")}
-        value={(c.bg as string) ?? "#10b981"}
+        value={(c.bg as string) ?? "#059669"}
         onChange={(v) => setContent({ bg: v })}
       />
       <ColorField
@@ -466,7 +712,7 @@ export function PhoneCallContentEditor({
       />
       <NumberField
         label={t("pages.pageBuilder.widgets.phone.radius")}
-        value={(c.borderRadius as number) ?? 8}
+        value={(c.borderRadius as number) ?? 10}
         onChange={(v) => setContent({ borderRadius: v })}
         min={0}
         max={32}

@@ -40,10 +40,12 @@ import { SECTION_LAYOUTS } from "../section-layouts";
 import { BlocksModal } from "./BlocksModal";
 import { TemplatesModal } from "./TemplatesModal";
 
+import { builderDeviceFrameWidth } from "../responsiveDefaults";
+
 const DEVICE_WIDTHS: Record<DeviceType, string> = {
-  desktop: "100%",
-  tablet: "768px",
-  mobile: "390px",
+  desktop: builderDeviceFrameWidth("desktop"),
+  tablet: builderDeviceFrameWidth("tablet"),
+  mobile: builderDeviceFrameWidth("mobile"),
 };
 
 const LAYOUT_TITLE_KEY: Record<string, MessageKey> = {

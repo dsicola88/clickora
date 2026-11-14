@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createSection, createWidget } from "./factory";
 import {
+  BUILDER_DEVICE_FRAME_PX,
+  builderDeviceFrameWidth,
   scaleSpacingForDevice,
   scaleTypographyForDevice,
   viewportToBuilderDevice,
@@ -17,6 +19,16 @@ describe("viewportToBuilderDevice", () => {
     expect(viewportToBuilderDevice(768)).toBe("tablet");
     expect(viewportToBuilderDevice(1024)).toBe("tablet");
     expect(viewportToBuilderDevice(1025)).toBe("desktop");
+  });
+});
+
+describe("builder device frames", () => {
+  it("desktop > tablet > mobile em px fixos (tablet nunca mais largo que desktop)", () => {
+    expect(BUILDER_DEVICE_FRAME_PX.desktop).toBeGreaterThan(BUILDER_DEVICE_FRAME_PX.tablet);
+    expect(BUILDER_DEVICE_FRAME_PX.tablet).toBeGreaterThan(BUILDER_DEVICE_FRAME_PX.mobile);
+    expect(builderDeviceFrameWidth("desktop")).toBe("1200px");
+    expect(builderDeviceFrameWidth("tablet")).toBe("768px");
+    expect(builderDeviceFrameWidth("mobile")).toBe("390px");
   });
 });
 

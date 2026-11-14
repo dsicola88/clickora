@@ -6,6 +6,7 @@ import Redis from "ioredis";
 import { systemPrisma } from "./prisma";
 import { affiliateLinkFromPresellPage } from "./trackOfferRedirectGuard";
 import { evaluateSubscriptionAccess } from "./subscription";
+import { shouldEnforceComplianceServeBlock } from "../compliance/evaluate";
 
 const MEMORY_TTL_MS = 60_000;
 const REDIS_TTL_SEC = 120;
@@ -123,6 +124,7 @@ export async function resolveTrackEdgeDest(presellId: string): Promise<DestPaylo
       id: true,
       userId: true,
       status: true,
+      type: true,
       content: true,
       tracking: true,
       settings: true,
@@ -132,7 +134,14 @@ export async function resolveTrackEdgeDest(presellId: string): Promise<DestPaylo
   });
   if (!page) return null;
   if (page.status !== "published") return null;
-  if (page.complianceGate === "blocked") return null;
+  if (
+    shouldEnforceComplianceServeBlock({
+      gate: page.complianceGate,
+      pageType: page.type,
+    })
+  ) {
+    return null;
+  }
   const access = evaluateSubscriptionAccess(page.user?.subscription ?? null);
   if (!access.allowed) return null;
   const destination = affiliateLinkFromPresellPage(page.content, page.tracking);

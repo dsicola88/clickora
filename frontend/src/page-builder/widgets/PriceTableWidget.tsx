@@ -27,6 +27,9 @@ export interface PriceTableContent {
   ctaBg: string;
   ctaColor: string;
   borderRadius: number;
+  priceFontSize?: number;
+  badgeRadius?: number;
+  ctaRadius?: number;
 }
 
 export function PriceTableWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
@@ -53,6 +56,18 @@ export function PriceTableWidget({ widget, device }: { widget: WidgetNode; devic
   const ctaBg = c.ctaBg ?? "#e63946";
   const ctaColor = c.ctaColor ?? "#ffffff";
   const borderRadius = c.borderRadius ?? 12;
+  const priceFontSize =
+    typeof c.priceFontSize === "number" && Number.isFinite(c.priceFontSize)
+      ? Math.min(72, Math.max(24, Math.round(c.priceFontSize)))
+      : 44;
+  const badgeRadius =
+    typeof c.badgeRadius === "number" && Number.isFinite(c.badgeRadius)
+      ? Math.min(32, Math.max(0, Math.round(c.badgeRadius)))
+      : 8;
+  const ctaRadius =
+    typeof c.ctaRadius === "number" && Number.isFinite(c.ctaRadius)
+      ? Math.min(32, Math.max(0, Math.round(c.ctaRadius)))
+      : 10;
 
   return (
     <div style={stylesToCssWidgetContent(widget.styles, device)}>
@@ -81,7 +96,7 @@ export function PriceTableWidget({ widget, device }: { widget: WidgetNode; devic
               background: accentColor,
               color: "#fff",
               padding: "4px 12px",
-              borderRadius: 999,
+              borderRadius: badgeRadius,
               fontSize: 11,
               fontWeight: 700,
               textTransform: "uppercase",
@@ -110,7 +125,7 @@ export function PriceTableWidget({ widget, device }: { widget: WidgetNode; devic
           <span style={{ fontSize: 18, fontWeight: 600, alignSelf: "flex-start", marginTop: 6 }}>
             {currency}
           </span>
-          <span style={{ fontSize: 56, fontWeight: 800, lineHeight: 1, color: accentColor }}>
+          <span style={{ fontSize: priceFontSize, fontWeight: 800, lineHeight: 1, color: accentColor }}>
             {price}
           </span>
           <span style={{ fontSize: 14, opacity: 0.65 }}>{period}</span>
@@ -145,7 +160,7 @@ export function PriceTableWidget({ widget, device }: { widget: WidgetNode; devic
             background: ctaBg,
             color: ctaColor,
             padding: "14px 24px",
-            borderRadius: 8,
+            borderRadius: ctaRadius,
             textAlign: "center",
             fontWeight: 600,
             fontSize: 15,

@@ -9,6 +9,7 @@ import {
   clampCookieOverlayOpacity,
   resolveCookieBannerCopy,
 } from "../cookieBannerCopy";
+import { resolveCookieBannerVisual, type CookieBannerStyleContent } from "../cookieBannerStyle";
 import {
   buildOverlayEntranceAnimation,
   overlayCardWidthStyle,
@@ -20,8 +21,10 @@ import {
 import { usePresellPublicLocale } from "@/lib/presellPublicLocale";
 import { useInlineEdit } from "../inline-edit";
 import { usePageBuilderT } from "../usePageBuilderT";
+import type { ResponsiveValue } from "../types";
+import type { CookieButtonLayout } from "../cookieBannerStyle";
 
-export interface CookieBannerContent {
+export interface CookieBannerContent extends CookieBannerStyleContent {
   title: string;
   body: string;
   allowLabel: string;
@@ -29,7 +32,6 @@ export interface CookieBannerContent {
   policyLabel: string;
   policyUrl: string;
   footerNote?: string;
-  accentColor: string;
   /** modal = overlay centrado; corner = canto; bar = faixa top/bottom */
   variant: "modal" | "corner" | "bar";
   position:
@@ -50,10 +52,11 @@ export interface CookieBannerContent {
   animation?: OverlayAnimation;
   animationDurationMs?: number;
   delayMs?: number;
-  maxWidthPx?: number;
   offsetXPx?: number;
   offsetYPx?: number;
   showCloseButton?: boolean;
+  maxWidthPx?: number | ResponsiveValue<number>;
+  buttonLayout?: CookieButtonLayout | ResponsiveValue<CookieButtonLayout>;
 }
 
 function readDismissed(key: string): boolean {
@@ -131,8 +134,8 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const policyLabel = copy.policyLabel;
   const footerNote = copy.footerNote;
   const policyUrl = (c.policyUrl ?? "/privacidade").trim() || "/privacidade";
-  const accentColor = c.accentColor ?? "#2563eb";
   const variant = resolveCookieVariant(c.variant);
+  const visual = resolveCookieBannerVisual(c, device, variant);
   const position = resolveOverlayPosition(
     c.position,
     defaultPositionForVariant(variant),
@@ -195,36 +198,12 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   };
 
   const allowClass: CSSProperties = {
-    flex: 1,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    border: "none",
+    ...visual.allowStyle,
     cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
-    background: accentColor,
-    color: "#ffffff",
-    fontWeight: 700,
-    fontSize: 15,
-    padding: "12px 16px",
-    borderRadius: 999,
-    textDecoration: "none",
-    boxSizing: "border-box",
   };
   const closeClass: CSSProperties = {
-    flex: 1,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
+    ...visual.declineStyle,
     cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
-    color: "#334155",
-    fontWeight: 600,
-    fontSize: 15,
-    padding: "12px 16px",
-    borderRadius: 999,
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    textDecoration: "none",
-    boxSizing: "border-box",
   };
 
   const saveCopy = (field: string, next: string) => {
@@ -239,11 +218,12 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const mode =
     variant === "bar" ? "bar" : variant === "corner" ? "toast" : ("modal" as const);
   const isBar = variant === "bar" || position === "top" || position === "bottom";
-  const maxW = c.maxWidthPx ?? (variant === "corner" ? 340 : 420);
+  const maxW = visual.maxWidthPx;
   const anim = !inBuilder
     ? buildOverlayEntranceAnimation(c.animation ?? "fadeUp", c.animationDurationMs ?? 320)
     : null;
   const showCloseX = c.showCloseButton === true;
+  const stackButtons = visual.layout === "stack";
 
   const card = (
     <aside
@@ -253,20 +233,28 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       data-testid={usesOverlay ? "presell-cookie-card" : "builder-cookie-banner"}
       data-variant={variant}
       data-position={position}
+      data-button-layout={visual.layout}
       style={{
         position: "relative",
         zIndex: 2,
-        ...overlayCardWidthStyle({ mode, position, maxWidthPx: maxW }),
-        borderRadius: isBar ? 0 : variant === "corner" ? 10 : 16,
-        padding: isBar ? "14px 18px" : variant === "modal" ? "28px 28px 24px" : "18px 18px 16px",
-        borderTop: variant === "corner" ? `4px solid ${accentColor}` : undefined,
+        ...overlayCardWidthStyle({
+          mode,
+          position,
+          maxWidthPx: maxW,
+          containToParent: inBuilder,
+        }),
+        borderRadius: isBar ? 0 : visual.cardRadius,
+        padding: isBar
+          ? `${Math.max(10, visual.cardPadding - 4)}px ${visual.cardPadding}px`
+          : `${visual.cardPadding}px`,
+        borderTop: variant === "corner" ? `3px solid ${visual.allowBg}` : undefined,
         boxShadow:
           variant === "bar"
             ? "0 4px 24px rgba(15, 23, 42, 0.12)"
             : variant === "modal"
-              ? "0 25px 50px -12px rgba(15, 23, 42, 0.35)"
-              : "0 12px 40px rgba(15, 23, 42, 0.18)",
-        background: "#ffffff",
+              ? "0 22px 48px -14px rgba(15, 23, 42, 0.28)"
+              : "0 12px 36px rgba(15, 23, 42, 0.16)",
+        background: visual.cardBg,
         fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif",
         pointerEvents: "auto",
         ...(anim ? { animation: anim.animation } : null),
@@ -305,12 +293,12 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
         <div style={{ flex: isBar ? "1 1 220px" : undefined }}>
           <p
             style={{
-              margin: isBar ? "0 0 4px" : "0 0 12px",
-              fontSize: variant === "modal" ? 22 : 14,
-              fontWeight: 800,
-              color: "#0f172a",
-              lineHeight: 1.25,
-              letterSpacing: -0.2,
+              margin: isBar ? "0 0 4px" : "0 0 10px",
+              fontSize: visual.titleFontSize,
+              fontWeight: 700,
+              color: visual.titleColor,
+              lineHeight: 1.3,
+              letterSpacing: -0.15,
             }}
           >
             {commit ? (
@@ -337,10 +325,10 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
           </p>
           <p
             style={{
-              margin: isBar ? 0 : "0 0 18px",
-              fontSize: isBar ? 13 : 14,
-              lineHeight: 1.6,
-              color: "#475569",
+              margin: isBar ? 0 : "0 0 16px",
+              fontSize: visual.bodyFontSize,
+              lineHeight: 1.55,
+              color: visual.bodyColor,
             }}
           >
             {commit ? (
@@ -362,14 +350,14 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
               <CookieText
                 field="policyLabel"
                 value={policyLabel}
-                style={{ color: "#2563eb", textDecoration: "underline", fontWeight: 500 }}
+                style={{ color: visual.policyLinkColor, textDecoration: "underline", fontWeight: 500 }}
               />
             ) : (
               <a
                 href={policyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: "#2563eb", textDecoration: "underline", fontWeight: 500 }}
+                style={{ color: visual.policyLinkColor, textDecoration: "underline", fontWeight: 500 }}
               >
                 {policyLabel}
               </a>
@@ -380,11 +368,12 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
         <div
           style={{
             display: "flex",
-            gap: 12,
+            flexDirection: stackButtons ? "column" : "row",
+            gap: visual.buttonGap,
             alignItems: "stretch",
             flexShrink: 0,
-            minWidth: isBar ? 220 : undefined,
-            width: isBar ? undefined : "100%",
+            minWidth: isBar && !stackButtons ? 220 : undefined,
+            width: isBar && !stackButtons ? undefined : "100%",
           }}
         >
           {goOffer && !inBuilder ? (
@@ -421,7 +410,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
             margin: "14px 0 0",
             fontSize: 12,
             lineHeight: 1.4,
-            color: "#94a3b8",
+            color: visual.footerColor,
             textAlign: "center",
           }}
         >
@@ -449,8 +438,8 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
         </p>
       ) : null}
       {inBuilder ? (
-        <p style={{ margin: "10px 0 0", fontSize: 11, lineHeight: 1.45, color: "#94a3b8" }}>
-          Modo, posição, atraso e animação no painel à direita — mesmo nível dos popups da página.
+        <p style={{ margin: "10px 0 0", fontSize: 11, lineHeight: 1.45, color: visual.footerColor }}>
+          {t("pages.pageBuilder.widgets.cookie.builderHint")}
         </p>
       ) : null}
     </aside>
@@ -483,6 +472,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
           offsetYPx: c.offsetYPx ?? 20,
           zIndex: 9995,
           backdrop: false,
+          containToParent: inBuilder,
         }),
         ...(variant === "modal" ? { inset: 0 } : null),
       }}

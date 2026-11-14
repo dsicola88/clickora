@@ -28,6 +28,7 @@ import {
   resolveComplianceJump,
   type ComplianceJump,
 } from "@/lib/complianceJump";
+import { isBuilderPresellType } from "@/lib/presellTypeMeta";
 
 type Props = {
   presellId: string | null;
@@ -42,7 +43,7 @@ type Props = {
 function gateLabel(
   t: ReturnType<typeof useAppLocale>["t"],
   gate: string | null | undefined,
-  opts?: { warningCount?: number; notCheckedCount?: number },
+  opts?: { warningCount?: number; notCheckedCount?: number; instantPublish?: boolean },
 ): string {
   switch (gate) {
     case "ready_for_review": {
@@ -52,9 +53,13 @@ function gateLabel(
       return t("pages.presells.compliance.gateReady");
     }
     case "needs_review":
-      return t("pages.presells.compliance.gateNeedsReview");
+      return opts?.instantPublish
+        ? t("pages.presells.compliance.gateNeedsReviewAdvisory")
+        : t("pages.presells.compliance.gateNeedsReview");
     case "blocked":
-      return t("pages.presells.compliance.gateBlocked");
+      return opts?.instantPublish
+        ? t("pages.presells.compliance.gateBlockedAdvisory")
+        : t("pages.presells.compliance.gateBlocked");
     case "checking":
       return t("pages.presells.compliance.gateChecking");
     default:
@@ -341,7 +346,12 @@ export function PresellAdsCompliancePanel({
     !destinationRules.some((r) => r.status === "FAIL");
   const destinationFail = destinationRules.some((r) => r.status === "FAIL");
   const gate = data?.compliance_gate || "unchecked";
-  const gateOpts = { warningCount: warnings.length, notCheckedCount: notChecked.length };
+  const instantPublish = isBuilderPresellType(data?.presell_type);
+  const gateOpts = {
+    warningCount: warnings.length,
+    notCheckedCount: notChecked.length,
+    instantPublish,
+  };
   const adsScore = data?.ads_page_score ?? null;
 
   const primaryJump: ComplianceJump | null = (() => {
@@ -478,9 +488,11 @@ export function PresellAdsCompliancePanel({
         {gate === "blocked" || gate === "needs_review" ? (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <p className="text-xs text-foreground/90 leading-relaxed flex-1 min-w-[12rem]">
-              {suggestions.length
-                ? t("pages.presells.compliance.nextStepsPlan")
-                : t("pages.presells.compliance.nextStepsRules")}
+              {instantPublish
+                ? t("pages.presells.compliance.nextStepsAdvisory")
+                : suggestions.length
+                  ? t("pages.presells.compliance.nextStepsPlan")
+                  : t("pages.presells.compliance.nextStepsRules")}
             </p>
             {primaryJump ? (
               <Button type="button" size="sm" variant="secondary" className="shrink-0" onClick={runPrimaryJump}>

@@ -50,6 +50,8 @@ export type PresellComplianceStateDto = {
   last_compliance_audit_id: string | null;
   content_fingerprint: string | null;
   status: string;
+  /** Tipo da página (`builder` = editor manual; gate Ads não impede publicação). */
+  presell_type?: string | null;
   latest_audit: PresellComplianceAuditDto | null;
   suggestions?: PresellComplianceSuggestionDto[];
   ads_page_score?: number | null;

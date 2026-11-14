@@ -92,6 +92,7 @@ export const presellComplianceController = {
       last_compliance_audit_id: page.lastComplianceAuditId,
       content_fingerprint: page.contentFingerprint,
       status: page.status,
+      presell_type: page.type,
       latest_audit: audit ? mapAuditDto(audit) : null,
       suggestions,
       ads_page_score,

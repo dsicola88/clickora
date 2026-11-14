@@ -81,8 +81,8 @@ export function isGhostPresellType(presellType: string): boolean {
 }
 
 /** Presell montada no editor visual (secções/widgets), não pelo import automático. */
-export function isBuilderPresellType(presellType: string): boolean {
-  return presellType === "builder";
+export function isBuilderPresellType(presellType: string | null | undefined): boolean {
+  return (presellType || "").trim().toLowerCase() === "builder";
 }
 
 /** Review / análise: CTAs levam sempre o hoplink rastreado; o rodapé fica no nível legal da origem. */

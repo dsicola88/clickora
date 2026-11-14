@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
-import { ColorField, SelectField, TextField, TextareaField } from "../PropertyControls";
+import { ColorField, NumberField, SelectField, TextField, TextareaField } from "../PropertyControls";
 import { ListEditor } from "./ListEditor";
 import { PanelSection } from "./PanelSection";
 
@@ -52,6 +52,16 @@ export function FaqWidgetEditor({
           ]}
           onChange={(v) => setContent({ allowMultiple: v === "yes" })}
         />
+        <NumberField
+          label={t("pages.pageBuilder.chrome.defaultOpen")}
+          value={(content.defaultOpen as number) ?? 0}
+          min={-1}
+          max={Math.max(0, items.length - 1)}
+          onChange={(v) => setContent({ defaultOpen: v })}
+        />
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+          {t("pages.pageBuilder.chrome.defaultOpenHint")}
+        </p>
       </PanelSection>
       <PanelSection title={t("pages.pageBuilder.chrome.appearance")}>
         <ColorField
@@ -78,6 +88,13 @@ export function FaqWidgetEditor({
           label={t("pages.pageBuilder.chrome.accent")}
           value={(content.accentColor as string) ?? "#e63946"}
           onChange={(v) => setContent({ accentColor: v })}
+        />
+        <NumberField
+          label={t("pages.pageBuilder.panel.radius")}
+          value={(content.borderRadius as number) ?? 10}
+          min={0}
+          max={32}
+          onChange={(v) => setContent({ borderRadius: v })}
         />
       </PanelSection>
     </>

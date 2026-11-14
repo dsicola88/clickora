@@ -42,7 +42,15 @@ export function ShareButtonsWidget({
   const urlOverride = ((c.url as string) ?? "").trim();
   const bg = ((c.buttonBg as string) ?? "#0f172a").trim();
   const color = ((c.buttonColor as string) ?? "#ffffff").trim();
-  const gap = typeof c.gap === "number" ? c.gap : 8;
+  const gap = typeof c.gap === "number" ? c.gap : 10;
+  const borderRadius =
+    typeof c.borderRadius === "number" && Number.isFinite(c.borderRadius)
+      ? Math.min(32, Math.max(0, Math.round(c.borderRadius)))
+      : 10;
+  const fontSize =
+    typeof c.fontSize === "number" && Number.isFinite(c.fontSize)
+      ? Math.min(20, Math.max(11, Math.round(c.fontSize)))
+      : 13;
   const align = resolveResponsive(widget.styles.align, device);
   const css = stylesToCssWidgetContent(widget.styles, device);
 
@@ -73,12 +81,12 @@ export function ShareButtonsWidget({
               }}
               style={{
                 border: "none",
-                borderRadius: 8,
+                borderRadius,
                 padding: "10px 14px",
                 background: bg,
                 color,
                 fontWeight: 600,
-                fontSize: 13,
+                fontSize,
                 cursor: "pointer",
               }}
             >
@@ -93,12 +101,12 @@ export function ShareButtonsWidget({
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              borderRadius: 8,
+              borderRadius,
               padding: "10px 14px",
               background: bg,
               color,
               fontWeight: 600,
-              fontSize: 13,
+              fontSize,
               textDecoration: "none",
             }}
           >

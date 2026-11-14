@@ -13,6 +13,7 @@ export interface CountdownContent {
   labelColor: string;
   separatorColor: string;
   digitSize: number;
+  digitRadius?: number;
 }
 
 function diffParts(targetMs: number) {
@@ -38,7 +39,14 @@ export function CountdownWidget({ widget, device }: { widget: WidgetNode; device
   const digitColor = c.digitColor ?? "#ffffff";
   const labelColor = c.labelColor ?? "#475569";
   const separatorColor = c.separatorColor ?? "#0f172a";
-  const digitSize = c.digitSize ?? 48;
+  const digitSize =
+    typeof c.digitSize === "number" && Number.isFinite(c.digitSize)
+      ? Math.min(96, Math.max(18, Math.round(c.digitSize)))
+      : 36;
+  const digitRadius =
+    typeof c.digitRadius === "number" && Number.isFinite(c.digitRadius)
+      ? Math.min(32, Math.max(0, Math.round(c.digitRadius)))
+      : 10;
 
   const target = new Date(deadline).getTime();
   const [parts, setParts] = useState(() => diffParts(target));
@@ -100,8 +108,8 @@ export function CountdownWidget({ widget, device }: { widget: WidgetNode; device
                 fontSize: digitSize,
                 fontWeight: 700,
                 lineHeight: 1,
-                padding: "16px 18px",
-                borderRadius: 10,
+                padding: `${Math.round(digitSize * 0.35)}px ${Math.round(digitSize * 0.4)}px`,
+                borderRadius: digitRadius,
                 minWidth: digitSize * 1.4,
                 textAlign: "center",
                 fontVariantNumeric: "tabular-nums",

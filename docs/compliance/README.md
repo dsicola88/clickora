@@ -25,7 +25,7 @@ Criação (wizard, dashboard, builder), importação URL, duplicação, edição
 - `POST /api/presells/:id/compliance/audit`
 - `POST /api/presells/:id/compliance/decisions` (falso positivo / disputa)
 
-Publicar (`status=published`) exige `compliance_gate=ready_for_review` após auditoria no servidor. O frontend **não** decide a gate.
+Publicar (`status=published`) exige `compliance_gate=ready_for_review` após auditoria no servidor — **exceto** o tipo `builder` (editor manual), que publica de imediato (`isInstantPublishPresellType`): a auditoria corre em background, **não** pausa nem esconde a página pública/`/track` por `gate=blocked`. O frontend **não** decide a gate.
 
 ## Estados
 

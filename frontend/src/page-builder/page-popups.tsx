@@ -15,6 +15,7 @@ import {
   resolveOverlayDisplayMode,
   resolveOverlayPosition,
 } from "./overlay-placement";
+import { useBuilderSurface } from "./builder-surface";
 
 const SESSION_KEY = "clickora:popup-seen:";
 
@@ -52,10 +53,12 @@ function PopupCard({
   popup,
   onClose,
   animStyle,
+  containToParent,
 }: {
   popup: PagePopup;
   onClose: () => void;
   animStyle?: CSSProperties;
+  containToParent?: boolean;
 }) {
   const mode = resolveOverlayDisplayMode(popup.displayMode, "modal");
   const position = resolveOverlayPosition(
@@ -83,8 +86,13 @@ function PopupCard({
       aria-label={popup.title || popup.name}
       style={{
         position: "relative",
-        ...overlayCardWidthStyle({ mode, position, maxWidthPx: maxW }),
-        maxHeight: isSide ? "100%" : "86vh",
+        ...overlayCardWidthStyle({
+          mode,
+          position,
+          maxWidthPx: maxW,
+          containToParent,
+        }),
+        maxHeight: isSide ? "100%" : containToParent ? "86%" : "86vh",
         overflow: "auto",
         background: bg,
         color,
@@ -184,6 +192,7 @@ export function PagePopupOverlays({
   doc: PageDocument;
   enabled?: boolean;
 }) {
+  const inBuilder = useBuilderSurface();
   const popups = (doc.popups ?? []).filter((p) => p.enabled !== false);
   const [openId, setOpenId] = useState<string | null>(null);
   const styleId = useId().replace(/:/g, "");
@@ -284,6 +293,7 @@ export function PagePopupOverlays({
         zIndex: popup.zIndex ?? 99990,
         backdrop,
         backdropColor: `rgba(15, 23, 42, ${opacityPct / 100})`,
+        containToParent: inBuilder,
       })}
       onClick={() => {
         if (backdrop && popup.backdropClose !== false) close();
@@ -298,6 +308,7 @@ export function PagePopupOverlays({
         <PopupCard
           popup={popup}
           onClose={close}
+          containToParent={inBuilder}
           animStyle={anim ? { animation: anim.animation } : undefined}
         />
       </div>

@@ -3,6 +3,7 @@ import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent, alignToFlexJustify } from "../style-utils";
 import { InlinePlain } from "../inline-edit";
 import { resolveResponsive } from "../store";
+import { useBuilderSurface } from "../builder-surface";
 
 export interface PhoneCallContent {
   number: string;
@@ -17,15 +18,16 @@ export interface PhoneCallContent {
 }
 
 export function PhoneCallWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
+  const inBuilder = useBuilderSurface();
   const c = widget.content as Partial<PhoneCallContent>;
   const number = c.number ?? "+5511999999999";
   const displayText = c.displayText ?? "Ligar agora";
   const variant = c.variant ?? "button";
-  const bg = c.bg ?? "#10b981";
+  const bg = c.bg ?? "#059669";
   const color = c.color ?? "#ffffff";
-  const borderRadius = c.borderRadius ?? 8;
+  const borderRadius = c.borderRadius ?? 10;
   const showIcon = c.showIcon ?? true;
-  const fontSize = c.fontSize ?? 16;
+  const fontSize = c.fontSize ?? 15;
   const position = c.position ?? "right";
   const align = resolveResponsive(widget.styles.align, device);
 
@@ -36,7 +38,7 @@ export function PhoneCallWidget({ widget, device }: { widget: WidgetNode; device
           href={`tel:${number.replace(/\D/g, "")}`}
           aria-label={displayText}
           style={{
-            position: "fixed",
+            position: inBuilder ? "absolute" : "fixed",
             bottom: 80,
             [position]: 24,
             width: 56,
@@ -50,7 +52,7 @@ export function PhoneCallWidget({ widget, device }: { widget: WidgetNode; device
             boxShadow: `0 6px 24px ${bg}73`,
             zIndex: 9989,
             textDecoration: "none",
-            animation: "lov-pulse 2s ease infinite",
+            animation: inBuilder ? undefined : "lov-pulse 2s ease infinite",
           }}
         >
           <Phone size={24} />

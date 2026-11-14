@@ -39,6 +39,7 @@ import { extractClientIp } from "../lib/clientIp";
 import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { sanitizeMirrorInContentRecord } from "../lib/presellMirrorSanitizeContent";
 import { assertPublishAllowed } from "../compliance/service";
+import { shouldEnforceComplianceServeBlock } from "../compliance/evaluate";
 import {
   enrichPresellPageRecords,
   enrichPresellSettingsWithOperatorIdentity,
@@ -205,7 +206,12 @@ export const presellController = {
             : "Esta página não está disponível publicamente.";
       return res.status(404).json({ error: hint, code: "PRESHELL_NOT_PUBLISHED" });
     }
-    if (page.complianceGate === "blocked") {
+    if (
+      shouldEnforceComplianceServeBlock({
+        gate: page.complianceGate,
+        pageType: page.type,
+      })
+    ) {
       return res.status(404).json({
         error: "Página indisponível por conformidade.",
         code: "PRESHELL_COMPLIANCE_BLOCKED",
@@ -236,7 +242,12 @@ export const presellController = {
     if (page.status !== "published") {
       return res.status(404).type("text/plain").send("Página não publicada");
     }
-    if (page.complianceGate === "blocked") {
+    if (
+      shouldEnforceComplianceServeBlock({
+        gate: page.complianceGate,
+        pageType: page.type,
+      })
+    ) {
       return res.status(404).type("text/plain").send("Página indisponível por conformidade");
     }
     const access = evaluateSubscriptionAccess(page.user.subscription);
@@ -335,6 +346,17 @@ export const presellController = {
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
     if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
       return res.status(404).json({ error: "Página não encontrada" });
+    }
+    if (
+      shouldEnforceComplianceServeBlock({
+        gate: page.complianceGate,
+        pageType: page.type,
+      })
+    ) {
+      return res.status(404).json({
+        error: "Página indisponível por conformidade.",
+        code: "PRESHELL_COMPLIANCE_BLOCKED",
+      });
     }
 
     const access = evaluateSubscriptionAccess(page.user.subscription);
@@ -799,19 +821,24 @@ export const presellController = {
         data: { status: requestedStatus },
       });
     } else if (
-      // Já publicada: reauditoria após conteúdo/settings (exceto builder — fica no ar de imediato).
-      // Não pausar em surpresa: derruba a URL do anúncio. Avisamos; o toggle published→ continua a gate.
+      // Já publicada: reauditoria após conteúdo/settings.
+      // Builder: assertPublishAllowed não bloqueia nem pausa. Outros tipos: a auditoria
+      // síncrona pode pausar (gate=blocked) — relemos o estado real antes de responder.
       page.status === "published" &&
       (nextContent || req.body.settings || req.body.title || req.body.video_url !== undefined)
     ) {
       const gate = await assertPublishAllowed({ page: updated, runIfStale: true });
       if (!gate.ok) {
+        const afterAudit =
+          (await systemPrisma.presellPage.findUnique({ where: { id: updated.id } })) || updated;
+        const wasPaused = afterAudit.status === "paused";
         return res.status(200).json({
-          ...mapPresell(updated),
+          ...mapPresell(afterAudit),
           compliance_blocked: true,
           compliance: gate.body,
-          message:
-            "Alterações guardadas. A página continua publicada, mas há avisos de conformidade — reveja antes de escalar anúncios.",
+          message: wasPaused
+            ? "Alterações guardadas. A página foi pausada por conformidade — corrija e publique novamente."
+            : "Alterações guardadas. A página continua publicada, mas há avisos de conformidade — reveja antes de escalar anúncios.",
         });
       }
     }

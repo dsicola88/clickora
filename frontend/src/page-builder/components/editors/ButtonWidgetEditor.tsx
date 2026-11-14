@@ -85,6 +85,18 @@ export function ButtonWidgetEditor({
           min={12}
           max={40}
         />
+        <SelectField
+          label={t("pages.pageBuilder.widgets.button.offerPrimary")}
+          value={c.offerPrimary === true ? "yes" : "no"}
+          options={[
+            { value: "no", label: t("common.no") },
+            { value: "yes", label: t("common.yes") },
+          ]}
+          onChange={(v) => setContent({ offerPrimary: v === "yes" })}
+        />
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+          {t("pages.pageBuilder.widgets.button.offerPrimaryHint")}
+        </p>
       </PanelSection>
 
       <PanelSection title={t("pages.pageBuilder.widgets.button.normalTitle")}>

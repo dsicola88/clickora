@@ -43,7 +43,7 @@ export function ProgressTrackerWidget({
   const labelColor = c.labelColor ?? "#1a1a1a";
   const height = c.height ?? 10;
   const gap = c.gap ?? 20;
-  const borderRadius = c.borderRadius ?? 999;
+  const borderRadius = c.borderRadius ?? 8;
 
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(!animate);

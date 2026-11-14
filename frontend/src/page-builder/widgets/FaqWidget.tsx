@@ -17,6 +17,7 @@ export interface FaqContent {
   questionColor: string;
   answerColor: string;
   accentColor: string;
+  borderRadius?: number;
 }
 
 /** Aceita `question`/`answer` (canónico) e aliases legados `q`/`a` de payloads antigos. */
@@ -40,6 +41,10 @@ export function FaqWidget({ widget, device }: { widget: WidgetNode; device: Devi
   const questionColor = c.questionColor ?? "#111827";
   const answerColor = c.answerColor ?? "#4b5563";
   const accentColor = c.accentColor ?? "#e63946";
+  const borderRadius =
+    typeof c.borderRadius === "number" && Number.isFinite(c.borderRadius)
+      ? Math.min(32, Math.max(0, Math.round(c.borderRadius)))
+      : 10;
 
   const [open, setOpen] = useState<Set<number>>(
     () => new Set(defaultOpen >= 0 && defaultOpen < items.length ? [defaultOpen] : []),
@@ -88,7 +93,7 @@ export function FaqWidget({ widget, device }: { widget: WidgetNode; device: Devi
             style={{
               background: itemBg,
               border: `1px solid ${isOpen ? accentColor : itemBorderColor}`,
-              borderRadius: 8,
+              borderRadius,
               overflow: "hidden",
               transition: "border-color 0.2s",
             }}
