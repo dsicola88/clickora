@@ -181,4 +181,25 @@ Host: macOS 4 CPU / ~8 GB (memória livre frequentemente **&lt;50 MB** durante o
 
 Artefactos: `/tmp/clickora-load-20b.json`, `/tmp/clickora-load-50b.json`, `/tmp/clickora-load-100.json`.
 
+## 9. Staging Railway (criado 2026-11-14)
+
+| Item | Valor |
+|------|--------|
+| Environment | `staging` (id `770a276f-…`) |
+| API | `https://clickora-staging.up.railway.app` |
+| Postgres | serviço próprio `postgres-staging-…` (separado de production) |
+| Carga HTTP | `ALLOW_STAGING_LOAD_TEST=1` + allowlist `clickora-staging.up.railway.app` |
+| Auth sob carga | `AUTH_RATE_LIMIT_MAX=5000` só em staging |
+
+```bash
+cd backend
+ALLOW_STAGING_LOAD_TEST=1 ALLOW_MUTATING_LOAD_TEST=1 ALLOW_LOAD_TEST=1 \
+LOAD_TEST_BASE_URL=https://clickora-staging.up.railway.app \
+LOAD_TEST_EMAIL=… LOAD_TEST_PASSWORD=… \
+LOAD_TEST_VUS=100 LOAD_TEST_ITERATIONS=1 \
+npx tsx scripts/load-realistic-suite.ts
+```
+
+**Nunca** apontar esta suite a `clickora-production` / `dclickora.com`.
+
 *Fim do relatório Etapa 4 (+ addenda).*

@@ -1,10 +1,12 @@
 import rateLimit from "express-rate-limit";
 import type { Request } from "express";
 
-/** Rotas de credenciais (login, registo, recuperação) — por IP. */
+/** Rotas de credenciais (login, registo, recuperação) — por IP.
+ * Staging/load: AUTH_RATE_LIMIT_MAX / AUTH_RATE_LIMIT_WINDOW_MS.
+ */
 export const authCredentialLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 80,
+  windowMs: Math.max(60_000, Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000) || 15 * 60 * 1000),
+  max: Math.max(10, Number(process.env.AUTH_RATE_LIMIT_MAX ?? 80) || 80),
   standardHeaders: true,
   legacyHeaders: false,
   /** trust proxy é intencional (Vercel/Railway); desactiva o throw ERR_ERL_PERMISSIVE_TRUST_PROXY. */

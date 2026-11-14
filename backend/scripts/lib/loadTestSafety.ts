@@ -1,6 +1,7 @@
 /**
  * Guardas partilhadas para scripts de carga / limpeza.
- * Regra: nunca Railway, nunca dclickora.com produção, nunca mutações sem BD local.
+ * Regra: nunca produção (dclickora.com / clickora-production), mutações Prisma só em localhost
+ * excepto prova HTTP contra staging allowlist com ALLOW_STAGING_LOAD_TEST=1.
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -15,8 +16,21 @@ const BLOCKED_HOST_SNIPPETS = [
   "supabase.co",
 ] as const;
 
+/** Únicos hosts Railway/HTTP permitidos para carga mutante (API staging, não produção). */
+const STAGING_HTTP_ALLOWLIST = [
+  "clickora-staging.up.railway.app",
+] as const;
+
 export type LoadTargetKind = "health_only" | "mutating";
 
+function stagingLoadEnabled(): boolean {
+  return process.env.ALLOW_STAGING_LOAD_TEST === "1";
+}
+
+function isAllowlistedStagingHttpHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return STAGING_HTTP_ALLOWLIST.some((allowed) => h === allowed);
+}
 function parseEnvFile(filePath: string): Record<string, string> {
   if (!existsSync(filePath)) return {};
   const out: Record<string, string> = {};
@@ -73,21 +87,34 @@ export function assertSafeHttpTarget(baseUrl: string, kind: LoadTargetKind = "he
     throw new Error("LOAD_TEST_BASE_URL inválido");
   }
   const host = u.hostname.toLowerCase();
-  if (BLOCKED_HOST_SNIPPETS.some((s) => host.includes(s)) || host === "0.0.0.0") {
+  const stagingHttp = stagingLoadEnabled() && isAllowlistedStagingHttpHost(host);
+  // Produção e proxies genéricos continuam bloqueados; staging allowlist exige flag explícita.
+  if (!stagingHttp && (BLOCKED_HOST_SNIPPETS.some((s) => host.includes(s)) || host === "0.0.0.0")) {
     throw new Error(`Alvo HTTP bloqueado por segurança: ${host}`);
   }
+  if (host.includes("clickora-production") || host === "www.dclickora.com" || host === "dclickora.com") {
+    throw new Error(`Alvo de produção bloqueado: ${host}`);
+  }
   const local = host === "127.0.0.1" || host === "localhost";
-  if (!local && process.env.ALLOW_LOAD_TEST !== "1") {
+  if (!local && !stagingHttp && process.env.ALLOW_LOAD_TEST !== "1") {
     throw new Error(
       "Host HTTP não local: defina ALLOW_LOAD_TEST=1 apenas em staging dedicado com dados fictícios.",
     );
   }
   if (kind === "mutating") {
-    assertLocalDatabaseForMutations();
-    if (process.env.ALLOW_MUTATING_LOAD_TEST !== "1") {
-      throw new Error(
-        "Mutações de carga exigem ALLOW_MUTATING_LOAD_TEST=1 + DATABASE_URL localhost (nunca Railway).",
-      );
+    if (stagingHttp) {
+      if (process.env.ALLOW_MUTATING_LOAD_TEST !== "1") {
+        throw new Error(
+          "Mutações de carga em staging exigem ALLOW_STAGING_LOAD_TEST=1 e ALLOW_MUTATING_LOAD_TEST=1.",
+        );
+      }
+    } else {
+      assertLocalDatabaseForMutations();
+      if (process.env.ALLOW_MUTATING_LOAD_TEST !== "1") {
+        throw new Error(
+          "Mutações de carga exigem ALLOW_MUTATING_LOAD_TEST=1 + DATABASE_URL localhost (nunca Railway produção).",
+        );
+      }
     }
   }
   return u;
