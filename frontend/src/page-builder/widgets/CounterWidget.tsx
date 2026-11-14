@@ -12,6 +12,8 @@ export interface CounterContent {
   title: string;
   numberColor: string;
   titleColor: string;
+  fontSize?: number;
+  titleFontSize?: number;
 }
 
 export function CounterWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {

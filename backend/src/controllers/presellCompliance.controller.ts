@@ -37,6 +37,7 @@ export const presellComplianceController = {
       where: { id: req.params.id, userId },
       select: {
         id: true,
+        type: true,
         complianceGate: true,
         lastComplianceAuditAt: true,
         lastComplianceAuditId: true,
