@@ -202,4 +202,14 @@ npx tsx scripts/load-realistic-suite.ts
 
 **Nunca** apontar esta suite a `clickora-production` / `dclickora.com`.
 
+### Prova staging 2026-11-14 (cliente → clickora-staging)
+
+| VUs | Login err | Create err | Track/public/health | Nota |
+|-----|-----------|------------|---------------------|------|
+| 100 | **0** | 57% | **0** nos que correram | login p95 ~10 s (bcrypt burst); track p95 ~420 ms |
+| 200 | **0** | 100% | health **0** | create falha sob burst extremo; path público/health OK |
+
+Funil de campanha (público + track) manteve **0 erros** quando executado. Falhas concentradas em `presell_create` sob burst (quota/rate/CPU hobby).
+
+
 *Fim do relatório Etapa 4 (+ addenda).*
