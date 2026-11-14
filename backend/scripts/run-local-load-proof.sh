@@ -49,6 +49,9 @@ export ENCRYPTION_KEY="${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef}"
 export NODE_ENV=development
 export PORT="$API_PORT"
 export FRONTEND_URL="${FRONTEND_URL:-http://127.0.0.1:8080}"
+# Burst de create/login no script de carga — não misturar com tecto de auditoria.
+export AUTH_RATE_LIMIT_MAX="${AUTH_RATE_LIMIT_MAX:-5000}"
+export PRESELL_CREATE_RATE_LIMIT_MAX="${PRESELL_CREATE_RATE_LIMIT_MAX:-5000}"
 
 npx prisma migrate deploy
 npx prisma db seed >/dev/null 2>&1 || true

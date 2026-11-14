@@ -190,6 +190,7 @@ Artefactos: `/tmp/clickora-load-20b.json`, `/tmp/clickora-load-50b.json`, `/tmp/
 | Postgres | serviço próprio `postgres-staging-…` (separado de production) |
 | Carga HTTP | `ALLOW_STAGING_LOAD_TEST=1` + allowlist `clickora-staging.up.railway.app` |
 | Auth sob carga | `AUTH_RATE_LIMIT_MAX=5000` só em staging |
+| Create sob carga | `PRESELL_CREATE_RATE_LIMIT_MAX=5000` só em staging (bucket separado de auditorias) |
 
 ```bash
 cd backend
@@ -200,16 +201,18 @@ LOAD_TEST_VUS=100 LOAD_TEST_ITERATIONS=1 \
 npx tsx scripts/load-realistic-suite.ts
 ```
 
+Em staging, definir também `PRESELL_CREATE_RATE_LIMIT_MAX=5000` (e opcionalmente `AUTH_RATE_LIMIT_MAX=5000`) para o burst de create não misturar com o tecto de `compliance/audit`. Em produção o create usa bucket próprio (`presellWriteLimiter`, default 120/15 min) — mensagem «Demasiadas criações…», não «Demasiadas auditorias».
+
 **Nunca** apontar esta suite a `clickora-production` / `dclickora.com`.
 
 ### Prova staging 2026-11-14 (cliente → clickora-staging)
 
 | VUs | Login err | Create err | Track/public/health | Nota |
 |-----|-----------|------------|---------------------|------|
-| 100 | **0** | 57% | **0** nos que correram | login p95 ~10 s (bcrypt burst); track p95 ~420 ms |
+| 100 | **0** | 57% | **0** nos que correram | login p95 ~10 s (bcrypt burst); track p95 ~420 ms; create partilhava tecto de auditoria |
 | 200 | **0** | 100% | health **0** | create falha sob burst extremo; path público/health OK |
 
-Funil de campanha (público + track) manteve **0 erros** quando executado. Falhas concentradas em `presell_create` sob burst (quota/rate/CPU hobby).
+Funil de campanha (público + track) manteve **0 erros** quando executado. Falhas concentradas em `presell_create` sob burst (quota/rate/CPU hobby). Após separar `presellWriteLimiter`, re-correr a suite com `PRESELL_CREATE_RATE_LIMIT_MAX` em staging.
 
 
 *Fim do relatório Etapa 4 (+ addenda).*

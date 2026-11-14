@@ -134,7 +134,7 @@ Nenhuma migração nova foi executada nesta auditoria.
 ## 8. Correções mínimas ainda pendentes (recomendadas)
 
 1. ~~**Pin de IP no probe**~~ — **feito** (`destinationProbe` + `rotatorDestinationHealth`).
-2. ~~Rate limit em `create`/`PATCH status`~~ — **feito** (`complianceAuditLimiter` nestas rotas).
+2. ~~Rate limit em `create`/`PATCH status`~~ — **feito** (agora `presellWriteLimiter`, bucket separado de `complianceAuditLimiter`).
 3. Opcional: `needs_review` automático quando `warningCount` de claims/original_content > 0 e categoria regulada.
 
 ---

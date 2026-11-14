@@ -7,7 +7,11 @@ import { enforceApiKeyHttpScope } from "../middleware/requireApiKeyScope";
 import { tenantIsolation } from "../middleware/tenantIsolation";
 import { requireActiveSubscription } from "../middleware/requireActiveSubscription";
 import { presellBuilderMediaUpload } from "../lib/presellBuilderMediaUpload";
-import { complianceAuditLimiter, presellAiGenerateLimiter } from "../middleware/rateLimiters";
+import {
+  complianceAuditLimiter,
+  presellAiGenerateLimiter,
+  presellWriteLimiter,
+} from "../middleware/rateLimiters";
 import { presellAiController } from "../controllers/presellAi.controller";
 
 export const presellRouter = Router();
@@ -65,9 +69,9 @@ presellRouter.post(
   presellAiController.spawnVariantPack,
 );
 presellRouter.get("/:id", presellController.getById);
-/** Create/status podem disparar probe de destino — mesmo tecto que /compliance/audit. */
-presellRouter.post("/", complianceAuditLimiter, presellController.create);
+/** Create/status: tecto próprio — não misturar com «Demasiadas auditorias» do probe. */
+presellRouter.post("/", presellWriteLimiter, presellController.create);
 presellRouter.put("/:id", presellController.update);
 presellRouter.delete("/:id", presellController.delete);
-presellRouter.post("/:id/duplicate", presellController.duplicate);
-presellRouter.patch("/:id/status", complianceAuditLimiter, presellController.toggleStatus);
+presellRouter.post("/:id/duplicate", presellWriteLimiter, presellController.duplicate);
+presellRouter.patch("/:id/status", presellWriteLimiter, presellController.toggleStatus);
