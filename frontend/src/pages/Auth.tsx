@@ -411,8 +411,8 @@ export default function Auth() {
   const goInicio = goAfterAuth;
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background px-4 py-10 sm:py-14">
-      <div className="mx-auto flex w-full max-w-md flex-col items-center">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-10 sm:py-14">
+      <div className="mx-auto flex w-full max-w-[24rem] flex-col items-center">
         <header className="mb-7 flex w-full flex-col items-center text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground">
             <Zap className="h-4 w-4" /> dclickora
@@ -422,7 +422,7 @@ export default function Auth() {
             {mode === "register" && (trialIntent ? t("auth.trialTitle") : t("auth.registerTitle"))}
             {mode === "recovery" && t("auth.recoveryTitle")}
           </h1>
-          <p className="mx-auto mt-2 max-w-sm text-pretty text-sm text-muted-foreground">
+          <p className="mt-2 max-w-[20rem] text-pretty text-sm text-muted-foreground">
             {mode === "login" && t("auth.loginSubtitle")}
             {mode === "register" && (trialIntent ? t("auth.trialSubtitle") : t("auth.registerSubtitle"))}
             {mode === "recovery" && t("auth.recoverySubtitle")}
@@ -442,18 +442,18 @@ export default function Auth() {
             />
           ) : null}
           {mode === "login" && !oidcBusy && !externalMfa && (
-            <div className="mx-auto flex w-full max-w-sm flex-col gap-5">
+            <div className="flex w-full flex-col gap-5">
               <GoogleSignInButton
                 onSuccess={goInicio}
                 onMfaRequired={setExternalMfa}
                 onAvailabilityChange={setGoogleLoginEnabled}
               />
               {googleLoginEnabled ? (
-                <div className="relative py-0.5">
+                <div className="relative py-0.5" role="separator">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t border-border" />
                   </div>
-                  <div className="relative flex justify-center text-[11px] uppercase tracking-wide">
+                  <div className="relative flex justify-center text-[11px] font-medium uppercase tracking-wide">
                     <span className="bg-card px-3 text-muted-foreground">{t("auth.orEmail")}</span>
                   </div>
                 </div>
@@ -470,16 +470,8 @@ export default function Auth() {
               ) : null}
             </div>
           )}
-          {mode === "register" && (
-            <div className="mx-auto w-full max-w-sm">
-              <RegisterFormComponent onSuccess={goInicio} />
-            </div>
-          )}
-          {mode === "recovery" && (
-            <div className="mx-auto w-full max-w-sm">
-              <RecoveryFormComponent />
-            </div>
-          )}
+          {mode === "register" && <RegisterFormComponent onSuccess={goInicio} />}
+          {mode === "recovery" && <RecoveryFormComponent />}
 
           <div className="mt-5 space-y-2 border-t border-border/60 pt-4 text-center text-sm">
             {mode === "login" && (
@@ -525,7 +517,7 @@ export default function Auth() {
             )}
           </div>
         </div>
-        <p className="mt-6 flex w-full flex-col items-center gap-2 text-center">
+        <footer className="mt-7 flex w-full flex-col items-center gap-2 text-center">
           <Link
             to="/"
             className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
@@ -541,7 +533,7 @@ export default function Auth() {
               {t("auth.termsShort")}
             </Link>
           </span>
-        </p>
+        </footer>
       </div>
     </div>
   );
