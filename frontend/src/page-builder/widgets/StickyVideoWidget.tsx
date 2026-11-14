@@ -84,16 +84,27 @@ export function StickyVideoWidget({ widget, device }: { widget: WidgetNode; devi
         width: "100%",
         height: "100%",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         padding: 12,
         fontSize: 12,
-        color: "#94a3b8",
+        color: url && !resolved ? "#fecaca" : "#94a3b8",
         textAlign: "center",
         lineHeight: 1.45,
+        background: url && !resolved ? "linear-gradient(165deg, #3f1d1d 0%, #7f2d2d 100%)" : undefined,
       }}
     >
-      {t("pages.pageBuilder.defaults.videoPasteHint")}
+      {url && !resolved ? (
+        <>
+          <span style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>Ligação não suportada</span>
+          <span style={{ opacity: 0.9 }}>
+            Usa YouTube, Bunny Stream, Vimeo player ou um ficheiro .mp4/.webm directo.
+          </span>
+        </>
+      ) : (
+        t("pages.pageBuilder.defaults.videoPasteHint")
+      )}
     </div>
   );
 

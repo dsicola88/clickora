@@ -38,10 +38,11 @@ export function MirrorTypeChrome({
 
   const isVsl = type === "vsl" || type === "vsl_tsl";
   const rawVideo = typeof videoUrl === "string" ? videoUrl.trim() : "";
-  const resolvedVideo = rawVideo ? resolveVideoEmbedSrc(rawVideo) : "";
-  const videoIsFile =
-    !!rawVideo && resolvePageBuilderVideoUrl(rawVideo)?.kind === "html5";
-  const showVideo = isVsl && resolvedVideo.length > 8;
+  // Só mostra player se o contrato page-builder aceitar o URL (evita iframe com lixo).
+  const pb = rawVideo ? resolvePageBuilderVideoUrl(rawVideo) : null;
+  const resolvedVideo = pb ? resolveVideoEmbedSrc(rawVideo) : "";
+  const videoIsFile = pb?.kind === "html5";
+  const showVideo = isVsl && !!pb && resolvedVideo.length > 8;
   const independentLabel = (language || "").toLowerCase().startsWith("pt")
     ? "Página independente"
     : "Independent page";

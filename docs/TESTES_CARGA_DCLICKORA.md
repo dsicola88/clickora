@@ -88,6 +88,23 @@ Host do cliente de teste: máquina local do developer (não contentor Railway).
 
 ## 5. Como correr a suite completa em staging (checklist)
 
+### Atalho profissional (1 comando)
+
+Com **Docker Desktop a correr**:
+
+```bash
+cd backend
+chmod +x scripts/run-local-load-proof.sh
+LOAD_TEST_VUS=50 LOAD_TEST_ITERATIONS=1 ./scripts/run-local-load-proof.sh
+```
+
+Sobe Postgres efémero `:5435`, API `:3011`, migrate e `load:realistic`.  
+**Nunca** usa a `DATABASE_URL` Railway do `.env`.
+
+Para aproximar “milhares de sessões concorrentes” de forma honesta: `LOAD_TEST_VUS=200` (ainda são workers de teste, não contas SaaS reais).
+
+### Checklist manual
+
 1. Postgres **dedicado** (ex. Docker Compose `localhost:5434`) — confirmar com:
    ```bash
    cd backend
