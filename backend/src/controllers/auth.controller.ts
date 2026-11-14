@@ -18,6 +18,7 @@ import {
 } from "../lib/planSeatRotatorLimits";
 import { hashPassword, passwordBcryptRounds, verifyPassword } from "../lib/passwordCrypto";
 import { isTransactionalEmailConfigured, sendTransactionalEmail } from "../lib/mailer";
+import { resolveGoogleLoginClientId } from "../lib/googleLoginClientId";
 
 const loginSchema = z.object({
   email: z.string().trim().min(1).email(),
@@ -281,6 +282,18 @@ export const authController = {
   },
 
   /**
+   * Config pública do botão Google (Client ID). Sem segredos — o ID é público no GIS.
+   */
+  async googleConfig(_req: Request, res: Response) {
+    const clientId = resolveGoogleLoginClientId();
+    res.setHeader("Cache-Control", "public, max-age=60");
+    return res.json({
+      enabled: Boolean(clientId),
+      client_id: clientId,
+    });
+  },
+
+  /**
    * Login com Google (ID token). Regra comercial:
    * - Não cria conta nova nem permite “qualquer e-mail Google”.
    * - Só entra quem **já está na base de dados** com o mesmo e-mail **e** senha registada (registo/assinatura na app).
@@ -290,7 +303,7 @@ export const authController = {
     const parsed = googleLoginSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Token inválido", details: parsed.error.flatten() });
 
-    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim();
+    const clientId = resolveGoogleLoginClientId();
     if (!clientId) {
       return res.status(503).json({ error: "Login com Google não está configurado no servidor." });
     }

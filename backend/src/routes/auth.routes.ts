@@ -20,6 +20,7 @@ function handleAvatarUpload(req: Request, res: Response, next: NextFunction) {
 }
 
 authRouter.post("/login", authCredentialLimiter, authController.login);
+authRouter.get("/google-config", authController.googleConfig);
 authRouter.post("/google", authCredentialLimiter, authController.googleLogin);
 authRouter.post("/register", authCredentialLimiter, authController.register);
 authRouter.post("/logout", authController.logout);

@@ -21,6 +21,22 @@ function persistTokenAndUser(token: string, user: User) {
 export const authService = {
   persistTokenAndUser,
 
+  /** Client ID público para o botão GIS (Vercel pode omitir VITE_GOOGLE_CLIENT_ID). */
+  async getGoogleConfig(): Promise<{ enabled: boolean; client_id: string | null }> {
+    try {
+      const res = await fetch(`${getApiBaseUrl().replace(/\/$/, "")}/auth/google-config`, {
+        credentials: "omit",
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) return { enabled: false, client_id: null };
+      const j = (await res.json()) as { enabled?: boolean; client_id?: string | null };
+      const client_id = typeof j.client_id === "string" && j.client_id.trim() ? j.client_id.trim() : null;
+      return { enabled: Boolean(j.enabled && client_id), client_id };
+    } catch {
+      return { enabled: false, client_id: null };
+    }
+  },
+
   async loginWithGoogle(idToken: string) {
     const result = await apiClient.post<LoginResult>("/auth/google", { id_token: idToken });
     if (result.data && "token" in result.data && result.data.token) {

@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth, type SignInResult } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { authService } from "@/services/authService";
 
 declare global {
   interface Window {
@@ -24,15 +25,38 @@ type Props = {
   onSuccess: () => void;
   /** Quando a conta tem MFA — o ecrã de login deve mostrar o formulário TOTP. */
   onMfaRequired?: (mfa: NonNullable<SignInResult["mfa"]>) => void;
+  /** Notifica o ecrã de auth se o botão Google está disponível (para o separador «ou e-mail»). */
+  onAvailabilityChange?: (enabled: boolean) => void;
 };
 
 const GSI_SCRIPT = "https://accounts.google.com/gsi/client";
 
-export function GoogleSignInButton({ onSuccess, onMfaRequired }: Props) {
+export function GoogleSignInButton({ onSuccess, onMfaRequired, onAvailabilityChange }: Props) {
   const { t } = useAppLocale();
   const { signInWithGoogle } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
+  const [clientId, setClientId] = useState<string | null>(
+    () => import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || null,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const viteId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
+    if (viteId) {
+      setClientId(viteId);
+      onAvailabilityChange?.(true);
+      return;
+    }
+    void authService.getGoogleConfig().then((cfg) => {
+      if (cancelled) return;
+      const id = cfg.client_id?.trim() || null;
+      setClientId(id);
+      onAvailabilityChange?.(Boolean(id));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [onAvailabilityChange]);
 
   useEffect(() => {
     if (!clientId || !containerRef.current) return;

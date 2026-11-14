@@ -328,6 +328,9 @@ export default function Auth() {
   const [mode, setMode] = useState<AuthMode>(() => (trialIntent ? "register" : "login"));
   const [externalMfa, setExternalMfa] = useState<{ mfa_token: string; email: string } | null>(null);
   const [oidcBusy, setOidcBusy] = useState(false);
+  const [googleLoginEnabled, setGoogleLoginEnabled] = useState(
+    () => Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim()),
+  );
 
   const redirectParam = searchParams.get("redirect");
   const goAfterAuth = useCallback(() => {
@@ -440,8 +443,12 @@ export default function Auth() {
           ) : null}
           {mode === "login" && !oidcBusy && !externalMfa && (
             <div className="space-y-6">
-              <GoogleSignInButton onSuccess={goInicio} onMfaRequired={setExternalMfa} />
-              {import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ? (
+              <GoogleSignInButton
+                onSuccess={goInicio}
+                onMfaRequired={setExternalMfa}
+                onAvailabilityChange={setGoogleLoginEnabled}
+              />
+              {googleLoginEnabled ? (
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t border-border" />

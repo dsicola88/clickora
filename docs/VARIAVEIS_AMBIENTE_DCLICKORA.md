@@ -11,7 +11,7 @@ Referências: `backend/.env.example`, `frontend/.env.example`, [ENV-SETUP.md](./
 |----------|-------------|---------|--------|
 | `VITE_PUBLIC_API_URL` | Produção: sim | `https://api.exemplo.com/api` | Preferida; embed no build |
 | `VITE_API_URL` | Alternativa | `http://localhost:3001/api` | Legado / local |
-| `VITE_GOOGLE_CLIENT_ID` | OAuth login Google | `….apps.googleusercontent.com` | Mesmo client que backend |
+| `VITE_GOOGLE_CLIENT_ID` | OAuth login Google (opcional) | `….apps.googleusercontent.com` | Se vazio, o FE lê `GET /api/auth/google-config` (Railway `GOOGLE_OAUTH_CLIENT_ID` ou fallback `GOOGLE_ADS_CLIENT_ID`) |
 
 ## 2. Backend — núcleo
 
