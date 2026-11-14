@@ -27,6 +27,14 @@ function getOidcConfig(): OidcConfig | null {
   };
 }
 
+function frontendAuthOrigin(): string {
+  const raw =
+    process.env.PUBLIC_APP_URL?.trim() ||
+    process.env.FRONTEND_URL?.trim().split(",")[0]?.trim() ||
+    "https://www.dclickora.com";
+  return raw.replace(/\/$/, "");
+}
+
 const pendingStates = new Map<string, { exp: number }>();
 
 function pruneStates() {
@@ -44,10 +52,15 @@ export const oidcController = {
   async loginRedirect(req: Request, res: Response) {
     const cfg = getOidcConfig();
     if (!cfg) {
-      return res.status(503).json({
-        error: "SSO OIDC não configurado. Defina OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_REDIRECT_URI.",
-        code: "OIDC_NOT_CONFIGURED",
-      });
+      const accept = String(req.get("accept") || "");
+      if (accept.includes("application/json") && !accept.includes("text/html")) {
+        return res.status(503).json({
+          error:
+            "SSO OIDC não configurado. Defina OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_REDIRECT_URI.",
+          code: "OIDC_NOT_CONFIGURED",
+        });
+      }
+      return res.redirect(302, `${frontendAuthOrigin()}/auth?error=sso_unavailable`);
     }
     pruneStates();
     const state = crypto.randomBytes(16).toString("hex");

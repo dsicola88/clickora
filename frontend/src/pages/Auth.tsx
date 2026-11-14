@@ -349,6 +349,15 @@ export default function Auth() {
   }, [trialIntent]);
 
   useEffect(() => {
+    if (searchParams.get("error") !== "sso_unavailable") return;
+    toast.error(t("auth.ssoUnavailable"));
+    const next = new URLSearchParams(searchParams);
+    next.delete("error");
+    const q = next.toString();
+    navigate(`/auth${q ? `?${q}` : ""}`, { replace: true });
+  }, [searchParams, navigate, t]);
+
+  useEffect(() => {
     return applyMarketingAuthHead();
   }, []);
 
@@ -443,12 +452,15 @@ export default function Auth() {
                 </div>
               ) : null}
               <LoginFormComponent onSuccess={goInicio} />
-              <Button type="button" variant="outline" className="w-full gap-2" asChild>
-                <a href={authService.getOidcLoginUrl()}>
-                  <Building2 className="h-4 w-4" />
-                  {t("auth.ssoButton")}
-                </a>
-              </Button>
+              {/* SSO enterprise (Okta/Azure/…) — não confundir com Google GIS. Só com VITE_OIDC_SSO_ENABLED=1. */}
+              {import.meta.env.VITE_OIDC_SSO_ENABLED === "1" ? (
+                <Button type="button" variant="outline" className="w-full gap-2" asChild>
+                  <a href={authService.getOidcLoginUrl()}>
+                    <Building2 className="h-4 w-4" />
+                    {t("auth.ssoButton")}
+                  </a>
+                </Button>
+              ) : null}
             </div>
           )}
           {mode === "register" && <RegisterFormComponent onSuccess={goInicio} />}
