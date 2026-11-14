@@ -151,6 +151,8 @@ export const ptBR = {
     "ssoButton": "Continuar com SSO da empresa",
     "ssoBusy": "Concluindo o login SSO…",
     "ssoUnavailable": "O login SSO da empresa não está disponível. Use e-mail e senha.",
+    "googleHint":
+      "Só para quem já tem conta nesta app com o mesmo e-mail e senha. O Google não cria conta nova nem substitui a assinatura.",
     "ssoSuccess": "Sessão iniciada com Google.",
     "sessionStarted": "Sessão iniciada.",
     "mfaIntro": "Digite o código para {email}",

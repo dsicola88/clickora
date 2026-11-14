@@ -92,12 +92,15 @@ export function GoogleSignInButton({ onSuccess, onMfaRequired, onAvailabilityCha
           onSuccess();
         },
       });
+      /** GIS exige largura em px — «100%» deixa o botão desalinhado à esquerda. */
+      const width = Math.max(240, Math.min(Math.floor(el.getBoundingClientRect().width || 360), 400));
       window.google.accounts.id.renderButton(el, {
         theme: "outline",
         size: "large",
-        width: "100%",
+        width,
         text: "continue_with",
         locale: "pt",
+        shape: "rectangular",
       });
     };
 
@@ -125,11 +128,13 @@ export function GoogleSignInButton({ onSuccess, onMfaRequired, onAvailabilityCha
   }
 
   return (
-    <div className="w-full">
-      <div ref={containerRef} className="flex min-h-[44px] justify-center [&>div]:!w-full" />
-      <p className="mt-2 text-center text-[11px] text-muted-foreground leading-snug">
-        Só para quem já tem conta nesta app com o <strong className="text-foreground/80">mesmo e-mail</strong> e{" "}
-        <strong className="text-foreground/80">senha</strong> registados. O Google não substitui a assinatura nem cria conta nova.
+    <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-2">
+      <div
+        ref={containerRef}
+        className="flex min-h-[44px] w-full items-center justify-center overflow-hidden [&>div]:mx-auto"
+      />
+      <p className="max-w-[22rem] text-center text-[11px] leading-snug text-muted-foreground">
+        {t("auth.googleHint")}
       </p>
     </div>
   );

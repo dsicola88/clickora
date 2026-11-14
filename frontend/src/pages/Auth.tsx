@@ -411,27 +411,27 @@ export default function Auth() {
   const goInicio = goAfterAuth;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-1.5 rounded-full text-sm font-medium mb-4">
+    <div className="flex min-h-svh items-center justify-center bg-background px-4 py-10 sm:py-14">
+      <div className="mx-auto flex w-full max-w-md flex-col items-center">
+        <header className="mb-7 flex w-full flex-col items-center text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground">
             <Zap className="h-4 w-4" /> dclickora
           </div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {mode === "login" && t("auth.title")}
             {mode === "register" && (trialIntent ? t("auth.trialTitle") : t("auth.registerTitle"))}
             {mode === "recovery" && t("auth.recoveryTitle")}
           </h1>
-          <p className="text-muted-foreground mt-2 text-pretty max-w-sm mx-auto">
+          <p className="mx-auto mt-2 max-w-sm text-pretty text-sm text-muted-foreground">
             {mode === "login" && t("auth.loginSubtitle")}
             {mode === "register" && (trialIntent ? t("auth.trialSubtitle") : t("auth.registerSubtitle"))}
             {mode === "recovery" && t("auth.recoverySubtitle")}
           </p>
-        </div>
+        </header>
 
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-card">
+        <div className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-card sm:p-7">
           {oidcBusy ? (
-            <p className="text-sm text-muted-foreground text-center py-6">{t("auth.ssoBusy")}</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">{t("auth.ssoBusy")}</p>
           ) : null}
           {mode === "login" && !oidcBusy && externalMfa ? (
             <MfaVerifyForm
@@ -442,19 +442,19 @@ export default function Auth() {
             />
           ) : null}
           {mode === "login" && !oidcBusy && !externalMfa && (
-            <div className="space-y-6">
+            <div className="mx-auto flex w-full max-w-sm flex-col gap-5">
               <GoogleSignInButton
                 onSuccess={goInicio}
                 onMfaRequired={setExternalMfa}
                 onAvailabilityChange={setGoogleLoginEnabled}
               />
               {googleLoginEnabled ? (
-                <div className="relative">
+                <div className="relative py-0.5">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t border-border" />
                   </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">{t("auth.orEmail")}</span>
+                  <div className="relative flex justify-center text-[11px] uppercase tracking-wide">
+                    <span className="bg-card px-3 text-muted-foreground">{t("auth.orEmail")}</span>
                   </div>
                 </div>
               ) : null}
@@ -470,13 +470,25 @@ export default function Auth() {
               ) : null}
             </div>
           )}
-          {mode === "register" && <RegisterFormComponent onSuccess={goInicio} />}
-          {mode === "recovery" && <RecoveryFormComponent />}
+          {mode === "register" && (
+            <div className="mx-auto w-full max-w-sm">
+              <RegisterFormComponent onSuccess={goInicio} />
+            </div>
+          )}
+          {mode === "recovery" && (
+            <div className="mx-auto w-full max-w-sm">
+              <RecoveryFormComponent />
+            </div>
+          )}
 
-          <div className="text-center text-sm space-y-2 mt-4">
+          <div className="mt-5 space-y-2 border-t border-border/60 pt-4 text-center text-sm">
             {mode === "login" && (
               <>
-                <button type="button" onClick={() => setMode("recovery")} className="text-primary hover:underline block w-full">
+                <button
+                  type="button"
+                  onClick={() => setMode("recovery")}
+                  className="block w-full text-primary hover:underline"
+                >
                   {t("auth.forgot")}
                 </button>
                 <p className="text-muted-foreground">
@@ -487,7 +499,7 @@ export default function Auth() {
                       navigate("/auth?trial=1", { replace: true });
                       setMode("register");
                     }}
-                    className="text-primary hover:underline font-medium"
+                    className="font-medium text-primary hover:underline"
                   >
                     {t("auth.trialCta")}
                   </button>
@@ -506,17 +518,17 @@ export default function Auth() {
               <button
                 type="button"
                 onClick={() => setMode("login")}
-                className="text-primary hover:underline flex items-center gap-1 mx-auto"
+                className="mx-auto flex items-center gap-1 text-primary hover:underline"
               >
                 <ArrowLeft className="h-3 w-3" /> {t("auth.backToLogin")}
               </button>
             )}
           </div>
         </div>
-        <p className="text-center mt-6 space-y-2">
+        <p className="mt-6 flex w-full flex-col items-center gap-2 text-center">
           <Link
             to="/"
-            className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline block"
+            className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
             {t("auth.browsePlans")}
           </Link>

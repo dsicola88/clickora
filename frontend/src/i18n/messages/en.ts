@@ -151,6 +151,8 @@ export const en = {
     ssoButton: "Continue with company SSO",
     ssoBusy: "Finishing SSO login…",
     ssoUnavailable: "Company SSO is not available. Use email and password.",
+    googleHint:
+      "Only for accounts already registered on this app with the same email and password. Google does not create a new account or replace your subscription.",
     ssoSuccess: "Signed in with Google.",
     sessionStarted: "Session started.",
     mfaIntro: "Enter the code for {email}",
