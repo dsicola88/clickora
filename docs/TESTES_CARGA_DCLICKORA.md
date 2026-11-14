@@ -162,4 +162,23 @@ Docker `:5434` continuou hung; usou-se cluster efémero `127.0.0.1:5435`.
 
 Detalhe e veredicto: [RELATORIO_ACEITACAO_FINAL_DCLICKORA.md](./RELATORIO_ACEITACAO_FINAL_DCLICKORA.md).
 
-*Fim do relatório Etapa 4 (+ addendum).*
+## 8. Addendum prova local 2026-11-14 (Docker Postgres `:5435` + API `:3011`)
+
+Host: macOS 4 CPU / ~8 GB (memória livre frequentemente **&lt;50 MB** durante o run — limite do laptop, não da app em cloud).
+
+| Suite | VUs | Erros totais | Notas |
+|-------|-----|--------------|-------|
+| `load:realistic` | **20** | **0 / 220** | login p95 ~4.0 s; `public_presell` p95 **5 ms**; track impression/click p95 **~55 ms** |
+| `load:realistic` | **50** | 35 / 340 (10%) | login/analytics/track/public **0 erros**; falhas só em `presell_create` (burst + rate/limites no host saturado) |
+| `load:realistic` | **100** | alto | login colapsa (~70% erros) — host sem RAM; cenários track que chegaram a correr: **0 erros** |
+| 200 VUs | — | **não válido neste host** | Docker + Cursor + API esgotam 8 GB |
+
+**Veredicto honesto para venda:**
+
+- Funil público de campanha (página + track) está **sólido** sob dezenas de workers concorrentes neste hardware.
+- Declarar “milhares de utilizadores SaaS” exige **staging cloud** (RAM/CPU de servidor) com o mesmo `scripts/run-local-load-proof.sh` / `load:realistic` a ≥100–200 VUs e 0–baixa taxa de erro no login+create.
+- Neste laptop, o gargalo observado é **memória do host + login bcrypt concorrente**, não o path `/track` / público.
+
+Artefactos: `/tmp/clickora-load-20b.json`, `/tmp/clickora-load-50b.json`, `/tmp/clickora-load-100.json`.
+
+*Fim do relatório Etapa 4 (+ addenda).*
