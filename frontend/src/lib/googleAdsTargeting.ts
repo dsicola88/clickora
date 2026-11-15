@@ -84,3 +84,31 @@ export function languageLabel(code: string): string {
   const low = code.toLowerCase();
   return GOOGLE_ADS_LANGUAGE_OPTIONS.find((o) => o.code === low)?.label ?? code;
 }
+
+/** Labels de país localizados via Intl (estilo Google Ads / Keyword Planner). */
+export function localizedCountryOptions(locale: string): TargetingOption[] {
+  let dn: Intl.DisplayNames | null = null;
+  try {
+    dn = new Intl.DisplayNames([locale], { type: "region" });
+  } catch {
+    dn = null;
+  }
+  return GOOGLE_ADS_COUNTRY_OPTIONS.map((o) => ({
+    code: o.code,
+    label: dn?.of(o.code) ?? o.label,
+  })).sort((a, b) => a.label.localeCompare(b.label, locale));
+}
+
+/** Labels de idioma localizados via Intl. */
+export function localizedLanguageOptions(locale: string): TargetingOption[] {
+  let dn: Intl.DisplayNames | null = null;
+  try {
+    dn = new Intl.DisplayNames([locale], { type: "language" });
+  } catch {
+    dn = null;
+  }
+  return GOOGLE_ADS_LANGUAGE_OPTIONS.map((o) => ({
+    code: o.code,
+    label: dn?.of(o.code) ?? o.label,
+  })).sort((a, b) => a.label.localeCompare(b.label, locale));
+}

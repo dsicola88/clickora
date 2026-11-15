@@ -4,18 +4,53 @@ import prisma from "../lib/prisma";
 import { billingUserId } from "../lib/requestContext";
 import { analyzeDemandRadar, buildDemandRadarOverview } from "../lib/demandRadar/service";
 import type { GoogleAdsUserSettings } from "../modules/googleAds/googleAds.service";
+import {
+  normalizePlannerLanguage,
+  normalizePlannerMarket,
+} from "../lib/demandRadar/plannerTargeting";
 
 const analyzeSchema = z.object({
   product: z.string().trim().min(2).max(200),
-  market: z.string().trim().min(2).max(8).default("US"),
-  language: z.string().trim().min(2).max(16).default("en"),
+  market: z
+    .string()
+    .trim()
+    .min(2)
+    .max(8)
+    .transform((v, ctx) => {
+      const n = normalizePlannerMarket(v);
+      if (!n) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Localização sem critério Google Ads (geoTargetConstants).",
+        });
+        return z.NEVER;
+      }
+      return n;
+    }),
+  language: z
+    .string()
+    .trim()
+    .min(2)
+    .max(16)
+    .transform((v, ctx) => {
+      const n = normalizePlannerLanguage(v);
+      if (!n) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Idioma sem critério Google Ads (languageConstants).",
+        });
+        return z.NEVER;
+      }
+      return n;
+    }),
   /**
    * Janelas alinhadas ao Planejador Google Ads.
    * `default` e `last_12` = últimos 12 meses; `all_available` ≈ 4 anos.
    */
   timeframe: z
     .enum(["default", "last_1", "last_12", "last_24", "last_36", "all_available"])
-    .default("last_12"),
+    .default("last_12")
+    .transform((v) => (v === "default" ? "last_12" : v)),
 });
 
 async function loadGoogleUser(userId: string): Promise<GoogleAdsUserSettings | null> {
@@ -46,9 +81,17 @@ export const demandRadarController = {
   async analyze(req: Request, res: Response) {
     const parsed = analyzeSchema.safeParse(req.body ?? {});
     if (!parsed.success) {
+      const flat = parsed.error.flatten();
+      const fieldMsg =
+        flat.fieldErrors.market?.[0] ||
+        flat.fieldErrors.language?.[0] ||
+        flat.fieldErrors.product?.[0] ||
+        flat.fieldErrors.timeframe?.[0];
       res.status(400).json({
-        error: "Indique um produto ou termo (mín. 2 caracteres), mercado e idioma.",
-        details: parsed.error.flatten(),
+        error:
+          fieldMsg ||
+          "Indique um produto ou termo (mín. 2 caracteres), localização e idioma Google Ads válidos.",
+        details: flat,
       });
       return;
     }

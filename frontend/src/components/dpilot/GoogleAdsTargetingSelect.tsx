@@ -158,3 +158,115 @@ export function GoogleAdsLanguagesSelect(props: Omit<Props, "normalizeSelected" 
     />
   );
 }
+
+type SingleProps = {
+  options: TargetingOption[];
+  value: string;
+  onChange: (code: string) => void;
+  searchPlaceholder: string;
+  emptyText: string;
+  disabled?: boolean;
+  id?: string;
+  /** Comparador de código com options (país ISO maiúsc.; idioma minúsc.) */
+  normalizeSelected: (code: string) => string;
+  matchesOption: (selectedCode: string, optionCode: string) => boolean;
+};
+
+/** Combobox pesquisável de selecção única — estilo Keyword Planner / Google Ads. */
+export function TargetingSingleSelect({
+  options,
+  value,
+  onChange,
+  searchPlaceholder,
+  emptyText,
+  disabled,
+  id,
+  normalizeSelected,
+  matchesOption,
+}: SingleProps) {
+  const [open, setOpen] = useState(false);
+
+  const selected = useMemo(() => {
+    const hit = options.find((o) => matchesOption(value, o.code));
+    return hit ?? (value ? { code: value, label: value } : null);
+  }, [options, value, matchesOption]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          id={id}
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="h-10 w-full justify-between px-3 font-normal"
+        >
+          <span className="truncate text-sm">
+            {selected ? (
+              <>
+                <span>{selected.label}</span>
+                <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">{selected.code}</span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">…</span>
+            )}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" aria-hidden />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[min(100vw-2rem,360px)] p-0" align="start" sideOffset={4}>
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} className="h-11" />
+          <CommandList className="max-h-[min(18rem,50vh)]">
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandGroup>
+              {options.map((opt) => {
+                const isSelected = matchesOption(value, opt.code);
+                return (
+                  <CommandItem
+                    key={opt.code}
+                    value={`${opt.label} ${opt.code}`}
+                    onSelect={() => {
+                      onChange(normalizeSelected(opt.code));
+                      setOpen(false);
+                    }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")} />
+                    <span className="truncate">{opt.label}</span>
+                    <span className="ml-auto font-mono text-[11px] text-muted-foreground">{opt.code}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function GoogleAdsCountrySingleSelect(
+  props: Omit<SingleProps, "normalizeSelected" | "matchesOption">,
+) {
+  return (
+    <TargetingSingleSelect
+      {...props}
+      normalizeSelected={(c) => c.toUpperCase()}
+      matchesOption={(v, opt) => v.toUpperCase() === opt.toUpperCase()}
+    />
+  );
+}
+
+export function GoogleAdsLanguageSingleSelect(
+  props: Omit<SingleProps, "normalizeSelected" | "matchesOption">,
+) {
+  return (
+    <TargetingSingleSelect
+      {...props}
+      normalizeSelected={(c) => c.toLowerCase()}
+      matchesOption={(v, opt) => v.toLowerCase() === opt.toLowerCase()}
+    />
+  );
+}

@@ -6,6 +6,7 @@ import {
   type GoogleAdsUserSettings,
 } from "../../modules/googleAds/googleAds.service";
 import { demandTextMatches } from "./match";
+import { normalizePlannerLanguage, normalizePlannerMarket } from "./plannerTargeting";
 import {
   fetchUserKeywordPlannerIdeas,
   type DemandPlannerTimeframe,
@@ -255,9 +256,16 @@ export async function analyzeDemandRadar(input: {
   timeframe?: DemandPlannerTimeframe;
 }) {
   const product = input.product.trim().slice(0, 200);
-  const market = input.market.trim().toUpperCase().slice(0, 8) || "US";
-  const language = input.language.trim().slice(0, 16) || "en";
-  const timeframe: DemandPlannerTimeframe = input.timeframe ?? "last_12";
+  /**
+   * Sem fallback US/en — só critérios reais do Google Ads.
+   * UK → GB (mesmo geoTarget); `default` → `last_12` para eco alinhado com a UI.
+   */
+  const marketNorm = normalizePlannerMarket(input.market);
+  const languageNorm = normalizePlannerLanguage(input.language);
+  const market = marketNorm ?? input.market.trim().toUpperCase().slice(0, 8);
+  const language = languageNorm ?? input.language.trim().toLowerCase().slice(0, 16);
+  const timeframe: DemandPlannerTimeframe =
+    !input.timeframe || input.timeframe === "default" ? "last_12" : input.timeframe;
   const { from, to, days } = periodWindow();
 
   const [planner, researches, offers, devices] = await Promise.all([

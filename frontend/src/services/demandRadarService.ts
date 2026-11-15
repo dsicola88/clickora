@@ -136,10 +136,11 @@ export type DemandRadarAnalyze = {
   honesty: { invents_metrics: boolean; notes: string[] };
 };
 
-/** `last_12` e `default` são a mesma janela; `default` mantém compat com APIs antigas. */
-function toApiTimeframe(tf?: DemandPlannerTimeframe): DemandPlannerTimeframe | undefined {
-  if (!tf) return undefined;
-  if (tf === "last_12") return "default";
+/** `default` (API legada) = últimos 12 meses = `last_12` na UI. */
+export function normalizeDemandTimeframe(
+  tf: DemandPlannerTimeframe | null | undefined,
+): DemandPlannerTimeframe {
+  if (!tf || tf === "default") return "last_12";
   return tf;
 }
 
@@ -155,7 +156,7 @@ export const demandRadarService = {
   }) {
     return apiClient.post<DemandRadarAnalyze>("/demand-radar/analyze", {
       ...body,
-      timeframe: toApiTimeframe(body.timeframe),
+      timeframe: normalizeDemandTimeframe(body.timeframe),
     });
   },
 };

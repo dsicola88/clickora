@@ -4,7 +4,8 @@
  */
 import { API_BASE, getAccessFromRefreshToken, getGoogleDeveloperToken } from "../../paid/google-ads.api";
 import { GOOGLE_GEO_CRITERION_IDS } from "../../paid/geo-google";
-import { GOOGLE_ADS_LANGUAGE_NUMERIC_ID, normalizeGoogleLanguageCode } from "../../paid/language-google";
+import { GOOGLE_ADS_LANGUAGE_NUMERIC_ID } from "../../paid/language-google";
+import { normalizePlannerLanguage, normalizePlannerMarket } from "./plannerTargeting";
 import {
   buildGoogleAdsCredentialsForUser,
   getGoogleAdsReportingUnavailability,
@@ -261,14 +262,14 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     );
   }
 
-  const country = String(input.countryCode || "").trim().toUpperCase();
-  const geoId = GOOGLE_GEO_CRITERION_IDS[country];
-  const langIso = normalizeGoogleLanguageCode(input.languageCode) ?? "en";
-  const langNum = GOOGLE_ADS_LANGUAGE_NUMERIC_ID[langIso];
-  if (geoId == null || langNum == null) {
+  const country = normalizePlannerMarket(input.countryCode);
+  const langIso = normalizePlannerLanguage(input.languageCode);
+  const geoId = country ? GOOGLE_GEO_CRITERION_IDS[country] : undefined;
+  const langNum = langIso ? GOOGLE_ADS_LANGUAGE_NUMERIC_ID[langIso] : undefined;
+  if (country == null || langIso == null || geoId == null || langNum == null) {
     return unavailable(
       "unsupported_geo_or_language",
-      "País ou idioma sem critério no Planejador Google Ads.",
+      "País ou idioma sem critério no Planejador Google Ads. Escolha uma localização e idioma da lista Google.",
     );
   }
 

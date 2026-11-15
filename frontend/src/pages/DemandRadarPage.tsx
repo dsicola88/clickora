@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowRight, Loader2, Radar, ShieldCheck } from "lucide-react";
@@ -20,16 +20,22 @@ import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { fill, type MessageKey } from "@/i18n";
 import {
   demandRadarService,
+  normalizeDemandTimeframe,
   type DemandPlannerIdea,
   type DemandPlannerTimeframe,
   type DemandPrimaryKind,
   type DemandRadarAnalyze,
 } from "@/services/demandRadarService";
-import { keywordResearchService } from "@/services/keywordResearchService";
 import {
-  defaultMarketForLanguage,
-  marketsForLanguage,
-} from "@/lib/keywordResearchMarkets";
+  GOOGLE_ADS_COUNTRY_OPTIONS,
+  GOOGLE_ADS_LANGUAGE_OPTIONS,
+  localizedCountryOptions,
+  localizedLanguageOptions,
+} from "@/lib/googleAdsTargeting";
+import {
+  GoogleAdsCountrySingleSelect,
+  GoogleAdsLanguageSingleSelect,
+} from "@/components/dpilot/GoogleAdsTargetingSelect";
 import { DemandVolumeTrendChart } from "@/components/demandRadar/DemandVolumeTrendChart";
 import {
   DemandDeviceBreakdownPanel,
@@ -37,15 +43,6 @@ import {
 } from "@/components/demandRadar/DemandDeviceBreakdown";
 import { DemandKeywordIdeasTable } from "@/components/demandRadar/DemandKeywordIdeasTable";
 import { cn } from "@/lib/utils";
-
-const LANGS: { code: string; labelKey: MessageKey }[] = [
-  { code: "en", labelKey: "pages.demandRadar.langEn" },
-  { code: "pt", labelKey: "pages.demandRadar.langPt" },
-  { code: "es", labelKey: "pages.demandRadar.langEs" },
-  { code: "fr", labelKey: "pages.demandRadar.langFr" },
-  { code: "de", labelKey: "pages.demandRadar.langDe" },
-  { code: "it", labelKey: "pages.demandRadar.langIt" },
-];
 
 function formatInt(n: number, locale: string) {
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(n);
@@ -143,26 +140,8 @@ export default function DemandRadarPage() {
     },
   });
 
-  const optionsQ = useQuery({
-    queryKey: ["keyword-researches", "options"],
-    queryFn: async () => {
-      const { data, error } = await keywordResearchService.options();
-      if (error) throw new Error(error);
-      return data;
-    },
-  });
-
-  const marketOptions = useMemo(
-    () => marketsForLanguage(language, optionsQ.data?.markets ?? []),
-    [language, optionsQ.data?.markets],
-  );
-
-  useEffect(() => {
-    if (!marketOptions.length) return;
-    if (!marketOptions.some((m) => m.code === market)) {
-      setMarket(defaultMarketForLanguage(language));
-    }
-  }, [language, market, marketOptions]);
+  const languageOptions = useMemo(() => localizedLanguageOptions(nl), [nl]);
+  const marketOptions = useMemo(() => localizedCountryOptions(nl), [nl]);
 
   const analyzeM = useMutation({
     mutationFn: async (payload?: {
@@ -186,7 +165,7 @@ export default function DemandRadarPage() {
       setProduct(data.query.product);
       setMarket(data.query.market);
       setLanguage(data.query.language);
-      setTimeframe(data.query.timeframe);
+      setTimeframe(normalizeDemandTimeframe(data.query.timeframe));
       setDeviceFilter("all");
     },
     onError: (err: Error) => {
@@ -201,16 +180,34 @@ export default function DemandRadarPage() {
     timeframe?: DemandPlannerTimeframe;
   }) {
     const p = (opts?.product ?? product).trim();
-    const mkt = opts?.market ?? market;
-    const lang = opts?.language ?? language;
-    const tf = opts?.timeframe ?? timeframe;
+    const mktRaw = (opts?.market ?? market).trim().toUpperCase();
+    const mkt = mktRaw === "UK" ? "GB" : mktRaw;
+    const lang = (opts?.language ?? language).trim().toLowerCase();
+    const tf = normalizeDemandTimeframe(opts?.timeframe ?? timeframe);
     if (p.length < 2 || analyzeM.isPending) return;
+    if (!GOOGLE_ADS_COUNTRY_OPTIONS.some((o) => o.code === mkt)) {
+      toast.error(t("pages.demandRadar.marketEmpty"));
+      return;
+    }
+    if (!GOOGLE_ADS_LANGUAGE_OPTIONS.some((o) => o.code === lang)) {
+      toast.error(t("pages.demandRadar.languageEmpty"));
+      return;
+    }
     if (opts?.product) setProduct(p);
     if (opts?.market) setMarket(mkt);
     if (opts?.language) setLanguage(lang);
     if (opts?.timeframe) setTimeframe(tf);
     analyzeM.mutate({ product: p, market: mkt, language: lang, timeframe: tf });
   }
+
+  /** Resultados só visíveis se os filtros coincidirem com a última análise — sem inventar métricas. */
+  const resultsLive =
+    analysis != null &&
+    analysis.query.product.trim() === product.trim() &&
+    analysis.query.market.toUpperCase() === market.toUpperCase() &&
+    analysis.query.language.toLowerCase() === language.toLowerCase() &&
+    normalizeDemandTimeframe(analysis.query.timeframe) === normalizeDemandTimeframe(timeframe);
+  const view = resultsLive ? analysis : null;
 
   if (overviewQ.isLoading) return <LoadingState message={t("common.loading")} />;
   if (overviewQ.isError || !overviewQ.data) {
@@ -226,9 +223,9 @@ export default function DemandRadarPage() {
   const googleReady = overview.google_ads.ready;
   const googleReason = overview.google_ads.reason;
   const googlePlatformMissing = googleReason === "google_ads_platform_not_configured";
-  const plannerOk = analysis?.planner.status === "ok";
-  const primary = analysis?.planner.primary ?? null;
-  const primaryKind = analysis?.planner.primary_kind ?? null;
+  const plannerOk = view?.planner.status === "ok";
+  const primary = view?.planner.primary ?? null;
+  const primaryKind = view?.planner.primary_kind ?? null;
 
   const honestyNotes = [
     t("pages.demandRadar.honestyNote1"),
@@ -298,41 +295,28 @@ export default function DemandRadarPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>{t("pages.demandRadar.languageLabel")}</Label>
-            <Select
+            <Label htmlFor="demand-language">{t("pages.demandRadar.languageLabel")}</Label>
+            <GoogleAdsLanguageSingleSelect
+              id="demand-language"
+              options={languageOptions}
               value={language}
               disabled={analyzeM.isPending}
-              onValueChange={(v) => {
-                setLanguage(v);
-                setMarket(defaultMarketForLanguage(v));
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LANGS.map((l) => (
-                  <SelectItem key={l.code} value={l.code}>
-                    {t(l.labelKey)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              searchPlaceholder={t("pages.demandRadar.languageSearch")}
+              emptyText={t("pages.demandRadar.languageEmpty")}
+              onChange={setLanguage}
+            />
           </div>
           <div className="space-y-1.5">
-            <Label>{t("pages.demandRadar.marketLabel")}</Label>
-            <Select value={market} disabled={analyzeM.isPending} onValueChange={setMarket}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(marketOptions.length ? marketOptions : [{ code: market, name: market }]).map((m) => (
-                  <SelectItem key={m.code} value={m.code}>
-                    {m.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="demand-market">{t("pages.demandRadar.marketLabel")}</Label>
+            <GoogleAdsCountrySingleSelect
+              id="demand-market"
+              options={marketOptions}
+              value={market}
+              disabled={analyzeM.isPending}
+              searchPlaceholder={t("pages.demandRadar.marketSearch")}
+              emptyText={t("pages.demandRadar.marketEmpty")}
+              onChange={setMarket}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>{t("pages.demandRadar.networkLabel")}</Label>
@@ -343,7 +327,7 @@ export default function DemandRadarPage() {
           <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
             <Label>{t("pages.demandRadar.timeframeLabel")}</Label>
             <Select
-              value={timeframe === "default" ? "last_12" : timeframe}
+              value={normalizeDemandTimeframe(timeframe)}
               disabled={analyzeM.isPending}
               onValueChange={(v) => setTimeframe(v as DemandPlannerTimeframe)}
             >
@@ -371,9 +355,9 @@ export default function DemandRadarPage() {
               t("pages.demandRadar.analyze")
             )}
           </Button>
-          {analysis ? (
+          {view ? (
             <Button asChild variant="secondary">
-              <Link to={analysis.next_steps.keywords_path}>
+              <Link to={view.next_steps.keywords_path}>
                 {t("pages.demandRadar.openKeywords")}
                 <ArrowRight className="ml-1.5 h-4 w-4" />
               </Link>
@@ -382,7 +366,7 @@ export default function DemandRadarPage() {
         </div>
       </section>
 
-      {!analysis && !analyzeM.isPending ? (
+      {!view && !analyzeM.isPending ? (
         <div className="rounded-xl border border-dashed border-border/70 bg-muted/10 px-6 py-14 text-center">
           <Radar className="mx-auto h-8 w-8 text-muted-foreground/50" />
           <p className="mt-3 text-sm font-medium text-foreground">{t("pages.demandRadar.emptyAnalyzeTitle")}</p>
@@ -399,7 +383,7 @@ export default function DemandRadarPage() {
         </div>
       ) : null}
 
-      {analysis && !analyzeM.isPending ? (
+      {view && !analyzeM.isPending ? (
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold tracking-tight">{t("pages.demandRadar.resultsTitle")}</h2>
@@ -409,9 +393,9 @@ export default function DemandRadarPage() {
               </SourceBadge>
             </div>
           </div>
-          {!plannerOk && analysis.planner.message ? (
+          {!plannerOk && view.planner.message ? (
             <p className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
-              {analysis.planner.message}
+              {view.planner.message}
             </p>
           ) : null}
 
@@ -454,7 +438,7 @@ export default function DemandRadarPage() {
             />
             <KpiCell
               label={t("pages.demandRadar.kpiIdeas")}
-              value={formatInt(analysis.planner.ideas.length, nl)}
+              value={formatInt(view.planner.ideas.length, nl)}
               hint={plannerOk ? t("pages.demandRadar.sourceGoogle") : t("pages.demandRadar.sourceUnavailable")}
               muted={!plannerOk}
             />
@@ -463,7 +447,7 @@ export default function DemandRadarPage() {
               value={
                 plannerOk
                   ? formatInt(
-                      analysis.planner.ideas.reduce((s, i) => s + i.monthly_volume, 0),
+                      view.planner.ideas.reduce((s, i) => s + i.monthly_volume, 0),
                       nl,
                     )
                   : t("pages.demandRadar.noVolume")
@@ -474,21 +458,21 @@ export default function DemandRadarPage() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
-            {analysis.planner.trend ? (
+            {view.planner.trend ? (
               <DemandVolumeTrendChart
-                trend={analysis.planner.trend}
-                keyword={primary?.keyword ?? analysis.query.product}
+                trend={view.planner.trend}
+                keyword={primary?.keyword ?? view.query.product}
               />
             ) : (
               <div className="rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
                 {t("pages.demandRadar.trendEmpty")}
               </div>
             )}
-            {analysis.planner.device_split ||
-            (analysis.account.devices?.total_clicks ?? 0) > 0 ? (
+            {view.planner.device_split ||
+            (view.account.devices?.total_clicks ?? 0) > 0 ? (
               <DemandDeviceBreakdownPanel
-                devices={analysis.account.devices}
-                googleDevices={analysis.planner.device_split}
+                devices={view.account.devices}
+                googleDevices={view.planner.device_split}
                 filter={deviceFilter}
                 onFilterChange={setDeviceFilter}
               />
@@ -496,7 +480,7 @@ export default function DemandRadarPage() {
           </div>
 
           <DemandKeywordIdeasTable
-            ideas={analysis.planner.ideas}
+            ideas={view.planner.ideas}
             primaryKeyword={primary?.keyword}
             primaryKindLabel={primary ? primaryKindLabel(primaryKind, t) : null}
             plannerOk={plannerOk}
@@ -504,17 +488,17 @@ export default function DemandRadarPage() {
             onAnalyze={(keyword) => runAnalyze({ product: keyword })}
           />
 
-          {analysis.account.matching_offers.length > 0 ||
-          analysis.account.matching_researches.length > 0 ? (
+          {view.account.matching_offers.length > 0 ||
+          view.account.matching_researches.length > 0 ? (
             <div className="grid gap-4 lg:grid-cols-2">
-              {analysis.account.matching_offers.length > 0 ? (
+              {view.account.matching_offers.length > 0 ? (
                 <div className="rounded-lg border border-border/70">
                   <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
                     <h3 className="text-sm font-semibold">{t("pages.demandRadar.accountOffers")}</h3>
                     <SourceBadge tone="clickora">{t("pages.demandRadar.sourceClickora")}</SourceBadge>
                   </div>
                   <ul className="divide-y divide-border/50">
-                    {analysis.account.matching_offers.map((o) => (
+                    {view.account.matching_offers.map((o) => (
                       <li key={o.presell_id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{o.title}</p>
@@ -538,14 +522,14 @@ export default function DemandRadarPage() {
                 </div>
               ) : null}
 
-              {analysis.account.matching_researches.length > 0 ? (
+              {view.account.matching_researches.length > 0 ? (
                 <div className="rounded-lg border border-border/70">
                   <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
                     <h3 className="text-sm font-semibold">{t("pages.demandRadar.accountResearches")}</h3>
                     <SourceBadge tone="clickora">{t("pages.demandRadar.sourceClickora")}</SourceBadge>
                   </div>
                   <ul className="divide-y divide-border/50">
-                    {analysis.account.matching_researches.map((r) => (
+                    {view.account.matching_researches.map((r) => (
                       <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{r.product}</p>
@@ -568,7 +552,7 @@ export default function DemandRadarPage() {
         </section>
       ) : null}
 
-      {analysis && !analyzeM.isPending ? (
+      {view && !analyzeM.isPending ? (
         <>
           {(overview.internal_offers.length > 0 || overview.recent_researches.length > 0) ? (
             <section className="grid gap-4 lg:grid-cols-2">

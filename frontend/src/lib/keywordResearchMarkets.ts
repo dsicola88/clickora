@@ -28,11 +28,30 @@ export function marketsForLanguage(
 }
 
 export function defaultMarketForLanguage(language: string): string {
-  if (language === "en") return "US";
-  if (language === "pt") return "BR";
-  if (language === "es") return "MX";
-  if (language === "fr") return "FR";
-  if (language === "de") return "DE";
-  if (language === "it") return "IT";
-  return "US";
+  const map: Record<string, string> = {
+    en: "US",
+    pt: "BR",
+    es: "MX",
+    fr: "FR",
+    de: "DE",
+    it: "IT",
+    nl: "NL",
+    pl: "PL",
+    sv: "SE",
+    da: "DK",
+    fi: "FI",
+    no: "NO",
+    cs: "CZ",
+    el: "GR",
+    hu: "AT",
+    ro: "RO",
+    tr: "TR",
+    ja: "JP",
+    hi: "IN",
+    ar: "US",
+    zh: "SG",
+    ko: "US",
+    ru: "US",
+  };
+  return map[language] ?? "US";
 }
