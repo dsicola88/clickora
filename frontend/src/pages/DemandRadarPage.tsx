@@ -478,15 +478,20 @@ export default function DemandRadarPage() {
              * Só dispositivos do Planejador Google nesta grelha.
              * Cliques Clickora da conta inteira NÃO entram aqui — pareciam métricas
              * inventadas para a keyword quando o Planejador falha (403).
+             * Sempre mostrar o painel: se a Google não trouxer DEVICE, empty state honesto
+             * (não esconder como se a feature não existisse — padrão Semrush/Similarweb).
              */}
-            {view.planner.device_split?.items?.length ? (
-              <DemandDeviceBreakdownPanel
-                devices={null}
-                googleDevices={view.planner.device_split}
-                filter={deviceFilter}
-                onFilterChange={setDeviceFilter}
-              />
-            ) : null}
+            <DemandDeviceBreakdownPanel
+              devices={null}
+              googleDevices={view.planner.device_split}
+              filter={deviceFilter}
+              onFilterChange={setDeviceFilter}
+              emptyHint={
+                plannerOk && !view.planner.device_split?.items?.length
+                  ? "google_missing"
+                  : undefined
+              }
+            />
           </div>
 
           <DemandKeywordIdeasTable

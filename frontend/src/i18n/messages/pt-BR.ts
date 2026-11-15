@@ -995,6 +995,10 @@ export const ptBR = {
       "devicesSource": "Fonte: cliques da sua conta Clickora (últimos 30 dias)",
       "devicesSourceGoogle": "Fonte: partilha de pesquisas por dispositivo (Planejador Google)",
       "devicesEmpty": "Ainda sem dados de dispositivo nesta vista.",
+      "devicesEmptyGoogle":
+        "O Planejador Google não devolveu partilha por dispositivo (desktop / mobile / tablet) para este termo.",
+      "devicesEmptyGoogleHint":
+        "Ao contrário do Semrush ou Similarweb, a Clickora não inventa % por dispositivo. Só mostramos o gráfico quando a API Google Ads envia aggregate DEVICE. Volume e CPC acima estão OK; o split de devices às vezes vem vazio conforme conta, mercado ou keyword.",
       "devicesTabGoogle": "Planejador",
       "devicesTabClickora": "Meu tráfego",
       "devicesGoogleNote":

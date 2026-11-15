@@ -463,6 +463,11 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     ...baseBody,
     aggregateMetrics: { aggregateMetricTypes: ["DEVICE"] },
   };
+  /** Variante sem historicalMetrics — alguns clientes só devolvem DEVICE neste formato. */
+  const withDevicesBare = {
+    ...bareBody,
+    aggregateMetrics: { aggregateMetricTypes: ["DEVICE"] },
+  };
 
   const result = await generateKeywordIdeasWithFallbacks({
     access,
@@ -470,7 +475,8 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     preferredCustomerId: customerId,
     preferredLogin,
     privateAccount,
-    bodies: [baseBody, bareBody, withDevices],
+    /** Preferir DEVICE cedo; se falhar, base/bare ainda salvam volume/CPC. */
+    bodies: [withDevices, baseBody, bareBody, withDevicesBare],
   });
 
   if (!result.ok) {
@@ -560,17 +566,19 @@ export async function fetchUserKeywordPlannerIdeas(input: {
   let deviceSplit = parsePlannerDeviceBreakdown(firstPage);
   /** Se o pedido vencedor não trouxe DEVICE, tenta enriquecer com o mesmo login/customer. */
   if (!deviceSplit) {
-    const enrich = await postKeywordIdeas({
-      access,
-      developerToken: dev,
-      customerId: result.customerId,
-      loginCustomerId: result.loginCustomerId,
-      body: withDevices,
-    });
-    if (enrich.ok) {
+    for (const body of [withDevices, withDevicesBare]) {
+      const enrich = await postKeywordIdeas({
+        access,
+        developerToken: dev,
+        customerId: result.customerId,
+        loginCustomerId: result.loginCustomerId,
+        body,
+      });
+      if (!enrich.ok) continue;
       try {
         const enrichParsed = JSON.parse(enrich.text) as Record<string, unknown>;
         deviceSplit = parsePlannerDeviceBreakdown(enrichParsed);
+        if (deviceSplit) break;
       } catch {
         /* ignore */
       }

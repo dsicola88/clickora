@@ -1007,6 +1007,10 @@ export const en = {
       devicesSource: "Source: your Clickora clicks (last 30 days)",
       devicesSourceGoogle: "Source: Google Keyword Planner search share by device",
       devicesEmpty: "No device data for this view yet.",
+      devicesEmptyGoogle:
+        "Google Keyword Planner did not return device share (desktop / mobile / tablet) for this term.",
+      devicesEmptyGoogleHint:
+        "Unlike Semrush or Similarweb, Clickora does not invent device %. The chart only appears when the Google Ads API returns aggregate DEVICE. Volume and CPC above can still be fine; device split is often omitted by account, market, or keyword.",
       devicesTabGoogle: "Planner",
       devicesTabClickora: "My traffic",
       devicesGoogleNote:

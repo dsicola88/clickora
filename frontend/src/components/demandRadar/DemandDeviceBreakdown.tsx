@@ -88,11 +88,14 @@ export function DemandDeviceBreakdownPanel({
   googleDevices,
   filter,
   onFilterChange,
+  emptyHint,
 }: {
   devices: DemandDeviceBreakdown | null | undefined;
   googleDevices?: DemandPlannerDeviceBreakdown | null;
   filter?: DeviceFilter;
   onFilterChange?: (v: DeviceFilter) => void;
+  /** Quando o Planejador respondeu OK mas sem aggregate DEVICE. */
+  emptyHint?: "google_missing";
 }) {
   const { t, locale } = useAppLocale();
   const nl = numberLocale(locale);
@@ -163,7 +166,7 @@ export function DemandDeviceBreakdownPanel({
           <div>
             <h3 className="text-sm font-semibold tracking-tight">{t("pages.demandRadar.devicesTitle")}</h3>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
-              {showingGoogle
+              {showingGoogle || emptyHint === "google_missing"
                 ? t("pages.demandRadar.devicesSourceGoogle")
                 : t("pages.demandRadar.devicesSource")}
             </p>
@@ -196,7 +199,18 @@ export function DemandDeviceBreakdownPanel({
       </div>
 
       {empty ? (
-        <p className="px-4 py-6 text-sm text-muted-foreground">{t("pages.demandRadar.devicesEmpty")}</p>
+        <div className="space-y-2 px-4 py-6">
+          <p className="text-sm text-muted-foreground">
+            {emptyHint === "google_missing"
+              ? t("pages.demandRadar.devicesEmptyGoogle")
+              : t("pages.demandRadar.devicesEmpty")}
+          </p>
+          {emptyHint === "google_missing" ? (
+            <p className="text-[11px] leading-relaxed text-muted-foreground/90">
+              {t("pages.demandRadar.devicesEmptyGoogleHint")}
+            </p>
+          ) : null}
+        </div>
       ) : (
         <>
           <div className="grid gap-4 p-4 lg:grid-cols-[180px_1fr] lg:items-center">

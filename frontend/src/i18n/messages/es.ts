@@ -995,6 +995,10 @@ export const es = {
       "devicesSource": "Fuente: clics de tu cuenta Clickora (últimos 30 días)",
       "devicesSourceGoogle": "Fuente: cuota de búsquedas por dispositivo (Planificador Google)",
       "devicesEmpty": "Aún sin datos de dispositivo en esta vista.",
+      "devicesEmptyGoogle":
+        "El Planificador de Google no devolvió cuota por dispositivo (escritorio / móvil / tablet) para este término.",
+      "devicesEmptyGoogleHint":
+        "A diferencia de Semrush o Similarweb, Clickora no inventa % por dispositivo. El gráfico solo aparece cuando la API de Google Ads envía aggregate DEVICE. Volumen y CPC arriba pueden estar bien; el split de devices a veces viene vacío según cuenta, mercado o keyword.",
       "devicesTabGoogle": "Planificador",
       "devicesTabClickora": "Mi tráfico",
       "devicesGoogleNote":
