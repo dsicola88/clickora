@@ -1091,7 +1091,7 @@ export const integrationsController = {
     if (!getGoogleAdsApiClientConfigFromEnv()) {
       return res.status(503).json({
         error:
-          "Credenciais Google Ads API em falta no servidor (GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET).",
+          "Credenciais Google Ads API em falta no servidor (GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET).",
       });
     }
     if (!process.env.JWT_SECRET?.trim()) {

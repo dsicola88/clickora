@@ -24,13 +24,20 @@ export function getGoogleDeveloperToken(): string | undefined {
   );
 }
 
+/** OAuth do projecto Cloud basta; developer token é opcional desde o sunset (set/2026). */
 export function isGoogleAdsOAuthConfigured(): boolean {
-  return Boolean(getClientId() && getClientSecret() && getGoogleDeveloperToken());
+  return Boolean(getClientId() && getClientSecret());
 }
 
+/** Header legado — a API ignora o valor; vazio se não houver env. */
+export function resolveDeveloperTokenHeader(): string {
+  return getGoogleDeveloperToken() ?? "";
+}
+
+/** Token opcional pós-sunset; garante string ("" se em falta). */
 function assertDeveloperToken(t: string | undefined): asserts t is string {
-  if (!t) {
-    throw new Error("GOOGLE_ADS_DEVELOPER_TOKEN (ou DEVELOPER_TOKEN) em falta.");
+  if (typeof t !== "string") {
+    throw new Error("developer-token header inválido.");
   }
 }
 
@@ -147,7 +154,7 @@ export function buildGoogleOAuthAuthUrl(redirectUri: string, state: string): str
 export async function listFirstAccessibleCustomerId(
   accessToken: string,
 ): Promise<{ customerId: string; name: string | null }> {
-  const dev = getGoogleDeveloperToken();
+  const dev = resolveDeveloperTokenHeader();
   assertDeveloperToken(dev);
 
   const res = await fetch(`${API_BASE}/customers:listAccessibleCustomers`, {
@@ -183,7 +190,7 @@ export async function fetchCustomerName(
   customerId: string,
   loginCustomerId?: string,
 ): Promise<string | null> {
-  const dev = getGoogleDeveloperToken();
+  const dev = resolveDeveloperTokenHeader();
   assertDeveloperToken(dev);
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
@@ -242,7 +249,7 @@ async function fetchLast14DaysSpendFromCampaigns(
   customerId: string,
   loginCustomerId?: string,
 ): Promise<{ todayMicros: bigint; seriesUsd: { date: string; spendUsd: number }[] }> {
-  const dev = getGoogleDeveloperToken();
+  const dev = resolveDeveloperTokenHeader();
   assertDeveloperToken(dev);
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
@@ -295,7 +302,7 @@ export async function fetchLast14DaysSpend(
   customerId: string,
   loginCustomerId?: string,
 ): Promise<{ todayMicros: bigint; seriesUsd: { date: string; spendUsd: number }[] }> {
-  const dev = getGoogleDeveloperToken();
+  const dev = resolveDeveloperTokenHeader();
   assertDeveloperToken(dev);
   const cleanId = customerId.replace(/\D/g, "");
   const headers: Record<string, string> = {

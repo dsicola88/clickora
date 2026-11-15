@@ -35,7 +35,7 @@ function googleConnectionPayload(user: GoogleAdsUserSettings) {
       "Conta Google Ads ligada (OAuth). Volumes do Planejador só aparecem se o developer token da plataforma estiver aprovado para KeywordPlanIdeaService — caso contrário verá 403 e métricas omitidas (sem inventar).";
   } else if (block?.code === "google_ads_platform_not_configured") {
     message =
-      "A conta pode estar ligada em Integrações, mas este servidor não tem GOOGLE_ADS_DEVELOPER_TOKEN / CLIENT_ID / CLIENT_SECRET. Sem isso o Planejador não devolve volumes.";
+      "A conta pode estar ligada em Integrações, mas este servidor não tem GOOGLE_ADS_CLIENT_ID / CLIENT_SECRET. Sem isso o Planejador não devolve volumes.";
   } else {
     message =
       block?.message ??

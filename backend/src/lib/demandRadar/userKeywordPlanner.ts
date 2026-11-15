@@ -2,7 +2,11 @@
  * Keyword Ideas (Planejador Google) com as credenciais Google Ads do afiliado (conta User).
  * Sem custo de fornecedor terceiro — só a API oficial já usada na app.
  */
-import { API_BASE, getAccessFromRefreshToken, getGoogleDeveloperToken } from "../../paid/google-ads.api";
+import {
+  API_BASE,
+  getAccessFromRefreshToken,
+  resolveDeveloperTokenHeader,
+} from "../../paid/google-ads.api";
 import { GOOGLE_GEO_CRITERION_IDS } from "../../paid/geo-google";
 import { GOOGLE_ADS_LANGUAGE_NUMERIC_ID } from "../../paid/language-google";
 import { normalizePlannerLanguage, normalizePlannerMarket } from "./plannerTargeting";
@@ -383,18 +387,18 @@ export async function fetchUserKeywordPlannerIdeas(input: {
         | undefined) ?? "google_ads_not_connected";
     const message =
       reason === "google_ads_platform_not_configured"
-        ? "A conta pode estar ligada em Integrações, mas este servidor não tem GOOGLE_ADS_DEVELOPER_TOKEN / CLIENT_ID / CLIENT_SECRET. Sem isso o Planejador não devolve volumes."
+        ? "A conta pode estar ligada em Integrações, mas este servidor não tem GOOGLE_ADS_CLIENT_ID / CLIENT_SECRET. Sem isso o Planejador não devolve volumes."
         : (block?.message ??
           "Ligue o Google Ads em Integrações para ver volumes oficiais do Planejador de palavras-chave.");
     return unavailable(reason, message);
   }
 
   const creds = buildGoogleAdsCredentialsForUser(input.user);
-  const dev = getGoogleDeveloperToken();
-  if (!creds || !dev) {
+  const dev = resolveDeveloperTokenHeader();
+  if (!creds) {
     return unavailable(
       "google_ads_api_not_configured",
-      "A API Google Ads ainda não está configurada neste servidor.",
+      "A API Google Ads ainda não está configurada neste servidor (OAuth do projecto Cloud).",
     );
   }
 
@@ -482,10 +486,13 @@ export async function fetchUserKeywordPlannerIdeas(input: {
       codes.includes("SERVICE_ACCESS_DENIED") ||
       codes.includes("DEVELOPER_TOKEN_NOT_APPROVED")
     ) {
-      if (codes.includes("DEVELOPER_TOKEN_NOT_APPROVED")) {
+      if (
+        codes.includes("DEVELOPER_TOKEN_NOT_APPROVED") ||
+        codes.includes("CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION")
+      ) {
         return unavailable(
           "permission_denied",
-          "O developer token da API Google Ads da Clickora ainda não está aprovado para o Planejador (KeywordPlanIdeaService) [DEVELOPER_TOKEN_NOT_APPROVED]. A sua conta privada e o OAuth estão OK — o bloqueio é no token da plataforma. O Planejador em ads.google.com continua a funcionar; volumes na Clickora só aparecem depois da aprovação Basic+ no Google Ads API Center. Nada é inventado entretanto.",
+          "O projecto Google Cloud da Clickora ainda não tem acesso Basic à API Ads para o Planejador (KeywordPlanIdeaService). Tokens de developer foram descontinuados: em Cloud Console → Google Ads API → Níveis de acesso, confirme Exploração e peça Básico (exige verificação de marca OAuth). A sua conta e o OAuth estão OK — o bloqueio é no nível de acesso do projecto. Nada é inventado entretanto.",
         );
       }
       const explorerHint = codes.includes("SERVICE_ACCESS_DENIED")
