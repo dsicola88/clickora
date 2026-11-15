@@ -948,7 +948,9 @@ export const en = {
       analyzeOffer: "Analyze this offer",
       viewResults: "View results",
       resultsTitle: "Analysis results",
-      emptyAnalyzeHint: "Enter a product and tap Analyze demand to see Planner volumes.",
+      emptyAnalyzeTitle: "No analysis yet",
+      emptyAnalyzeHint:
+        "Enter a product or seed keyword and tap Analyze demand. Metrics only appear after a real Planner query — nothing is shown in advance.",
       honestyNote1: "Search volumes only appear when Google Ads is connected (Keyword Planner / Keyword Ideas).",
       honestyNote2: "Clicks, sales and revenue are only from your Clickora account in the stated period.",
       honestyNote3: "There is no worldwide AdScore/SimilarWeb ranking — those sources are not connected.",

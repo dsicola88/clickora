@@ -936,7 +936,9 @@ export const es = {
       "analyzeOffer": "Analizar esta oferta",
       "viewResults": "Ver resultados",
       "resultsTitle": "Resultados del análisis",
-      "emptyAnalyzeHint": "Indique un producto y pulse Analizar demanda para ver volúmenes del Planificador.",
+      "emptyAnalyzeTitle": "Aún sin análisis",
+      "emptyAnalyzeHint":
+        "Introduce un producto o palabra clave y pulsa Analizar demanda. Las métricas solo aparecen tras una consulta real al Planificador — no se muestra nada antes.",
       "honestyNote1": "Los volúmenes de búsqueda solo aparecen con Google Ads conectado (Planificador / Keyword Ideas).",
       "honestyNote2": "Clics, ventas e ingresos son solo de su cuenta Clickora en el periodo indicado.",
       "honestyNote3": "No hay ranking mundial tipo AdScore/SimilarWeb — esas fuentes no están conectadas.",

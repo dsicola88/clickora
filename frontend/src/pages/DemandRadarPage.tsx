@@ -383,9 +383,13 @@ export default function DemandRadarPage() {
       </section>
 
       {!analysis && !analyzeM.isPending ? (
-        <p className="rounded-lg border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
-          {t("pages.demandRadar.emptyAnalyzeHint")}
-        </p>
+        <div className="rounded-xl border border-dashed border-border/70 bg-muted/10 px-6 py-14 text-center">
+          <Radar className="mx-auto h-8 w-8 text-muted-foreground/50" />
+          <p className="mt-3 text-sm font-medium text-foreground">{t("pages.demandRadar.emptyAnalyzeTitle")}</p>
+          <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-muted-foreground">
+            {t("pages.demandRadar.emptyAnalyzeHint")}
+          </p>
+        </div>
       ) : null}
 
       {analyzeM.isPending ? (
@@ -480,12 +484,15 @@ export default function DemandRadarPage() {
                 {t("pages.demandRadar.trendEmpty")}
               </div>
             )}
-            <DemandDeviceBreakdownPanel
-              devices={analysis.account.devices}
-              googleDevices={analysis.planner.device_split}
-              filter={deviceFilter}
-              onFilterChange={setDeviceFilter}
-            />
+            {analysis.planner.device_split ||
+            (analysis.account.devices?.total_clicks ?? 0) > 0 ? (
+              <DemandDeviceBreakdownPanel
+                devices={analysis.account.devices}
+                googleDevices={analysis.planner.device_split}
+                filter={deviceFilter}
+                onFilterChange={setDeviceFilter}
+              />
+            ) : null}
           </div>
 
           <DemandKeywordIdeasTable
@@ -497,174 +504,181 @@ export default function DemandRadarPage() {
             onAnalyze={(keyword) => runAnalyze({ product: keyword })}
           />
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-border/70">
-              <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
-                <h3 className="text-sm font-semibold">{t("pages.demandRadar.accountOffers")}</h3>
-                <SourceBadge tone="clickora">{t("pages.demandRadar.sourceClickora")}</SourceBadge>
-              </div>
-              {analysis.account.matching_offers.length === 0 ? (
-                <p className="px-4 py-6 text-sm text-muted-foreground">
-                  {t("pages.demandRadar.accountOffersEmpty")}
-                </p>
-              ) : (
-                <ul className="divide-y divide-border/50">
-                  {analysis.account.matching_offers.map((o) => (
-                    <li key={o.presell_id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{o.title}</p>
-                        <p className="text-[11px] text-muted-foreground tabular-nums">
-                          {t("pages.demandRadar.clicks")}: {formatInt(o.clicks, nl)} ·{" "}
-                          {t("pages.demandRadar.sales")}: {formatInt(o.approved_sales, nl)} ·{" "}
-                          {t("pages.demandRadar.revenue")}: {formatMoney(o.revenue, nl)}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => runAnalyze({ product: o.title })}>
-                          {t("pages.demandRadar.analyzeOffer")}
-                        </Button>
-                        <Button asChild size="sm" variant="ghost">
-                          <Link to="/resultados">{t("pages.demandRadar.viewResults")}</Link>
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+          {analysis.account.matching_offers.length > 0 ||
+          analysis.account.matching_researches.length > 0 ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {analysis.account.matching_offers.length > 0 ? (
+                <div className="rounded-lg border border-border/70">
+                  <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
+                    <h3 className="text-sm font-semibold">{t("pages.demandRadar.accountOffers")}</h3>
+                    <SourceBadge tone="clickora">{t("pages.demandRadar.sourceClickora")}</SourceBadge>
+                  </div>
+                  <ul className="divide-y divide-border/50">
+                    {analysis.account.matching_offers.map((o) => (
+                      <li key={o.presell_id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{o.title}</p>
+                          <p className="text-[11px] text-muted-foreground tabular-nums">
+                            {t("pages.demandRadar.clicks")}: {formatInt(o.clicks, nl)} ·{" "}
+                            {t("pages.demandRadar.sales")}: {formatInt(o.approved_sales, nl)} ·{" "}
+                            {t("pages.demandRadar.revenue")}: {formatMoney(o.revenue, nl)}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => runAnalyze({ product: o.title })}>
+                            {t("pages.demandRadar.analyzeOffer")}
+                          </Button>
+                          <Button asChild size="sm" variant="ghost">
+                            <Link to="/resultados">{t("pages.demandRadar.viewResults")}</Link>
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
 
-            <div className="rounded-lg border border-border/70">
-              <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
-                <h3 className="text-sm font-semibold">{t("pages.demandRadar.accountResearches")}</h3>
-                <SourceBadge tone="clickora">{t("pages.demandRadar.sourceClickora")}</SourceBadge>
-              </div>
-              {analysis.account.matching_researches.length === 0 ? (
-                <p className="px-4 py-6 text-sm text-muted-foreground">
-                  {t("pages.demandRadar.accountResearchesEmpty")}
-                </p>
-              ) : (
-                <ul className="divide-y divide-border/50">
-                  {analysis.account.matching_researches.map((r) => (
-                    <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{r.product}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {r.market_name} · {r.language}
-                        </p>
-                      </div>
-                      <Button asChild size="sm" variant="ghost">
-                        <Link to={`/palavras-chave?research=${encodeURIComponent(r.id)}`}>
-                          {t("pages.demandRadar.openResearch")}
-                        </Link>
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {analysis.account.matching_researches.length > 0 ? (
+                <div className="rounded-lg border border-border/70">
+                  <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
+                    <h3 className="text-sm font-semibold">{t("pages.demandRadar.accountResearches")}</h3>
+                    <SourceBadge tone="clickora">{t("pages.demandRadar.sourceClickora")}</SourceBadge>
+                  </div>
+                  <ul className="divide-y divide-border/50">
+                    {analysis.account.matching_researches.map((r) => (
+                      <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{r.product}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {r.market_name} · {r.language}
+                          </p>
+                        </div>
+                        <Button asChild size="sm" variant="ghost">
+                          <Link to={`/palavras-chave?research=${encodeURIComponent(r.id)}`}>
+                            {t("pages.demandRadar.openResearch")}
+                          </Link>
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
-          </div>
+          ) : null}
         </section>
       ) : null}
 
-      {!analysis ? <DemandDeviceBreakdownPanel devices={overview.devices} /> : null}
-
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-border/70">
-          <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
-            <h3 className="text-sm font-semibold">{t("pages.demandRadar.topOffers")}</h3>
-            <SourceBadge tone="clickora">{t("pages.demandRadar.sourceClickora")}</SourceBadge>
-          </div>
-          {overview.internal_offers.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-muted-foreground">{t("pages.demandRadar.topOffersEmpty")}</p>
-          ) : (
-            <ul className="divide-y divide-border/50">
-              {overview.internal_offers.map((o) => (
-                <li key={o.presell_id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{o.title}</p>
-                    <p className="text-[11px] text-muted-foreground tabular-nums">
-                      {t("pages.demandRadar.sales")}: {formatInt(o.approved_sales, nl)} ·{" "}
-                      {t("pages.demandRadar.revenue")}: {formatMoney(o.revenue, nl)} ·{" "}
-                      {t("pages.demandRadar.clicks")}: {formatInt(o.clicks, nl)}
-                      {o.conversion_rate != null
-                        ? ` · ${t("pages.demandRadar.rate")}: ${o.conversion_rate}%`
-                        : ""}
-                    </p>
+      {analysis && !analyzeM.isPending ? (
+        <>
+          {(overview.internal_offers.length > 0 || overview.recent_researches.length > 0) ? (
+            <section className="grid gap-4 lg:grid-cols-2">
+              {overview.internal_offers.length > 0 ? (
+                <div className="rounded-lg border border-border/70">
+                  <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
+                    <h3 className="text-sm font-semibold">{t("pages.demandRadar.topOffers")}</h3>
+                    <SourceBadge tone="clickora">{t("pages.demandRadar.sourceClickora")}</SourceBadge>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={analyzeM.isPending}
-                    onClick={() => runAnalyze({ product: o.title })}
-                  >
-                    {t("pages.demandRadar.analyzeOffer")}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                  <ul className="divide-y divide-border/50">
+                    {overview.internal_offers.map((o) => (
+                      <li key={o.presell_id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{o.title}</p>
+                          <p className="text-[11px] text-muted-foreground tabular-nums">
+                            {t("pages.demandRadar.sales")}: {formatInt(o.approved_sales, nl)} ·{" "}
+                            {t("pages.demandRadar.revenue")}: {formatMoney(o.revenue, nl)} ·{" "}
+                            {t("pages.demandRadar.clicks")}: {formatInt(o.clicks, nl)}
+                            {o.conversion_rate != null
+                              ? ` · ${t("pages.demandRadar.rate")}: ${o.conversion_rate}%`
+                              : ""}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={analyzeM.isPending}
+                          onClick={() => runAnalyze({ product: o.title })}
+                        >
+                          {t("pages.demandRadar.analyzeOffer")}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
 
-        <div className="rounded-lg border border-border/70">
-          <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
-            <h3 className="text-sm font-semibold">{t("pages.demandRadar.recentResearches")}</h3>
-            <SourceBadge tone="clickora">{t("pages.demandRadar.sourceClickora")}</SourceBadge>
-          </div>
-          {overview.recent_researches.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-muted-foreground">
-              {t("pages.demandRadar.recentResearchesEmpty")}
-            </p>
-          ) : (
-            <ul className="divide-y divide-border/50">
-              {overview.recent_researches.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{r.product}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {r.market_name} · {r.language}
-                    </p>
+              {overview.recent_researches.length > 0 ? (
+                <div className="rounded-lg border border-border/70">
+                  <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
+                    <h3 className="text-sm font-semibold">{t("pages.demandRadar.recentResearches")}</h3>
+                    <SourceBadge tone="clickora">{t("pages.demandRadar.sourceClickora")}</SourceBadge>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={analyzeM.isPending}
-                      onClick={() =>
-                        runAnalyze({
-                          product: r.product,
-                          market: r.market,
-                          language: r.language,
-                        })
-                      }
-                    >
-                      {t("pages.demandRadar.analyzeOffer")}
-                    </Button>
-                    <Button asChild size="sm" variant="ghost">
-                      <Link to={`/palavras-chave?research=${encodeURIComponent(r.id)}`}>
-                        {t("pages.demandRadar.openResearch")}
-                      </Link>
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
+                  <ul className="divide-y divide-border/50">
+                    {overview.recent_researches.map((r) => (
+                      <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{r.product}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {r.market_name} · {r.language}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={analyzeM.isPending}
+                            onClick={() =>
+                              runAnalyze({
+                                product: r.product,
+                                market: r.market,
+                                language: r.language,
+                              })
+                            }
+                          >
+                            {t("pages.demandRadar.analyzeOffer")}
+                          </Button>
+                          <Button asChild size="sm" variant="ghost">
+                            <Link to={`/palavras-chave?research=${encodeURIComponent(r.id)}`}>
+                              {t("pages.demandRadar.openResearch")}
+                            </Link>
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
-      <section className="rounded-lg border border-border/60 bg-muted/20 px-4 py-4">
-        <div className="flex items-start gap-2">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold">{t("pages.demandRadar.honestyTitle")}</h3>
-            <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
-              {honestyNotes.map((note) => (
-                <li key={note}>{note}</li>
-              ))}
-            </ul>
+          <section className="rounded-lg border border-border/60 bg-muted/20 px-4 py-4">
+            <div className="flex items-start gap-2">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+              <div className="space-y-1.5">
+                <h3 className="text-sm font-semibold">{t("pages.demandRadar.honestyTitle")}</h3>
+                <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+                  {honestyNotes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+        </>
+      ) : (
+        <section className="rounded-lg border border-border/60 bg-muted/20 px-4 py-4">
+          <div className="flex items-start gap-2">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-semibold">{t("pages.demandRadar.honestyTitle")}</h3>
+              <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+                {honestyNotes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }
