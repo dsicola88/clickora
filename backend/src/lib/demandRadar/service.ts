@@ -291,6 +291,7 @@ export async function analyzeDemandRadar(input: {
       primary_kind: planner.primary_kind,
       ideas: planner.ideas,
       trend: planner.trend,
+      device_split: planner.status === "ok" ? planner.device_split : null,
       source_label:
         planner.status === "ok"
           ? "Google Ads — Planejador de palavras-chave (Keyword Ideas)"

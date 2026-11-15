@@ -31,7 +31,11 @@ import {
   marketsForLanguage,
 } from "@/lib/keywordResearchMarkets";
 import { DemandVolumeTrendChart } from "@/components/demandRadar/DemandVolumeTrendChart";
-import { DemandDeviceBreakdownPanel } from "@/components/demandRadar/DemandDeviceBreakdown";
+import {
+  DemandDeviceBreakdownPanel,
+  type DeviceFilter,
+} from "@/components/demandRadar/DemandDeviceBreakdown";
+import { DemandKeywordIdeasTable } from "@/components/demandRadar/DemandKeywordIdeasTable";
 import { cn } from "@/lib/utils";
 
 const LANGS: { code: string; labelKey: MessageKey }[] = [
@@ -128,6 +132,7 @@ export default function DemandRadarPage() {
   const [market, setMarket] = useState("US");
   const [timeframe, setTimeframe] = useState<DemandPlannerTimeframe>("default");
   const [analysis, setAnalysis] = useState<DemandRadarAnalyze | null>(null);
+  const [deviceFilter, setDeviceFilter] = useState<DeviceFilter>("all");
 
   const overviewQ = useQuery({
     queryKey: ["demand-radar", "overview"],
@@ -182,6 +187,7 @@ export default function DemandRadarPage() {
       setMarket(data.query.market);
       setLanguage(data.query.language);
       setTimeframe(data.query.timeframe);
+      setDeviceFilter("all");
     },
     onError: (err: Error) => {
       toast.error(err.message || t("pages.demandRadar.analyzeError"));
@@ -397,7 +403,7 @@ export default function DemandRadarPage() {
             </p>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/70 bg-border/70 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/70 bg-border/70 sm:grid-cols-3 lg:grid-cols-6">
             <KpiCell
               label={t("pages.demandRadar.seedVolume")}
               value={primary ? formatInt(primary.monthly_volume, nl) : t("pages.demandRadar.noVolume")}
@@ -425,16 +431,37 @@ export default function DemandRadarPage() {
               muted={!primary}
             />
             <KpiCell
-              label={t("pages.demandRadar.sales")}
-              value={formatInt(
-                analysis.account.matching_offers.reduce((s, o) => s + o.approved_sales, 0),
-                nl,
-              )}
-              hint={t("pages.demandRadar.sourceClickora")}
+              label={t("pages.demandRadar.kpiIndex")}
+              value={
+                primary?.competition_index != null
+                  ? String(primary.competition_index)
+                  : t("pages.demandRadar.noVolume")
+              }
+              hint={plannerOk ? t("pages.demandRadar.sourceGoogle") : t("pages.demandRadar.sourceUnavailable")}
+              muted={primary?.competition_index == null}
+            />
+            <KpiCell
+              label={t("pages.demandRadar.kpiIdeas")}
+              value={formatInt(analysis.planner.ideas.length, nl)}
+              hint={plannerOk ? t("pages.demandRadar.sourceGoogle") : t("pages.demandRadar.sourceUnavailable")}
+              muted={!plannerOk}
+            />
+            <KpiCell
+              label={t("pages.demandRadar.kpiRelatedVol")}
+              value={
+                plannerOk
+                  ? formatInt(
+                      analysis.planner.ideas.reduce((s, i) => s + i.monthly_volume, 0),
+                      nl,
+                    )
+                  : t("pages.demandRadar.noVolume")
+              }
+              hint={plannerOk ? t("pages.demandRadar.sourceGoogle") : t("pages.demandRadar.sourceUnavailable")}
+              muted={!plannerOk}
             />
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+          <div className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
             {analysis.planner.trend ? (
               <DemandVolumeTrendChart
                 trend={analysis.planner.trend}
@@ -445,74 +472,22 @@ export default function DemandRadarPage() {
                 {t("pages.demandRadar.trendEmpty")}
               </div>
             )}
-            <DemandDeviceBreakdownPanel devices={analysis.account.devices} />
+            <DemandDeviceBreakdownPanel
+              devices={analysis.account.devices}
+              googleDevices={analysis.planner.device_split}
+              filter={deviceFilter}
+              onFilterChange={setDeviceFilter}
+            />
           </div>
 
-          <div className="rounded-lg border border-border/70 overflow-hidden">
-            <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
-              <h3 className="text-sm font-semibold">{t("pages.demandRadar.ideasTitle")}</h3>
-              <SourceBadge tone={plannerOk ? "google" : "muted"}>
-                {plannerOk ? t("pages.demandRadar.sourceGoogle") : t("pages.demandRadar.sourceUnavailable")}
-              </SourceBadge>
-            </div>
-            {analysis.planner.ideas.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-muted-foreground">{t("pages.demandRadar.ideasEmpty")}</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-sm">
-                  <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2 font-semibold">{t("pages.demandRadar.thKeyword")}</th>
-                      <th className="px-4 py-2 font-semibold tabular-nums">{t("pages.demandRadar.thVolume")}</th>
-                      <th className="px-4 py-2 font-semibold tabular-nums">{t("pages.demandRadar.thCpc")}</th>
-                      <th className="px-4 py-2 font-semibold">{t("pages.demandRadar.thCompetition")}</th>
-                      <th className="px-4 py-2 font-semibold" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {analysis.planner.ideas.map((idea) => {
-                      const isPrimary =
-                        primary &&
-                        idea.keyword.trim().toLowerCase() === primary.keyword.trim().toLowerCase();
-                      return (
-                        <tr
-                          key={idea.keyword}
-                          className={cn(
-                            "border-t border-border/50",
-                            isPrimary && "bg-sky-500/5",
-                          )}
-                        >
-                          <td className="px-4 py-2.5 font-medium">
-                            {idea.keyword}
-                            {isPrimary ? (
-                              <span className="ml-2 text-[10px] font-semibold uppercase text-sky-700 dark:text-sky-300">
-                                {primaryKindLabel(primaryKind, t)}
-                              </span>
-                            ) : null}
-                          </td>
-                          <td className="px-4 py-2.5 tabular-nums">{formatInt(idea.monthly_volume, nl)}</td>
-                          <td className="px-4 py-2.5 tabular-nums">
-                            {idea.avg_cpc > 0 ? formatMoney(idea.avg_cpc, nl) : t("pages.demandRadar.noVolume")}
-                          </td>
-                          <td className="px-4 py-2.5">{competitionLabel(idea.competition, t)}</td>
-                          <td className="px-4 py-2.5 text-right">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={analyzeM.isPending}
-                              onClick={() => runAnalyze({ product: idea.keyword })}
-                            >
-                              {t("pages.demandRadar.useKeyword")}
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          <DemandKeywordIdeasTable
+            ideas={analysis.planner.ideas}
+            primaryKeyword={primary?.keyword}
+            primaryKindLabel={primary ? primaryKindLabel(primaryKind, t) : null}
+            plannerOk={plannerOk}
+            busy={analyzeM.isPending}
+            onAnalyze={(keyword) => runAnalyze({ product: keyword })}
+          />
 
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-lg border border-border/70">

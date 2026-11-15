@@ -7,7 +7,21 @@ export type DemandPlannerIdea = {
   monthly_volume: number;
   avg_cpc: number;
   competition: "low" | "medium" | "high";
+  competition_index?: number | null;
   monthly_search_volumes?: Array<{ year: number; month: number; monthly_searches: number }>;
+};
+
+export type DemandPlannerDeviceShare = {
+  device: "desktop" | "mobile" | "tablet";
+  search_share: number;
+  search_count: number | null;
+};
+
+export type DemandPlannerDeviceBreakdown = {
+  source: string;
+  source_label: string;
+  note: string;
+  items: DemandPlannerDeviceShare[];
 };
 
 export type DemandPrimaryKind = "exact_seed" | "close_seed" | "top_related";
@@ -94,6 +108,7 @@ export type DemandRadarAnalyze = {
     primary_kind: DemandPrimaryKind | null;
     ideas: DemandPlannerIdea[];
     trend: DemandVolumeTrend | null;
+    device_split: DemandPlannerDeviceBreakdown | null;
     source_label: string;
   };
   account: {

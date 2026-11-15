@@ -11,8 +11,23 @@ export type DemandPlannerIdea = {
   monthly_volume: number;
   avg_cpc: number;
   competition: "low" | "medium" | "high";
+  /** 0–100 do Planejador quando a API devolve `competitionIndex`. */
+  competition_index: number | null;
   /** Histórico mensal oficial quando a API devolve `monthlySearchVolumes`. */
   monthly_search_volumes: DemandMonthlyVolumePoint[];
+};
+
+export type DemandPlannerDeviceShare = {
+  device: "desktop" | "mobile" | "tablet";
+  search_share: number;
+  search_count: number | null;
+};
+
+export type DemandPlannerDeviceBreakdown = {
+  source: "google_ads_keyword_planner";
+  source_label: string;
+  note: string;
+  items: DemandPlannerDeviceShare[];
 };
 
 export type PlannerPrimaryKind = "exact_seed" | "close_seed" | "top_related";
@@ -116,12 +131,85 @@ export function rowToPlannerIdea(row: IdeaRow): DemandPlannerIdea | null {
   /** Volume 0 com CPC pode ser válido; ambos 0 = linha inútil. */
   if (monthly_volume === 0 && avg_cpc <= 0) return null;
 
+  const rawIdxVal = m.competitionIndex ?? m.competition_index;
+  const competition_index =
+    rawIdxVal == null || rawIdxVal === ""
+      ? null
+      : (() => {
+          const rawIdx = numFromPlannerProto(rawIdxVal);
+          return Number.isFinite(rawIdx) && rawIdx >= 0 ? Math.min(100, Math.round(rawIdx)) : null;
+        })();
+
   return {
     keyword,
     monthly_volume,
     avg_cpc,
     competition: mapPlannerCompetition(m.competition),
+    competition_index,
     monthly_search_volumes: extractMonthlySearchVolumes(m),
+  };
+}
+
+function mapDeviceBucket(raw: unknown): DemandPlannerDeviceShare["device"] | null {
+  const u = String(raw ?? "").toUpperCase();
+  if (u.includes("MOBILE") || u === "2") return "mobile";
+  if (u.includes("TABLET") || u === "3") return "tablet";
+  if (u.includes("DESKTOP") || u === "4") return "desktop";
+  return null;
+}
+
+/**
+ * `aggregateMetricResults.deviceSearches` do Keyword Ideas (só quando pedido DEVICE).
+ * Não inventa shares — devolve null se a API não trouxer dados.
+ */
+export function parsePlannerDeviceBreakdown(
+  raw: Record<string, unknown> | null | undefined,
+): DemandPlannerDeviceBreakdown | null {
+  if (!raw || typeof raw !== "object") return null;
+  const agg =
+    (raw.aggregateMetricResults as Record<string, unknown> | undefined) ??
+    (raw.aggregate_metric_results as Record<string, unknown> | undefined);
+  if (!agg || typeof agg !== "object") return null;
+  const rows =
+    (agg.deviceSearches as unknown[] | undefined) ??
+    (agg.device_searches as unknown[] | undefined);
+  if (!Array.isArray(rows) || !rows.length) return null;
+
+  const counts = new Map<DemandPlannerDeviceShare["device"], number>();
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    const device = mapDeviceBucket(o.device ?? o.device_);
+    if (!device) continue;
+    const count = numFromPlannerProto(
+      o.searchCount ?? o.search_count ?? o.searches ?? o.searchShare ?? o.search_share,
+    );
+    if (!Number.isFinite(count) || count < 0) continue;
+    counts.set(device, (counts.get(device) ?? 0) + count);
+  }
+  if (!counts.size) return null;
+
+  const total = [...counts.values()].reduce((a, b) => a + b, 0);
+  if (total <= 0) return null;
+
+  const order: DemandPlannerDeviceShare["device"][] = ["desktop", "mobile", "tablet"];
+  const items = order
+    .filter((d) => counts.has(d))
+    .map((device) => {
+      const search_count = counts.get(device) ?? 0;
+      return {
+        device,
+        search_count: Math.round(search_count),
+        search_share: Math.round((search_count / total) * 1000) / 10,
+      };
+    });
+  if (!items.length) return null;
+
+  return {
+    source: "google_ads_keyword_planner",
+    source_label: "Google Ads — Planejador (partilha de pesquisas por dispositivo)",
+    note: "Partilha oficial do Keyword Ideas para o seed neste mercado/idioma — não é o tráfego da sua conta.",
+    items,
   };
 }
 

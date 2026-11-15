@@ -14,12 +14,19 @@ import {
 import { onlyDigits } from "../stringPrimitives";
 import {
   parseKeywordIdeasResponse,
+  parsePlannerDeviceBreakdown,
   type DemandMonthlyVolumePoint,
+  type DemandPlannerDeviceBreakdown,
   type DemandPlannerIdea,
   type PlannerPrimaryKind,
 } from "./plannerParse";
 
-export type { DemandPlannerIdea, PlannerPrimaryKind, DemandMonthlyVolumePoint };
+export type {
+  DemandPlannerIdea,
+  PlannerPrimaryKind,
+  DemandMonthlyVolumePoint,
+  DemandPlannerDeviceBreakdown,
+};
 
 export type DemandPlannerTimeframe = "default" | "last_24" | "last_36";
 
@@ -40,6 +47,7 @@ export type UserPlannerResult =
       primary: DemandPlannerIdea;
       primary_kind: PlannerPrimaryKind;
       trend: DemandVolumeTrend;
+      device_split: DemandPlannerDeviceBreakdown | null;
     }
   | {
       status: "unavailable";
@@ -60,6 +68,7 @@ export type UserPlannerResult =
       primary: null;
       primary_kind: null;
       trend: null;
+      device_split: null;
     };
 
 const GOOGLE_MONTH_ENUM_NAMES = [
@@ -135,6 +144,7 @@ function unavailable(
     primary: null,
     primary_kind: null,
     trend: null,
+    device_split: null,
   };
 }
 
@@ -222,9 +232,12 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     geoTargetConstants: [`geoTargetConstants/${geoId}`],
     keywordPlanNetwork: "GOOGLE_SEARCH",
     keywordSeed: { keywords: [seed] },
+    /** Partilha oficial de pesquisas por dispositivo (não é tráfego da conta). */
+    aggregateMetrics: { aggregateMetricTypes: ["DEVICE"] },
+    pageSize: Math.min(50, Math.max(20, input.limit ?? 20)),
   };
   const hist = historicalMetricsOptions(timeframe);
-  if (hist) reqBody.historicalMetricsOptions = hist;
+  reqBody.historicalMetricsOptions = hist ?? { includeAverageCpc: true };
 
   let res: Response;
   try {
@@ -252,14 +265,18 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     );
   }
 
-  let parsed: { results?: Array<Record<string, unknown>> };
+  let parsed: Record<string, unknown>;
   try {
-    parsed = JSON.parse(rawText) as { results?: Array<Record<string, unknown>> };
+    parsed = JSON.parse(rawText) as Record<string, unknown>;
   } catch {
     return unavailable("api_error", "Resposta inválida da API Google Ads.");
   }
 
-  const finalized = parseKeywordIdeasResponse(parsed, seed, input.limit ?? 20);
+  const finalized = parseKeywordIdeasResponse(
+    parsed as { results?: Array<Record<string, unknown>> },
+    seed,
+    input.limit ?? 40,
+  );
   if (!finalized.primary || !finalized.primary_kind || !finalized.ideas.length) {
     return unavailable(
       "no_ideas",
@@ -275,5 +292,6 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     primary: finalized.primary,
     primary_kind: finalized.primary_kind,
     trend: buildTrend(timeframe, finalized.primary.monthly_search_volumes),
+    device_split: parsePlannerDeviceBreakdown(parsed),
   };
 }

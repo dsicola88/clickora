@@ -25,6 +25,7 @@ test("plannerParse lê volume e CPC de proto JSON", () => {
     monthly_volume: 5400,
     avg_cpc: 1.5,
     competition: "medium",
+    competition_index: null,
     monthly_search_volumes: [],
   });
 });
@@ -49,6 +50,7 @@ test("plannerParse mantém seed exact fora do top-N e usa-a como primary", () =>
     monthly_volume: 9000 - i,
     avg_cpc: 1,
     competition: "high" as const,
+    competition_index: 80 as number | null,
     monthly_search_volumes: [],
   }));
   ideas.push({
@@ -56,6 +58,7 @@ test("plannerParse mantém seed exact fora do top-N e usa-a como primary", () =>
     monthly_volume: 100,
     avg_cpc: 0.5,
     competition: "low",
+    competition_index: 12 as number | null,
     monthly_search_volumes: [],
   });
   const out = finalizePlannerIdeas(ideas, "my product", 10);
@@ -127,4 +130,24 @@ test("plannerParse extrai histórico mensal oficial", () => {
     monthly_searches: 4000,
   });
   assert.equal(idea?.monthly_search_volumes[2]?.monthly_searches, 5200);
+});
+
+test("plannerParse lê partilha oficial por dispositivo", async () => {
+  const { parsePlannerDeviceBreakdown } = await import("./plannerParse");
+  const out = parsePlannerDeviceBreakdown({
+    aggregateMetricResults: {
+      deviceSearches: [
+        { device: "DESKTOP", searchCount: "600" },
+        { device: "MOBILE", searchCount: "350" },
+        { device: "TABLET", searchCount: "50" },
+      ],
+    },
+  });
+  assert.ok(out);
+  assert.equal(out!.source, "google_ads_keyword_planner");
+  assert.equal(out!.items.length, 3);
+  assert.equal(out!.items[0]?.device, "desktop");
+  assert.equal(out!.items[0]?.search_share, 60);
+  assert.equal(out!.items[1]?.device, "mobile");
+  assert.equal(out!.items[1]?.search_share, 35);
 });
