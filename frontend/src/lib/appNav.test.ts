@@ -60,8 +60,15 @@ describe("appNav", () => {
     expect(user.some((i) => i.url === "/tracking/rotadores")).toBe(false);
     expect(user.some((i) => i.url === "/admin/overview")).toBe(false);
     expect(user.some((i) => i.url === "/presells")).toBe(true);
+    expect(user.some((i) => i.url === "/radar-demanda")).toBe(true);
 
     const staff = sidebarNavItems(true);
     expect(staff.some((i) => i.url === "/admin/overview")).toBe(true);
+  });
+
+  it("pesquisa encontra radar de demanda", () => {
+    const radar = APP_NAV_ITEMS.find((i) => i.url === "/radar-demanda");
+    expect(radar && appNavMatchesQuery(radar, "adscore")).toBe(true);
+    expect(radar && appNavMatchesQuery(radar, "planejador")).toBe(true);
   });
 });

@@ -64,6 +64,7 @@ const AdPixelsConnectPage = lazy(() => import("./pages/AdPixelsConnectPage"));
 const SettingsHubPage = lazy(() => import("./pages/SettingsHubPage"));
 const AffiliateAutomizerPage = lazy(() => import("./pages/AffiliateAutomizerPage"));
 const KeywordsPage = lazy(() => import("./pages/KeywordsPage"));
+const DemandRadarPage = lazy(() => import("./pages/DemandRadarPage"));
 const LessonsPage = lazy(() => import("./pages/LessonsPage"));
 const PresellManualBuilderPage = lazy(() => import("./pages/PresellManualBuilderPage"));
 const AdminSalesPageBuilderPage = lazy(() => import("./pages/AdminSalesPageBuilderPage"));
@@ -135,6 +136,7 @@ const appRoutes = [
   { path: "/campanhas", element: <CampaignsPage /> },
   { path: "/campanhas/:id", element: <CampaignDetailPage /> },
   { path: "/palavras-chave", element: <KeywordsPage /> },
+  { path: "/radar-demanda", element: <DemandRadarPage /> },
 
   // Resultados
   { path: "/resultados", element: <ResultsOverviewPage /> },

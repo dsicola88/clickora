@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { type MessageKey } from "@/i18n";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -107,10 +107,12 @@ async function copyText(text: string, ok: string) {
 
 export default function KeywordsPage() {
   const { t } = useAppLocale();
+  const [searchParams] = useSearchParams();
   const { user, isSuperAdmin } = useAuth();
   const canAdvertiseDpilot = userCanAccessDpilotAds(user, isSuperAdmin);
   const qc = useQueryClient();
   const restoredOnce = useRef(false);
+  const bootstrappedFromQuery = useRef(false);
   const [product, setProduct] = useState("");
   const [language, setLanguage] = useState("en");
   const [market, setMarket] = useState("US");
@@ -384,6 +386,26 @@ export default function KeywordsPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  /** Handoff do Radar de demanda: ?product=&market=&language= ou ?research= */
+  useEffect(() => {
+    if (bootstrappedFromQuery.current) return;
+    const researchId = searchParams.get("research")?.trim() || "";
+    const qProduct = searchParams.get("product")?.trim() || "";
+    const qMarket = searchParams.get("market")?.trim().toUpperCase() || "";
+    const qLanguage = searchParams.get("language")?.trim() || "";
+    if (!researchId && !qProduct && !qMarket && !qLanguage) return;
+    bootstrappedFromQuery.current = true;
+    restoredOnce.current = true;
+    if (qLanguage) setLanguage(qLanguage);
+    if (qMarket) setMarket(qMarket);
+    else if (qLanguage) setMarket(defaultMarketForLanguage(qLanguage));
+    if (qProduct) {
+      setProduct(qProduct);
+      setSetupOpen(true);
+    }
+    if (researchId) openHistory.mutate(researchId);
+  }, [searchParams, openHistory]);
 
   useEffect(() => {
     if (restoredOnce.current || research || generate.isPending || openHistory.isPending) return;
