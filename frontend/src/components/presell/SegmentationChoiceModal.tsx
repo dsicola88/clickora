@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useId, useRef, type Ref } from "react";
 import type { ResolvedSegmentationCopy } from "@/lib/presellSegmentation";
 
 type Props = {
@@ -11,9 +11,14 @@ type Props = {
   onDismiss: () => void;
 };
 
+function isUsableHref(href: string): boolean {
+  const h = href.trim();
+  return Boolean(h && h !== "#");
+}
+
 /**
  * Modal de segmentação (choice gate): dois CTAs com destinos distintos.
- * Visual profissional — cartão centrado, backdrop suave, tipografia clara.
+ * Visual alinhado a bridges profissionais (cartão centrado, CTAs empilhados, tipografia limpa).
  */
 export function SegmentationChoiceModal({
   copy,
@@ -22,83 +27,107 @@ export function SegmentationChoiceModal({
   dismissed,
   onDismiss,
 }: Props) {
+  const titleId = useId();
+  const firstCtaRef = useRef<HTMLAnchorElement | HTMLButtonElement | null>(null);
+  const setFirstCtaRef: Ref<HTMLAnchorElement | HTMLButtonElement> = (node) => {
+    firstCtaRef.current = node;
+  };
+  const reviewOk = isUsableHref(reviewHref);
+  const officialOk = isUsableHref(officialHref);
+
   useEffect(() => {
     if (dismissed) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
+    const t = window.setTimeout(() => firstCtaRef.current?.focus({ preventScroll: true }), 40);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && copy.allowClose) {
+        e.preventDefault();
+        onDismiss();
+      }
     };
-  }, [dismissed]);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(t);
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [dismissed, copy.allowClose, onDismiss]);
 
   if (dismissed) return null;
 
-  const reviewOk = Boolean(reviewHref.trim() && reviewHref !== "#");
-  const officialOk = Boolean(officialHref.trim() && officialHref !== "#");
+  const btnBase =
+    "inline-flex h-11 w-full items-center justify-center rounded-[6px] px-4 text-[15px] font-semibold tracking-[-0.01em] transition-[background-color,transform,box-shadow] duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 active:translate-y-px";
 
   return (
     <div
       className="fixed inset-0 z-[520] flex items-center justify-center p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="presell-seg-title"
+      aria-labelledby={titleId}
       data-testid="presell-segmentation-sheet"
     >
       <div
         data-testid="presell-segmentation-backdrop"
-        className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-slate-950/50"
         aria-hidden
       />
+
       <div
         data-testid="presell-segmentation-card"
-        className="relative z-10 w-full max-w-[380px] rounded-xl border border-slate-200/90 bg-[#f4f5f7] px-7 pb-7 pt-5 text-slate-900 shadow-[0_22px_50px_-14px_rgba(15,23,42,0.45)]"
+        className="relative z-10 w-full max-w-[360px] animate-in fade-in zoom-in-95 duration-200 rounded-xl border border-slate-200/80 bg-[#f3f4f6] px-6 pb-6 pt-4 text-slate-900 shadow-[0_24px_48px_-16px_rgba(15,23,42,0.5)]"
+        style={{ fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif" }}
         onClick={(e) => e.stopPropagation()}
       >
         {copy.allowClose ? (
-          <div className="mb-1 flex justify-end">
+          <div className="mb-2 flex justify-end">
             <button
               type="button"
               data-testid="presell-segmentation-close"
               onClick={onDismiss}
-              className="text-[13px] font-medium text-sky-600 hover:text-sky-700 hover:underline underline-offset-2"
+              className="rounded px-1 py-0.5 text-[13px] font-medium text-[#2563eb] hover:text-[#1d4ed8] hover:underline underline-offset-2"
             >
               {copy.closeLabel}
             </button>
           </div>
         ) : (
-          <div className="h-2" />
+          <div className="h-3" aria-hidden />
         )}
 
         <h2
-          id="presell-seg-title"
-          className="text-center text-[17px] font-semibold tracking-tight text-slate-900 leading-snug px-1"
+          id={titleId}
+          className="px-1 text-center text-[17px] font-bold leading-snug tracking-tight text-slate-900"
         >
           {copy.title}
         </h2>
 
-        <div className="mt-6 flex flex-col gap-3">
+        <div className="mt-5 flex flex-col gap-2.5">
           {reviewOk ? (
             <a
-              href={reviewHref}
+              ref={setFirstCtaRef as Ref<HTMLAnchorElement>}
+              href={reviewHref.trim()}
               data-testid="presell-segmentation-review"
-              className="inline-flex h-11 w-full items-center justify-center rounded-md bg-[#22a45a] px-4 text-[15px] font-semibold text-white shadow-sm transition-colors hover:bg-[#1e914f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+              className={`${btnBase} bg-[#22a45a] text-white shadow-sm hover:bg-[#1d8f4f] focus-visible:outline-emerald-600`}
             >
               {copy.reviewLabel}
             </a>
           ) : (
             <button
+              ref={setFirstCtaRef as Ref<HTMLButtonElement>}
               type="button"
               disabled
-              className="inline-flex h-11 w-full items-center justify-center rounded-md bg-slate-300 px-4 text-[15px] font-semibold text-slate-500"
+              data-testid="presell-segmentation-review"
+              className={`${btnBase} cursor-not-allowed bg-slate-300 text-slate-500`}
             >
               {copy.reviewLabel}
             </button>
           )}
+
           {officialOk ? (
             <a
-              href={officialHref}
+              href={officialHref.trim()}
               data-testid="presell-segmentation-official"
-              className="inline-flex h-11 w-full items-center justify-center rounded-md bg-[#2f6fed] px-4 text-[15px] font-semibold text-white shadow-sm transition-colors hover:bg-[#255fd0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              className={`${btnBase} bg-[#2f6fed] text-white shadow-sm hover:bg-[#2563d4] focus-visible:outline-blue-600`}
             >
               {copy.officialLabel}
             </a>
@@ -106,12 +135,19 @@ export function SegmentationChoiceModal({
             <button
               type="button"
               disabled
-              className="inline-flex h-11 w-full items-center justify-center rounded-md bg-slate-300 px-4 text-[15px] font-semibold text-slate-500"
+              data-testid="presell-segmentation-official"
+              className={`${btnBase} cursor-not-allowed bg-slate-300 text-slate-500`}
             >
               {copy.officialLabel}
             </button>
           )}
         </div>
+
+        {!reviewOk && !officialOk ? (
+          <p className="mt-4 text-center text-[12px] leading-relaxed text-slate-500">
+            Configure o link da oferta nesta presell para activar os botões.
+          </p>
+        ) : null}
       </div>
     </div>
   );
