@@ -287,11 +287,12 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     return unavailable("google_ads_not_connected", "Conta Google Ads sem customer ID configurado.");
   }
 
-  let login =
-    onlyDigits(input.user.googleAdsLoginCustomerId) ||
-    onlyDigits(creds.loginCustomerId) ||
-    onlyDigits(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID) ||
-    null;
+  /**
+   * Contas privadas: sem login-customer-id (só o customer da conta).
+   * MCC: usar apenas o login guardado no utilizador — NÃO o GOOGLE_ADS_LOGIN_CUSTOMER_ID
+   * global do servidor (esse é da plataforma e quebra contas privadas alheias).
+   */
+  let login = onlyDigits(input.user.googleAdsLoginCustomerId) || null;
 
   const baseBody: Record<string, unknown> = {
     language: `languageConstants/${langNum}`,
@@ -315,11 +316,11 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     body: withDevices,
   });
 
-  /** 403 frequente em contas sob MCC sem login-customer-id — tenta outro ID acessível. */
-  if ((!result.ok && result.status === 403) || result.status === 401) {
+  /** Conta privada sob MCC sem login guardado: tenta um gestor acessível (só neste user). */
+  if (!result.ok && (result.status === 403 || result.status === 401) && !login) {
     const ids = await listAccessibleCustomerIds(access, dev);
     const altLogin = ids.find((id) => id !== customerId) ?? null;
-    if (altLogin && altLogin !== login) {
+    if (altLogin) {
       login = altLogin;
       result = await postKeywordIdeas({
         access,
@@ -356,7 +357,7 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     if (result.status === 403) {
       return unavailable(
         "permission_denied",
-        `Sem permissão na API do Planejador (${result.status})${detail}. O UI do Google Ads pode funcionar, mas a API precisa de developer token com acesso aprovado e, se a conta estiver sob um MCC, do ID do gestor (login-customer-id). Em Integrações → Google Ads, volte a ligar a conta.`,
+        `Sem permissão na API do Planejador (${result.status})${detail}. Contas Google Ads privadas costumam funcionar; se a conta estiver sob um MCC, ligue de novo em Integrações e confirme o ID do gestor (login-customer-id).`,
       );
     }
     return unavailable(
