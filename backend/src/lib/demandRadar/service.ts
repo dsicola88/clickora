@@ -257,7 +257,7 @@ export async function analyzeDemandRadar(input: {
   const product = input.product.trim().slice(0, 200);
   const market = input.market.trim().toUpperCase().slice(0, 8) || "US";
   const language = input.language.trim().slice(0, 16) || "en";
-  const timeframe: DemandPlannerTimeframe = input.timeframe ?? "default";
+  const timeframe: DemandPlannerTimeframe = input.timeframe ?? "last_12";
   const { from, to, days } = periodWindow();
 
   const [planner, researches, offers, devices] = await Promise.all([

@@ -9,8 +9,13 @@ const analyzeSchema = z.object({
   product: z.string().trim().min(2).max(200),
   market: z.string().trim().min(2).max(8).default("US"),
   language: z.string().trim().min(2).max(16).default("en"),
-  /** default ≈ 12 meses; last_24 / last_36 pedem histórico alargado à API Google. */
-  timeframe: z.enum(["default", "last_24", "last_36"]).default("default"),
+  /**
+   * Janelas alinhadas ao Planejador Google Ads.
+   * `default` e `last_12` = últimos 12 meses; `all_available` ≈ 4 anos.
+   */
+  timeframe: z
+    .enum(["default", "last_1", "last_12", "last_24", "last_36", "all_available"])
+    .default("last_12"),
 });
 
 async function loadGoogleUser(userId: string): Promise<GoogleAdsUserSettings | null> {
