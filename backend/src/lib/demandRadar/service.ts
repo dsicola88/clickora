@@ -275,7 +275,7 @@ export async function analyzeDemandRadar(input: {
       countryCode: market,
       languageCode: language,
       timeframe,
-      limit: 20,
+      limit: 40,
     }),
     loadRecentResearches(input.userId),
     loadTopInternalOffers(input.userId, from),

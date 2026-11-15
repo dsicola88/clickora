@@ -14,7 +14,7 @@ import {
 } from "../../modules/googleAds/googleAds.service";
 import { onlyDigits } from "../stringPrimitives";
 import {
-  parseKeywordIdeasResponse,
+  parseKeywordIdeasPages,
   parsePlannerDeviceBreakdown,
   type DemandMonthlyVolumePoint,
   type DemandPlannerDeviceBreakdown,
@@ -128,7 +128,8 @@ function timeframeSpanMonths(timeframe: DemandPlannerTimeframe): number {
 
 function historicalMetricsOptions(timeframe: DemandPlannerTimeframe): Record<string, unknown> {
   const now = new Date();
-  const end = { year: now.getFullYear(), month: now.getMonth() + 1 };
+  /** Como o Planejador UI: janela em meses completos (exclui o mês corrente incompleto). */
+  const end = addCalendarMonths(now.getFullYear(), now.getMonth() + 1, -1);
   const start = addCalendarMonths(end.year, end.month, -timeframeSpanMonths(timeframe));
   return {
     yearMonthRange: {
@@ -137,6 +138,132 @@ function historicalMetricsOptions(timeframe: DemandPlannerTimeframe): Record<str
     },
     includeAverageCpc: true,
   };
+}
+
+function extractAdsErrorDetail(text: string): { message: string; codes: string[] } {
+  try {
+    const errJson = JSON.parse(text) as {
+      error?: {
+        message?: string;
+        status?: string;
+        details?: Array<{ errors?: Array<{ errorCode?: Record<string, string>; message?: string }> }>;
+      };
+    };
+    const codes: string[] = [];
+    const details = errJson.error?.details ?? [];
+    for (const d of details) {
+      for (const e of d.errors ?? []) {
+        const ec = e.errorCode;
+        if (ec && typeof ec === "object") {
+          for (const v of Object.values(ec)) {
+            if (typeof v === "string" && v && v !== "UNSPECIFIED") codes.push(v);
+          }
+        }
+      }
+    }
+    const message = errJson.error?.message?.trim() || codes[0] || "";
+    return { message: message.slice(0, 220), codes };
+  } catch {
+    return { message: "", codes: [] };
+  }
+}
+
+function uniqueIds(ids: Array<string | null | undefined>): Array<string | null> {
+  const out: Array<string | null> = [];
+  const seen = new Set<string>();
+  for (const raw of ids) {
+    const key = raw == null || raw === "" ? "__null__" : raw;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(raw == null || raw === "" ? null : raw);
+  }
+  return out;
+}
+
+type KeywordIdeasAttempt =
+  | {
+      ok: true;
+      status: number;
+      text: string;
+      customerId: string;
+      loginCustomerId: string | null;
+      /** Body exacto do pedido vencedor — obrigatório para paginar sem desalinhamento. */
+      requestBody: Record<string, unknown>;
+    }
+  | { ok: false; status: number; text: string };
+
+/**
+ * Tenta combinações login/customer/body com orçamento limitado (rate limit do Planejador).
+ * 1) customer preferido × logins (guardado → sem login → gestores acessíveis)
+ * 2) se 401/403, outros customers acessíveis pelo mesmo OAuth (volumes não são métricas de conta)
+ */
+async function generateKeywordIdeasWithFallbacks(input: {
+  access: string;
+  developerToken: string;
+  preferredCustomerId: string;
+  preferredLogin: string | null;
+  bodies: Record<string, unknown>[];
+}): Promise<KeywordIdeasAttempt> {
+  const accessible = await listAccessibleCustomerIds(input.access, input.developerToken);
+  const managerLogins = accessible.filter((id) => id !== input.preferredCustomerId).slice(0, 4);
+  const loginCandidates = uniqueIds([input.preferredLogin, null, ...managerLogins]);
+  const altCustomers = accessible
+    .filter((id) => id !== input.preferredCustomerId)
+    .slice(0, 3);
+
+  let lastFail: { status: number; text: string } = { status: 0, text: "" };
+  let attempts = 0;
+  const maxAttempts = 18;
+
+  async function tryPair(
+    operatingCustomer: string,
+    login: string | null,
+    body: Record<string, unknown>,
+  ): Promise<KeywordIdeasAttempt | null> {
+    if (attempts >= maxAttempts) return { ok: false, ...lastFail };
+    attempts += 1;
+    const result = await postKeywordIdeas({
+      access: input.access,
+      developerToken: input.developerToken,
+      customerId: operatingCustomer,
+      loginCustomerId: login,
+      body,
+    });
+    if (result.ok) {
+      return {
+        ok: true,
+        status: result.status,
+        text: result.text,
+        customerId: operatingCustomer,
+        loginCustomerId: login,
+        requestBody: body,
+      };
+    }
+    lastFail = { status: result.status, text: result.text };
+    if (result.status === 404) return { ok: false, ...lastFail };
+    return null;
+  }
+
+  for (const body of input.bodies) {
+    for (const login of loginCandidates) {
+      const hit = await tryPair(input.preferredCustomerId, login, body);
+      if (hit) return hit;
+    }
+  }
+
+  const authFail = lastFail.status === 401 || lastFail.status === 403;
+  if (authFail && altCustomers.length) {
+    for (const body of input.bodies.slice(0, 2)) {
+      for (const operatingCustomer of altCustomers) {
+        for (const login of uniqueIds([null, input.preferredLogin, ...managerLogins]).slice(0, 3)) {
+          const hit = await tryPair(operatingCustomer, login, body);
+          if (hit) return hit;
+        }
+      }
+    }
+  }
+
+  return { ok: false, ...lastFail };
 }
 
 function buildTrend(
@@ -289,19 +416,31 @@ export async function fetchUserKeywordPlannerIdeas(input: {
   }
 
   /**
-   * Contas privadas: sem login-customer-id (só o customer da conta).
-   * MCC: usar apenas o login guardado no utilizador — NÃO o GOOGLE_ADS_LOGIN_CUSTOMER_ID
-   * global do servidor (esse é da plataforma e quebra contas privadas alheias).
+   * Contas privadas: sem login-customer-id.
+   * MCC: login guardado no utilizador — NUNCA o GOOGLE_ADS_LOGIN_CUSTOMER_ID global do servidor.
+   * Em 403/401 tentamos grelha: sem login + gestores acessíveis + outros customers do OAuth.
    */
-  let login = onlyDigits(input.user.googleAdsLoginCustomerId) || null;
+  const preferredLogin = onlyDigits(input.user.googleAdsLoginCustomerId) || null;
+  const pageSize = Math.min(100, Math.max(20, input.limit ?? 40));
 
   const baseBody: Record<string, unknown> = {
     language: `languageConstants/${langNum}`,
     geoTargetConstants: [`geoTargetConstants/${geoId}`],
     keywordPlanNetwork: "GOOGLE_SEARCH",
+    includeAdultKeywords: false,
     keywordSeed: { keywords: [seed] },
-    pageSize: Math.min(50, Math.max(20, input.limit ?? 40)),
+    pageSize,
     historicalMetricsOptions: historicalMetricsOptions(timeframe),
+  };
+
+  /** Pedido mínimo primeiro — DEVICE/aggregate por vezes falha e bloqueava tudo. */
+  const bareBody: Record<string, unknown> = {
+    language: `languageConstants/${langNum}`,
+    geoTargetConstants: [`geoTargetConstants/${geoId}`],
+    keywordPlanNetwork: "GOOGLE_SEARCH",
+    includeAdultKeywords: false,
+    keywordSeed: { keywords: [seed] },
+    pageSize,
   };
 
   const withDevices = {
@@ -309,76 +448,102 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     aggregateMetrics: { aggregateMetricTypes: ["DEVICE"] },
   };
 
-  let result = await postKeywordIdeas({
+  const result = await generateKeywordIdeasWithFallbacks({
     access,
     developerToken: dev,
-    customerId,
-    loginCustomerId: login,
-    body: withDevices,
+    preferredCustomerId: customerId,
+    preferredLogin,
+    bodies: [baseBody, bareBody, withDevices],
   });
-
-  /** Conta privada sob MCC sem login guardado: tenta um gestor acessível (só neste user). */
-  if (!result.ok && (result.status === 403 || result.status === 401) && !login) {
-    const ids = await listAccessibleCustomerIds(access, dev);
-    const altLogin = ids.find((id) => id !== customerId) ?? null;
-    if (altLogin) {
-      login = altLogin;
-      result = await postKeywordIdeas({
-        access,
-        developerToken: dev,
-        customerId,
-        loginCustomerId: login,
-        body: withDevices,
-      });
-    }
-  }
-
-  /** Se DEVICE/aggregate falhar, tenta o pedido mínimo (ainda com histórico + CPC). */
-  if (!result.ok && (result.status === 400 || result.status === 403)) {
-    result = await postKeywordIdeas({
-      access,
-      developerToken: dev,
-      customerId,
-      loginCustomerId: login,
-      body: baseBody,
-    });
-  }
 
   if (!result.ok) {
     if (result.status === 0) {
       return unavailable("api_error", "Falha de rede ao contactar a API Google Ads.");
     }
-    let detail = "";
-    try {
-      const errJson = JSON.parse(result.text) as { error?: { message?: string } };
-      detail = errJson.error?.message?.trim() ? `: ${errJson.error.message.trim().slice(0, 180)}` : "";
-    } catch {
-      /* ignore */
-    }
-    if (result.status === 403) {
+    const { message, codes } = extractAdsErrorDetail(result.text);
+    const detail = message ? `: ${message}` : "";
+    const codeHint = codes.length ? ` [${codes.slice(0, 3).join(", ")}]` : "";
+    if (result.status === 403 || codes.includes("USER_PERMISSION_DENIED") || codes.includes("SERVICE_ACCESS_DENIED")) {
+      const explorerHint = codes.includes("SERVICE_ACCESS_DENIED")
+        ? " O projecto Google Cloud da app pode estar em Explorer (KeywordPlanIdeaService exige Basic+)."
+        : "";
       return unavailable(
         "permission_denied",
-        `Sem permissão na API do Planejador (${result.status})${detail}. Contas Google Ads privadas costumam funcionar; se a conta estiver sob um MCC, ligue de novo em Integrações e confirme o ID do gestor (login-customer-id).`,
+        `Sem permissão na API do Planejador (${result.status})${detail}${codeHint}.${explorerHint} No UI Google Ads o Planejador pode funcionar na mesma — a API usa developer token + OAuth. Confirme customer ID e login-customer-id (MCC) em Integrações, ou volte a ligar a conta.`,
       );
     }
     return unavailable(
       "api_error",
-      `O Planejador Google Ads não devolveu dados (${result.status})${detail}`,
+      `O Planejador Google Ads não devolveu dados (${result.status})${detail}${codeHint}`,
     );
   }
 
-  let parsed: Record<string, unknown>;
+  let firstPage: Record<string, unknown>;
   try {
-    parsed = JSON.parse(result.text) as Record<string, unknown>;
+    firstPage = JSON.parse(result.text) as Record<string, unknown>;
   } catch {
     return unavailable("api_error", "Resposta inválida da API Google Ads.");
   }
 
-  const finalized = parseKeywordIdeasResponse(
-    parsed as { results?: Array<Record<string, unknown>> },
-    seed,
-    input.limit ?? 40,
-  );
+  /** Paginação como no Ads — junta páginas até ao limite (sem inventar keywords). */
+  const pages: Array<{ results?: Array<Record<string, unknown>> }> = [
+    firstPage as { results?: Array<Record<string, unknown>> },
+  ];
+  const targetLimit = Math.min(100, Math.max(20, input.limit ?? 40));
+  let nextToken =
+    typeof firstPage.nextPageToken === "string"
+      ? firstPage.nextPageToken
+      : typeof firstPage.next_page_token === "string"
+        ? firstPage.next_page_token
+        : "";
+  let pageGuard = 0;
+  while (nextToken && pageGuard < 4) {
+    pageGuard += 1;
+    const more = await postKeywordIdeas({
+      access,
+      developerToken: dev,
+      customerId: result.customerId,
+      loginCustomerId: result.loginCustomerId,
+      body: { ...result.requestBody, pageToken: nextToken },
+    });
+    if (!more.ok) break;
+    try {
+      const page = JSON.parse(more.text) as Record<string, unknown>;
+      pages.push(page as { results?: Array<Record<string, unknown>> });
+      nextToken =
+        typeof page.nextPageToken === "string"
+          ? page.nextPageToken
+          : typeof page.next_page_token === "string"
+            ? page.next_page_token
+            : "";
+      const soFar = pages.reduce((n, p) => n + (p.results?.length ?? 0), 0);
+      if (soFar >= targetLimit) break;
+    } catch {
+      break;
+    }
+  }
+
+  let deviceSplit = parsePlannerDeviceBreakdown(firstPage);
+  /** Se o pedido vencedor não trouxe DEVICE, tenta enriquecer com o mesmo login/customer. */
+  if (!deviceSplit) {
+    const enrich = await postKeywordIdeas({
+      access,
+      developerToken: dev,
+      customerId: result.customerId,
+      loginCustomerId: result.loginCustomerId,
+      body: withDevices,
+    });
+    if (enrich.ok) {
+      try {
+        const enrichParsed = JSON.parse(enrich.text) as Record<string, unknown>;
+        deviceSplit = parsePlannerDeviceBreakdown(enrichParsed);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  const finalized = parseKeywordIdeasPages(pages, seed, targetLimit);
   if (!finalized.primary || !finalized.primary_kind || !finalized.ideas.length) {
     return unavailable(
       "no_ideas",
@@ -394,6 +559,6 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     primary: finalized.primary,
     primary_kind: finalized.primary_kind,
     trend: buildTrend(timeframe, finalized.primary.monthly_search_volumes),
-    device_split: parsePlannerDeviceBreakdown(parsed),
+    device_split: deviceSplit,
   };
 }

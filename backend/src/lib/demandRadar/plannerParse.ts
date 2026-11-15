@@ -14,7 +14,8 @@ export type DemandPlannerIdea = {
   bid_low: number | null;
   /** Lance topo de página (percentil alto) — Planejador. */
   bid_high: number | null;
-  competition: "low" | "medium" | "high";
+  /** null = Google devolveu UNSPECIFIED / sem dado (mostrar — como no Ads). */
+  competition: "low" | "medium" | "high" | null;
   /** 0–100 do Planejador quando a API devolve `competitionIndex`. */
   competition_index: number | null;
   /** Δ vs ~3 meses atrás, derivado da série mensal oficial (null se sem histórico). */
@@ -94,12 +95,13 @@ export function normalizePlannerPhrase(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-export function mapPlannerCompetition(raw: unknown): "low" | "medium" | "high" {
-  const u = String(raw ?? "").toUpperCase();
+export function mapPlannerCompetition(raw: unknown): "low" | "medium" | "high" | null {
+  const u = String(raw ?? "").toUpperCase().trim();
+  if (!u || u === "UNSPECIFIED" || u === "UNKNOWN" || u === "0" || u === "1") return null;
   if (u.includes("LOW") || u === "2") return "low";
   if (u.includes("HIGH") || u === "4") return "high";
   if (u.includes("MEDIUM") || u === "3") return "medium";
-  return "medium";
+  return null;
 }
 
 /** Aceita number, string numérica e proto JSON (`"5400"`). */
@@ -172,8 +174,20 @@ export function rowToPlannerIdea(row: IdeaRow): DemandPlannerIdea | null {
   const avg_cpc =
     Number.isFinite(avgCpc) && avgCpc > 0 ? Math.round(avgCpc * 100) / 100 : 0;
 
-  /** Volume 0 com CPC pode ser válido; ambos 0 = linha inútil. */
-  if (monthly_volume === 0 && avg_cpc <= 0 && bid_low == null && bid_high == null) return null;
+  /**
+   * Como no Ads: linhas com volume ou lances ou concorrência entram na tabela
+   * (métricas em falta aparecem como —). Só descarta keyword sem qualquer sinal.
+   */
+  const competition = mapPlannerCompetition(m.competition);
+  if (
+    monthly_volume === 0 &&
+    avg_cpc <= 0 &&
+    bid_low == null &&
+    bid_high == null &&
+    competition == null
+  ) {
+    return null;
+  }
 
   const rawIdxVal = m.competitionIndex ?? m.competition_index;
   const competition_index =
@@ -193,7 +207,7 @@ export function rowToPlannerIdea(row: IdeaRow): DemandPlannerIdea | null {
     avg_cpc,
     bid_low,
     bid_high,
-    competition: mapPlannerCompetition(m.competition),
+    competition,
     competition_index,
     change_3m_pct,
     change_yoy_pct,
@@ -309,7 +323,7 @@ export function finalizePlannerIdeas(
       ? "top_related"
       : null;
 
-  const cap = Math.min(40, Math.max(5, limit));
+  const cap = Math.min(100, Math.max(5, limit));
   const trimmed: DemandPlannerIdea[] = [];
   const seen = new Set<string>();
 
@@ -333,10 +347,26 @@ export function parseKeywordIdeasResponse(
   seed: string,
   limit = 20,
 ): ReturnType<typeof finalizePlannerIdeas> {
+  return parseKeywordIdeasPages([raw], seed, limit);
+}
+
+/** Junta várias páginas do Keyword Ideas (como a paginação do Ads). */
+export function parseKeywordIdeasPages(
+  pages: Array<{ results?: IdeaRow[] } | null | undefined>,
+  seed: string,
+  limit = 40,
+): ReturnType<typeof finalizePlannerIdeas> {
   const ideas: DemandPlannerIdea[] = [];
-  for (const row of raw?.results ?? []) {
-    const idea = rowToPlannerIdea(row);
-    if (idea) ideas.push(idea);
+  const seen = new Set<string>();
+  for (const raw of pages) {
+    for (const row of raw?.results ?? []) {
+      const idea = rowToPlannerIdea(row);
+      if (!idea) continue;
+      const key = normalizePlannerPhrase(idea.keyword);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ideas.push(idea);
+    }
   }
   return finalizePlannerIdeas(ideas, seed, limit);
 }

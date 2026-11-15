@@ -30,12 +30,15 @@ function formatPct(n: number | null | undefined, empty: string) {
 }
 
 function competitionLabel(c: DemandPlannerIdea["competition"], t: (k: MessageKey) => string) {
+  if (c == null) return t("pages.demandRadar.noVolume");
   if (c === "low") return t("pages.demandRadar.competitionLow");
   if (c === "high") return t("pages.demandRadar.competitionHigh");
-  return t("pages.demandRadar.competitionMedium");
+  if (c === "medium") return t("pages.demandRadar.competitionMedium");
+  return t("pages.demandRadar.noVolume");
 }
 
 function competitionRank(c: DemandPlannerIdea["competition"]) {
+  if (c == null) return 0;
   if (c === "low") return 1;
   if (c === "medium") return 2;
   return 3;
@@ -210,16 +213,20 @@ export function DemandKeywordIdeasTable({
             <ChangeCell value={idea.change_yoy_pct} empty={empty} />
           </td>
           <td className="px-4 py-2.5">
-            <span
-              className={cn(
-                "inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase",
-                idea.competition === "low" && "bg-emerald-500/10 text-emerald-700",
-                idea.competition === "medium" && "bg-amber-500/10 text-amber-700",
-                idea.competition === "high" && "bg-rose-500/10 text-rose-700",
-              )}
-            >
-              {competitionLabel(idea.competition, t)}
-            </span>
+            {idea.competition == null ? (
+              <span className="text-muted-foreground">{empty}</span>
+            ) : (
+              <span
+                className={cn(
+                  "inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase",
+                  idea.competition === "low" && "bg-emerald-500/10 text-emerald-700",
+                  idea.competition === "medium" && "bg-amber-500/10 text-amber-700",
+                  idea.competition === "high" && "bg-rose-500/10 text-rose-700",
+                )}
+              >
+                {competitionLabel(idea.competition, t)}
+              </span>
+            )}
             {idea.competition_index != null ? (
               <span className="ml-1.5 tabular-nums text-[11px] text-muted-foreground">
                 {idea.competition_index}

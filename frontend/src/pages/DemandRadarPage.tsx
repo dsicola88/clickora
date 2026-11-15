@@ -60,9 +60,11 @@ function competitionLabel(
   c: DemandPlannerIdea["competition"],
   t: (k: MessageKey) => string,
 ) {
+  if (c == null) return t("pages.demandRadar.noVolume");
   if (c === "low") return t("pages.demandRadar.competitionLow");
   if (c === "high") return t("pages.demandRadar.competitionHigh");
-  return t("pages.demandRadar.competitionMedium");
+  if (c === "medium") return t("pages.demandRadar.competitionMedium");
+  return t("pages.demandRadar.noVolume");
 }
 
 function primaryKindLabel(kind: DemandPrimaryKind | null, t: (k: MessageKey) => string) {
@@ -422,9 +424,13 @@ export default function DemandRadarPage() {
             />
             <KpiCell
               label={t("pages.demandRadar.seedCompetition")}
-              value={primary ? competitionLabel(primary.competition, t) : t("pages.demandRadar.noVolume")}
+              value={
+                primary?.competition != null
+                  ? competitionLabel(primary.competition, t)
+                  : t("pages.demandRadar.noVolume")
+              }
               hint={plannerOk ? t("pages.demandRadar.sourceGoogle") : t("pages.demandRadar.sourceUnavailable")}
-              muted={!primary}
+              muted={!primary || primary.competition == null}
             />
             <KpiCell
               label={t("pages.demandRadar.kpiIndex")}

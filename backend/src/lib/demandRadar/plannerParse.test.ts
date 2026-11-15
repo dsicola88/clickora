@@ -118,6 +118,15 @@ test("plannerParse ignora linhas sem volume nem CPC", () => {
   assert.equal(idea, null);
 });
 
+test("plannerParse: concorrência UNSPECIFIED → null (como — no Ads)", () => {
+  const idea = rowToPlannerIdea({
+    text: "boostaro v4",
+    keywordIdeaMetrics: { avgMonthlySearches: 500, competition: "UNSPECIFIED" },
+  });
+  assert.equal(idea?.monthly_volume, 500);
+  assert.equal(idea?.competition, null);
+});
+
 test("plannerParse extrai histórico mensal oficial", () => {
   const idea = rowToPlannerIdea({
     text: "visivra",

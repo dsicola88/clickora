@@ -14,7 +14,7 @@ export type DemandPlannerIdea = {
   avg_cpc: number;
   bid_low?: number | null;
   bid_high?: number | null;
-  competition: "low" | "medium" | "high";
+  competition: "low" | "medium" | "high" | null;
   competition_index?: number | null;
   change_3m_pct?: number | null;
   change_yoy_pct?: number | null;
