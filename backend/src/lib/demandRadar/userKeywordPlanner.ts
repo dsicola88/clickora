@@ -28,7 +28,14 @@ export type {
   DemandPlannerDeviceBreakdown,
 };
 
-export type DemandPlannerTimeframe = "default" | "last_24" | "last_36";
+/** Janelas alinhadas ao Planejador Google Ads (UI). `default` = últimos 12 meses. */
+export type DemandPlannerTimeframe =
+  | "default"
+  | "last_1"
+  | "last_12"
+  | "last_24"
+  | "last_36"
+  | "all_available";
 
 export type DemandVolumeTrend = {
   source: "google_monthly";
@@ -61,6 +68,7 @@ export type UserPlannerResult =
         | "unsupported_geo_or_language"
         | "empty_seed"
         | "api_error"
+        | "permission_denied"
         | "no_ideas";
       message: string;
       ideas: [];
@@ -99,12 +107,28 @@ function addCalendarMonths(year: number, month: number, delta: number): { year: 
   return { year: y, month: m };
 }
 
-function historicalMetricsOptions(timeframe: DemandPlannerTimeframe): Record<string, unknown> | null {
-  if (timeframe !== "last_24" && timeframe !== "last_36") return null;
+/** Span em meses atrás a partir do mês corrente (como no Planejador Google). */
+function timeframeSpanMonths(timeframe: DemandPlannerTimeframe): number {
+  switch (timeframe) {
+    case "last_1":
+      return 0;
+    case "last_24":
+      return 23;
+    case "last_36":
+      return 35;
+    case "all_available":
+      return 47; // ~4 anos — máximo documentado no Keyword Ideas
+    case "last_12":
+    case "default":
+    default:
+      return 11;
+  }
+}
+
+function historicalMetricsOptions(timeframe: DemandPlannerTimeframe): Record<string, unknown> {
   const now = new Date();
   const end = { year: now.getFullYear(), month: now.getMonth() + 1 };
-  const span = timeframe === "last_24" ? 23 : 35;
-  const start = addCalendarMonths(end.year, end.month, -span);
+  const start = addCalendarMonths(end.year, end.month, -timeframeSpanMonths(timeframe));
   return {
     yearMonthRange: {
       start: { year: start.year, month: monthNumToGoogleEnum(start.month) },
@@ -146,6 +170,56 @@ function unavailable(
     trend: null,
     device_split: null,
   };
+}
+
+async function listAccessibleCustomerIds(accessToken: string, developerToken: string): Promise<string[]> {
+  try {
+    const res = await fetch(`${API_BASE}/customers:listAccessibleCustomers`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "developer-token": developerToken,
+      },
+    });
+    if (!res.ok) return [];
+    const j = (await res.json()) as { resourceNames?: string[] };
+    return (j.resourceNames ?? [])
+      .map((r) => {
+        const m = /customers\/(\d+)/.exec(r);
+        return m?.[1] ?? null;
+      })
+      .filter((x): x is string => Boolean(x));
+  } catch {
+    return [];
+  }
+}
+
+async function postKeywordIdeas(input: {
+  access: string;
+  developerToken: string;
+  customerId: string;
+  loginCustomerId: string | null;
+  body: Record<string, unknown>;
+}): Promise<{ ok: boolean; status: number; text: string }> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${input.access}`,
+    "developer-token": input.developerToken,
+    "Content-Type": "application/json",
+  };
+  if (input.loginCustomerId && input.loginCustomerId !== input.customerId) {
+    headers["login-customer-id"] = input.loginCustomerId;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/customers/${input.customerId}:generateKeywordIdeas`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(input.body),
+    });
+    const text = await res.text();
+    return { ok: res.ok, status: res.status, text };
+  } catch {
+    return { ok: false, status: 0, text: "" };
+  }
 }
 
 export async function fetchUserKeywordPlannerIdeas(input: {
@@ -213,61 +287,87 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     return unavailable("google_ads_not_connected", "Conta Google Ads sem customer ID configurado.");
   }
 
-  const login =
+  let login =
     onlyDigits(input.user.googleAdsLoginCustomerId) ||
     onlyDigits(creds.loginCustomerId) ||
-    onlyDigits(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+    onlyDigits(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID) ||
+    null;
 
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${access}`,
-    "developer-token": dev,
-    "Content-Type": "application/json",
-  };
-  if (login && login !== customerId) {
-    headers["login-customer-id"] = login;
-  }
-
-  const reqBody: Record<string, unknown> = {
+  const baseBody: Record<string, unknown> = {
     language: `languageConstants/${langNum}`,
     geoTargetConstants: [`geoTargetConstants/${geoId}`],
     keywordPlanNetwork: "GOOGLE_SEARCH",
     keywordSeed: { keywords: [seed] },
-    /** Partilha oficial de pesquisas por dispositivo (não é tráfego da conta). */
-    aggregateMetrics: { aggregateMetricTypes: ["DEVICE"] },
-    pageSize: Math.min(50, Math.max(20, input.limit ?? 20)),
+    pageSize: Math.min(50, Math.max(20, input.limit ?? 40)),
+    historicalMetricsOptions: historicalMetricsOptions(timeframe),
   };
-  const hist = historicalMetricsOptions(timeframe);
-  reqBody.historicalMetricsOptions = hist ?? { includeAverageCpc: true };
 
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE}/customers/${customerId}:generateKeywordIdeas`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(reqBody),
-    });
-  } catch {
-    return unavailable("api_error", "Falha de rede ao contactar a API Google Ads.");
+  const withDevices = {
+    ...baseBody,
+    aggregateMetrics: { aggregateMetricTypes: ["DEVICE"] },
+  };
+
+  let result = await postKeywordIdeas({
+    access,
+    developerToken: dev,
+    customerId,
+    loginCustomerId: login,
+    body: withDevices,
+  });
+
+  /** 403 frequente em contas sob MCC sem login-customer-id — tenta outro ID acessível. */
+  if ((!result.ok && result.status === 403) || result.status === 401) {
+    const ids = await listAccessibleCustomerIds(access, dev);
+    const altLogin = ids.find((id) => id !== customerId) ?? null;
+    if (altLogin && altLogin !== login) {
+      login = altLogin;
+      result = await postKeywordIdeas({
+        access,
+        developerToken: dev,
+        customerId,
+        loginCustomerId: login,
+        body: withDevices,
+      });
+    }
   }
 
-  const rawText = await res.text();
-  if (!res.ok) {
+  /** Se DEVICE/aggregate falhar, tenta o pedido mínimo (ainda com histórico + CPC). */
+  if (!result.ok && (result.status === 400 || result.status === 403)) {
+    result = await postKeywordIdeas({
+      access,
+      developerToken: dev,
+      customerId,
+      loginCustomerId: login,
+      body: baseBody,
+    });
+  }
+
+  if (!result.ok) {
+    if (result.status === 0) {
+      return unavailable("api_error", "Falha de rede ao contactar a API Google Ads.");
+    }
     let detail = "";
     try {
-      const errJson = JSON.parse(rawText) as { error?: { message?: string } };
+      const errJson = JSON.parse(result.text) as { error?: { message?: string } };
       detail = errJson.error?.message?.trim() ? `: ${errJson.error.message.trim().slice(0, 180)}` : "";
     } catch {
       /* ignore */
     }
+    if (result.status === 403) {
+      return unavailable(
+        "permission_denied",
+        `Sem permissão na API do Planejador (${result.status})${detail}. O UI do Google Ads pode funcionar, mas a API precisa de developer token com acesso aprovado e, se a conta estiver sob um MCC, do ID do gestor (login-customer-id). Em Integrações → Google Ads, volte a ligar a conta.`,
+      );
+    }
     return unavailable(
       "api_error",
-      `O Planejador Google Ads não devolveu dados (${res.status})${detail}`,
+      `O Planejador Google Ads não devolveu dados (${result.status})${detail}`,
     );
   }
 
   let parsed: Record<string, unknown>;
   try {
-    parsed = JSON.parse(rawText) as Record<string, unknown>;
+    parsed = JSON.parse(result.text) as Record<string, unknown>;
   } catch {
     return unavailable("api_error", "Resposta inválida da API Google Ads.");
   }

@@ -10,9 +10,17 @@ export type DemandPlannerIdea = {
   keyword: string;
   monthly_volume: number;
   avg_cpc: number;
+  /** Lance topo de página (percentil baixo) — Planejador. */
+  bid_low: number | null;
+  /** Lance topo de página (percentil alto) — Planejador. */
+  bid_high: number | null;
   competition: "low" | "medium" | "high";
   /** 0–100 do Planejador quando a API devolve `competitionIndex`. */
   competition_index: number | null;
+  /** Δ vs ~3 meses atrás, derivado da série mensal oficial (null se sem histórico). */
+  change_3m_pct: number | null;
+  /** Δ YoY (mesmo mês ano anterior), derivado da série mensal oficial. */
+  change_yoy_pct: number | null;
   /** Histórico mensal oficial quando a API devolve `monthlySearchVolumes`. */
   monthly_search_volumes: DemandMonthlyVolumePoint[];
 };
@@ -110,6 +118,42 @@ export type IdeaRow = {
   keyword_idea_metrics?: Record<string, unknown>;
 };
 
+function microsToUsd(raw: unknown): number | null {
+  const micros = numFromPlannerProto(raw);
+  if (!Number.isFinite(micros) || micros <= 0) return null;
+  return Math.round((micros / 1_000_000) * 100) / 100;
+}
+
+/** Δ% a partir da série mensal oficial do Planejador (sem inventar pontos). */
+export function computeVolumeChanges(volumes: DemandMonthlyVolumePoint[]): {
+  change_3m_pct: number | null;
+  change_yoy_pct: number | null;
+} {
+  if (!volumes.length) return { change_3m_pct: null, change_yoy_pct: null };
+  const sorted = [...volumes].sort((a, b) => a.year - b.year || a.month - b.month);
+  const last = sorted[sorted.length - 1]!;
+  const threeAgo = sorted.find((p) => {
+    const target = addMonths(last.year, last.month, -3);
+    return p.year === target.year && p.month === target.month;
+  });
+  const yearAgo = sorted.find((p) => p.year === last.year - 1 && p.month === last.month);
+
+  const pct = (cur: number, prev: number | undefined) => {
+    if (prev == null || prev <= 0) return null;
+    return Math.round(((cur - prev) / prev) * 1000) / 10;
+  };
+
+  return {
+    change_3m_pct: pct(last.monthly_searches, threeAgo?.monthly_searches),
+    change_yoy_pct: pct(last.monthly_searches, yearAgo?.monthly_searches),
+  };
+}
+
+function addMonths(year: number, month: number, delta: number): { year: number; month: number } {
+  const idx = year * 12 + (month - 1) + delta;
+  return { year: Math.floor(idx / 12), month: (idx % 12) + 1 };
+}
+
 export function rowToPlannerIdea(row: IdeaRow): DemandPlannerIdea | null {
   const keyword = String(row.text ?? "").trim();
   if (!keyword) return null;
@@ -117,11 +161,11 @@ export function rowToPlannerIdea(row: IdeaRow): DemandPlannerIdea | null {
   if (!m || typeof m !== "object") return null;
 
   const vol = numFromPlannerProto(m.avgMonthlySearches ?? m.avg_monthly_searches);
+  const bid_low = microsToUsd(m.lowTopOfPageBidMicros ?? m.low_top_of_page_bid_micros);
+  const bid_high = microsToUsd(m.highTopOfPageBidMicros ?? m.high_top_of_page_bid_micros);
   let avgCpc = numFromPlannerProto(m.averageCpcMicros ?? m.average_cpc_micros) / 1_000_000;
-  if (!Number.isFinite(avgCpc) || avgCpc <= 0) {
-    const low = numFromPlannerProto(m.lowTopOfPageBidMicros ?? m.low_top_of_page_bid_micros);
-    const high = numFromPlannerProto(m.highTopOfPageBidMicros ?? m.high_top_of_page_bid_micros);
-    if (low > 0 && high > 0) avgCpc = (low + high) / 2 / 1_000_000;
+  if ((!Number.isFinite(avgCpc) || avgCpc <= 0) && bid_low != null && bid_high != null) {
+    avgCpc = (bid_low + bid_high) / 2;
   }
 
   const monthly_volume = Math.max(0, Math.round(vol));
@@ -129,7 +173,7 @@ export function rowToPlannerIdea(row: IdeaRow): DemandPlannerIdea | null {
     Number.isFinite(avgCpc) && avgCpc > 0 ? Math.round(avgCpc * 100) / 100 : 0;
 
   /** Volume 0 com CPC pode ser válido; ambos 0 = linha inútil. */
-  if (monthly_volume === 0 && avg_cpc <= 0) return null;
+  if (monthly_volume === 0 && avg_cpc <= 0 && bid_low == null && bid_high == null) return null;
 
   const rawIdxVal = m.competitionIndex ?? m.competition_index;
   const competition_index =
@@ -140,13 +184,20 @@ export function rowToPlannerIdea(row: IdeaRow): DemandPlannerIdea | null {
           return Number.isFinite(rawIdx) && rawIdx >= 0 ? Math.min(100, Math.round(rawIdx)) : null;
         })();
 
+  const monthly_search_volumes = extractMonthlySearchVolumes(m);
+  const { change_3m_pct, change_yoy_pct } = computeVolumeChanges(monthly_search_volumes);
+
   return {
     keyword,
     monthly_volume,
     avg_cpc,
+    bid_low,
+    bid_high,
     competition: mapPlannerCompetition(m.competition),
     competition_index,
-    monthly_search_volumes: extractMonthlySearchVolumes(m),
+    change_3m_pct,
+    change_yoy_pct,
+    monthly_search_volumes,
   };
 }
 

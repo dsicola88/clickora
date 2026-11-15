@@ -130,7 +130,7 @@ export default function DemandRadarPage() {
   const [product, setProduct] = useState("");
   const [language, setLanguage] = useState("en");
   const [market, setMarket] = useState("US");
-  const [timeframe, setTimeframe] = useState<DemandPlannerTimeframe>("default");
+  const [timeframe, setTimeframe] = useState<DemandPlannerTimeframe>("last_12");
   const [analysis, setAnalysis] = useState<DemandRadarAnalyze | null>(null);
   const [deviceFilter, setDeviceFilter] = useState<DeviceFilter>("all");
 
@@ -334,10 +334,16 @@ export default function DemandRadarPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
+          <div className="space-y-1.5">
+            <Label>{t("pages.demandRadar.networkLabel")}</Label>
+            <div className="flex h-10 items-center rounded-md border border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+              {t("pages.demandRadar.networkGoogle")}
+            </div>
+          </div>
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
             <Label>{t("pages.demandRadar.timeframeLabel")}</Label>
             <Select
-              value={timeframe}
+              value={timeframe === "default" ? "last_12" : timeframe}
               disabled={analyzeM.isPending}
               onValueChange={(v) => setTimeframe(v as DemandPlannerTimeframe)}
             >
@@ -345,11 +351,13 @@ export default function DemandRadarPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="default">{t("pages.demandRadar.timeframeDefault")}</SelectItem>
+                <SelectItem value="last_1">{t("pages.demandRadar.timeframe1")}</SelectItem>
+                <SelectItem value="last_12">{t("pages.demandRadar.timeframe12")}</SelectItem>
                 <SelectItem value="last_24">{t("pages.demandRadar.timeframe24")}</SelectItem>
-                <SelectItem value="last_36">{t("pages.demandRadar.timeframe36")}</SelectItem>
+                <SelectItem value="all_available">{t("pages.demandRadar.timeframeAll")}</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-[10px] text-muted-foreground">{t("pages.demandRadar.timeframeHint")}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

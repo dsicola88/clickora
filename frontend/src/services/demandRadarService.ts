@@ -1,13 +1,23 @@
 import { apiClient } from "@/lib/apiClient";
 
-export type DemandPlannerTimeframe = "default" | "last_24" | "last_36";
+export type DemandPlannerTimeframe =
+  | "default"
+  | "last_1"
+  | "last_12"
+  | "last_24"
+  | "last_36"
+  | "all_available";
 
 export type DemandPlannerIdea = {
   keyword: string;
   monthly_volume: number;
   avg_cpc: number;
+  bid_low?: number | null;
+  bid_high?: number | null;
   competition: "low" | "medium" | "high";
   competition_index?: number | null;
+  change_3m_pct?: number | null;
+  change_yoy_pct?: number | null;
   monthly_search_volumes?: Array<{ year: number; month: number; monthly_searches: number }>;
 };
 
