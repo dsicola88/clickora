@@ -1832,8 +1832,10 @@ export const ptBR = {
       "updateCosts": "Atualizar custos",
       "results": "Resultados",
       "manualTitle": "Informar a conta manualmente",
-      "manualDescHas": "A conta de anúncios já está salva. Se o Google recusar o custo, informe o número da conta que gerencia as outras.",
-      "manualDescMissing": "Cole os 10 dígitos da conta que tem os anúncios. Se essa conta for gerenciada por outra, informe também o número da conta de gerente.",
+      "manualDescHas":
+        "A conta de anúncios já está salva. Conta privada: deixe o gestor em branco. Só preencha gestor se esta conta estiver sob um MCC.",
+      "manualDescMissing":
+        "Cole os 10 dígitos da conta de anúncios. Conta privada: deixe o gestor em branco. MCC só se outra conta gerenciar esta.",
       "customerLabel": "Número da conta",
       "managerLabel": "Conta de gerente (opcional)",
       "managerPlaceholder": "Só se você tiver uma conta que gerencia as outras",

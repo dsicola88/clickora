@@ -1832,8 +1832,10 @@ export const es = {
       "updateCosts": "Actualizar costes",
       "results": "Resultados",
       "manualTitle": "Introducir la cuenta a mano",
-      "manualDescHas": "La cuenta de anuncios ya está guardada. Si Google rechaza el coste, introduce el número de la cuenta que administra las demás.",
-      "manualDescMissing": "Pega los 10 dígitos de la cuenta que tiene los anuncios. Si esa cuenta la administra otra, introduce también el número de la cuenta de administrador.",
+      "manualDescHas":
+        "La cuenta de anuncios ya está guardada. Cuenta privada: deja el gestor vacío. Solo rellena gestor si esta cuenta está bajo un MCC.",
+      "manualDescMissing":
+        "Pega los 10 dígitos de la cuenta de anuncios. Cuenta privada: deja el gestor vacío. MCC solo si otra cuenta administra esta.",
       "customerLabel": "Número de cuenta",
       "managerLabel": "Cuenta de administrador (opcional)",
       "managerPlaceholder": "Solo si tienes una cuenta que administra las demás",

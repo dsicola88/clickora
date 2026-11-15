@@ -1860,8 +1860,10 @@ export const en = {
       updateCosts: "Update costs",
       results: "Results",
       manualTitle: "Enter the account by hand",
-      manualDescHas: "The ads account is already saved. If Google refuses cost, enter the number of the account that manages the others.",
-      manualDescMissing: "Paste the 10 digits of the account that holds the ads. If that account is managed by another, also enter the manager account number.",
+      manualDescHas:
+        "The ads account is already saved. Private accounts: leave manager blank. Only fill manager if this account sits under an MCC.",
+      manualDescMissing:
+        "Paste the 10 digits of the ads account. Private accounts: leave manager blank. MCC only if another account manages this one.",
       customerLabel: "Account number",
       managerLabel: "Manager account (optional)",
       managerPlaceholder: "Only if you have an account that manages the others",

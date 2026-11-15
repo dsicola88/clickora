@@ -193,20 +193,26 @@ type KeywordIdeasAttempt =
   | { ok: false; status: number; text: string };
 
 /**
- * Tenta combinações login/customer/body com orçamento limitado (rate limit do Planejador).
- * 1) customer preferido × logins (guardado → sem login → gestores acessíveis)
- * 2) se 401/403, outros customers acessíveis pelo mesmo OAuth (volumes não são métricas de conta)
+ * Conta privada: sem header login-customer-id.
+ * MCC: tenta primeiro sem login, depois o gestor guardado (nunca o MCC global do servidor).
  */
 async function generateKeywordIdeasWithFallbacks(input: {
   access: string;
   developerToken: string;
   preferredCustomerId: string;
   preferredLogin: string | null;
+  /** true = conta privada (sem MCC) — só pedidos sem login-customer-id */
+  privateAccount: boolean;
   bodies: Record<string, unknown>[];
 }): Promise<KeywordIdeasAttempt> {
   const accessible = await listAccessibleCustomerIds(input.access, input.developerToken);
-  const managerLogins = accessible.filter((id) => id !== input.preferredCustomerId).slice(0, 4);
-  const loginCandidates = uniqueIds([input.preferredLogin, null, ...managerLogins]);
+  const managerLogins = input.privateAccount
+    ? []
+    : accessible.filter((id) => id !== input.preferredCustomerId).slice(0, 4);
+  /** Sempre null primeiro — contas privadas e MCC mal configurado não devem começar com login errado. */
+  const loginCandidates = input.privateAccount
+    ? ([null] as Array<string | null>)
+    : uniqueIds([null, input.preferredLogin, ...managerLogins]);
   const altCustomers = accessible
     .filter((id) => id !== input.preferredCustomerId)
     .slice(0, 3);
@@ -255,7 +261,10 @@ async function generateKeywordIdeasWithFallbacks(input: {
   if (authFail && altCustomers.length) {
     for (const body of input.bodies.slice(0, 2)) {
       for (const operatingCustomer of altCustomers) {
-        for (const login of uniqueIds([null, input.preferredLogin, ...managerLogins]).slice(0, 3)) {
+        const loginsForAlt = input.privateAccount
+          ? ([null] as Array<string | null>)
+          : uniqueIds([null, input.preferredLogin, ...managerLogins]).slice(0, 3);
+        for (const login of loginsForAlt) {
           const hit = await tryPair(operatingCustomer, login, body);
           if (hit) return hit;
         }
@@ -416,11 +425,14 @@ export async function fetchUserKeywordPlannerIdeas(input: {
   }
 
   /**
-   * Contas privadas: sem login-customer-id.
-   * MCC: login guardado no utilizador — NUNCA o GOOGLE_ADS_LOGIN_CUSTOMER_ID global do servidor.
-   * Em 403/401 tentamos grelha: sem login + gestores acessíveis + outros customers do OAuth.
+   * Conta privada: sem login-customer-id (header omitido).
+   * Se o utilizador tiver o mesmo ID em customer e gestor, trata-se como privada.
+   * MCC só quando login ≠ customer — NUNCA o GOOGLE_ADS_LOGIN_CUSTOMER_ID global do servidor.
    */
-  const preferredLogin = onlyDigits(input.user.googleAdsLoginCustomerId) || null;
+  const storedLogin = onlyDigits(input.user.googleAdsLoginCustomerId);
+  const preferredLogin =
+    storedLogin && storedLogin !== customerId ? storedLogin : null;
+  const privateAccount = preferredLogin == null;
   const pageSize = Math.min(100, Math.max(20, input.limit ?? 40));
 
   const baseBody: Record<string, unknown> = {
@@ -453,6 +465,7 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     developerToken: dev,
     preferredCustomerId: customerId,
     preferredLogin,
+    privateAccount,
     bodies: [baseBody, bareBody, withDevices],
   });
 
@@ -465,11 +478,14 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     const codeHint = codes.length ? ` [${codes.slice(0, 3).join(", ")}]` : "";
     if (result.status === 403 || codes.includes("USER_PERMISSION_DENIED") || codes.includes("SERVICE_ACCESS_DENIED")) {
       const explorerHint = codes.includes("SERVICE_ACCESS_DENIED")
-        ? " O projecto Google Cloud da app pode estar em Explorer (KeywordPlanIdeaService exige Basic+)."
+        ? " O projecto Google Cloud da Clickora pode estar em Explorer — KeywordPlanIdeaService exige Basic+."
         : "";
+      const accountHint = privateAccount
+        ? " Conta privada: o pedido vai sem login-customer-id. Confirme o customer ID e volte a ligar o Google Ads em Integrações se o OAuth estiver desatualizado."
+        : " Se usa MCC, confirme o login-customer-id do gestor em Integrações.";
       return unavailable(
         "permission_denied",
-        `Sem permissão na API do Planejador (${result.status})${detail}${codeHint}.${explorerHint} No UI Google Ads o Planejador pode funcionar na mesma — a API usa developer token + OAuth. Confirme customer ID e login-customer-id (MCC) em Integrações, ou volte a ligar a conta.`,
+        `Sem permissão na API do Planejador (${result.status})${detail}${codeHint}.${accountHint}${explorerHint} O Planejador no site ads.google.com pode funcionar na mesma — a API é um caminho separado.`,
       );
     }
     return unavailable(

@@ -260,7 +260,7 @@ export default function GoogleAdsConnectPage() {
         </ProPanel>
       </div>
 
-      {data?.has_refresh_token && (!data.google_ads_customer_id || !data.google_ads_login_customer_id) ? (
+      {data?.has_refresh_token ? (
         <ProPanel
           title={t("pages.googleAds.manualTitle")}
           description={
