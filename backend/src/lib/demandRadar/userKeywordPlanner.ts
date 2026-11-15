@@ -476,16 +476,27 @@ export async function fetchUserKeywordPlannerIdeas(input: {
     const { message, codes } = extractAdsErrorDetail(result.text);
     const detail = message ? `: ${message}` : "";
     const codeHint = codes.length ? ` [${codes.slice(0, 3).join(", ")}]` : "";
-    if (result.status === 403 || codes.includes("USER_PERMISSION_DENIED") || codes.includes("SERVICE_ACCESS_DENIED")) {
+    if (
+      result.status === 403 ||
+      codes.includes("USER_PERMISSION_DENIED") ||
+      codes.includes("SERVICE_ACCESS_DENIED") ||
+      codes.includes("DEVELOPER_TOKEN_NOT_APPROVED")
+    ) {
+      if (codes.includes("DEVELOPER_TOKEN_NOT_APPROVED")) {
+        return unavailable(
+          "permission_denied",
+          "O developer token da API Google Ads da Clickora ainda não está aprovado para o Planejador (KeywordPlanIdeaService) [DEVELOPER_TOKEN_NOT_APPROVED]. A sua conta privada e o OAuth estão OK — o bloqueio é no token da plataforma. O Planejador em ads.google.com continua a funcionar; volumes na Clickora só aparecem depois da aprovação Basic+ no Google Ads API Center. Nada é inventado entretanto.",
+        );
+      }
       const explorerHint = codes.includes("SERVICE_ACCESS_DENIED")
         ? " O projecto Google Cloud da Clickora pode estar em Explorer — KeywordPlanIdeaService exige Basic+."
         : "";
       const accountHint = privateAccount
-        ? " Conta privada: o pedido vai sem login-customer-id. Confirme o customer ID e volte a ligar o Google Ads em Integrações se o OAuth estiver desatualizado."
+        ? " Conta privada: pedido sem login-customer-id."
         : " Se usa MCC, confirme o login-customer-id do gestor em Integrações.";
       return unavailable(
         "permission_denied",
-        `Sem permissão na API do Planejador (${result.status})${detail}${codeHint}.${accountHint}${explorerHint} O Planejador no site ads.google.com pode funcionar na mesma — a API é um caminho separado.`,
+        `Sem permissão na API do Planejador (${result.status})${detail}${codeHint}.${accountHint}${explorerHint} O site ads.google.com pode mostrar o Planejador na mesma — a API é um caminho separado. Nada é inventado.`,
       );
     }
     return unavailable(

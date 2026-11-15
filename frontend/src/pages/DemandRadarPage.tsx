@@ -474,10 +474,14 @@ export default function DemandRadarPage() {
                 {t("pages.demandRadar.trendEmpty")}
               </div>
             )}
-            {view.planner.device_split ||
-            (view.account.devices?.total_clicks ?? 0) > 0 ? (
+            {/**
+             * Só dispositivos do Planejador Google nesta grelha.
+             * Cliques Clickora da conta inteira NÃO entram aqui — pareciam métricas
+             * inventadas para a keyword quando o Planejador falha (403).
+             */}
+            {view.planner.device_split?.items?.length ? (
               <DemandDeviceBreakdownPanel
-                devices={view.account.devices}
+                devices={null}
                 googleDevices={view.planner.device_split}
                 filter={deviceFilter}
                 onFilterChange={setDeviceFilter}

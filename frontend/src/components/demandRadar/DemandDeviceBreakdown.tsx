@@ -168,7 +168,7 @@ export function DemandDeviceBreakdownPanel({
                 : t("pages.demandRadar.devicesSource")}
             </p>
           </div>
-          {hasGoogle || clickoraRows.length > 0 ? (
+          {hasGoogle && clickoraRows.length > 0 ? (
             <Segmented
               value={showingGoogle ? "google" : "clickora"}
               onChange={(v) => setTab(v as DeviceSourceTab)}
