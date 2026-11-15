@@ -32,6 +32,12 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
           "Banner de cookies/privacidade no documento da página. Na criação: Aceitar pode ir à oferta rastreada, ou só liberar a leitura — CTAs da página ficam sempre disponíveis.",
       },
       {
+        id: "segmentacao",
+        name: "Segmentação (escolha)",
+        description:
+          "Modal profissional com duas opções (ex. «Ver análise» e «Página oficial»), cada uma com destino próprio e tracking. Ideal para bridges de escolha.",
+      },
+      {
         id: "fantasma",
         name: "Fantasma (redirect no 1.º gesto)",
         description:

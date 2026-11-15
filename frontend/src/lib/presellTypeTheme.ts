@@ -46,6 +46,17 @@ const THEMES: Record<string, PresellTypeTheme> = {
     chromeLabelClass: "text-sky-800/80",
     chromeCtaClass: "border-sky-700/40 text-sky-900 hover:bg-sky-800/10",
   },
+  segmentacao: {
+    id: "segmentacao",
+    badge: "Escolha",
+    eyebrow: "Escolha o caminho: análise independente ou página oficial da oferta.",
+    heroBg: "bg-gradient-to-b from-indigo-50 via-white to-background dark:from-indigo-950/35 dark:via-slate-950 dark:to-background",
+    badgeClass: "bg-indigo-900 text-indigo-50",
+    ctaSurface: "light",
+    chromeClass: "border-indigo-200/80 bg-indigo-50/95 text-indigo-950",
+    chromeLabelClass: "text-indigo-800/80",
+    chromeCtaClass: "border-indigo-700/40 text-indigo-950 hover:bg-indigo-800/10",
+  },
   fantasma: {
     id: "fantasma",
     badge: "Redirect",

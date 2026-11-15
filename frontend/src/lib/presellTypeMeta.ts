@@ -13,6 +13,7 @@
  * | vsl_tsl     | Combo: vídeo primeiro (abre) + espelho/carta TSL abaixo. |
  * | tsl, dtc, review, advertorial | Sem espelho: portal/artigo no documento (tema distinto). White+espelho: HTML 1:1 sem chrome Clickora por cima. |
  * | sexo, idade, idade_sexo, idade_pais, sexo_pais, grupo_*, pais, captcha, modelos | Qualificação sticky antes do CTA (só black); cliques bloqueados até validar. |
+ * | segmentacao | Modal de escolha com 2 destinos (ex. Review / Página oficial); `co_seg` no tracking. |
  * | builder     | Documento do editor; white+espelho entra no fluxo comum de espelho. |
  */
 
@@ -36,7 +37,8 @@ export type PresellGateKind =
   | "age_group_f"
   | "country"
   | "captcha"
-  | "models";
+  | "models"
+  | "segmentation";
 
 export function getPresellGateKind(presellType: string): PresellGateKind {
   switch (presellType) {
@@ -56,6 +58,8 @@ export function getPresellGateKind(presellType: string): PresellGateKind {
       return "captcha";
     case "modelos":
       return "models";
+    case "segmentacao":
+      return "segmentation";
     default:
       return "none";
   }
@@ -94,8 +98,11 @@ export function isReviewPresellType(presellType: string): boolean {
 export const PRESELL_TRIPLE_PACK_TYPES = ["tsl", "review", "advertorial"] as const;
 export type PresellTriplePackType = (typeof PRESELL_TRIPLE_PACK_TYPES)[number];
 
-/** Formulário simples ou combinado antes do CTA. */
-export type CoreInteractivePresellGateKind = Exclude<PresellGateKind, "none" | "cookies">;
+/** Formulário simples ou combinado antes do CTA (exclui cookies e segmentação modal). */
+export type CoreInteractivePresellGateKind = Exclude<
+  PresellGateKind,
+  "none" | "cookies" | "segmentation"
+>;
 
 export type CompoundInteractivePresellGateKind = "age_sex" | "age_country" | "sex_country";
 

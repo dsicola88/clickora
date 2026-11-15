@@ -29,6 +29,10 @@ import { bakePublicOfferHrefs, resolvePresellPageDocument } from "@/lib/presellV
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
 import { isCookieRedirectToOfferEnabled } from "@/components/presell/PresellTypeControls";
 import {
+  resolveSegmentationCopy,
+  resolveSegmentationDestination,
+} from "@/lib/presellSegmentation";
+import {
   getPresellUiStrings,
   htmlLangForLocale,
   isRtlLocale,
@@ -806,6 +810,29 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
       cookiePolicyUrl,
       cookieRedirect ? href : undefined,
     );
+  }
+
+  if (gateKind === "segmentation") {
+    const copy = resolveSegmentationCopy(settings, page.language);
+    const reviewDest = resolveSegmentationDestination("review", copy, href).dest || href;
+    const officialDest = resolveSegmentationDestination("official", copy, href).dest || href;
+    const closeBtn = copy.allowClose
+      ? `<button type="button" id="pe-seg-close" style="display:block;margin:0 0 .75rem auto;background:none;border:none;color:#0284c7;font-size:13px;font-weight:500;cursor:pointer;text-decoration:underline;">${escapeHtml(copy.closeLabel)}</button>`
+      : "";
+    core += `<div id="pe-seg-overlay" style="position:fixed;inset:0;z-index:2147483645;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(15,23,42,.45);">
+<div role="dialog" aria-modal="true" style="width:100%;max-width:380px;border-radius:12px;background:#f4f5f7;padding:1.25rem 1.75rem 1.75rem;box-shadow:0 22px 50px -14px rgba(15,23,42,.45);">
+${closeBtn}
+<h2 style="margin:0;text-align:center;font-size:17px;font-weight:600;color:#0f172a;">${escapeHtml(copy.title)}</h2>
+<div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:.75rem;">
+<a href="${escapeAttr(reviewDest)}" style="display:flex;height:2.75rem;align-items:center;justify-content:center;border-radius:6px;background:#22a45a;color:#fff;font-weight:600;text-decoration:none;">${escapeHtml(copy.reviewLabel)}</a>
+<a href="${escapeAttr(officialDest)}" style="display:flex;height:2.75rem;align-items:center;justify-content:center;border-radius:6px;background:#2f6fed;color:#fff;font-weight:600;text-decoration:none;">${escapeHtml(copy.officialLabel)}</a>
+</div>
+</div></div>
+${
+  copy.allowClose
+    ? `<script>(function(){var b=document.getElementById("pe-seg-close");var o=document.getElementById("pe-seg-overlay");if(b&&o)b.addEventListener("click",function(){o.style.display="none";});})();</script>`
+    : ""
+}`;
   }
 
   core +=

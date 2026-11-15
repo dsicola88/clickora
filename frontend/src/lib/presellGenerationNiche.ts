@@ -120,6 +120,7 @@ export function defaultAbPresellTypeB(typeA: string, niche: PresellGenerationNic
   }
   if (typeA === "cookies") return "desconto";
   if (typeA === "desconto") return "cookies";
+  if (typeA === "segmentacao") return "cookies";
   if (typeA === "tsl") return "review";
   if (typeA === "review") return "advertorial";
   if (typeA === "advertorial") return "tsl";

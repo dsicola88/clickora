@@ -55,6 +55,12 @@ import {
 } from "@/lib/publicPresellEarlyPrefetch";
 import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
 import { DiscountPresellOverlay } from "@/components/presell/DiscountPresellOverlay";
+import { SegmentationChoiceModal } from "@/components/presell/SegmentationChoiceModal";
+import {
+  isSegmentationPresellType,
+  resolveSegmentationCopy,
+  resolveSegmentationDestination,
+} from "@/lib/presellSegmentation";
 import { PresellCta } from "@/components/presell/PresellCta";
 import { VslProductVideoFallback } from "@/components/presell/VslProductVideoFallback";
 import { coerceTrackingSnippetToHtml, injectWithCleanup } from "@/lib/injectPresellCustomCode";
@@ -718,6 +724,7 @@ export default function PublicPresell() {
   }, [page?.track_api_base]);
 
   const { cookieAccepted, setCookieAccepted } = useCookieAcceptedState();
+  const [segmentationDismissed, setSegmentationDismissed] = useState(false);
   const [fieldGate, setFieldGate] = useState<GatePayload>({ params: {}, ctaEnabled: false });
 
   const { resolved: uiLang, setMode, override } = usePresellUiLanguage(page?.id, page?.language);
@@ -729,6 +736,7 @@ export default function PublicPresell() {
 
   useEffect(() => {
     setCookieAccepted(false);
+    setSegmentationDismissed(false);
     // Gates interativos começam bloqueados até PresellGateFields reportar válido.
     setFieldGate({ params: {}, ctaEnabled: !getInteractiveGateKind(page?.type || "") });
   }, [page?.id, page?.type, setCookieAccepted]);
@@ -832,27 +840,30 @@ export default function PublicPresell() {
   const heroImageFallback = usePresellHeroImageWithFallback(productImages, storefrontMainIdx);
 
   const showCookieModal = getPresellGateKind(page?.type || "") === "cookies" && !cookieAccepted;
+  const showSegmentationModal =
+    isSegmentationPresellType(page?.type) && !segmentationDismissed;
 
   useEffect(() => {
     // Tipo cookies: o CookieBannerWidget (documento) gere o overflow.
     // CookieConsentModal quase nunca monta neste path — este lock deixava scroll preso após Allow.
     if (getPresellGateKind(page?.type || "") === "cookies") return;
-    if (showCookieModal) {
+    if (showCookieModal || showSegmentationModal) {
       const prev = document.body.style.overflow;
       document.body.style.overflow = "hidden";
       return () => {
         document.body.style.overflow = prev;
       };
     }
-  }, [showCookieModal, page?.type]);
+  }, [showCookieModal, showSegmentationModal, page?.type]);
 
   const ctaEnabled = useMemo(() => {
     const gk = getPresellGateKind(page?.type || "");
     const ik = getInteractiveGateKind(page?.type || "");
     // Cookies: por defeito só desbloqueiam a página (black e white); oferta nos CTAs.
     // Com settings.cookieRedirectToOffer, Aceitar/Fechar vão ao /track/r/.
+    // Segmentação: CTAs da página ficam activos; o modal oferece os dois caminhos.
     // CTAs do documento: cookies não bloqueiam; gates interativos sim até estarem válidos.
-    if (gk === "cookies") return true;
+    if (gk === "cookies" || gk === "segmentation") return true;
     if (ik) return fieldGate.ctaEnabled;
     return true;
   }, [page?.type, fieldGate.ctaEnabled]);
@@ -869,6 +880,30 @@ export default function PublicPresell() {
     }
     return makeTrackClickUrl(apiBase, page.id, dest, search);
   }, [apiBase, page?.id, page?.type, affiliateLink, search, fieldGate.params, settings.offerQueryForwardAllowlist]);
+
+  const segmentationCopy = useMemo(
+    () => resolveSegmentationCopy(settings, uiLang || page?.language),
+    [settings, uiLang, page?.language],
+  );
+
+  const segmentationHrefs = useMemo(() => {
+    if (!page?.id || !isSegmentationPresellType(page.type)) {
+      return { review: "", official: "" };
+    }
+    const forwardKeys = buildOfferForwardParamKeys(settings);
+    const buildArm = (choice: "review" | "official") => {
+      const { dest, segParam } = resolveSegmentationDestination(
+        choice,
+        segmentationCopy,
+        affiliateLink,
+      );
+      if (!dest) return "";
+      let merged = mergeLandingQueryIntoAffiliateUrl(dest, search, forwardKeys);
+      merged = mergeParamsIntoAffiliateUrl(merged, { co_seg: segParam });
+      return makeTrackClickUrl(apiBase, page.id, merged, search);
+    };
+    return { review: buildArm("review"), official: buildArm("official") };
+  }, [page?.id, page?.type, settings, segmentationCopy, affiliateLink, search, apiBase]);
 
   const importMirrorSrcDocRaw =
     typeof content.importMirrorSrcDoc === "string" ? content.importMirrorSrcDoc.trim() : "";
@@ -1309,8 +1344,17 @@ export default function PublicPresell() {
             settings={settings}
             trackHref={href}
             language={uiLang}
-            suppressWhileCookieGate={gateKind === "cookies"}
+            suppressWhileCookieGate={gateKind === "cookies" || gateKind === "segmentation"}
           />
+          {showSegmentationModal ? (
+            <SegmentationChoiceModal
+              copy={segmentationCopy}
+              reviewHref={segmentationHrefs.review}
+              officialHref={segmentationHrefs.official}
+              dismissed={segmentationDismissed}
+              onDismiss={() => setSegmentationDismissed(true)}
+            />
+          ) : null}
           {suppressMirrorChrome ? null : (
             <PresellLanguageSelector override={override} onModeChange={setMode} />
           )}
@@ -1358,6 +1402,16 @@ export default function PublicPresell() {
           accepted={cookieAccepted}
           onAccept={() => setCookieAccepted(true)}
           navigateOnAccept={isCookieRedirectToOfferEnabled(settings)}
+        />
+      ) : null}
+
+      {showSegmentationModal ? (
+        <SegmentationChoiceModal
+          copy={segmentationCopy}
+          reviewHref={segmentationHrefs.review}
+          officialHref={segmentationHrefs.official}
+          dismissed={segmentationDismissed}
+          onDismiss={() => setSegmentationDismissed(true)}
         />
       ) : null}
 

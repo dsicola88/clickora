@@ -7,6 +7,7 @@ import { affiliateLinkFromPresellPage } from "./trackOfferRedirectGuard";
 /** Gates / builder / overlays — não servem como HTML lite por defeito. */
 const LITE_BLOCKED_TYPES = new Set([
   "cookies",
+  "segmentacao",
   "idade",
   "sexo",
   "idade_sexo",

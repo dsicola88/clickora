@@ -1310,6 +1310,9 @@ export default function PresellDashboard() {
               {formData.presellType === "fantasma" ? (
                 <p className="text-xs text-muted-foreground">{t("pages.presells.ghostHint")}</p>
               ) : null}
+              {formData.presellType === "segmentacao" ? (
+                <p className="text-xs text-muted-foreground">{t("pages.createPresell.segHint")}</p>
+              ) : null}
             </div>
               </div>
             ) : null}

@@ -42,6 +42,7 @@ describe("conformidade estrutural WHITE (todos os tipos)", () => {
     }
     expect(WHITE_TYPES).toEqual([
       "cookies",
+      "segmentacao",
       "tsl",
       "dtc",
       "review",

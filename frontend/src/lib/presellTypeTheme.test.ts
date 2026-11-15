@@ -21,6 +21,8 @@ describe("presellTypeTheme", () => {
 
   it("catálogo de tipos cobre ids estáveis", () => {
     expect(PRESELL_TYPE_OPTIONS.map((t) => t.id)).toContain("fantasma");
+    expect(PRESELL_TYPE_OPTIONS.map((t) => t.id)).toContain("segmentacao");
     expect(PRESELL_TYPE_OPTIONS.find((t) => t.id === "fantasma")?.description).toMatch(/risco elevado/i);
+    expect(PRESELL_TYPE_OPTIONS.find((t) => t.id === "segmentacao")?.name).toMatch(/segmentação/i);
   });
 });

@@ -117,6 +117,13 @@ export default function CreatePresellWizardPage() {
   const [cookiePolicyUrl, setCookiePolicyUrl] = useState("");
   /** Tipo cookies: Aceitar → oferta (off = só desbloqueia a review; alinhado com defaults). */
   const [cookieRedirectToOffer, setCookieRedirectToOffer] = useState(false);
+  /** Tipo segmentação: textos e destinos opcionais (vazio = hoplink + co_seg). */
+  const [segTitle, setSegTitle] = useState("");
+  const [segReviewLabel, setSegReviewLabel] = useState("");
+  const [segOfficialLabel, setSegOfficialLabel] = useState("");
+  const [segReviewUrl, setSegReviewUrl] = useState("");
+  const [segOfficialUrl, setSegOfficialUrl] = useState("");
+  const [segAllowClose, setSegAllowClose] = useState(true);
   const [minAge, setMinAge] = useState("18");
   const [manualYoutubeUrl, setManualYoutubeUrl] = useState("");
   const [campaignId, setCampaignId] = useState<string | null>(null);
@@ -373,6 +380,18 @@ export default function CreatePresellWizardPage() {
             : {}),
           minAge: minAge.trim() || "18",
           ...(type === "cookies" ? { cookieRedirectToOffer } : {}),
+          ...(type === "segmentacao"
+            ? {
+                ...(segTitle.trim() ? { segmentationTitle: segTitle.trim() } : {}),
+                ...(segReviewLabel.trim() ? { segmentationReviewLabel: segReviewLabel.trim() } : {}),
+                ...(segOfficialLabel.trim()
+                  ? { segmentationOfficialLabel: segOfficialLabel.trim() }
+                  : {}),
+                ...(segReviewUrl.trim() ? { segmentationReviewUrl: segReviewUrl.trim() } : {}),
+                ...(segOfficialUrl.trim() ? { segmentationOfferUrl: segOfficialUrl.trim() } : {}),
+                segmentationAllowClose: segAllowClose,
+              }
+            : {}),
         },
         policyFromImport,
       );
@@ -1162,6 +1181,75 @@ export default function CreatePresellWizardPage() {
                 ) : null}
               </div>
             ) : null}
+            {presellType === "segmentacao" ? (
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  {t("pages.createPresell.segHint")}
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="segTitle">{t("pages.createPresell.segTitle")}</Label>
+                  <Input
+                    id="segTitle"
+                    placeholder={t("pages.createPresell.segTitlePh")}
+                    value={segTitle}
+                    onChange={(e) => setSegTitle(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="segReviewLabel">{t("pages.createPresell.segReviewLabel")}</Label>
+                    <Input
+                      id="segReviewLabel"
+                      placeholder={t("pages.createPresell.segReviewLabelPh")}
+                      value={segReviewLabel}
+                      onChange={(e) => setSegReviewLabel(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="segOfficialLabel">{t("pages.createPresell.segOfficialLabel")}</Label>
+                    <Input
+                      id="segOfficialLabel"
+                      placeholder={t("pages.createPresell.segOfficialLabelPh")}
+                      value={segOfficialLabel}
+                      onChange={(e) => setSegOfficialLabel(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="segReviewUrl">{t("pages.createPresell.segReviewUrl")}</Label>
+                  <Input
+                    id="segReviewUrl"
+                    type="url"
+                    placeholder="https://…"
+                    value={segReviewUrl}
+                    onChange={(e) => setSegReviewUrl(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="segOfficialUrl">{t("pages.createPresell.segOfficialUrl")}</Label>
+                  <Input
+                    id="segOfficialUrl"
+                    type="url"
+                    placeholder="https://…"
+                    value={segOfficialUrl}
+                    onChange={(e) => setSegOfficialUrl(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm font-medium text-foreground">{t("pages.createPresell.segAllowClose")}</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {t("pages.createPresell.segAllowCloseHint")}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={segAllowClose}
+                    onCheckedChange={setSegAllowClose}
+                    aria-label={t("pages.createPresell.segAllowClose")}
+                  />
+                </div>
+              </div>
+            ) : null}
             {["idade", "idade_sexo", "idade_pais"].includes(presellType) ? (
               <div className="space-y-2 max-w-[8rem]">
                 <Label htmlFor="minAge">{t("pages.createPresell.minAge")}</Label>
@@ -1193,7 +1281,9 @@ export default function CreatePresellWizardPage() {
                 {t("pages.createPresell.ghostHint")}
               </p>
             ) : null}
-            {!["cookies", "idade", "idade_sexo", "idade_pais", "fantasma"].includes(presellType) &&
+            {!["cookies", "segmentacao", "idade", "idade_sexo", "idade_pais", "fantasma"].includes(
+              presellType,
+            ) &&
             !isVideoPresellType(presellType) &&
             !isDiscountPresellType(presellType) ? (
               <p className="text-xs text-muted-foreground">{t("pages.createPresell.noExtraOptions")}</p>

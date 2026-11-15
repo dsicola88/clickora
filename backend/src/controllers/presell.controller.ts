@@ -67,6 +67,7 @@ const createSchema = z.object({
   slug: z.string().min(1),
   type: z.enum([
     "cookies",
+    "segmentacao",
     "fantasma",
     "vsl",
     "tsl",
