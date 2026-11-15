@@ -31,6 +31,7 @@ import {
   marketsForLanguage,
 } from "@/lib/keywordResearchMarkets";
 import { DemandVolumeTrendChart } from "@/components/demandRadar/DemandVolumeTrendChart";
+import { DemandDeviceBreakdownPanel } from "@/components/demandRadar/DemandDeviceBreakdown";
 import { cn } from "@/lib/utils";
 
 const LANGS: { code: string; labelKey: MessageKey }[] = [
@@ -433,7 +434,19 @@ export default function DemandRadarPage() {
             />
           </div>
 
-          {analysis.planner.trend ? <DemandVolumeTrendChart trend={analysis.planner.trend} /> : null}
+          <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+            {analysis.planner.trend ? (
+              <DemandVolumeTrendChart
+                trend={analysis.planner.trend}
+                keyword={primary?.keyword ?? analysis.query.product}
+              />
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
+                {t("pages.demandRadar.trendEmpty")}
+              </div>
+            )}
+            <DemandDeviceBreakdownPanel devices={analysis.account.devices} />
+          </div>
 
           <div className="rounded-lg border border-border/70 overflow-hidden">
             <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
@@ -569,6 +582,8 @@ export default function DemandRadarPage() {
           </div>
         </section>
       ) : null}
+
+      {!analysis ? <DemandDeviceBreakdownPanel devices={overview.devices} /> : null}
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-lg border border-border/70">

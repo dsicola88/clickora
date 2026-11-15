@@ -154,15 +154,18 @@ export async function fetchUserKeywordPlannerIdeas(input: {
 
   if (!isGoogleAdsMetricsReadyForUser(input.user)) {
     const block = getGoogleAdsReportingUnavailability(input.user);
-    return unavailable(
+    const reason =
       (block?.code as
         | "google_ads_platform_not_configured"
         | "google_ads_oauth_required"
         | "google_ads_customer_id_required"
-        | undefined) ?? "google_ads_not_connected",
-      block?.message ??
-        "Ligue o Google Ads em Integrações para ver volumes oficiais do Planejador de palavras-chave.",
-    );
+        | undefined) ?? "google_ads_not_connected";
+    const message =
+      reason === "google_ads_platform_not_configured"
+        ? "A conta pode estar ligada em Integrações, mas este servidor não tem GOOGLE_ADS_DEVELOPER_TOKEN / CLIENT_ID / CLIENT_SECRET. Sem isso o Planejador não devolve volumes."
+        : (block?.message ??
+          "Ligue o Google Ads em Integrações para ver volumes oficiais do Planejador de palavras-chave.");
+    return unavailable(reason, message);
   }
 
   const creds = buildGoogleAdsCredentialsForUser(input.user);

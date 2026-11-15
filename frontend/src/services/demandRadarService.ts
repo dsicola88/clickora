@@ -45,6 +45,22 @@ export type DemandResearchSummary = {
   source_label: string;
 };
 
+export type DemandDeviceItem = {
+  device: string;
+  clicks: number;
+  approved_sales: number;
+  revenue: number;
+  share_pct: number | null;
+};
+
+export type DemandDeviceBreakdown = {
+  source: string;
+  source_label: string;
+  note: string;
+  total_clicks: number;
+  items: DemandDeviceItem[];
+};
+
 export type DemandRadarOverview = {
   period: { days: number; from: string; to: string };
   google_ads: {
@@ -55,6 +71,7 @@ export type DemandRadarOverview = {
   };
   internal_offers: DemandInternalOffer[];
   recent_researches: DemandResearchSummary[];
+  devices: DemandDeviceBreakdown;
   honesty: { invents_metrics: boolean; notes: string[] };
 };
 
@@ -84,6 +101,7 @@ export type DemandRadarAnalyze = {
     source_label: string;
     matching_offers: DemandInternalOffer[];
     matching_researches: DemandResearchSummary[];
+    devices: DemandDeviceBreakdown;
   };
   next_steps: {
     keywords_path: string;

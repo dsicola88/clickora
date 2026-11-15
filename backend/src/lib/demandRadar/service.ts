@@ -28,14 +28,22 @@ export type DemandSourceLabel =
 function googleConnectionPayload(user: GoogleAdsUserSettings) {
   const ready = isGoogleAdsMetricsReadyForUser(user);
   const block = getGoogleAdsReportingUnavailability(user);
+  let message: string;
+  if (ready) {
+    message = "Volumes e CPC vêm do Planejador de palavras-chave (Google Ads API Keyword Ideas).";
+  } else if (block?.code === "google_ads_platform_not_configured") {
+    message =
+      "A conta pode estar ligada em Integrações, mas este servidor não tem GOOGLE_ADS_DEVELOPER_TOKEN / CLIENT_ID / CLIENT_SECRET. Sem isso o Planejador não devolve volumes.";
+  } else {
+    message =
+      block?.message ??
+      "Ligue o Google Ads em Integrações para ver procura oficial do Planejador.";
+  }
   return {
     ready,
     source: ready ? ("google_ads_keyword_planner" as const) : ("unavailable" as const),
     reason: ready ? null : block?.code ?? "google_ads_not_connected",
-    message: ready
-      ? "Volumes e CPC vêm do Planejador de palavras-chave (Google Ads API Keyword Ideas)."
-      : block?.message ??
-        "Ligue o Google Ads em Integrações para ver procura oficial do Planejador.",
+    message,
   };
 }
 
@@ -141,11 +149,80 @@ async function loadRecentResearches(userId: string) {
   }));
 }
 
+/** Dispositivos reais dos cliques/vendas da conta (não inventados; o Planejador Google não dá device). */
+async function loadDeviceBreakdown(userId: string, from: Date) {
+  const [clickRows, saleRows] = await Promise.all([
+    systemPrisma.$queryRaw<Array<{ device: string; clicks: bigint }>>(Prisma.sql`
+      SELECT COALESCE(NULLIF(LOWER(TRIM(device)), ''), '(desconhecido)') AS device,
+             COUNT(*)::bigint AS clicks
+      FROM tracking_events
+      WHERE user_id = ${userId}
+        AND event_type::text = 'click'
+        AND created_at >= ${from}
+        AND NOT COALESCE((metadata->>'is_bot') = 'true', false)
+        AND NOT COALESCE((metadata->>'exclude_from_kpi') = 'true', false)
+        AND metadata->>'parent_rotator_click_id' IS NULL
+      GROUP BY 1
+      ORDER BY COUNT(*) DESC
+    `),
+    systemPrisma.$queryRaw<Array<{ device: string; sales: bigint; revenue: Prisma.Decimal | number | string }>>(
+      Prisma.sql`
+      SELECT COALESCE(NULLIF(LOWER(TRIM(te.device)), ''), '(desconhecido)') AS device,
+             COUNT(*)::bigint AS sales,
+             COALESCE(SUM(c.amount), 0) AS revenue
+      FROM conversions c
+      LEFT JOIN tracking_events te ON te.id = c.click_id AND te.user_id = c.user_id
+      WHERE c.user_id = ${userId}
+        AND c.status = 'approved'
+        AND c.created_at >= ${from}
+      GROUP BY 1
+    `,
+    ),
+  ]);
+
+  const salesByDevice = new Map<string, { sales: number; revenue: number }>();
+  for (const row of saleRows) {
+    salesByDevice.set(row.device, {
+      sales: Number(row.sales),
+      revenue: Math.round(Number(row.revenue) * 100) / 100,
+    });
+  }
+
+  const keys = new Set<string>([
+    ...clickRows.map((r) => r.device),
+    ...saleRows.map((r) => r.device),
+  ]);
+  const items = [...keys].map((device) => {
+    const clicks = Number(clickRows.find((r) => r.device === device)?.clicks ?? 0);
+    const salesInfo = salesByDevice.get(device) ?? { sales: 0, revenue: 0 };
+    return {
+      device,
+      clicks,
+      approved_sales: salesInfo.sales,
+      revenue: salesInfo.revenue,
+    };
+  });
+  items.sort((a, b) => b.clicks - a.clicks || b.approved_sales - a.approved_sales);
+  const totalClicks = items.reduce((s, i) => s + i.clicks, 0);
+  return {
+    source: INTERNAL_SOURCE,
+    source_label: "Clickora — dispositivos dos seus cliques (últimos 30 dias)",
+    note: "O Planejador Google Ads não publica volume por dispositivo; estes dados são só da sua conta.",
+    total_clicks: totalClicks,
+    items: items.map((i) => ({
+      ...i,
+      share_pct:
+        totalClicks > 0 ? Math.round((i.clicks / totalClicks) * 1000) / 10 : null,
+    })),
+  };
+}
+
 export async function buildDemandRadarOverview(userId: string, user: GoogleAdsUserSettings) {
   const { from, to, days } = periodWindow();
-  const [offers, researches] = await Promise.all([
+  const [offers, researches, devices] = await Promise.all([
     loadTopInternalOffers(userId, from),
     loadRecentResearches(userId),
+    loadDeviceBreakdown(userId, from),
   ]);
 
   return {
@@ -157,11 +234,12 @@ export async function buildDemandRadarOverview(userId: string, user: GoogleAdsUs
     google_ads: googleConnectionPayload(user),
     internal_offers: offers,
     recent_researches: researches,
+    devices,
     honesty: {
       invents_metrics: false,
       notes: [
-        "Volumes de pesquisa só aparecem com Google Ads ligado (Planejador / Keyword Ideas).",
-        "Vendas, cliques e receita são só da sua conta Clickora no período indicado.",
+        "Volumes de pesquisa só aparecem com Google Ads API configurada no servidor (Planejador / Keyword Ideas).",
+        "Vendas, cliques, receita e dispositivos são só da sua conta Clickora no período indicado.",
         "Não há ranking mundial tipo AdScore/SimilarWeb — essas fontes não estão ligadas.",
       ],
     },
@@ -182,7 +260,7 @@ export async function analyzeDemandRadar(input: {
   const timeframe: DemandPlannerTimeframe = input.timeframe ?? "default";
   const { from, to, days } = periodWindow();
 
-  const [planner, researches, offers] = await Promise.all([
+  const [planner, researches, offers, devices] = await Promise.all([
     fetchUserKeywordPlannerIdeas({
       user: input.user,
       seed: product,
@@ -193,6 +271,7 @@ export async function analyzeDemandRadar(input: {
     }),
     loadRecentResearches(input.userId),
     loadTopInternalOffers(input.userId, from),
+    loadDeviceBreakdown(input.userId, from),
   ]);
 
   const matching_researches = researches.filter((r) => demandTextMatches(r.product, product));
@@ -222,6 +301,7 @@ export async function analyzeDemandRadar(input: {
       source_label: "Clickora — a sua conta (últimos 30 dias)",
       matching_offers,
       matching_researches,
+      devices,
     },
     next_steps: {
       keywords_path: `/palavras-chave?product=${encodeURIComponent(product)}&market=${encodeURIComponent(market)}&language=${encodeURIComponent(language)}`,
@@ -232,7 +312,7 @@ export async function analyzeDemandRadar(input: {
       invents_metrics: false,
       notes: [
         "Cada bloco indica a fonte. Sem fonte = métrica omitida.",
-        "CPC e volume são da Google; desempenho de oferta é só da sua conta.",
+        "CPC e volume são da Google; dispositivos e desempenho de oferta são só da sua conta.",
       ],
     },
   };

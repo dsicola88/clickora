@@ -1,8 +1,9 @@
 /**
- * Google Ads API (REST) — versões antigas são descontinuadas e devolvem 404 em massa (ex. v16 em fev/2025).
+ * Google Ads API (REST) — versões sunset devolvem 404 HTML (ex. v16, depois v21).
+ * Em nov/2026 as versões ativas começam em v23; latest = v26.
  * @see https://developers.google.com/google-ads/api/docs/sunset-dates
  */
-const ADS_VERSION = "v21";
+const ADS_VERSION = "v26";
 const OAUTH_TOKEN = "https://oauth2.googleapis.com/token";
 const OAUTH_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 export const API_BASE = `https://googleads.googleapis.com/${ADS_VERSION}`;
