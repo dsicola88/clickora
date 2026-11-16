@@ -15,12 +15,22 @@ const HYDRATE_MS = 6_500;
 
 /** Cabeçalho Accept-Language alinhado ao idioma escolhido na criação da presell. */
 export function acceptLanguageForPresellImport(language: string | undefined): string {
-  const raw = (language || "pt-BR").trim().toLowerCase();
+  const raw = (language || "pt-BR").trim().toLowerCase().replace(/_/g, "-");
   if (raw.startsWith("pt")) return "pt-BR,pt;q=0.9,en-US;q=0.7,en;q=0.6";
   if (raw.startsWith("es")) return "es-ES,es;q=0.9,en-US;q=0.7,en;q=0.6";
   if (raw.startsWith("fr")) return "fr-FR,fr;q=0.9,en-US;q=0.7,en;q=0.6";
   if (raw.startsWith("de")) return "de-DE,de;q=0.9,en-US;q=0.7,en;q=0.6";
   if (raw.startsWith("it")) return "it-IT,it;q=0.9,en-US;q=0.7,en;q=0.6";
+  if (raw.startsWith("pl")) return "pl-PL,pl;q=0.9,en-US;q=0.7,en;q=0.6";
+  if (raw.startsWith("tr")) return "tr-TR,tr;q=0.9,en-US;q=0.7,en;q=0.6";
+  if (raw.startsWith("hi")) return "hi-IN,hi;q=0.9,en-US;q=0.7,en;q=0.6";
+  if (raw.startsWith("ar")) return "ar,ar-SA;q=0.9,en-US;q=0.7,en;q=0.6";
+  if (raw.startsWith("nl")) return "nl-NL,nl;q=0.9,en-US;q=0.7,en;q=0.6";
+  if (raw.startsWith("sv")) return "sv-SE,sv;q=0.9,en-US;q=0.7,en;q=0.6";
+  if (raw === "no" || raw.startsWith("nb") || raw.startsWith("nn")) {
+    return "nb-NO,nb,no;q=0.9,en-US;q=0.7,en;q=0.6";
+  }
+  if (raw.startsWith("da")) return "da-DK,da;q=0.9,en-US;q=0.7,en;q=0.6";
   return "en-US,en;q=0.9";
 }
 

@@ -15,6 +15,7 @@ import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
 import { WidgetMotionShell } from "./WidgetMotionShell";
 import { SectionBackgroundLayers, sectionNeedsRelativeChrome } from "../section-chrome";
 import { PageGlobalDesignVars } from "../page-global-design";
+import { resolvePageBackgroundStyle } from "../page-background";
 import { PagePopupOverlays } from "../page-popups";
 import { WidgetConditionGate } from "./WidgetConditionGate";
 import { ensurePageDocumentFonts } from "../typography-presets";
@@ -55,7 +56,7 @@ export function PageRenderer({
           data-clickora-builder-public="1"
           data-pb-device={device}
           style={{
-            background: safeDoc.settings.background ?? "#ffffff",
+            ...resolvePageBackgroundStyle(safeDoc.settings),
             minHeight: "100%",
             maxWidth: "100%",
             overflowX: "clip",

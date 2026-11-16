@@ -38,6 +38,45 @@ export function isThinBridgeSalesText(salesText: string | null | undefined): boo
   return uniqueLines.size > 0 && uniqueLines.size <= 4 && t.length < 420;
 }
 
+/**
+ * Dump do comerciante em inglês (ou outro idioma) não deve substituir o artigo
+ * no idioma escolhido na criação (ex.: cookies + alemão → template DE).
+ */
+export function salesTextMismatchesLocale(
+  salesText: string | null | undefined,
+  language: string | undefined,
+): boolean {
+  const t = (salesText || "").trim();
+  if (!t || t.length < 80) return false;
+  const loc = normalizePresellLocale(language);
+  const lower = t.toLowerCase();
+  const enHits = (
+    lower.match(
+      /\b(the|and|with|from|this|that|your|you|are|for|not|have|will|can|official|product|offer|before|after|shipping|guarantee|merchant|seller|independent|confirm)\b/g,
+    ) || []
+  ).length;
+  const ptHits = (lower.match(/\b(você|para|com|não|uma|que|esta|página|oferta|produto|vendedor|confirma)\b/g) || [])
+    .length;
+  const esHits = (lower.match(/\b(usted|para|con|una|que|esta|página|oferta|producto|vendedor|confirma)\b/g) || [])
+    .length;
+  const deHits = (
+    lower.match(/\b(und|der|die|das|ist|sie|für|mit|nicht|angebot|seite|verkäufer|bestätigen|offiziell)\b/g) || []
+  ).length;
+  const frHits = (lower.match(/\b(les|des|une|pour|avec|cette|offre|page|vendeur|confirmer|officiel)\b/g) || [])
+    .length;
+  const itHits = (lower.match(/\b(per|con|una|che|questa|offerta|pagina|venditore|confermare|ufficiale)\b/g) || [])
+    .length;
+
+  if (loc === "en") return false;
+  if (loc === "pt-BR") return enHits >= 10 && enHits > ptHits * 2;
+  if (loc === "es") return enHits >= 10 && enHits > esHits * 2;
+  if (loc === "de") return (enHits >= 8 && enHits > deHits * 2) || (deHits === 0 && enHits >= 6);
+  if (loc === "fr") return (enHits >= 8 && enHits > frHits * 2) || (frHits === 0 && enHits >= 6);
+  if (loc === "it") return (enHits >= 8 && enHits > itHits * 2) || (itHits === 0 && enHits >= 6);
+  // pl/tr/hi/ar/nl/sv/no/da: se o texto parece inglês dominante, usar o pack localizado.
+  return enHits >= 8 && enHits > Math.max(ptHits, esHits, deHits, frHits, itHits) * 2;
+}
+
 const FALLBACK_PRODUCT_NAME: Record<ReturnType<typeof normalizePresellLocale>, string> = {
   en: "this product",
   es: "este producto",
@@ -174,8 +213,12 @@ export function resolveHealthArticle(args: {
   }
 
   const sales = args.salesText || asString(c.salesText || c.sales_text);
-  // Template transparente só se bridge fina ou claims inventados — não descartar PT substantivo.
-  if (isThinBridgeSalesText(sales) || looksInventedHealthCopy(sales)) {
+  // Template transparente: bridge fina, claims inventados, OU sales no idioma errado (ex. EN no DE).
+  if (
+    isThinBridgeSalesText(sales) ||
+    looksInventedHealthCopy(sales) ||
+    salesTextMismatchesLocale(sales, args.language)
+  ) {
     return { ...base, ctaLabel: pickCta(args.ctaText, base.ctaLabel) };
   }
 

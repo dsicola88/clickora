@@ -4,6 +4,8 @@
  * fabricante oficial, preços inventados nem testemunhos.
  */
 
+import { localePack, officialBuyCta } from "./presellLocalePack";
+
 export type PresellCopyAngle = "landing" | "review" | "advertorial";
 
 export type PresellArticleBlocks = {
@@ -44,11 +46,21 @@ const FORBIDDEN =
   /\b(cura\s+garantida|cure\s+guaranteed|fabricante\s+oficial|official\s+manufacturer|FDA\s+approved\s+cure|milagroso|miracle\s+cure|100%\s+safe|resultado\s+garantido)\b/i;
 
 function normalizeLang(language: string): string {
-  const l = (language || "en").trim().toLowerCase();
+  const l = (language || "en").trim().toLowerCase().replace(/_/g, "-");
   if (l.startsWith("pt")) return "pt-BR";
   if (l.startsWith("es")) return "es";
   if (l.startsWith("de")) return "de";
   if (l.startsWith("fr")) return "fr";
+  if (l.startsWith("it")) return "it";
+  if (l.startsWith("pl")) return "pl";
+  if (l.startsWith("tr")) return "tr";
+  if (l.startsWith("hi")) return "hi";
+  if (l.startsWith("ar")) return "ar";
+  if (l.startsWith("nl")) return "nl";
+  if (l.startsWith("sv")) return "sv";
+  if (l === "no" || l.startsWith("nb") || l.startsWith("nn")) return "no";
+  if (l.startsWith("da")) return "da";
+  if (l === "us" || l === "en" || l.startsWith("en-")) return "en";
   return "en";
 }
 
@@ -279,6 +291,31 @@ function buildEnArticle(
   return { article, subtitle: "Transparent affiliate page — we are not the manufacturer." };
 }
 
+function buildLocalePackArticle(
+  name: string,
+  language: string,
+  facts: string,
+  price: string,
+): { article: PresellArticleBlocks; subtitle: string } {
+  const locale = localePack(language);
+  const factsLine = facts ? ` ${facts}` : "";
+  const priceLine = price ? ` ${price}` : "";
+  const article: PresellArticleBlocks = {
+    kicker: locale.sectionWhy,
+    headline: `${name}`,
+    intro: `${locale.subtitleFallback}${factsLine}${priceLine}`.trim(),
+    pillarsTitle: locale.sectionWhat,
+    pillars: [
+      { title: locale.bullet1.slice(0, 80), body: locale.bullet1 },
+      { title: locale.bullet2.slice(0, 80), body: locale.bullet2 },
+      { title: locale.bullet3.slice(0, 80), body: locale.bullet3 },
+    ],
+    productNote: `${locale.richFooter} ${locale.urgency}`.trim(),
+    ctaLabel: officialBuyCta(language) || locale.cta,
+  };
+  return { article, subtitle: locale.subtitleFallback };
+}
+
 export function buildDeterministicReviewCopy(input: PresellReviewCopyInput): PresellReviewCopyResult {
   const name = (input.productName || "Product").trim().slice(0, 120) || "Product";
   const lang = normalizeLang(input.language);
@@ -325,7 +362,19 @@ export function buildDeterministicReviewCopy(input: PresellReviewCopyInput): Pre
     });
   }
 
-  const { article, subtitle } = buildEnArticle(name, angle, facts, price);
+  if (lang === "en") {
+    const { article, subtitle } = buildEnArticle(name, angle, facts, price);
+    return packResult(article, subtitle, {
+      source: "deterministic",
+      model: null,
+      tokensIn: 0,
+      tokensOut: 0,
+      error: null,
+    });
+  }
+
+  /** de/fr/it/pl/… — pack localizado (não cair no inglês). */
+  const { article, subtitle } = buildLocalePackArticle(name, lang, facts, price);
   return packResult(article, subtitle, {
     source: "deterministic",
     model: null,

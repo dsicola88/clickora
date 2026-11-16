@@ -106,8 +106,9 @@ function hostOf(url: string | null): string | null {
   }
 }
 
+/** EN/PT + DE/FR/IT/ES/PL/… — alinhado a `trustDisclosure` em todos os locales da UI. */
 const AFFILIATE_DISCLOSURE =
-  /\b(afiliad[oa]|affiliate|comissão|comissao|link\s+de\s+afiliad|may\s+earn|podemos\s+receber|relação\s+comercial|relacao\s+comercial|parceiro\s+comercial)\b/i;
+  /\b(afiliad[oa]|affiliate|comissão|comissao|comisión|commission|commissie|provision|prowizj[ae]|komisyon|कमीशन|عمولة|provisjon|vermittlungsprovision|link\s+de\s+afiliad|may\s+earn|podemos\s+receber|podemos\s+recibir|k[oö]nnen\s+eine\s+provision|pouvons\s+percevoir|possiamo\s+ricevere|możemy\s+otrzymać|komisyon\s+alabiliriz|relation\s+commerciale|relação\s+comercial|relacao\s+comercial|parceiro\s+comercial|unabhängige\s+angebotsseite|page\s+d[’']offre\s+indépendante|pagina\s+di\s+offerta\s+indipendente)\b/i;
 
 const BUSINESS_IDENTITY =
   /\b(empresa|razão\s+social|razao\s+social|NIF|CNPJ|VAT|LLC|Ltd\.?|Inc\.?|operado\s+por|operated\s+by|responsável|responsavel|contact(?:o|e)?\s*:|email\s*:)\b/i;

@@ -7,6 +7,7 @@ import { PresellPublicLocaleProvider } from "@/lib/presellPublicLocale";
 import { htmlLangForLocale, normalizePresellLocale } from "@/lib/presellUiStrings";
 import { buildDocumentResponsiveCss } from "./builderPublicCss";
 import { normalizePageDocumentResponsive } from "./normalizeResponsive";
+import { resolvePageBackgroundStyle } from "./page-background";
 
 /**
  * Build a fully self-contained HTML document for download or external hosting.
@@ -80,6 +81,14 @@ export function exportPageToHtml(doc: PageDocument, language?: string): string {
   const embeddedDocJson = JSON.stringify(safeDoc).replace(/</g, "\\u003c");
 
   const responsiveCss = buildDocumentResponsiveCss(safeDoc);
+  const pageBg = resolvePageBackgroundStyle(safeDoc.settings);
+  const bodyBgCss = Object.entries(pageBg)
+    .filter(([, v]) => typeof v === "string" && v.trim())
+    .map(([k, v]) => {
+      const cssKey = k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+      return `${cssKey}:${String(v)}`;
+    })
+    .join(";");
 
   return `<!DOCTYPE html>
 <html lang="${htmlLang}">
@@ -87,8 +96,8 @@ export function exportPageToHtml(doc: PageDocument, language?: string): string {
   ${metaTags.join("\n  ")}
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.5; color: #1a1a1a; overflow-x: clip; }
+    html, body { margin: 0; padding: 0; min-height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.5; color: #1a1a1a; overflow-x: clip;${bodyBgCss ? ` ${bodyBgCss};` : ""} }
     img, video, iframe { max-width: 100%; height: auto; }
     section[data-header="1"] { position: sticky; top: 0; z-index: 100; width: 100%; background: inherit; }
     ${responsiveCss}

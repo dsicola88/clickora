@@ -442,7 +442,20 @@ export interface PageDocument {
   sections: SectionNode[];
   /** Page-level settings. */
   settings: {
+    /**
+     * CSS de fundo (compat). Preferir `backgroundType` + campos estruturados;
+     * o resolver em `page-background.ts` é a fonte de verdade no render.
+     */
     background?: string;
+    /** Tipo de plano de fundo da página (estilo Elementor body). */
+    backgroundType?: "solid" | "gradient" | "image";
+    backgroundSolid?: string;
+    /** Ex.: `linear-gradient(180deg, #0f172a 0%, #1e293b 100%)`. */
+    backgroundGradient?: string;
+    backgroundImageUrl?: string;
+    backgroundImageSize?: "cover" | "contain" | "auto";
+    backgroundImagePosition?: string;
+    backgroundImageRepeat?: string;
     maxContentWidth: number;
     globalDesign?: PageGlobalDesign;
     /** Id do tema/preset da biblioteca (ex.: dclickora-market). */

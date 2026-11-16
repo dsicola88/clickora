@@ -35,6 +35,7 @@ import {
 import { SectionBackgroundVideo } from "./SectionBackgroundVideo";
 import { SectionBackgroundLayers, sectionNeedsRelativeChrome } from "../section-chrome";
 import { PageGlobalDesignVars } from "../page-global-design";
+import { resolvePageBackgroundStyle } from "../page-background";
 import { PagePopupOverlays } from "../page-popups";
 import { SECTION_LAYOUTS } from "../section-layouts";
 import { BlocksModal } from "./BlocksModal";
@@ -100,11 +101,11 @@ export function Canvas() {
       <div className={`flex min-h-full justify-center ${preview ? "p-0" : "p-6"}`}>
         <PageGlobalDesignVars settings={doc.settings}>
         <div
-          className="flex min-h-full flex-col bg-white shadow-2xl transition-[width] duration-200"
+          className="flex min-h-full flex-col shadow-2xl transition-[width] duration-200"
           style={{
             width: DEVICE_WIDTHS[device],
             maxWidth: "100%",
-            background: doc.settings.background ?? "#ffffff",
+            ...resolvePageBackgroundStyle(doc.settings),
           }}
           onClick={(e) => e.stopPropagation()}
         >

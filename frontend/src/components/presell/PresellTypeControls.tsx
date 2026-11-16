@@ -68,7 +68,7 @@ export function isCookieRedirectToOfferEnabled(
 
 /**
  * Consentimento de cookies: página bloqueada (só botões do cartão clicáveis).
- * Com navigateOnAccept: Aceitar/Fechar são links reais para `/track/r/` (redirect fiável).
+ * Com navigateOnAccept: só Aceitar é link para `/track/r/`; Fechar desbloqueia a página.
  */
 export function CookieConsentModal({
   language,
@@ -85,7 +85,7 @@ export function CookieConsentModal({
   fallbackHref?: string;
   accepted: boolean;
   onAccept?: () => void;
-  /** Se true, Aceitar/Fechar vão para a oferta (`/track/r/…`). */
+  /** Se true, só Aceitar vai para a oferta (`/track/r/…`). Fechar desbloqueia. */
   navigateOnAccept?: boolean;
 }) {
   const L = getPresellUiStrings(language);
@@ -154,6 +154,10 @@ export function CookieConsentModal({
           ) : null}
         </p>
         <div className="mt-6 flex gap-3">
+          {/**
+           * Regra CMP: só Aceitar pode ir à oferta.
+           * Fechar apenas desbloqueia a página — nunca o mesmo destino que Aceitar.
+           */}
           {goOffer ? (
             <a
               href={offerUrl}
@@ -168,20 +172,14 @@ export function CookieConsentModal({
               {L.cookieAllow}
             </Button>
           )}
-          {goOffer ? (
-            <a
-              href={offerUrl}
-              className={closeClass}
-              data-testid="presell-cookie-close-offer"
-              onClick={() => onAccept?.()}
-            >
-              {L.cookieClose}
-            </a>
-          ) : (
-            <button type="button" className={closeClass} onClick={unlockOnly}>
-              {L.cookieClose}
-            </button>
-          )}
+          <button
+            type="button"
+            className={closeClass}
+            data-testid="presell-cookie-close"
+            onClick={unlockOnly}
+          >
+            {L.cookieClose}
+          </button>
         </div>
         <p className="mt-4 text-center text-xs text-slate-400">{L.cookieFooter}</p>
       </div>

@@ -3,6 +3,8 @@
  * Destinos vazios caem no hoplink da oferta; `co_seg` identifica o braço no tracking.
  */
 
+import { getPresellUiStrings, normalizePresellLocale, type PresellLocaleKey } from "@/lib/presellUiStrings";
+
 export type SegmentationChoiceId = "review" | "official";
 
 export type ResolvedSegmentationCopy = {
@@ -28,7 +30,10 @@ function httpUrl(v: string): string {
   return u;
 }
 
-const COPY: Record<string, { title: string; review: string; official: string; close: string }> = {
+const SEGMENTATION_COPY: Record<
+  PresellLocaleKey,
+  { title: string; review: string; official: string; close: string }
+> = {
   en: {
     title: "What would you like to see first?",
     review: "View Review",
@@ -47,20 +52,73 @@ const COPY: Record<string, { title: string; review: string; official: string; cl
     official: "Página oficial",
     close: "Fechar",
   },
-  pt: {
-    title: "O que gostaria de ver primeiro?",
-    review: "Ver análise",
-    official: "Página oficial",
-    close: "Fechar",
+  de: {
+    title: "Was möchten Sie zuerst sehen?",
+    review: "Bewertung ansehen",
+    official: "Offizielle Seite",
+    close: "Schließen",
+  },
+  fr: {
+    title: "Que souhaitez-vous voir en premier ?",
+    review: "Voir l’avis",
+    official: "Page officielle",
+    close: "Fermer",
+  },
+  it: {
+    title: "Cosa vorresti vedere per primo?",
+    review: "Vedi recensione",
+    official: "Pagina ufficiale",
+    close: "Chiudi",
+  },
+  pl: {
+    title: "Co chcesz zobaczyć najpierw?",
+    review: "Zobacz recenzję",
+    official: "Oficjalna strona",
+    close: "Zamknij",
+  },
+  tr: {
+    title: "Önce ne görmek istersiniz?",
+    review: "İncelemeyi gör",
+    official: "Resmî sayfa",
+    close: "Kapat",
+  },
+  hi: {
+    title: "आप पहले क्या देखना चाहेंगे?",
+    review: "समीक्षा देखें",
+    official: "आधिकारिक पृष्ठ",
+    close: "बंद करें",
+  },
+  ar: {
+    title: "ماذا تريد أن ترى أولاً؟",
+    review: "عرض المراجعة",
+    official: "الصفحة الرسمية",
+    close: "إغلاق",
+  },
+  nl: {
+    title: "Wat wilt u eerst zien?",
+    review: "Review bekijken",
+    official: "Officiële pagina",
+    close: "Sluiten",
+  },
+  sv: {
+    title: "Vad vill du se först?",
+    review: "Visa recension",
+    official: "Officiell sida",
+    close: "Stäng",
+  },
+  no: {
+    title: "Hva vil du se først?",
+    review: "Se anmeldelse",
+    official: "Offisiell side",
+    close: "Lukk",
+  },
+  da: {
+    title: "Hvad vil du se først?",
+    review: "Se anmeldelse",
+    official: "Officiel side",
+    close: "Luk",
   },
 };
-
-function localeBucket(raw: string | undefined): keyof typeof COPY {
-  const r = (raw || "en").trim().toLowerCase().replace(/_/g, "-");
-  if (r.startsWith("pt")) return r.includes("pt-pt") || r === "pt" ? "pt" : "pt-BR";
-  if (r.startsWith("es")) return "es";
-  return "en";
-}
 
 /** Lê settings da presell + defaults profissionais por idioma. */
 export function resolveSegmentationCopy(
@@ -68,13 +126,15 @@ export function resolveSegmentationCopy(
   language?: string,
 ): ResolvedSegmentationCopy {
   const s = settings && typeof settings === "object" ? settings : {};
-  const L = COPY[localeBucket(language)] ?? COPY.en;
+  const locale = normalizePresellLocale(language);
+  const L = SEGMENTATION_COPY[locale] ?? SEGMENTATION_COPY.en;
+  const ui = getPresellUiStrings(locale);
   const allowRaw = s.segmentationAllowClose ?? s.segmentation_allow_close;
   return {
     title: str(s.segmentationTitle ?? s.segmentation_title) || L.title,
     reviewLabel: str(s.segmentationReviewLabel ?? s.segmentation_review_label) || L.review,
     officialLabel: str(s.segmentationOfficialLabel ?? s.segmentation_official_label) || L.official,
-    closeLabel: str(s.segmentationCloseLabel ?? s.segmentation_close_label) || L.close,
+    closeLabel: str(s.segmentationCloseLabel ?? s.segmentation_close_label) || L.close || ui.cookieClose,
     allowClose: !(allowRaw === false || allowRaw === 0 || allowRaw === "false" || allowRaw === "0"),
     reviewUrl: httpUrl(str(s.segmentationReviewUrl ?? s.segmentation_review_url)),
     officialUrl: httpUrl(str(s.segmentationOfferUrl ?? s.segmentation_offer_url ?? s.segmentationOfficialUrl)),

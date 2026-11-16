@@ -634,9 +634,9 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
   }),
   cookieBanner: () => ({
     content: {
-      title: "Cookie Policy",
-      body: 'This site uses cookies to personalize content and ads, provide social media features, and analyze our traffic. By clicking "Allow", you agree to the use of cookies. For more information, visit our',
-      allowLabel: "Allow",
+      title: "Your privacy matters",
+      body: 'We use cookies to run this page, measure visits, and (where enabled) improve ads. By clicking "Accept", you agree. Details are in our',
+      allowLabel: "Accept",
       declineLabel: "Close",
       policyLabel: "Cookie Policy",
       policyUrl: "/privacidade",
@@ -663,8 +663,9 @@ const widgetDefaults: Record<WidgetType, () => Pick<WidgetNode, "content" | "sty
       footerColor: "#94a3b8",
       variant: "modal",
       backdrop: true,
-      followLanguage: false,
-      footerNote: "Your privacy matters to us.",
+      /** Seguir idioma da página — evita corpo/botão dessincronizados. */
+      followLanguage: true,
+      footerNote: "You can continue after accepting. Policy link opens in a new tab.",
       overlayOpacity: 18,
       overlayBlur: 0,
       position: "center",

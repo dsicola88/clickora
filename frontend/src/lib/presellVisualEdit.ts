@@ -10,7 +10,7 @@ import {
   isVslOnlyPresellType,
 } from "@/lib/presellTypeMeta";
 import { getPresellTypeTheme } from "@/lib/presellTypeTheme";
-import { resolveHealthArticle } from "@/lib/presellHealthArticle";
+import { resolveHealthArticle, salesTextMismatchesLocale } from "@/lib/presellHealthArticle";
 import { getPresellUiStrings } from "@/lib/presellUiStrings";
 import { isPresellDecorImage, rankPresellProductImages } from "@/lib/presellProductImagesRank";
 import { resolvePresellPortalBrandName } from "@/lib/presellDisplayName";
@@ -217,21 +217,62 @@ function articleCopy(html: string): WidgetNode {
   return text;
 }
 
+function portalHeaderKicker(mode: "black" | "white", language: string | null | undefined): string {
+  const loc = (language || "en").toLowerCase();
+  if (mode === "white") {
+    if (loc.startsWith("pt")) return "Página do produto";
+    if (loc.startsWith("es")) return "Página del producto";
+    if (loc.startsWith("de")) return "Produktseite";
+    if (loc.startsWith("fr")) return "Page produit";
+    if (loc.startsWith("it")) return "Pagina prodotto";
+    if (loc.startsWith("pl")) return "Strona produktu";
+    if (loc.startsWith("tr")) return "Ürün sayfası";
+    if (loc.startsWith("nl")) return "Productpagina";
+    if (loc.startsWith("sv") || loc.startsWith("no") || loc.startsWith("da")) return "Produktsida";
+    if (loc.startsWith("hi")) return "उत्पाद पृष्ठ";
+    if (loc.startsWith("ar")) return "صفحة المنتج";
+    return "Product page";
+  }
+  if (loc.startsWith("pt")) return "Portal editorial";
+  if (loc.startsWith("es")) return "Portal editorial";
+  if (loc.startsWith("de")) return "Redaktionelles Portal";
+  if (loc.startsWith("fr")) return "Portail éditorial";
+  if (loc.startsWith("it")) return "Portale editoriale";
+  if (loc.startsWith("pl")) return "Portal redakcyjny";
+  if (loc.startsWith("tr")) return "Editoryal portal";
+  if (loc.startsWith("nl")) return "Redactioneel portaal";
+  if (loc.startsWith("sv") || loc.startsWith("no") || loc.startsWith("da")) return "Redaktionell portal";
+  if (loc.startsWith("hi")) return "संपादकीय पोर्टल";
+  if (loc.startsWith("ar")) return "بوابة تحريرية";
+  return "Editorial portal";
+}
+
 function resolvePortalHeaderTagline(
   content: Record<string, unknown>,
   brand: string,
   language: string | null | undefined,
 ): string {
+  const L = getPresellUiStrings(language || "en");
+  const localized = L.portalHeaderTagline.replaceAll("{name}", brand);
   const meta = asString(content.metaDescription || content.meta_description);
-  if (meta.length >= 24 && meta.length <= 160 && !/lorem ipsum|click here to/i.test(meta)) {
+  const subtitle = asString(content.subtitle);
+  // Só reutilizar meta/subtítulo do comerciante se parecerem do mesmo idioma da página.
+  if (
+    meta.length >= 24 &&
+    meta.length <= 160 &&
+    !/lorem ipsum|click here to/i.test(meta) &&
+    !salesTextMismatchesLocale(meta, language || "en")
+  ) {
     return meta.length > 132 ? `${meta.slice(0, 129)}…` : meta;
   }
-  const subtitle = asString(content.subtitle);
-  if (subtitle.length >= 20 && subtitle.length <= 140) {
+  if (
+    subtitle.length >= 20 &&
+    subtitle.length <= 140 &&
+    !salesTextMismatchesLocale(subtitle, language || "en")
+  ) {
     return subtitle.length > 132 ? `${subtitle.slice(0, 129)}…` : subtitle;
   }
-  const L = getPresellUiStrings(language || "en");
-  return L.portalHeaderTagline.replaceAll("{name}", brand);
+  return localized;
 }
 
 /** Barra superior — black = portal navy; white sem espelho = chrome limpo de produto. */
@@ -241,6 +282,7 @@ function portalHeaderWidget(
   ctaLabel: string,
   offer: string,
   mode: "black" | "white" = "black",
+  language?: string | null,
 ): WidgetNode {
   const html = createWidget("html");
   const isScroll = offer.startsWith("#");
@@ -249,7 +291,7 @@ function portalHeaderWidget(
       ? `<a href="${escapeHtml(offer)}"${isScroll ? "" : ' data-clickora-offer="1"'} style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;min-width:9.5rem;padding:12px 22px;border-radius:10px;background:#0d9488;color:#fff;font-size:14px;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 10px 24px -12px rgba(13,148,136,.55);letter-spacing:.01em">${escapeHtml(ctaLabel)}</a>`
       : "";
   const isWhite = mode === "white";
-  const kicker = isWhite ? "Página do produto" : "Portal editorial";
+  const kicker = portalHeaderKicker(mode, language);
   const headerBg = isWhite ? "#ffffff" : "#0f172a";
   const brandColor = isWhite ? "#0f172a" : "#fff";
   const tagColor = isWhite ? "#475569" : "rgba(255,255,255,.84)";
@@ -260,7 +302,7 @@ function portalHeaderWidget(
     code:
       `<header style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:18px clamp(16px,4vw,28px);background:${headerBg};color:${brandColor};font-family:Georgia,'Times New Roman',serif;${border}">` +
       `<div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 14rem">` +
-      `<span style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${kickerColor}">${kicker}</span>` +
+      `<span style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${kickerColor}">${escapeHtml(kicker)}</span>` +
       `<span style="font-size:clamp(1.2rem,3vw,1.55rem);font-weight:700;letter-spacing:-0.02em;line-height:1.2;color:${brandColor};font-family:Georgia,'Times New Roman',serif">${escapeHtml(brand)}</span>` +
       `<span style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:clamp(0.75rem,2.1vw,0.875rem);font-weight:500;color:${tagColor};line-height:1.45;max-width:42rem">${escapeHtml(tagline)}</span>` +
       `</div>` +
@@ -346,7 +388,7 @@ function pushEditorialArticleSections(args: {
     background: mode === "white" ? "#ffffff" : "#0f172a",
   };
   headerSec.columns[0].widgets = [
-    portalHeaderWidget(portalBrand, headerTagline, headerCtaLabel, headerCtaHref, mode),
+    portalHeaderWidget(portalBrand, headerTagline, headerCtaLabel, headerCtaHref, mode, portalLang),
   ];
   sections.push(headerSec);
 
@@ -622,7 +664,8 @@ function offerCookie(_offer: string, policyHref: string, language?: string | nul
     declineLabel: L.cookieClose,
     policyLabel: L.cookiePolicy,
     footerNote: L.cookieFooter,
-    followLanguage: false,
+    /** Seguir o idioma da página — criação automática (cookies + DE/FR/…) não fica presa ao EN. */
+    followLanguage: true,
     overlayOpacity: 12,
     overlayBlur: 0,
     policyUrl: policyHref || "/privacidade",
@@ -880,7 +923,7 @@ export type BakePublicOfferOptions = {
    */
   unlockCookieOnly?: boolean;
   /**
-   * Com `cookieRedirectToOffer`: Aceitar/Fechar do banner são links para `/track/r/`.
+   * Com `cookieRedirectToOffer`: só Aceitar do banner é link para `/track/r/`; Fechar desbloqueia.
    * Tem prioridade sobre `unlockCookieOnly` no widget de cookies.
    */
   cookieRedirectToOffer?: boolean;

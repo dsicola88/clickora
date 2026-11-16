@@ -3,7 +3,10 @@ import {
   buildPtBrHealthPortalArticle,
   isThinBridgeSalesText,
   resolveHealthArticle,
+  salesTextMismatchesLocale,
 } from "./presellHealthArticle";
+import { PRESHELL_LOCALE_KEYS } from "./presellUiStrings.types";
+import { getPresellUiStrings } from "./presellUiStrings";
 
 describe("presellHealthArticle", () => {
   it("detecta bridge junk com preço solto", () => {
@@ -40,6 +43,41 @@ describe("presellHealthArticle", () => {
     expect(a.headline).toMatch(/oferta de TryVisivra/i);
     expect(a.headline).not.toMatch(/avaliar a oferta/i);
     expect(a.ctaLabel).toMatch(/Continuar a la página oficial/i);
+  });
+
+  it("alemão não fica com dump EN do comerciante (cookies / portal)", () => {
+    const englishDump =
+      "This is an independent informational page about Visivra. Confirm the official product offer, shipping, and guarantee on the merchant seller checkout before you buy. The official page has more details about the product.";
+    expect(salesTextMismatchesLocale(englishDump, "de")).toBe(true);
+    const a = resolveHealthArticle({
+      content: {},
+      productName: "Visivra",
+      language: "de",
+      salesText: englishDump,
+    });
+    expect(a.headline).toMatch(/Visivra/i);
+    expect(a.intro).toMatch(/unabhängig|Hersteller|Angebot/i);
+    expect(a.intro).not.toMatch(/independent informational page about Visivra/i);
+    expect(a.ctaLabel).toMatch(/offiziellen/i);
+  });
+
+  it("todos os idiomas de criação têm pack de artigo e cookies", () => {
+    for (const loc of PRESHELL_LOCALE_KEYS) {
+      const a = resolveHealthArticle({
+        content: {},
+        productName: "DemoProduct",
+        language: loc,
+        salesText: "",
+      });
+      expect(a.headline.length, loc).toBeGreaterThan(8);
+      expect(a.ctaLabel.length, loc).toBeGreaterThan(2);
+      const ui = getPresellUiStrings(loc);
+      expect(ui.cookieTitle.trim(), loc).not.toBe("");
+      expect(ui.cookieAllow.trim(), loc).not.toBe("");
+      expect(ui.trustDisclosure.toLowerCase(), loc).toMatch(
+        /affiliate|afiliad|comiss[aã]o|comisi[oó]n|commission|commissie|provision|prowiz|komisyon|कमीशन|عمولة|provisjon|provisione|commissione|vermittlung/,
+      );
+    }
   });
 
   it("rejeita copy com alegações de saúde inventadas", () => {

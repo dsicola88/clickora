@@ -376,6 +376,11 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
             width: isBar && !stackButtons ? undefined : "100%",
           }}
         >
+          {/**
+           * Regra CMP: só «Aceitar» pode seguir para a oferta.
+           * «Fechar» / recusar fecha o aviso — nunca o mesmo destino que Aceitar
+           * (evitar dark pattern e inconsistência de regras para o visitante).
+           */}
           {goOffer && !inBuilder ? (
             <a href={offerHref} data-testid="presell-cookie-allow-offer" style={allowClass}>
               {allowLabel}
@@ -393,15 +398,14 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
               )}
             </button>
           )}
-          {goOffer && !inBuilder ? (
-            <a href={offerHref} data-testid="presell-cookie-close-offer" style={closeClass}>
-              {declineLabel}
-            </a>
-          ) : (
-            <button type="button" onClick={inBuilder ? undefined : dismiss} style={closeClass}>
-              {commit ? <CookieText field="declineLabel" value={declineLabel} /> : declineLabel}
-            </button>
-          )}
+          <button
+            type="button"
+            data-testid="presell-cookie-close"
+            onClick={inBuilder ? undefined : dismiss}
+            style={closeClass}
+          >
+            {commit ? <CookieText field="declineLabel" value={declineLabel} /> : declineLabel}
+          </button>
         </div>
       </div>
       {footerNote || commit ? (

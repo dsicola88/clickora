@@ -66,11 +66,13 @@ describe("CookieConsentModal", () => {
     expect(sheet.className).toContain("items-center");
     expect(screen.getByTestId("presell-cookie-card")).toBeTruthy();
     expect(screen.getByTestId("presell-cookie-backdrop").tagName).toBe("DIV");
-    expect(screen.getByRole("heading", { name: "Cookie Policy" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Allow" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /privacy matters/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Accept" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
   });
 
-  it("com navigateOnAccept os botões são links para o href rastreado", () => {
+  it("com navigateOnAccept só Aceitar vai à oferta; Fechar desbloqueia", () => {
+    const onAccept = vi.fn();
     render(
       <CookieConsentModal
         language="en"
@@ -78,13 +80,16 @@ describe("CookieConsentModal", () => {
         redirectHref="/track/r/abc?to=https%3A%2F%2Foffer.example"
         accepted={false}
         navigateOnAccept
-        onAccept={() => {}}
+        onAccept={onAccept}
       />,
     );
     const allow = screen.getByTestId("presell-cookie-allow-offer");
     expect(allow.getAttribute("href")).toBe("/track/r/abc?to=https%3A%2F%2Foffer.example");
-    const close = screen.getByTestId("presell-cookie-close-offer");
-    expect(close.getAttribute("href")).toBe("/track/r/abc?to=https%3A%2F%2Foffer.example");
+    const close = screen.getByTestId("presell-cookie-close");
+    expect(close.tagName).toBe("BUTTON");
+    expect(close.getAttribute("href")).toBeNull();
+    close.click();
+    expect(onAccept).toHaveBeenCalled();
   });
 });
 
