@@ -6,24 +6,32 @@ const STOCK_TITLES = new Set([
   "We Value Your Privacy",
   "Cookie Policy",
   "Política de cookies",
+  "A sua privacidade é importante",
   "Ihre Privatsphäre ist uns wichtig",
   "Nous respectons votre vie privée",
   "La tua privacy è importante",
   "Valoramos tu privacidad",
 ]);
 
+const STOCK_POLICY_LABELS = [
+  ...new Set(Object.values(PRESHELL_UI_STRINGS).map((s) => s.cookiePolicy.trim()).filter(Boolean)),
+];
+
 /** Rótulos antigos/errados que não podem ficar citados no corpo se o botão já mudou. */
 const LEGACY_ALLOW_LABELS = [
-  "Erlauben",
   "Alle akzeptieren",
-  "Allow",
   "ACCEPT ALL",
   "Accept All",
-  "Permitir",
+  "Akzeptieren & fortfahren",
+  "Accepter et continuer",
+  "Accetta e continua",
   "Aceptar todo",
   "Tout accepter",
-  "Autoriser",
   "Accetta tutto",
+  "Erlauben",
+  "Allow",
+  "Permitir",
+  "Autoriser",
   "Consenti",
   "Zezwól",
   "İzin ver",
@@ -33,13 +41,11 @@ const LEGACY_ALLOW_LABELS = [
   "Tillad",
   "السماح",
   "अनुमति दें",
-  "Akzeptieren & fortfahren",
-  "Accepter et continuer",
-  "Accetta e continua",
-];
+].sort((a, b) => b.length - a.length);
 
-const FAKE_PREFS_CLOSE =
-  /einstellungen\s+verwalten|gérer\s+les\s+préférences|gestisci\s+preferenze|gestionar\s+preferencias|manage\s+preferences|manage\s+settings/i;
+/** Definições falsas ou «rejeitar todos» sem CMP real — o 2.º botão só fecha/desbloqueia. */
+const FAKE_SECONDARY_CLOSE =
+  /einstellungen\s+verwalten|gérer\s+les\s+préférences|gestisci\s+preferenze|gestionar\s+preferencias|manage\s+preferences|manage\s+settings|alle\s+ablehnen|reject\s+all|refuse\s+all|tout\s+refuser|rifiuta\s+tutto|rechazar\s+todo|recusar\s+tudo|recusar\s+todos|alles\s+ablehnen|odrzuc\s+wszystko/i;
 
 export type CookieBannerCopyInput = {
   title?: string;
@@ -62,6 +68,10 @@ export type CookieBannerCopy = {
   followsLanguage: boolean;
 };
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function cookieBannerFollowsPageLanguage(content: CookieBannerCopyInput): boolean {
   if (content.followLanguage === false) return false;
   if (content.followLanguage === true) return true;
@@ -77,26 +87,55 @@ export function syncCookieBodyWithAllowLabel(body: string, allowLabel: string): 
   let out = body;
   for (const legacy of LEGACY_ALLOW_LABELS) {
     if (!legacy || legacy === allow) continue;
-    const variants = [
+    const quoted = [
       [`„${legacy}“`, `„${allow}“`],
       [`«${legacy}»`, `«${allow}»`],
+      [`« ${legacy} »`, `«${allow}»`],
       [`"${legacy}"`, `"${allow}"`],
       [`'${legacy}'`, `'${allow}'`],
       [`“${legacy}”`, `“${allow}”`],
     ] as const;
-    for (const [from, to] of variants) {
+    for (const [from, to] of quoted) {
       if (out.includes(from)) out = out.split(from).join(to);
     }
+    // Sem aspas (ex.: «By clicking Accept All,»)
+    const bare = new RegExp(`(?<![\\w«»„“”"'])${escapeRegExp(legacy)}(?![\\w«»„“”"'])`, "g");
+    out = out.replace(bare, allow);
   }
   return out;
 }
 
-/** Segundo botão não pode parecer “definições” se só fecha o modal. */
+/** Segundo botão não pode parecer definições/rejeição total se só fecha o modal. */
 export function sanitizeCookieCloseLabel(label: string, fallback: string): string {
   const v = label.trim();
   if (!v) return fallback;
-  if (FAKE_PREFS_CLOSE.test(v)) return fallback;
+  if (FAKE_SECONDARY_CLOSE.test(v)) return fallback;
   return v;
+}
+
+/**
+ * O UI acrescenta o link `policyLabel` depois do corpo.
+ * Se o texto já termina com esse nome (páginas legadas), remove para não duplicar
+ * («…Cookie-Richtlinie. Cookie-Richtlinie.»).
+ */
+export function stripTrailingCookiePolicyLabel(body: string, policyLabel: string): string {
+  if (!body.trim()) return body;
+  const labels = [
+    policyLabel.trim(),
+    ...STOCK_POLICY_LABELS,
+  ].filter(Boolean);
+  let out = body;
+  for (const label of labels) {
+    const escaped = escapeRegExp(label);
+    const next = out
+      .replace(new RegExp(`(?:\\s*[«»„“”"']?${escaped}[«»„“”"']?\\s*\\.?)\\s*$`, "iu"), "")
+      .trimEnd();
+    if (next !== out) {
+      out = next;
+      break;
+    }
+  }
+  return out;
 }
 
 export function resolveCookieBannerCopy(
@@ -108,7 +147,7 @@ export function resolveCookieBannerCopy(
     const L = getPresellUiStrings(language);
     return {
       title: L.cookieTitle,
-      body: L.cookieBody,
+      body: stripTrailingCookiePolicyLabel(L.cookieBody, L.cookiePolicy),
       allowLabel: L.cookieAllow,
       declineLabel: L.cookieClose,
       policyLabel: L.cookiePolicy,
@@ -122,13 +161,17 @@ export function resolveCookieBannerCopy(
     content.declineLabel?.trim() || fallback.cookieClose,
     fallback.cookieClose,
   );
+  const policyLabel = content.policyLabel?.trim() || fallback.cookiePolicy;
   const rawBody = content.body?.trim() || fallback.cookieBody;
   return {
     title: content.title?.trim() || fallback.cookieTitle,
-    body: syncCookieBodyWithAllowLabel(rawBody, allowLabel),
+    body: stripTrailingCookiePolicyLabel(
+      syncCookieBodyWithAllowLabel(rawBody, allowLabel),
+      policyLabel,
+    ),
     allowLabel,
     declineLabel,
-    policyLabel: content.policyLabel?.trim() || fallback.cookiePolicy,
+    policyLabel,
     footerNote: content.footerNote === undefined ? fallback.cookieFooter : content.footerNote,
     followsLanguage: false,
   };

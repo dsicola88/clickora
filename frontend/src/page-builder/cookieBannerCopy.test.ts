@@ -4,6 +4,7 @@ import {
   clampCookieOverlayOpacity,
   resolveCookieBannerCopy,
   sanitizeCookieCloseLabel,
+  stripTrailingCookiePolicyLabel,
   syncCookieBodyWithAllowLabel,
 } from "./cookieBannerCopy";
 
@@ -78,22 +79,27 @@ describe("cookie banner language", () => {
     expect(clampCookieOverlayBlur(-1)).toBe(0);
   });
 
-  it("todos os idiomas: botão no texto, fechar honesto, rodapé útil", async () => {
+  it("todos os idiomas: botão no texto, fechar honesto, sem política duplicada", async () => {
     const { PRESHELL_LOCALE_KEYS } = await import("@/lib/presellUiStrings.types");
     const { getPresellUiStrings } = await import("@/lib/presellUiStrings");
-    const fakePrefs =
-      /manage prefer|einstellungen verwalten|gérer les préférences|gestisci preferenze|gestionar preferencias/i;
+    const fakeSecondary =
+      /manage prefer|einstellungen verwalten|gérer les préférences|gestisci preferenze|gestionar preferencias|alle ablehnen|reject all|tout refuser|rechazar todo|recusar tod/i;
     for (const loc of PRESHELL_LOCALE_KEYS) {
       const ui = getPresellUiStrings(loc);
       expect(ui.cookieAllow.trim(), loc).not.toBe("");
       expect(ui.cookieClose.trim(), loc).not.toBe("");
       expect(ui.cookieBody.includes(ui.cookieAllow), `${loc} body↔allow`).toBe(true);
-      expect(ui.cookieClose, loc).not.toMatch(fakePrefs);
+      expect(ui.cookieBody.includes(ui.cookiePolicy), `${loc} policy not in body`).toBe(false);
+      expect(ui.cookieClose, loc).not.toMatch(fakeSecondary);
       expect(ui.cookieFooter.trim(), loc).not.toBe(ui.cookieTitle.trim());
       expect(ui.cookieAccept, loc).toBe(ui.cookieAllow);
       const copy = resolveCookieBannerCopy({ followLanguage: true }, loc);
       expect(copy.allowLabel, loc).toBe(ui.cookieAllow);
       expect(copy.declineLabel, loc).toBe(ui.cookieClose);
+      expect(copy.body.includes(copy.policyLabel), `${loc} resolved body`).toBe(false);
+      const composed = `${copy.body} ${copy.policyLabel}.`;
+      const policyHits = composed.split(copy.policyLabel).length - 1;
+      expect(policyHits, `${loc} composed once`).toBe(1);
     }
   });
 
@@ -106,10 +112,22 @@ describe("cookie banner language", () => {
     expect(healed).not.toContain("Erlauben");
   });
 
-  it("rejeita rótulo falso de definições no botão fechar", () => {
+  it("rejeita rótulos falsos no botão secundário (prefs / reject-all)", () => {
     expect(sanitizeCookieCloseLabel("Einstellungen verwalten", "Schließen")).toBe("Schließen");
+    expect(sanitizeCookieCloseLabel("Alle ablehnen", "Schließen")).toBe("Schließen");
+    expect(sanitizeCookieCloseLabel("Manage Preferences", "Close")).toBe("Close");
+    expect(sanitizeCookieCloseLabel("Reject all", "Close")).toBe("Close");
     expect(sanitizeCookieCloseLabel("Gestionar preferencias", "Cerrar")).toBe("Cerrar");
     expect(sanitizeCookieCloseLabel("Schließen", "Schließen")).toBe("Schließen");
+  });
+
+  it("cura Accept All sem aspas no corpo legado", () => {
+    expect(
+      syncCookieBodyWithAllowLabel(
+        "By clicking Accept All, you consent to our use of cookies. Learn more in our",
+        "Accept",
+      ),
+    ).toContain("By clicking Accept,");
   });
 
   it("texto legado DE com followLanguage false fica alinhado ao botão", () => {
@@ -126,5 +144,28 @@ describe("cookie banner language", () => {
     expect(copy.body).toContain("„Akzeptieren“");
     expect(copy.body).not.toContain("Erlauben");
     expect(copy.declineLabel).toBe("Schließen");
+  });
+
+  it("remove Cookie-Richtlinie duplicada no fim do corpo", () => {
+    expect(
+      stripTrailingCookiePolicyLabel(
+        "Weitere Informationen finden Sie in unserer Cookie-Richtlinie.",
+        "Cookie-Richtlinie",
+      ),
+    ).toBe("Weitere Informationen finden Sie in unserer");
+    const copy = resolveCookieBannerCopy(
+      {
+        title: "Custom DE notice",
+        body: "Mit „Alle akzeptieren“ stimmen Sie zu. Weitere Infos in unserer Cookie-Richtlinie.",
+        allowLabel: "Alle akzeptieren",
+        declineLabel: "Schließen",
+        policyLabel: "Cookie-Richtlinie",
+        followLanguage: false,
+      },
+      "de",
+    );
+    expect(copy.body.endsWith("Cookie-Richtlinie")).toBe(false);
+    expect(copy.body).toMatch(/in unserer\s*$/i);
+    expect(copy.policyLabel).toBe("Cookie-Richtlinie");
   });
 });

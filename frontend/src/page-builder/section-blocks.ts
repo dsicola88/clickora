@@ -638,7 +638,7 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
   },
   {
     id: "block-cookie-modal",
-    name: "Cookie modal (Accept All)",
+    name: "Cookie modal",
     description: "Overlay centrado + botão voltar ao topo",
     category: "compliance",
     build: (ctx) => {
@@ -650,12 +650,13 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
             w(
               "cookieBanner",
               {
-                title: "We Value Your Privacy",
-                body: "We use cookies to enhance your browsing experience and analyze site traffic. By clicking Accept All, you consent to our use of cookies. Learn more in our",
-                allowLabel: "ACCEPT ALL",
-                declineLabel: "Manage Preferences",
+                title: "Your privacy matters",
+                body: 'We use cookies to run this page, measure visits, and (where enabled) improve ads. By clicking "Accept", you agree. Details are in our',
+                allowLabel: "Accept",
+                declineLabel: "Close",
                 policyLabel: "Cookie Policy",
                 policyUrl: "/privacidade",
+                followLanguage: true,
                 accentColor: "#2563eb",
                 variant: "modal",
                 backdrop: true,

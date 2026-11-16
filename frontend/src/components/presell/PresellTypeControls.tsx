@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { InteractivePresellGateKind } from "@/lib/presellTypeMeta";
 import { getPresellUiStrings } from "@/lib/presellUiStrings";
+import { stripTrailingCookiePolicyLabel } from "@/page-builder/cookieBannerCopy";
 
 export type GatePayload = {
   params: Record<string, string>;
@@ -89,6 +90,7 @@ export function CookieConsentModal({
   navigateOnAccept?: boolean;
 }) {
   const L = getPresellUiStrings(language);
+  const cookieBody = stripTrailingCookiePolicyLabel(L.cookieBody, L.cookiePolicy);
   useEffect(() => {
     if (accepted) return;
     const prev = document.body.style.overflow;
@@ -136,7 +138,7 @@ export function CookieConsentModal({
           {L.cookieTitle}
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">
-          {L.cookieBody}
+          {cookieBody}
           {policyHref ? (
             <>
               {" "}

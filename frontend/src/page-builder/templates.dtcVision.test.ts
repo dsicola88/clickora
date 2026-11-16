@@ -52,7 +52,9 @@ describe("presell-dtc-vision template (Visivra ponta a ponta)", () => {
       .flatMap((s) => s.columns.flatMap((c) => flattenWidgets(c.widgets)))
       .find((w) => w.type === "cookieBanner");
     expect(cookie?.content.variant).toBe("modal");
-    expect(String(cookie?.content.allowLabel)).toMatch(/ACCEPT ALL/i);
+    expect(String(cookie?.content.allowLabel)).toMatch(/^Accept$/i);
+    expect(cookie?.content.followLanguage).toBe(true);
+    expect(String(cookie?.content.declineLabel)).toMatch(/^Close$/i);
 
     const iconList = sections
       .flatMap((s) => s.columns.flatMap((c) => flattenWidgets(c.widgets)))
@@ -81,7 +83,7 @@ describe("presell-dtc-vision template (Visivra ponta a ponta)", () => {
     const cookie = createWidget("cookieBanner");
     expect(cookie.content.variant).toBe("modal");
     expect(String(cookie.content.declineLabel)).toMatch(/Close/i);
-    expect(cookie.content.followLanguage).toBe(false);
+    expect(cookie.content.followLanguage).toBe(true);
 
     const btn = createWidget("button");
     expect(btn.type).toBe("button");
