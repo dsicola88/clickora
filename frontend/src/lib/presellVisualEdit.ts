@@ -556,8 +556,11 @@ function sanitizeImportedHtml(html: string, keepStylesheets = false): string {
   return out;
 }
 
-function policyHrefFromContent(_content: Record<string, unknown>): string {
-  return "/privacidade";
+function policyHrefFromContent(content: Record<string, unknown>): string {
+  const raw = content.policyUrls ?? content.policy_urls;
+  if (!raw || typeof raw !== "object") return "";
+  const privacy = (raw as Record<string, unknown>).privacy;
+  return typeof privacy === "string" && /^https?:\/\//i.test(privacy.trim()) ? privacy.trim() : "";
 }
 
 function attrUrl(tag: string, attr: string): string {
@@ -666,9 +669,10 @@ function offerCookie(_offer: string, policyHref: string, language?: string | nul
     footerNote: L.cookieFooter,
     /** Seguir o idioma da página — criação automática (cookies + DE/FR/…) não fica presa ao EN. */
     followLanguage: true,
-    overlayOpacity: 12,
+    overlayOpacity: 8,
     overlayBlur: 0,
-    policyUrl: policyHref || "/privacidade",
+    /** Sem URL do produtor → aviso de cookies da plataforma (não /privacidade SaaS). */
+    policyUrl: policyHref || "/aviso-cookies",
   };
   return cookie;
 }
@@ -722,7 +726,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
   }
 
   const extraPhotos = restImages.map((src) => heroImageWidget(src, alt, offerForCtas, false));
-  /** Cookies (white e black): modal só desbloqueia a página — hoplink nos CTAs visíveis (Ads / RGPD). */
+  /** Cookies (white e black): banner = consentimento; compra nos CTAs /track/r/. */
   const cookie = cookieType
     ? offerCookie("", policyHrefFromContent(content), source.language)
     : null;
@@ -918,13 +922,12 @@ export function resolvePresellPageDocument(
 
 export type BakePublicOfferOptions = {
   /**
-   * Presells tipo cookies sem «Ir directo à oferta»: modal só desbloqueia;
-   * CTAs da página levam ao `/track/r/`.
+   * Presells com cookie banner: CTAs da página levam ao `/track/r/`.
+   * Consentimento nunca remove nem bloqueia botões de compra.
    */
   unlockCookieOnly?: boolean;
   /**
-   * Com `cookieRedirectToOffer`: só Aceitar do banner é link para `/track/r/`; Fechar desbloqueia.
-   * Tem prioridade sobre `unlockCookieOnly` no widget de cookies.
+   * @deprecated Ignorado: Aceitar já não redireciona à oferta (funil só via CTAs).
    */
   cookieRedirectToOffer?: boolean;
 };
@@ -941,8 +944,8 @@ export function bakePublicOfferHrefs(
   const href = trackHref.trim() || affiliateHref.trim();
   const policy = policyHref.trim();
   const affiliate = affiliateHref.trim();
-  const unlockCookieOnly = Boolean(options.unlockCookieOnly);
-  const cookieRedirectToOffer = Boolean(options.cookieRedirectToOffer) && Boolean(href);
+  void options.cookieRedirectToOffer;
+  const unlockCookieOnly = options.unlockCookieOnly !== false;
   const cookieGate = clone.sections.some((section) =>
     section.columns.some((column) => column.widgets.some((widget) => widget.type === "cookieBanner")),
   );
@@ -968,13 +971,21 @@ export function bakePublicOfferHrefs(
         }
         if (widget.type === "cookieBanner") {
           const next: Record<string, unknown> = { ...widget.content };
-          if (policy) next.policyUrl = policy;
-          if (cookieRedirectToOffer) {
-            next.offerHref = href;
+          if (policy) {
+            next.policyUrl = policy;
           } else {
-            // Aceitar/Fechar só fecham o aviso (compliance / unlock).
-            delete next.offerHref;
+            const current = typeof next.policyUrl === "string" ? next.policyUrl.trim() : "";
+            if (
+              !current ||
+              current === "/privacidade" ||
+              current === "/privacy" ||
+              current === "/privacy-policy"
+            ) {
+              next.policyUrl = "/aviso-cookies";
+            }
           }
+          // Consentimento ≠ compra: nunca offerHref no banner.
+          delete next.offerHref;
           widget.content = next;
         }
       }
@@ -983,13 +994,12 @@ export function bakePublicOfferHrefs(
   if (href) {
     pointOfferButtonsAt(clone, href, affiliate || undefined, {
       forceAllButtons: true,
-      preserveCookieOfferHref: cookieRedirectToOffer,
+      preserveCookieOfferHref: false,
     });
   }
-  if (cookieGate && !unlockCookieOnly && !cookieRedirectToOffer) {
+  if (cookieGate && !unlockCookieOnly) {
     for (const section of clone.sections) {
       for (const column of section.columns) {
-        // Manter CTAs vindos do espelho (fromMirror); remover só botões sintéticos do portal.
         column.widgets = column.widgets.filter(
           (widget) => widget.type !== "button" || Boolean(widget.content.fromMirror),
         );

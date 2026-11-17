@@ -19,7 +19,6 @@ import {
   mergeParamsIntoAffiliateUrl,
   PresellGateFields,
   useCookieAcceptedState,
-  isCookieRedirectToOfferEnabled,
   type GatePayload,
 } from "@/components/presell/PresellTypeControls";
 import {
@@ -38,8 +37,15 @@ import {
 } from "@/lib/presellTypeMeta";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { bakePublicOfferHrefs, resolvePresellPageDocument } from "@/lib/presellVisualEdit";
+import {
+  COOKIE_CONSENT_EVENT,
+  readCookieConsentChoice,
+} from "@/page-builder/cookieConsentStorage";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
-import { policyUrlsFromPresellContent, resolvePresellFooterPolicies } from "@/lib/presellFooterPolicies";
+import {
+  policyUrlsFromPresellContent,
+  resolveVisitorCookiePolicyUrl,
+} from "@/lib/presellFooterPolicies";
 import { PresellPublicLocaleProvider } from "@/lib/presellPublicLocale";
 const PublicBuilderPresellView = lazy(() =>
   import("@/components/presell/PublicBuilderPresellView").then((m) => ({
@@ -723,7 +729,25 @@ export default function PublicPresell() {
     return getTrackApiBaseUrl();
   }, [page?.track_api_base]);
 
-  const { cookieAccepted, setCookieAccepted } = useCookieAcceptedState();
+  const { cookieAccepted, setCookieConsent, cookieConsent } = useCookieAcceptedState();
+  /** Consentimento do CookieBannerWidget (documento) — path principal do tipo cookies. */
+  const [bannerConsent, setBannerConsent] = useState<"all" | "essential" | null>(() =>
+    typeof window !== "undefined" ? readCookieConsentChoice() : null,
+  );
+
+  useEffect(() => {
+    const sync = () => setBannerConsent(readCookieConsentChoice());
+    sync();
+    window.addEventListener(COOKIE_CONSENT_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(COOKIE_CONSENT_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, [page?.id]);
+
+  /** Ads não essenciais só após Aceitar (modal React ou widget). */
+  const marketingAllowed = cookieConsent === "all" || bannerConsent === "all";
   const [segmentationDismissed, setSegmentationDismissed] = useState(false);
   const [fieldGate, setFieldGate] = useState<GatePayload>({ params: {}, ctaEnabled: false });
 
@@ -735,11 +759,11 @@ export default function PublicPresell() {
   }, [uiLang]);
 
   useEffect(() => {
-    setCookieAccepted(false);
+    setCookieConsent(null);
     setSegmentationDismissed(false);
     // Gates interativos começam bloqueados até PresellGateFields reportar válido.
     setFieldGate({ params: {}, ctaEnabled: !getInteractiveGateKind(page?.type || "") });
-  }, [page?.id, page?.type, setCookieAccepted]);
+  }, [page?.id, page?.type, setCookieConsent]);
 
   const [storefrontMainIdx, setStorefrontMainIdx] = useState(0);
   useEffect(() => {
@@ -802,25 +826,35 @@ export default function PublicPresell() {
       document.head.appendChild(style);
       cleanups.push(() => style.remove());
     }
-    /** Sempre no &lt;head&gt;, async + data-presell-id — pageview Ads fiável e sem bloquear LCP. */
+    /** Clickora embed + impressão: essenciais à atribuição do funil (não são pixels de ads de terceiros). */
     if (clickoraHead) cleanups.push(injectWithCleanup(clickoraHead, document.head));
-    if (conversionTrackingScript)
-      cleanups.push(injectWithCleanup(conversionTrackingScript, document.head));
-    if (optionalMarketing.headHtml.trim()) {
-      cleanups.push(injectWithCleanup(optionalMarketing.headHtml, document.head));
+
+    /**
+     * Gate cookies: pixels Meta/TikTok/Google/scripts do operador só após «Aceitar».
+     * «Fechar» = essenciais only — página e oferta continuam; sem fuga e sem ads pré-consentimento.
+     * Páginas sem gate de cookies: comportamento anterior (inject imediato).
+     */
+    const cookieGate = getPresellGateKind(page.type || "") === "cookies";
+    const allowAds = !cookieGate || marketingAllowed;
+    if (allowAds) {
+      if (conversionTrackingScript)
+        cleanups.push(injectWithCleanup(conversionTrackingScript, document.head));
+      if (optionalMarketing.headHtml.trim()) {
+        cleanups.push(injectWithCleanup(optionalMarketing.headHtml, document.head));
+      }
+      if (headerCode) cleanups.push(injectWithCleanup(headerCode, document.head));
+      if (optionalMarketing.bodyHtml.trim()) {
+        cleanups.push(injectWithCleanup(optionalMarketing.bodyHtml, document.body));
+      }
+      if (bodyCode && bodyCodeMountRef.current) {
+        cleanups.push(injectWithCleanup(bodyCode, bodyCodeMountRef.current));
+      }
+      if (footerCode) cleanups.push(injectWithCleanup(footerCode, document.body));
     }
-    if (headerCode) cleanups.push(injectWithCleanup(headerCode, document.head));
-    if (optionalMarketing.bodyHtml.trim()) {
-      cleanups.push(injectWithCleanup(optionalMarketing.bodyHtml, document.body));
-    }
-    if (bodyCode && bodyCodeMountRef.current) {
-      cleanups.push(injectWithCleanup(bodyCode, bodyCodeMountRef.current));
-    }
-    if (footerCode) cleanups.push(injectWithCleanup(footerCode, document.body));
 
     return () => cleanups.forEach((fn) => fn());
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps above: settingsInjectKey covers page.settings fields
-  }, [page?.id, page?.cloak_safe, settingsInjectKey, apiBase]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- settingsInjectKey + consent
+  }, [page?.id, page?.cloak_safe, page?.type, settingsInjectKey, apiBase, marketingAllowed]);
 
   const content = (page?.content || {}) as Record<string, unknown>;
   const tracking = (page?.tracking || {}) as Record<string, unknown>;
@@ -861,10 +895,9 @@ export default function PublicPresell() {
   const ctaEnabled = useMemo(() => {
     const gk = getPresellGateKind(page?.type || "");
     const ik = getInteractiveGateKind(page?.type || "");
-    // Cookies: por defeito só desbloqueiam a página (black e white); oferta nos CTAs.
-    // Com settings.cookieRedirectToOffer, Aceitar/Fechar vão ao /track/r/.
+    // Cookies: CTAs sempre activos (compra ≠ consentimento). Aceitar só libera ads pixels.
     // Segmentação: CTAs da página ficam activos; o modal oferece os dois caminhos.
-    // CTAs do documento: cookies não bloqueiam; gates interativos sim até estarem válidos.
+    // Gates interativos bloqueiam até estarem válidos.
     if (gk === "cookies" || gk === "segmentation") return true;
     if (ik) return fieldGate.ctaEnabled;
     return true;
@@ -1042,11 +1075,6 @@ export default function PublicPresell() {
   const ctaTextRaw = (content.ctaText as string) || "Visitar o Site Oficial do Fabricante";
 
   const contentPolicyUrls = policyUrlsFromPresellContent(content as Record<string, unknown>);
-  const footerPolicies = resolvePresellFooterPolicies(
-    settings as Record<string, unknown>,
-    contentPolicyUrls,
-  );
-  const cookiePolicyUrl = footerPolicies.operator.cookies;
   const footerSettingsProps = {
     settings: settings as Record<string, unknown>,
     contentPolicyUrls,
@@ -1110,6 +1138,12 @@ export default function PublicPresell() {
   /** Divulgação de afiliado em todas as presells públicas (inclui antigas sem nicho), excepto fantasma. */
   /** Conformidade no idioma da presell (anúncio/criação), não no idioma escolhido pelo visitante. */
   const complianceLang = presellComplianceLanguage(page.language, uiLang);
+  /** Modal Cookie-Richtlinie → /aviso-cookies (ou URL de cookies dedicada), não /privacidade SaaS nem merchant auto. */
+  const cookiePolicyUrl = resolveVisitorCookiePolicyUrl(
+    settings as Record<string, unknown>,
+    contentPolicyUrls,
+    complianceLang,
+  );
   /** Só White espelha a sales page. Black (promessas fortes) não clona claims — artigo informativo. */
   const showImportedMirror = mirrorEligible && !isGhostPage && generationNiche === "white";
   /** White espelho: sem chrome WL no rodapé (ex. nome da conta «… Super Admin»). */
@@ -1175,18 +1209,14 @@ export default function PublicPresell() {
         />
       );
     }
-    const builderCookieRedirect = isCookieRedirectToOfferEnabled(settings);
-    const builderHasCookieBanner = builderDoc.sections.some((section) =>
-      section.columns.some((column) => column.widgets.some((widget) => widget.type === "cookieBanner")),
-    );
     const bakedBuilderDoc = bakePublicOfferHrefs(
       builderDoc,
       href,
       affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : "",
       cookiePolicyUrl,
       {
-        unlockCookieOnly: builderHasCookieBanner && !builderCookieRedirect,
-        cookieRedirectToOffer: builderHasCookieBanner && builderCookieRedirect,
+        /** CTAs sempre activos; consentimento nunca remove botões de compra. */
+        unlockCookieOnly: true,
       },
     );
     return (
@@ -1201,7 +1231,8 @@ export default function PublicPresell() {
           settings={settings}
           trackHref={href}
           language={uiLang}
-          suppressWhileCookieGate={builderHasCookieBanner && builderCookieRedirect}
+          suppressWhileCookieGate={false}
+
         />
         <div
           ref={bodyCodeMountRef}
@@ -1242,19 +1273,14 @@ export default function PublicPresell() {
       language: uiLang || page.language,
       content: content as Record<string, unknown>,
     });
-    // Cookie no documento (não só page.type) — builder+espelho+banner não perde CTAs manuais.
-    const docHasCookieBanner = resolvedVisualDoc.sections.some((section) =>
-      section.columns.some((column) => column.widgets.some((widget) => widget.type === "cookieBanner")),
-    );
-    const cookieRedirectToOffer = docHasCookieBanner && isCookieRedirectToOfferEnabled(settings);
+    // Cookie no documento: CTAs sempre baked para /track/r/ (compra ≠ Aceitar).
     const visualDoc = bakePublicOfferHrefs(
       resolvedVisualDoc,
       href,
       affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : "",
       cookiePolicyUrl,
       {
-        unlockCookieOnly: docHasCookieBanner && !cookieRedirectToOffer,
-        cookieRedirectToOffer,
+        unlockCookieOnly: true,
       },
     );
     const mirrorHtmlFold =
@@ -1402,8 +1428,8 @@ export default function PublicPresell() {
           redirectHref={href}
           fallbackHref={cookieConsentFallbackHref}
           accepted={cookieAccepted}
-          onAccept={() => setCookieAccepted(true)}
-          navigateOnAccept={isCookieRedirectToOfferEnabled(settings)}
+          onAccept={() => setCookieConsent("all")}
+          onDismiss={() => setCookieConsent("essential")}
         />
       ) : null}
 

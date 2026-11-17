@@ -23,6 +23,11 @@ import { useInlineEdit } from "../inline-edit";
 import { usePageBuilderT } from "../usePageBuilderT";
 import type { ResponsiveValue } from "../types";
 import type { CookieButtonLayout } from "../cookieBannerStyle";
+import { CookiePolicyInlineSheet } from "@/components/presell/CookiePolicyInlineSheet";
+import {
+  readCookieConsentChoice,
+  writeCookieConsentChoice,
+} from "../cookieConsentStorage";
 
 export interface CookieBannerContent extends CookieBannerStyleContent {
   title: string;
@@ -60,21 +65,7 @@ export interface CookieBannerContent extends CookieBannerStyleContent {
 }
 
 function readDismissed(key: string): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(key) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function writeDismissed(key: string) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(key, "1");
-  } catch {
-    /* ignore quota / private mode */
-  }
+  return readCookieConsentChoice(key) !== null;
 }
 
 function CookieText({
@@ -133,7 +124,14 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const declineLabel = copy.declineLabel;
   const policyLabel = copy.policyLabel;
   const footerNote = copy.footerNote;
-  const policyUrl = (c.policyUrl ?? "/privacidade").trim() || "/privacidade";
+  const policyUrl = (c.policyUrl ?? "").trim();
+  /** Bloquear só privacidade SaaS; /aviso-cookies é o aviso correcto das presells. */
+  const policyIsAccountPrivacy =
+    policyUrl === "/privacidade" ||
+    policyUrl === "/privacy" ||
+    policyUrl === "/privacy-policy" ||
+    /\/privacidade\/?($|\?)/i.test(policyUrl);
+  const visitorPolicyUrl = !policyUrl || policyIsAccountPrivacy ? "" : policyUrl;
   const variant = resolveCookieVariant(c.variant);
   const visual = resolveCookieBannerVisual(c, device, variant);
   const position = resolveOverlayPosition(
@@ -144,24 +142,16 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const overlayOpacity = clampCookieOverlayOpacity(c.overlayOpacity);
   const overlayBlur = clampCookieOverlayBlur(c.overlayBlur);
   const storageKey = (c.storageKey ?? "clickora-cookie-banner").trim() || "clickora-cookie-banner";
-  const offerHref = (c.offerHref ?? "").trim();
-  const goOffer = Boolean(offerHref && offerHref !== "#");
+  /** offerHref legado ignorado: compra vai pelos CTAs; Aceitar ≠ redirect à oferta. */
   const inBuilder = useBuilderSurface();
   const [dismissed, setDismissed] = useState(false);
+  const [policyOpen, setPolicyOpen] = useState(false);
   const [delayReady, setDelayReady] = useState(() => !c.delayMs || c.delayMs <= 0 || inBuilder);
 
   useEffect(() => {
-    if (goOffer) {
-      try {
-        window.localStorage.removeItem(storageKey);
-      } catch {
-        /* ignore */
-      }
-      setDismissed(false);
-      return;
-    }
+    /** Após qualquer escolha o banner some e fica gravado — sem reaparecer a cada refresh. */
     setDismissed(readDismissed(storageKey));
-  }, [storageKey, goOffer]);
+  }, [storageKey]);
 
   useEffect(() => {
     if (inBuilder) {
@@ -192,8 +182,8 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
 
   const visible = inBuilder || (!dismissed && delayReady);
 
-  const dismiss = () => {
-    if (!goOffer) writeDismissed(storageKey);
+  const dismiss = (choice: "all" | "essential") => {
+    writeCookieConsentChoice(storageKey, choice);
     setDismissed(true);
   };
 
@@ -265,7 +255,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
         <button
           type="button"
           aria-label={t("common.close")}
-          onClick={dismiss}
+          onClick={() => dismiss("essential")}
           style={{
             position: "absolute",
             top: 8,
@@ -353,14 +343,26 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
                 style={{ color: visual.policyLinkColor, textDecoration: "underline", fontWeight: 500 }}
               />
             ) : (
-              <a
-                href={policyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: visual.policyLinkColor, textDecoration: "underline", fontWeight: 500 }}
+              <button
+                type="button"
+                data-testid="builder-cookie-policy-open"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPolicyOpen(true);
+                }}
+                style={{
+                  color: visual.policyLinkColor,
+                  textDecoration: "underline",
+                  fontWeight: 500,
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  font: "inherit",
+                }}
               >
                 {policyLabel}
-              </a>
+              </button>
             )}
             .
           </p>
@@ -377,31 +379,29 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
           }}
         >
           {/**
-           * Regra CMP: só «Aceitar» pode seguir para a oferta.
-           * «Fechar» / recusar fecha o aviso — nunca o mesmo destino que Aceitar
-           * (evitar dark pattern e inconsistência de regras para o visitante).
+           * Aceitar / Fechar = consentimento apenas.
+           * Compra pelos CTAs da página (/track/r/ + UTMs) — zero bloqueio artificial.
            */}
-          {goOffer && !inBuilder ? (
-            <a href={offerHref} data-testid="presell-cookie-allow-offer" style={allowClass}>
-              {allowLabel}
-            </a>
-          ) : (
-            <button type="button" onClick={inBuilder ? undefined : dismiss} style={allowClass}>
-              {commit ? (
-                <CookieText
-                  field="allowLabel"
-                  value={allowLabel}
-                  style={{ color: "#ffffff", fontWeight: 700 }}
-                />
-              ) : (
-                allowLabel
-              )}
-            </button>
-          )}
+          <button
+            type="button"
+            data-testid="presell-cookie-allow"
+            onClick={inBuilder ? undefined : () => dismiss("all")}
+            style={allowClass}
+          >
+            {commit ? (
+              <CookieText
+                field="allowLabel"
+                value={allowLabel}
+                style={{ color: "#ffffff", fontWeight: 700 }}
+              />
+            ) : (
+              allowLabel
+            )}
+          </button>
           <button
             type="button"
             data-testid="presell-cookie-close"
-            onClick={inBuilder ? undefined : dismiss}
+            onClick={inBuilder ? undefined : () => dismiss("essential")}
             style={closeClass}
           >
             {commit ? <CookieText field="declineLabel" value={declineLabel} /> : declineLabel}
@@ -449,19 +449,31 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
     </aside>
   );
 
+  const policySheet = !inBuilder ? (
+    <CookiePolicyInlineSheet
+      language={pageLanguage || "en"}
+      open={policyOpen}
+      onClose={() => setPolicyOpen(false)}
+      policyUrl={visitorPolicyUrl || "/aviso-cookies"}
+    />
+  ) : null;
+
   if (!usesOverlay) {
     return (
-      <div
-        data-testid="builder-cookie-inline"
-        style={{
-          ...stylesToCssWidgetContent(widget.styles, device),
-          display: "flex",
-          justifyContent: "center",
-          padding: inBuilder ? "16px 8px 24px" : undefined,
-        }}
-      >
-        {card}
-      </div>
+      <>
+        <div
+          data-testid="builder-cookie-inline"
+          style={{
+            ...stylesToCssWidgetContent(widget.styles, device),
+            display: "flex",
+            justifyContent: "center",
+            padding: inBuilder ? "16px 8px 24px" : undefined,
+          }}
+        >
+          {card}
+        </div>
+        {policySheet}
+      </>
     );
   }
 
@@ -499,8 +511,15 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
     </div>
   );
 
+  const tree = (
+    <>
+      {overlay}
+      {policySheet}
+    </>
+  );
+
   if (typeof document !== "undefined") {
-    return createPortal(overlay, document.body);
+    return createPortal(tree, document.body);
   }
-  return overlay;
+  return tree;
 }

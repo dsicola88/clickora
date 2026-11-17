@@ -633,7 +633,7 @@ export default function PresellDashboard() {
         String(configSettings.headerCode ?? ""),
         trackingEmbedScript,
       ),
-      cookiePolicyUrl: typeOptions.cookiePolicyUrl.trim() || "/privacidade",
+      cookiePolicyUrl: typeOptions.cookiePolicyUrl.trim(),
       minAge: typeOptions.minAge,
     };
     if (

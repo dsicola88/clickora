@@ -6,7 +6,7 @@
  *
  * | Tipo        | Comportamento |
  * |-------------|----------------|
- * | cookies     | Widget `cookieBanner` no documento; `settings.cookieRedirectToOffer`: Aceitar/Fechar → oferta rastreada, senão só libera a página. CTAs da página ficam activos. |
+ * | cookies     | Widget `cookieBanner` no documento (barra). Aceitar = ads não essenciais; Fechar = essenciais. Compra sempre pelos CTAs `/track/r/` (UTMs/gclid). |
  * | desconto    | `DiscountPresellOverlay` (faixa + modal). CTA/fechar/fundo → oferta rastreada. |
  * | fantasma    | Redirecionamento ao primeiro movimento (rato/toque/scroll) — só black. |
  * | vsl         | Vídeo em destaque (YouTube/Bunny/MP4) que abre com controlos; sem carta longa. White+espelho: vídeo primeiro + clone. |
@@ -118,7 +118,8 @@ export function getInteractiveGateKind(presellType: string): InteractivePresellG
       return "sex_country";
     default: {
       const g = getPresellGateKind(presellType);
-      if (g === "none" || g === "cookies") return null;
+      /** Cookies e segmentação têm UI própria — não são formulários sticky. */
+      if (g === "none" || g === "cookies" || g === "segmentation") return null;
       return g as InteractivePresellGateKind;
     }
   }

@@ -655,12 +655,12 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
                 allowLabel: "Accept",
                 declineLabel: "Close",
                 policyLabel: "Cookie Policy",
-                policyUrl: "/privacidade",
+                policyUrl: "",
                 followLanguage: true,
                 accentColor: "#2563eb",
-                variant: "modal",
-                backdrop: true,
-                position: "bottom-right",
+                variant: "bar",
+                backdrop: false,
+                position: "bottom",
                 storageKey: cookieStorageKey(b.name),
               },
               {},
@@ -707,9 +707,9 @@ export const SECTION_BLOCKS: SectionBlockDefinition[] = [
 <p style="margin:0 0 10px"><strong style="color:#e5e7eb">Affiliate disclosure:</strong> We may earn a commission if you buy through links on this page.</p>
 <p style="margin:0 0 14px"><strong style="color:#e5e7eb">FDA disclaimer:</strong> These statements have not been evaluated by the Food and Drug Administration. This product is not intended to diagnose, treat, cure, or prevent any disease. “FDA registered facility” is not the same as FDA approval of the product.</p>
 <p style="margin:0">
-<a href="/privacidade" style="color:#f5c518;margin:0 8px">Privacy Policy</a> ·
+<a href="${b.offer || "#"}" data-clickora-policy="merchant-privacy" style="color:#f5c518;margin:0 8px">Privacy Policy</a> ·
 <a href="/termos" style="color:#f5c518;margin:0 8px">Terms of Service</a> ·
-<a href="/privacidade" style="color:#f5c518;margin:0 8px">Cookie Policy</a> ·
+<a href="${b.offer || "#"}" data-clickora-policy="merchant-cookies" style="color:#f5c518;margin:0 8px">Cookie Policy</a> ·
 <a href="${b.offer}" style="color:#f5c518;margin:0 8px">Shipping &amp; Returns</a>
 </p>
 </div>`,

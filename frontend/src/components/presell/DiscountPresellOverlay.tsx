@@ -63,6 +63,9 @@ export function DiscountPresellOverlay({
   }, [open]);
 
   const stars = Math.min(5, Math.max(1, Math.round(ratingStars || 5)));
+  const ui = getPresellUiStrings(language);
+  /** Backdrop e X também vão à oferta — aria alinhada ao idioma da página. */
+  const continueOfferAria = ui.portalHeaderOffer;
 
   const goOffer = () => {
     const url = href.trim();
@@ -77,6 +80,7 @@ export function DiscountPresellOverlay({
           type="button"
           className="fixed top-0 left-0 right-0 z-[530] bg-[#e91e8c] text-white text-center px-3 py-2.5 shadow-md"
           onClick={goOffer}
+          aria-label={continueOfferAria}
         >
           <div className="text-2xl font-bold tabular-nums tracking-tight">{formatMmSs(secondsLeft)}</div>
           <p className="text-xs sm:text-sm font-medium opacity-95 leading-snug max-w-lg mx-auto">
@@ -99,7 +103,7 @@ export function DiscountPresellOverlay({
             type="button"
             data-testid="presell-discount-backdrop"
             className="absolute inset-0 cursor-pointer border-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent p-0"
-            aria-label="Continuar para a oferta"
+            aria-label={continueOfferAria}
             onClick={goOffer}
           />
           <div
@@ -109,7 +113,7 @@ export function DiscountPresellOverlay({
             <button
               type="button"
               className="absolute right-3 top-3 rounded-full p-1.5 text-foreground/50 hover:text-foreground hover:bg-black/5 transition-colors"
-              aria-label="Fechar"
+              aria-label={continueOfferAria}
               onClick={goOffer}
             >
               <X className="h-5 w-5" />

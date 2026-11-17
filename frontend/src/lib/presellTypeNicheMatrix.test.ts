@@ -28,6 +28,7 @@ describe("matriz tipo × nicho", () => {
     const ids = PRESELL_TYPE_OPTIONS.map((t) => t.id);
     expect(ids).toEqual([
       "cookies",
+      "segmentacao",
       "fantasma",
       "tsl",
       "dtc",
@@ -115,7 +116,7 @@ describe("matriz tipo × nicho", () => {
           doc,
           "https://app.example/track/r/x",
           "https://offer.example/buy",
-          "/privacidade",
+          "/aviso-cookies",
           { unlockCookieOnly: true },
         );
         const bakedCookie = baked.sections

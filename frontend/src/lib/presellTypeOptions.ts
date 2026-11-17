@@ -29,7 +29,7 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
         id: "cookies",
         name: "Cookies (consentimento)",
         description:
-          "Banner de cookies/privacidade no documento da página. Na criação: Aceitar pode ir à oferta rastreada, ou só liberar a leitura — CTAs da página ficam sempre disponíveis.",
+          "Banner de cookies no documento. Aceitar ativa pixels de ads; Fechar mantém só essenciais. A compra é sempre pelos CTAs rastreados da página (nunca depende do Aceitar).",
       },
       {
         id: "segmentacao",

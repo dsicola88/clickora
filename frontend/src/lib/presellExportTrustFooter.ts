@@ -3,6 +3,7 @@ import {
   merchantPolicyLinks,
   policyUrlsFromPresellContent,
   resolvePresellFooterPolicies,
+  resolveVisitorCookiePolicyUrl,
 } from "@/lib/presellFooterPolicies";
 import { getPresellUiStrings } from "@/lib/presellUiStrings";
 import { getPortalChromeCopy } from "@/lib/presellPortalCopy";
@@ -37,11 +38,12 @@ export function buildTrustFooterExportHtml(
   const copy = merchantFooterCopy(locale);
   const portal = getPortalChromeCopy(locale);
   const { operator } = bundle;
+  const visitorCookies = resolveVisitorCookiePolicyUrl(settings, policyUrlsFromPresellContent(content));
 
   const operatorLinks = [
     { href: operator.privacy, label: copy.operatorPrivacy },
     { href: operator.terms, label: copy.operatorTerms },
-    { href: operator.cookies, label: L.cookiePolicy },
+    ...(visitorCookies ? [{ href: visitorCookies, label: L.cookiePolicy }] : []),
     { href: operator.medical, label: portal.medical },
   ]
     .map(

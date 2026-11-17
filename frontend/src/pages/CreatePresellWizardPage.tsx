@@ -349,8 +349,9 @@ export default function CreatePresellWizardPage() {
       const settingsBase =
         generationNiche === "black"
           ? {
-              cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
-              privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
+              // Cookie do visitante: URL dedicada de cookies (ou vazio → /aviso-cookies). Privacidade SaaS fica em /privacidade.
+              cookiePolicyUrl: cookiePolicyUrl.trim(),
+              privacyPolicyUrl: cookiePolicyUrl.trim(),
               termsUrl: "/termos",
               ...(showAffiliateTrustFooter
                 ? {
@@ -361,8 +362,8 @@ export default function CreatePresellWizardPage() {
                 : {}),
             }
           : {
-              cookiePolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
-              privacyPolicyUrl: cookiePolicyUrl.trim() || "/privacidade",
+              cookiePolicyUrl: cookiePolicyUrl.trim(),
+              privacyPolicyUrl: cookiePolicyUrl.trim(),
               termsUrl: "/termos",
               ...(showAffiliateTrustFooter
                 ? {

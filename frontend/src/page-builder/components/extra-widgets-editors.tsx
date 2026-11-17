@@ -326,9 +326,9 @@ export function CookieBannerContentEditor({
         />
         <TextField
           label={t("pages.pageBuilder.widgets.cookie.policyUrl")}
-          value={(c.policyUrl as string) ?? "/privacidade"}
+          value={(c.policyUrl as string) ?? ""}
           onChange={(v) => setContent({ policyUrl: v })}
-          placeholder="/privacidade"
+          placeholder="/aviso-cookies or https://…"
         />
         <TextField
           label={t("pages.pageBuilder.widgets.cookie.offerHref")}

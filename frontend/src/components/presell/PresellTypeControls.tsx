@@ -8,6 +8,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { InteractivePresellGateKind } from "@/lib/presellTypeMeta";
 import { getPresellUiStrings } from "@/lib/presellUiStrings";
 import { stripTrailingCookiePolicyLabel } from "@/page-builder/cookieBannerCopy";
+import { CookiePolicyInlineSheet } from "@/components/presell/CookiePolicyInlineSheet";
+import { writeCookieConsentChoice } from "@/page-builder/cookieConsentStorage";
 
 export type GatePayload = {
   params: Record<string, string>;
@@ -68,17 +70,20 @@ export function isCookieRedirectToOfferEnabled(
 }
 
 /**
- * Consentimento de cookies: página bloqueada (só botões do cartão clicáveis).
- * Com navigateOnAccept: só Aceitar é link para `/track/r/`; Fechar desbloqueia a página.
+ * Consentimento compacto (barra inferior): não tapa a oferta.
+ * Aceitar = cookies não essenciais; Fechar = só essenciais.
+ * A compra vai sempre pelos CTAs `/track/r/` (UTMs/gclid) — nunca depende do Aceitar.
  */
 export function CookieConsentModal({
   language,
   policyUrl,
-  redirectHref = "",
-  fallbackHref = "",
+  redirectHref: _redirectHref = "",
+  fallbackHref: _fallbackHref = "",
   accepted,
   onAccept,
-  navigateOnAccept = false,
+  onDismiss,
+  /** @deprecated Ignorado: a oferta não depende do Aceitar (anti-bloqueio do funil). */
+  navigateOnAccept: _navigateOnAccept = false,
 }: {
   language: string;
   policyUrl: string;
@@ -86,106 +91,103 @@ export function CookieConsentModal({
   fallbackHref?: string;
   accepted: boolean;
   onAccept?: () => void;
-  /** Se true, só Aceitar vai para a oferta (`/track/r/…`). Fechar desbloqueia. */
+  /** Fechar / só essenciais — nunca redireciona; CTAs da oferta continuam. */
+  onDismiss?: () => void;
+  /** @deprecated Mantido por compat; não redireciona para a oferta. */
   navigateOnAccept?: boolean;
 }) {
+  void _redirectHref;
+  void _fallbackHref;
+  void _navigateOnAccept;
   const L = getPresellUiStrings(language);
   const cookieBody = stripTrailingCookiePolicyLabel(L.cookieBody, L.cookiePolicy);
-  useEffect(() => {
-    if (accepted) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [accepted]);
+  const [policyOpen, setPolicyOpen] = useState(false);
+
   if (accepted) return null;
 
-  const offerNav = navigateOnAccept
-    ? cookieConsentNavigation("allow", redirectHref, fallbackHref)
-    : { kind: "stay" as const };
-  const offerUrl = offerNav.kind === "assign" ? offerNav.url : "";
-  const goOffer = Boolean(offerUrl);
-
-  const unlockOnly = () => onAccept?.();
-  const policyHref = policyUrl;
+  const dismiss = () => {
+    writeCookieConsentChoice("clickora-cookie-banner", "essential");
+    (onDismiss ?? onAccept)?.();
+  };
+  const acceptStay = () => {
+    writeCookieConsentChoice("clickora-cookie-banner", "all");
+    onAccept?.();
+  };
 
   const allowClass =
-    "inline-flex h-12 flex-1 items-center justify-center rounded-full border-0 bg-emerald-500 text-sm font-semibold text-white shadow-sm hover:bg-emerald-600";
+    "inline-flex h-11 min-h-[44px] flex-1 items-center justify-center rounded-xl border-0 bg-slate-900 px-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-800";
   const closeClass =
-    "inline-flex h-12 flex-1 items-center justify-center rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50";
+    "inline-flex h-11 min-h-[44px] flex-1 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50";
 
   return (
-    <div
-      className="fixed inset-0 z-[520] flex items-center justify-center p-4 sm:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="cookie-policy-title"
-      data-testid="presell-cookie-sheet"
-    >
-      {/* Véu leve: a review por baixo continua legível; o cartão destaca-se sozinho. */}
+    <>
       <div
-        data-testid="presell-cookie-backdrop"
-        className="absolute inset-0 bg-slate-900/10"
-        aria-hidden="true"
-      />
-      <div
-        data-testid="presell-cookie-card"
-        className="relative z-10 w-full max-w-[420px] rounded-2xl border border-slate-200/90 bg-white/95 px-6 py-7 text-slate-900 shadow-[0_18px_50px_-12px_rgba(15,23,42,0.35)] ring-1 ring-black/5 backdrop-blur-[1px]"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-x-0 bottom-0 z-[520] flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none"
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="cookie-policy-title"
+        data-testid="presell-cookie-sheet"
       >
-        <h2 id="cookie-policy-title" className="text-xl font-bold tracking-tight text-slate-950">
-          {L.cookieTitle}
-        </h2>
-        <p className="mt-3 text-sm leading-relaxed text-slate-600">
-          {cookieBody}
-          {policyHref ? (
-            <>
-              {" "}
-              <a
-                href={policyHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {L.cookiePolicy}
-              </a>
-              .
-            </>
-          ) : null}
-        </p>
-        <div className="mt-6 flex gap-3">
-          {/**
-           * Regra CMP: só Aceitar pode ir à oferta.
-           * Fechar apenas desbloqueia a página — nunca o mesmo destino que Aceitar.
-           */}
-          {goOffer ? (
-            <a
-              href={offerUrl}
+        <div
+          data-testid="presell-cookie-backdrop"
+          className="pointer-events-none absolute inset-0"
+          aria-hidden="true"
+        />
+        <div
+          data-testid="presell-cookie-card"
+          className="pointer-events-auto relative z-10 w-full max-w-lg rounded-2xl border border-slate-200/90 bg-white/95 px-4 py-3.5 text-slate-900 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] ring-1 ring-black/5 backdrop-blur-[2px] sm:px-5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 id="cookie-policy-title" className="text-sm font-bold tracking-tight text-slate-950 sm:text-base">
+            {L.cookieTitle}
+          </h2>
+          <p className="mt-1.5 text-xs leading-relaxed text-slate-600 sm:text-sm">
+            {cookieBody}{" "}
+            <button
+              type="button"
+              className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700"
+              data-testid="presell-cookie-policy-open"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPolicyOpen(true);
+              }}
+            >
+              {L.cookiePolicy}
+            </button>
+            .
+          </p>
+          <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row">
+            {/**
+             * Funil: Aceitar/Fechar só registam consentimento.
+             * Compra = CTAs da página com /track/r/ (atribuição essencial preservada).
+             */}
+            <Button
+              type="button"
               className={allowClass}
-              data-testid="presell-cookie-allow-offer"
-              onClick={() => onAccept?.()}
+              data-testid="presell-cookie-allow"
+              onClick={acceptStay}
             >
               {L.cookieAllow}
-            </a>
-          ) : (
-            <Button type="button" className={allowClass} onClick={unlockOnly}>
-              {L.cookieAllow}
             </Button>
-          )}
-          <button
-            type="button"
-            className={closeClass}
-            data-testid="presell-cookie-close"
-            onClick={unlockOnly}
-          >
-            {L.cookieClose}
-          </button>
+            <button
+              type="button"
+              className={closeClass}
+              data-testid="presell-cookie-close"
+              onClick={dismiss}
+            >
+              {L.cookieClose}
+            </button>
+          </div>
+          <p className="mt-2 text-center text-[10px] leading-snug text-slate-400 sm:text-xs">{L.cookieFooter}</p>
         </div>
-        <p className="mt-4 text-center text-xs text-slate-400">{L.cookieFooter}</p>
       </div>
-    </div>
+      <CookiePolicyInlineSheet
+        language={language}
+        open={policyOpen}
+        onClose={() => setPolicyOpen(false)}
+        policyUrl={policyUrl}
+      />
+    </>
   );
 }
 
@@ -410,9 +412,20 @@ export function PresellGateFields({
   );
 }
 
+/** null = pendente; all = Aceitar; essential = Fechar (página/oferta OK, sem pixels de ads). */
+export type CookieConsentChoice = null | "all" | "essential";
+
 export function useCookieAcceptedState() {
-  const [cookieAccepted, setCookieAccepted] = useState(false);
-  return { cookieAccepted, setCookieAccepted };
+  const [cookieConsent, setCookieConsent] = useState<CookieConsentChoice>(null);
+  const cookieAccepted = cookieConsent !== null;
+  const setCookieAccepted = (v: boolean) => setCookieConsent(v ? "all" : null);
+  return {
+    cookieAccepted,
+    setCookieAccepted,
+    cookieConsent,
+    setCookieConsent,
+    marketingAllowed: cookieConsent === "all",
+  };
 }
 
 /** Junta parâmetros do gate ao URL de afiliado sem sobrescrever query já no hoplink. */

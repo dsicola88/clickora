@@ -83,7 +83,7 @@ describe("conformidade estrutural WHITE (todos os tipos)", () => {
           doc,
           "https://app.example/track/r/x",
           "https://offer.example/buy",
-          "/privacidade",
+          "/aviso-cookies",
           { unlockCookieOnly: true },
         );
         const bakedCookie = widgetsOf(baked).find((w) => w.type === "cookieBanner");
@@ -249,6 +249,62 @@ describe("conformidade estrutural WHITE (todos os tipos)", () => {
   });
 });
 
+describe("funil: consentimento ≠ compra (todos os tipos)", () => {
+  it("meta/gates: cookies/segmentação não são interactive; forms sim", () => {
+    expect(getInteractiveGateKind("cookies")).toBeNull();
+    expect(getInteractiveGateKind("segmentacao")).toBeNull();
+    expect(getInteractiveGateKind("tsl")).toBeNull();
+    expect(getInteractiveGateKind("idade")).toBe("age");
+    expect(getInteractiveGateKind("idade_sexo")).toBe("age_sex");
+  });
+
+  it("meta/gates: cookies/segmentação sem form; interactive não é CMP", () => {
+    for (const type of BLACK_TYPES) {
+      const gate = getPresellGateKind(type);
+      const interactive = getInteractiveGateKind(type);
+      if (gate === "cookies" || gate === "segmentation") {
+        expect(interactive).toBeNull();
+      }
+      if (interactive) {
+        expect(interactive).not.toBe("segmentation");
+        expect(interactive).not.toBe("cookies");
+      }
+      if (gate === "cookies") {
+        const doc = buildEditablePageDocument({
+          title: "Campanha",
+          type: "cookies",
+          language: "de",
+          content: {
+            title: "Produkt",
+            ctaText: "Kaufen",
+            affiliateLink: "https://offer.example/buy",
+            productImages: ["https://cdn.example/p.jpg"],
+            generationNiche: "black",
+          },
+        });
+        const cookie = widgetsOf(doc).find((w) => w.type === "cookieBanner");
+        expect(cookie?.content.offerHref || "").toBe("");
+        expect(cookie?.content.followLanguage).toBe(true);
+        expect(cookie?.content.variant).toBe("bar");
+        expect(cookie?.content.policyUrl).toBe("/aviso-cookies");
+        const baked = bakePublicOfferHrefs(
+          doc,
+          "https://app.example/track/r/x?gclid=abc",
+          "https://offer.example/buy",
+          "/aviso-cookies",
+          { unlockCookieOnly: true, cookieRedirectToOffer: true },
+        );
+        expect(widgetsOf(baked).find((w) => w.type === "cookieBanner")?.content.offerHref || "").toBe(
+          "",
+        );
+        expect(widgetsOf(baked).find((w) => w.type === "button")?.content.href).toContain(
+          "/track/r/",
+        );
+      }
+    }
+  });
+});
+
 describe("conformidade estrutural BLACK (todos os tipos)", () => {
   for (const type of BLACK_TYPES) {
     it(`black / ${type}: portal organizado + Ads-safe`, () => {
@@ -294,7 +350,7 @@ describe("conformidade estrutural BLACK (todos os tipos)", () => {
           doc,
           "https://app.example/track/r/x",
           "https://offer.example/buy",
-          "/privacidade",
+          "/aviso-cookies",
           { unlockCookieOnly: true },
         );
         expect(widgetsOf(baked).find((w) => w.type === "cookieBanner")?.content.offerHref || "").toBe("");

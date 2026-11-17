@@ -245,9 +245,9 @@ function legalFooter(brand: string, bg: string) {
 <p style="margin:0 0 10px"><strong style="color:#e5e7eb">Affiliate disclosure:</strong> We may earn a commission if you buy through links on this page.</p>
 <p style="margin:0 0 14px"><strong style="color:#e5e7eb">FDA disclaimer:</strong> These statements have not been evaluated by the Food and Drug Administration. This product is not intended to diagnose, treat, cure, or prevent any disease.</p>
 <p style="margin:0">
-<a href="/privacidade" style="color:#f5d76e;margin:0 8px">Privacy Policy</a> ·
+<a href="#" data-clickora-policy="merchant-privacy" style="color:#f5d76e;margin:0 8px">Privacy Policy</a> ·
 <a href="/termos" style="color:#f5d76e;margin:0 8px">Terms</a> ·
-<a href="/privacidade" style="color:#f5d76e;margin:0 8px">Cookies</a>
+<a href="#" data-clickora-policy="merchant-cookies" style="color:#f5d76e;margin:0 8px">Cookies</a>
 </p>
 </div>`,
           },
@@ -271,11 +271,12 @@ function cookieAndTop(storageKey: string) {
             allowLabel: "Accept",
             declineLabel: "Close",
             policyLabel: "Cookie Policy",
-            policyUrl: "/privacidade",
+            policyUrl: "",
             followLanguage: true,
             accentColor: "#2563eb",
-            variant: "modal",
-            backdrop: true,
+            variant: "bar",
+            backdrop: false,
+            position: "bottom",
             storageKey,
           },
           {},

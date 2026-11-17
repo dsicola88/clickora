@@ -5,6 +5,8 @@ export const OPERATOR_POLICY_PATHS = {
   privacy: "/privacidade",
   terms: "/termos",
   medical: "/aviso-medico",
+  /** Aviso de cookies das páginas de oferta (≠ /privacidade das contas SaaS). */
+  cookies: "/aviso-cookies",
 } as const;
 
 export type PresellFooterPolicyBundle = {
@@ -41,7 +43,7 @@ function isExternalHttpUrl(raw: string): boolean {
 export function defaultOperatorPolicySettings(): Record<string, string> {
   return {
     privacyPolicyUrl: OPERATOR_POLICY_PATHS.privacy,
-    cookiePolicyUrl: OPERATOR_POLICY_PATHS.privacy,
+    cookiePolicyUrl: OPERATOR_POLICY_PATHS.cookies,
     termsUrl: OPERATOR_POLICY_PATHS.terms,
   };
 }
@@ -54,16 +56,31 @@ export function applyImportedPolicyToSettings(
   settings: Record<string, unknown>,
   policies: ImportedPolicyUrls | undefined,
 ): Record<string, unknown> {
+  /** URLs externas do formulário — cookies dedicadas ≠ privacidade do merchant. */
+  const incomingCookie = trimUrl(settings.cookiePolicyUrl);
+  const incomingPrivacy = trimUrl(settings.privacyPolicyUrl);
   const next: Record<string, unknown> = {
     ...settings,
     ...defaultOperatorPolicySettings(),
   };
-  if (!policies) return migrateLegacyOperatorUrls(next);
-
-  if (policies.privacy?.trim()) next.merchantPrivacyUrl = policies.privacy.trim();
-  if (policies.terms?.trim()) next.merchantTermsUrl = policies.terms.trim();
-  if (policies.refund?.trim()) next.merchantRefundUrl = policies.refund.trim();
-  if (policies.shipping?.trim()) next.merchantShippingUrl = policies.shipping.trim();
+  if (policies?.privacy?.trim()) next.merchantPrivacyUrl = policies.privacy.trim();
+  if (policies?.terms?.trim()) next.merchantTermsUrl = policies.terms.trim();
+  if (policies?.refund?.trim()) next.merchantRefundUrl = policies.refund.trim();
+  if (policies?.shipping?.trim()) next.merchantShippingUrl = policies.shipping.trim();
+  if (
+    isExternalHttpUrl(incomingCookie) &&
+    !isClickoraAccountPrivacyUrl(incomingCookie) &&
+    !isClickoraOperatorPolicyUrl(incomingCookie)
+  ) {
+    next.cookiePolicyUrl = incomingCookie;
+  }
+  if (
+    !trimUrl(next.merchantPrivacyUrl) &&
+    isExternalHttpUrl(incomingPrivacy) &&
+    !isClickoraAccountPrivacyUrl(incomingPrivacy)
+  ) {
+    next.merchantPrivacyUrl = incomingPrivacy;
+  }
 
   return migrateLegacyOperatorUrls(next);
 }
@@ -71,19 +88,22 @@ export function applyImportedPolicyToSettings(
 /** Presells antigas guardavam o link do vendedor em privacyPolicyUrl — reclassifica. */
 export function migrateLegacyOperatorUrls(settings: Record<string, unknown>): Record<string, unknown> {
   const next = { ...settings };
-  for (const key of ["privacyPolicyUrl", "cookiePolicyUrl", "termsUrl"] as const) {
-    const raw = trimUrl(next[key]);
-    if (!isExternalHttpUrl(raw)) continue;
-    const merchantKey =
-      key === "termsUrl"
-        ? "merchantTermsUrl"
-        : key === "cookiePolicyUrl"
-          ? "merchantPrivacyUrl"
-          : "merchantPrivacyUrl";
-    if (!trimUrl(next[merchantKey])) next[merchantKey] = raw;
+  const privacyRaw = trimUrl(next.privacyPolicyUrl);
+  if (isExternalHttpUrl(privacyRaw) && !isClickoraAccountPrivacyUrl(privacyRaw)) {
+    if (!trimUrl(next.merchantPrivacyUrl)) next.merchantPrivacyUrl = privacyRaw;
   }
+  const termsRaw = trimUrl(next.termsUrl);
+  if (isExternalHttpUrl(termsRaw)) {
+    if (!trimUrl(next.merchantTermsUrl)) next.merchantTermsUrl = termsRaw;
+  }
+  const cookieRaw = trimUrl(next.cookiePolicyUrl);
+  const keepExternalCookie =
+    isExternalHttpUrl(cookieRaw) &&
+    !isClickoraAccountPrivacyUrl(cookieRaw) &&
+    cookieRaw !== OPERATOR_POLICY_PATHS.cookies;
+
   next.privacyPolicyUrl = OPERATOR_POLICY_PATHS.privacy;
-  next.cookiePolicyUrl = OPERATOR_POLICY_PATHS.privacy;
+  next.cookiePolicyUrl = keepExternalCookie ? cookieRaw : OPERATOR_POLICY_PATHS.cookies;
   if (isExternalHttpUrl(trimUrl(next.termsUrl))) {
     next.termsUrl = OPERATOR_POLICY_PATHS.terms;
   }
@@ -109,7 +129,9 @@ export function resolvePresellFooterPolicies(
     operator: {
       privacy: trimUrl(s.privacyPolicyUrl) || OPERATOR_POLICY_PATHS.privacy,
       terms: trimUrl(s.termsUrl) || OPERATOR_POLICY_PATHS.terms,
-      cookies: trimUrl(s.cookiePolicyUrl) || trimUrl(s.privacyPolicyUrl) || OPERATOR_POLICY_PATHS.privacy,
+      cookies:
+        trimUrl(s.cookiePolicyUrl) ||
+        OPERATOR_POLICY_PATHS.cookies,
       medical: OPERATOR_POLICY_PATHS.medical,
     },
     merchant,
@@ -128,6 +150,82 @@ export function policyUrlsFromPresellContent(content: Record<string, unknown>): 
     ...(pick("shipping") ? { shipping: pick("shipping") } : {}),
   };
   return Object.keys(urls).length ? urls : null;
+}
+
+/** Paths/URLs da Clickora — nunca usar no modal de cookies da oferta. */
+export function isClickoraOperatorPolicyUrl(raw: string): boolean {
+  const t = raw.trim().toLowerCase();
+  if (!t) return false;
+  /** Paths relativos da app (mesma origem da presell publicada). */
+  if (
+    t === OPERATOR_POLICY_PATHS.privacy ||
+    t === OPERATOR_POLICY_PATHS.terms ||
+    t === OPERATOR_POLICY_PATHS.medical ||
+    t === "/privacy" ||
+    t === "/privacy-policy" ||
+    t === "/cookie-policy" ||
+    t === "/cookies"
+  ) {
+    return true;
+  }
+  try {
+    const u = new URL(t);
+    const path = u.pathname.replace(/\/$/, "") || "/";
+    /** Só paths legais PT da plataforma — /privacy genérico do produtor é válido. */
+    return path === "/privacidade" || path === "/termos" || path === "/aviso-medico";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Link «Cookie-Richtlinie» / política de cookies do modal:
+ * 1) URL de cookies dedicada (externa do afiliado/produtor), se válida
+ * 2) `/aviso-cookies` gerado pela plataforma (explica trackers da presell)
+ * Nunca usa automaticamente a privacidade do merchant nem `/privacidade` (contas SaaS).
+ * A política do produtor continua no rodapé (merchantPrivacy).
+ */
+export function resolveVisitorCookiePolicyUrl(
+  settings?: Record<string, unknown>,
+  contentPolicyUrls?: ImportedPolicyUrls | null,
+  language?: string,
+): string {
+  void contentPolicyUrls; // merchant privacy ≠ cookie notice
+  const rawCookie = trimUrl(settings?.cookiePolicyUrl);
+  if (rawCookie) {
+    if (rawCookie === OPERATOR_POLICY_PATHS.cookies || rawCookie.startsWith(`${OPERATOR_POLICY_PATHS.cookies}?`)) {
+      return withCookieLang(rawCookie, language);
+    }
+    if (isExternalHttpUrl(rawCookie) && !isClickoraAccountPrivacyUrl(rawCookie)) {
+      return rawCookie;
+    }
+    if (rawCookie === OPERATOR_POLICY_PATHS.privacy || isClickoraAccountPrivacyUrl(rawCookie)) {
+      return withCookieLang(OPERATOR_POLICY_PATHS.cookies, language);
+    }
+  }
+  return withCookieLang(OPERATOR_POLICY_PATHS.cookies, language);
+}
+
+function withCookieLang(pathOrUrl: string, language?: string): string {
+  if (!language || !pathOrUrl.startsWith("/aviso-cookies")) return pathOrUrl;
+  const loc = language.trim();
+  if (!loc) return pathOrUrl;
+  const sep = pathOrUrl.includes("?") ? "&" : "?";
+  if (/[?&]lang=/.test(pathOrUrl)) return pathOrUrl;
+  return `${pathOrUrl}${sep}lang=${encodeURIComponent(loc)}`;
+}
+
+/** /privacidade e equivalentes de conta — não servem como Cookie-Richtlinie da oferta. */
+function isClickoraAccountPrivacyUrl(raw: string): boolean {
+  const t = raw.trim().toLowerCase();
+  if (t === OPERATOR_POLICY_PATHS.privacy || t === "/privacy" || t === "/privacy-policy") return true;
+  try {
+    const u = new URL(t);
+    const path = u.pathname.replace(/\/$/, "") || "/";
+    return path === "/privacidade";
+  } catch {
+    return false;
+  }
 }
 
 export function merchantPolicyLinks(bundle: PresellFooterPolicyBundle): { id: string; href: string }[] {

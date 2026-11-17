@@ -51,7 +51,7 @@ describe("presell-dtc-vision template (Visivra ponta a ponta)", () => {
     const cookie = sections
       .flatMap((s) => s.columns.flatMap((c) => flattenWidgets(c.widgets)))
       .find((w) => w.type === "cookieBanner");
-    expect(cookie?.content.variant).toBe("modal");
+    expect(cookie?.content.variant).toBe("bar");
     expect(String(cookie?.content.allowLabel)).toMatch(/^Accept$/i);
     expect(cookie?.content.followLanguage).toBe(true);
     expect(String(cookie?.content.declineLabel)).toMatch(/^Close$/i);
@@ -81,7 +81,7 @@ describe("presell-dtc-vision template (Visivra ponta a ponta)", () => {
 
   it("cookieBanner modal e botão com ícone têm defaults editáveis", () => {
     const cookie = createWidget("cookieBanner");
-    expect(cookie.content.variant).toBe("modal");
+    expect(cookie.content.variant).toBe("bar");
     expect(String(cookie.content.declineLabel)).toMatch(/Close/i);
     expect(cookie.content.followLanguage).toBe(true);
 

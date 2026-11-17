@@ -27,7 +27,6 @@ import { buildPresellOptionalSettingsMarketing } from "@/lib/presellOptionalSett
 import { exportPageToHtml } from "@/page-builder/export-html";
 import { bakePublicOfferHrefs, resolvePresellPageDocument } from "@/lib/presellVisualEdit";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
-import { isCookieRedirectToOfferEnabled } from "@/components/presell/PresellTypeControls";
 import {
   resolveSegmentationCopy,
   resolveSegmentationDestination,
@@ -41,7 +40,11 @@ import {
 import { presellImageDisplayCandidates } from "@/lib/presellImageDisplay";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
 import { stripStockSocialClaim } from "@/lib/presellSocialClaim";
-import { policyUrlsFromPresellContent, resolvePresellFooterPolicies } from "@/lib/presellFooterPolicies";
+import {
+  policyUrlsFromPresellContent,
+  resolvePresellFooterPolicies,
+  resolveVisitorCookiePolicyUrl,
+} from "@/lib/presellFooterPolicies";
 import { isAffiliateTrustFooterEnabled } from "@/lib/presellAffiliateTrustFooter";
 import {
   buildTrustFooterExportHtml,
@@ -316,22 +319,17 @@ function buildInteractiveGateHtml(
 function buildCookieModalHtml(
   language: string,
   policyUrl: string,
-  /** Quando definido (hoplink rastreado), Aceitar/Fechar vão para a oferta. */
-  offerHref?: string,
+  /** @deprecated Ignorado — compra é pelos CTAs; Aceitar/Fechar só dismiss. */
+  _offerHref?: string,
 ): string {
+  void _offerHref;
   const L = cookieTexts(language);
   const policyHref = policyUrl.trim();
   const policyLink = policyHref
     ? `<a href="${escapeAttr(policyHref)}" target="_blank" rel="noopener noreferrer" id="pe-cookie-policy" style="display:inline-block;margin-top:.5rem;font-size:.875rem;font-weight:600;color:#0d9488;text-decoration:underline;">${escapeHtml(L.policy)}</a>`
     : "";
-  const dest = (offerHref || "").trim();
-  const goOffer = Boolean(dest && dest !== "#");
-  const closeCtl = goOffer
-    ? `<a class="pe-cookie-close" id="pe-cookie-close" href="${escapeAttr(dest)}">${escapeHtml(L.close)}</a>`
-    : `<button type="button" class="pe-cookie-close" id="pe-cookie-close">${escapeHtml(L.close)}</button>`;
-  const allowCtl = goOffer
-    ? `<a class="pe-cookie-allow" id="pe-cookie-allow" href="${escapeAttr(dest)}">${escapeHtml(L.allow)}</a>`
-    : `<button type="button" class="pe-cookie-allow" id="pe-cookie-allow">${escapeHtml(L.allow)}</button>`;
+  const closeCtl = `<button type="button" class="pe-cookie-close" id="pe-cookie-close">${escapeHtml(L.close)}</button>`;
+  const allowCtl = `<button type="button" class="pe-cookie-allow" id="pe-cookie-allow">${escapeHtml(L.allow)}</button>`;
   return `<div class="pe-cookie-overlay" id="pe-cookie-overlay" style="z-index:2147483646;">
 <div class="pe-cookie-backdrop" id="pe-cookie-backdrop" aria-hidden="true"></div>
 <div class="pe-cookie-card" id="pe-cookie-card" role="dialog" aria-modal="true">
@@ -581,23 +579,19 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
       (typeof builderContent.affiliate_link === "string" && builderContent.affiliate_link) ||
       "";
     const trackHref = buildPresellTrackClickUrl(opts.apiBase, page.id, affiliateLink || "#");
-    const footerPolicies = resolvePresellFooterPolicies(
+    const contentPolicyUrls = policyUrlsFromPresellContent(builderContent);
+    const cookiePolicyUrl = resolveVisitorCookiePolicyUrl(
       builderSettings,
-      policyUrlsFromPresellContent(builderContent),
+      contentPolicyUrls,
+      page.language,
     );
-    const cookiePolicyUrl = footerPolicies.operator.cookies;
-    const hasCookieBanner = doc.sections.some((section) =>
-      section.columns.some((column) => column.widgets.some((widget) => widget.type === "cookieBanner")),
-    );
-    const cookieRedirect = hasCookieBanner && isCookieRedirectToOfferEnabled(builderSettings);
     const bakedDoc = bakePublicOfferHrefs(
       doc,
       trackHref,
       affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : "",
       cookiePolicyUrl,
       {
-        unlockCookieOnly: hasCookieBanner && !cookieRedirect,
-        cookieRedirectToOffer: cookieRedirect,
+        unlockCookieOnly: true,
       },
     );
     const merged = injectPresellSettingsIntoFullHtml(
@@ -623,8 +617,9 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
       : [],
   );
 
-  const footerPolicies = resolvePresellFooterPolicies(settings, policyUrlsFromPresellContent(content));
-  const cookiePolicyUrl = footerPolicies.operator.cookies;
+  const contentPolicyUrls = policyUrlsFromPresellContent(content);
+  const footerPolicies = resolvePresellFooterPolicies(settings, contentPolicyUrls);
+  const cookiePolicyUrl = resolveVisitorCookiePolicyUrl(settings, contentPolicyUrls, page.language);
   const hasMirrorExport =
     (typeof content.importMirrorSrcDoc === "string" && content.importMirrorSrcDoc.length > 800) ||
     (typeof content.import_mirror_src_doc === "string" && content.import_mirror_src_doc.length > 800);
@@ -804,12 +799,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   let core = "";
   if (gateKind === "cookies") {
-    const cookieRedirect = Boolean(settings.cookieRedirectToOffer);
-    core += buildCookieModalHtml(
-      page.language,
-      cookiePolicyUrl,
-      cookieRedirect ? href : undefined,
-    );
+    core += buildCookieModalHtml(page.language, cookiePolicyUrl);
   }
 
   if (gateKind === "segmentation") {

@@ -36,10 +36,11 @@ describe("buildEditablePageDocument", () => {
     const cookie = doc.sections[2].columns[0].widgets[0];
     expect(cookie.type).toBe("cookieBanner");
     expect(cookie.content.offerHref || "").toBe("");
-    expect(cookie.content.policyUrl).toBe("/privacidade");
-    expect(cookie.content.followLanguage).toBe(false);
+    expect(cookie.content.policyUrl).toBe("/aviso-cookies");
+    expect(cookie.content.followLanguage).toBe(true);
     expect(cookie.content.allowLabel).toBeTruthy();
-    expect(cookie.content.overlayOpacity).toBe(12);
+    expect(cookie.content.variant).toBe("bar");
+    expect(cookie.content.overlayOpacity).toBe(8);
     expect(doc.seo?.favicon).toBe("https://cdn.example/pack.jpg");
     expect(doc.seo?.ogImage).toBe("https://cdn.example/pack.jpg");
   });
@@ -167,7 +168,13 @@ describe("buildEditablePageDocument", () => {
     const redirectCookie = redirectBaked.sections
       .flatMap((s) => s.columns.flatMap((c) => c.widgets))
       .find((w) => w.type === "cookieBanner");
-    expect(redirectCookie?.content.offerHref).toBe("https://app.example/track/r/x");
+    // Aceitar já não leva à oferta — CTAs da página sim.
+    expect(redirectCookie?.content.offerHref || "").toBe("");
+    expect(
+      redirectBaked.sections
+        .flatMap((s) => s.columns.flatMap((c) => c.widgets))
+        .find((w) => w.type === "button")?.content.href,
+    ).toBe("https://app.example/track/r/x");
   });
 
   it("ignora ícones e fotos repetidas e deixa a primeira imagem como capa", () => {
@@ -215,7 +222,7 @@ describe("buildEditablePageDocument", () => {
       doc,
       "https://app.example/track/r/x",
       "https://buygoods.com/secure/checkout?item=1",
-      "/privacidade",
+      "/aviso-cookies",
     );
     const widgets = baked.sections.flatMap((s) => s.columns.flatMap((c) => c.widgets));
     const html = String(widgets.find((w) => w.type === "html")?.content.code || "");

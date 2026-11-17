@@ -52,7 +52,7 @@ describe("PresellProductHero", () => {
 });
 
 describe("CookieConsentModal", () => {
-  it("centra o cartão e bloqueia a página; só os botões aceitam", () => {
+  it("mostra barra inferior compacta com Aceitar e Fechar", () => {
     render(
       <CookieConsentModal
         language="en"
@@ -63,33 +63,67 @@ describe("CookieConsentModal", () => {
       />,
     );
     const sheet = screen.getByTestId("presell-cookie-sheet");
-    expect(sheet.className).toContain("items-center");
+    expect(sheet.className).toContain("bottom-0");
     expect(screen.getByTestId("presell-cookie-card")).toBeTruthy();
-    expect(screen.getByTestId("presell-cookie-backdrop").tagName).toBe("DIV");
     expect(screen.getByRole("heading", { name: /privacy matters/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Accept" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
+    expect(screen.getByTestId("presell-cookie-policy-open")).toBeTruthy();
   });
 
-  it("com navigateOnAccept só Aceitar vai à oferta; Fechar desbloqueia", () => {
+  it("Aceitar e Fechar só registam consentimento — nenhum redireciona à oferta", () => {
     const onAccept = vi.fn();
+    const onDismiss = vi.fn();
     render(
       <CookieConsentModal
         language="en"
-        policyUrl=""
+        policyUrl="/aviso-cookies"
         redirectHref="/track/r/abc?to=https%3A%2F%2Foffer.example"
         accepted={false}
         navigateOnAccept
         onAccept={onAccept}
+        onDismiss={onDismiss}
       />,
     );
-    const allow = screen.getByTestId("presell-cookie-allow-offer");
-    expect(allow.getAttribute("href")).toBe("/track/r/abc?to=https%3A%2F%2Foffer.example");
-    const close = screen.getByTestId("presell-cookie-close");
-    expect(close.tagName).toBe("BUTTON");
-    expect(close.getAttribute("href")).toBeNull();
-    close.click();
+    expect(screen.queryByTestId("presell-cookie-allow-offer")).toBeNull();
+    const allow = screen.getByTestId("presell-cookie-allow");
+    expect(allow.tagName).toBe("BUTTON");
+    fireEvent.click(allow);
     expect(onAccept).toHaveBeenCalled();
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it("Fechar desbloqueia sem ir à oferta", () => {
+    const onAccept = vi.fn();
+    const onDismiss = vi.fn();
+    render(
+      <CookieConsentModal
+        language="en"
+        policyUrl="/aviso-cookies"
+        redirectHref="/track/r/abc?to=https%3A%2F%2Foffer.example"
+        accepted={false}
+        onAccept={onAccept}
+        onDismiss={onDismiss}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("presell-cookie-close"));
+    expect(onDismiss).toHaveBeenCalled();
+    expect(onAccept).not.toHaveBeenCalled();
+  });
+
+  it("política abre in-page sem sair da presell", () => {
+    render(
+      <CookieConsentModal
+        language="de"
+        policyUrl="/aviso-cookies?lang=de"
+        accepted={false}
+        onAccept={() => {}}
+        onDismiss={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("presell-cookie-policy-open"));
+    expect(screen.getByTestId("cookie-policy-inline-sheet")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Cookie-Hinweis/i })).toBeTruthy();
   });
 });
 
@@ -113,5 +147,7 @@ describe("DiscountPresellOverlay", () => {
     const sheet = screen.getByTestId("presell-discount-sheet");
     expect(sheet.className).toContain("items-end");
     expect(sheet.className).not.toContain("backdrop-blur");
+    expect(screen.getByTestId("presell-discount-backdrop").getAttribute("aria-label")).toMatch(/offer/i);
+    expect(screen.queryByLabelText("Continuar para a oferta")).toBeNull();
   });
 });

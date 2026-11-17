@@ -10,6 +10,7 @@ import {
 import {
   merchantPolicyLinks,
   resolvePresellFooterPolicies,
+  resolveVisitorCookiePolicyUrl,
   type PresellFooterPolicyBundle,
 } from "@/lib/presellFooterPolicies";
 
@@ -110,6 +111,14 @@ export function PresellTrustFooter({
   });
   const { operator } = bundle;
   const medicalHref = operator.medical;
+  const visitorCookiePolicy = resolveVisitorCookiePolicyUrl(
+    settings ?? {
+      ...(privacyPolicyUrl ? { privacyPolicyUrl } : {}),
+      ...(cookiePolicyUrl ? { cookiePolicyUrl } : {}),
+      ...(termsUrl ? { termsUrl } : {}),
+    },
+    contentPolicyUrls,
+  );
   const email = (supportEmail || "").trim();
   const contactEmail = email;
   const mail = contactEmail ? `mailto:${contactEmail}` : "";
@@ -167,9 +176,16 @@ export function PresellTrustFooter({
             <a href={medicalHref} target="_blank" rel="noopener noreferrer" className="hover:text-white underline-offset-2 hover:underline">
               {portal.medical}
             </a>
-            <a href={operator.cookies} target="_blank" rel="noopener noreferrer" className="hover:text-white underline-offset-2 hover:underline">
-              {s.cookiePolicy}
-            </a>
+            {visitorCookiePolicy ? (
+              <a
+                href={visitorCookiePolicy}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white underline-offset-2 hover:underline"
+              >
+                {s.cookiePolicy}
+              </a>
+            ) : null}
           </nav>
           <MerchantPolicyNav
             bundle={bundle}
@@ -225,9 +241,11 @@ export function PresellTrustFooter({
           <a href={operator.terms} target="_blank" rel="noopener noreferrer" className={link}>
             {copy.operatorTerms}
           </a>
-          <a href={operator.cookies} target="_blank" rel="noopener noreferrer" className={link}>
-            {s.cookiePolicy}
-          </a>
+          {visitorCookiePolicy ? (
+            <a href={visitorCookiePolicy} target="_blank" rel="noopener noreferrer" className={link}>
+              {s.cookiePolicy}
+            </a>
+          ) : null}
           <a href={medicalHref} target="_blank" rel="noopener noreferrer" className={link}>
             {portal.medical}
           </a>

@@ -92,6 +92,7 @@ describe("cookie banner language", () => {
       expect(ui.cookieBody.includes(ui.cookiePolicy), `${loc} policy not in body`).toBe(false);
       expect(ui.cookieClose, loc).not.toMatch(fakeSecondary);
       expect(ui.cookieFooter.trim(), loc).not.toBe(ui.cookieTitle.trim());
+      expect(ui.cookieFooter.toLowerCase(), loc).not.toMatch(/einstellungen verwalten|manage preferences/);
       expect(ui.cookieAccept, loc).toBe(ui.cookieAllow);
       const copy = resolveCookieBannerCopy({ followLanguage: true }, loc);
       expect(copy.allowLabel, loc).toBe(ui.cookieAllow);
