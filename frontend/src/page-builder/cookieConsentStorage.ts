@@ -4,12 +4,21 @@ export type StoredCookieConsent = "all" | "essential";
 
 const CHOICE_SUFFIX = ":choice";
 export const COOKIE_CONSENT_EVENT = "clickora-cookie-consent";
+export const DEFAULT_COOKIE_CONSENT_STORAGE_KEY = "clickora-cookie-banner";
+
+export type CookieConsentEventDetail = {
+  storageKey: string;
+  /** null = escolha retirada (reabrir banner). */
+  choice: StoredCookieConsent | null;
+};
 
 export function cookieConsentChoiceKey(storageKey: string): string {
-  return `${storageKey.trim() || "clickora-cookie-banner"}${CHOICE_SUFFIX}`;
+  return `${storageKey.trim() || DEFAULT_COOKIE_CONSENT_STORAGE_KEY}${CHOICE_SUFFIX}`;
 }
 
-export function readCookieConsentChoice(storageKey = "clickora-cookie-banner"): StoredCookieConsent | null {
+export function readCookieConsentChoice(
+  storageKey = DEFAULT_COOKIE_CONSENT_STORAGE_KEY,
+): StoredCookieConsent | null {
   if (typeof window === "undefined") return null;
   try {
     const v = window.localStorage.getItem(cookieConsentChoiceKey(storageKey));
@@ -27,14 +36,41 @@ export function writeCookieConsentChoice(
   choice: StoredCookieConsent,
 ): void {
   if (typeof window === "undefined") return;
-  const key = storageKey.trim() || "clickora-cookie-banner";
+  const key = storageKey.trim() || DEFAULT_COOKIE_CONSENT_STORAGE_KEY;
   try {
     window.localStorage.setItem(key, "1");
     window.localStorage.setItem(cookieConsentChoiceKey(key), choice);
     window.dispatchEvent(
-      new CustomEvent(COOKIE_CONSENT_EVENT, { detail: { storageKey: key, choice } }),
+      new CustomEvent<CookieConsentEventDetail>(COOKIE_CONSENT_EVENT, {
+        detail: { storageKey: key, choice },
+      }),
     );
   } catch {
     /* ignore */
   }
+}
+
+/** Retira a escolha — o banner pode voltar; marketing deve desligar até nova decisão. */
+export function clearCookieConsentChoice(
+  storageKey = DEFAULT_COOKIE_CONSENT_STORAGE_KEY,
+): void {
+  if (typeof window === "undefined") return;
+  const key = storageKey.trim() || DEFAULT_COOKIE_CONSENT_STORAGE_KEY;
+  try {
+    window.localStorage.removeItem(key);
+    window.localStorage.removeItem(cookieConsentChoiceKey(key));
+    window.dispatchEvent(
+      new CustomEvent<CookieConsentEventDetail>(COOKIE_CONSENT_EVENT, {
+        detail: { storageKey: key, choice: null },
+      }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isMarketingConsentGranted(
+  choice: StoredCookieConsent | null | undefined,
+): boolean {
+  return choice === "all";
 }

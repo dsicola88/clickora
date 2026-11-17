@@ -25,6 +25,7 @@ import type { ResponsiveValue } from "../types";
 import type { CookieButtonLayout } from "../cookieBannerStyle";
 import { CookiePolicyInlineSheet } from "@/components/presell/CookiePolicyInlineSheet";
 import {
+  COOKIE_CONSENT_EVENT,
   readCookieConsentChoice,
   writeCookieConsentChoice,
 } from "../cookieConsentStorage";
@@ -149,8 +150,15 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const [delayReady, setDelayReady] = useState(() => !c.delayMs || c.delayMs <= 0 || inBuilder);
 
   useEffect(() => {
-    /** Após qualquer escolha o banner some e fica gravado — sem reaparecer a cada refresh. */
-    setDismissed(readDismissed(storageKey));
+    /** Após qualquer escolha o banner some; clearCookieConsentChoice volta a mostrá-lo. */
+    const sync = () => setDismissed(readDismissed(storageKey));
+    sync();
+    window.addEventListener(COOKIE_CONSENT_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(COOKIE_CONSENT_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
   }, [storageKey]);
 
   useEffect(() => {

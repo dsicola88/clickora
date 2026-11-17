@@ -9,7 +9,10 @@ import type { InteractivePresellGateKind } from "@/lib/presellTypeMeta";
 import { getPresellUiStrings } from "@/lib/presellUiStrings";
 import { stripTrailingCookiePolicyLabel } from "@/page-builder/cookieBannerCopy";
 import { CookiePolicyInlineSheet } from "@/components/presell/CookiePolicyInlineSheet";
-import { writeCookieConsentChoice } from "@/page-builder/cookieConsentStorage";
+import {
+  readCookieConsentChoice,
+  writeCookieConsentChoice,
+} from "@/page-builder/cookieConsentStorage";
 
 export type GatePayload = {
   params: Record<string, string>;
@@ -416,7 +419,9 @@ export function PresellGateFields({
 export type CookieConsentChoice = null | "all" | "essential";
 
 export function useCookieAcceptedState() {
-  const [cookieConsent, setCookieConsent] = useState<CookieConsentChoice>(null);
+  const [cookieConsent, setCookieConsent] = useState<CookieConsentChoice>(() =>
+    typeof window !== "undefined" ? readCookieConsentChoice() : null,
+  );
   const cookieAccepted = cookieConsent !== null;
   const setCookieAccepted = (v: boolean) => setCookieConsent(v ? "all" : null);
   return {

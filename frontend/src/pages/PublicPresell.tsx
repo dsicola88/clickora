@@ -16,6 +16,7 @@ import { presellService } from "@/services/presellService";
 import { ErrorState } from "@/components/ErrorState";
 import {
   CookieConsentModal,
+  CookieSettingsChip,
   mergeParamsIntoAffiliateUrl,
   PresellGateFields,
   useCookieAcceptedState,
@@ -38,9 +39,17 @@ import {
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { bakePublicOfferHrefs, resolvePresellPageDocument } from "@/lib/presellVisualEdit";
 import {
+  clearCookieConsentChoice,
   COOKIE_CONSENT_EVENT,
+  DEFAULT_COOKIE_CONSENT_STORAGE_KEY,
+  isMarketingConsentGranted,
   readCookieConsentChoice,
 } from "@/page-builder/cookieConsentStorage";
+import {
+  ensureGoogleConsentModeDefaults,
+  resetGoogleConsentModeForTests,
+  updateGoogleConsentMode,
+} from "@/lib/googleConsentMode";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
 import {
   policyUrlsFromPresellContent,
@@ -736,7 +745,11 @@ export default function PublicPresell() {
   );
 
   useEffect(() => {
-    const sync = () => setBannerConsent(readCookieConsentChoice());
+    const sync = () => {
+      const choice = readCookieConsentChoice();
+      setBannerConsent(choice);
+      setCookieConsent(choice);
+    };
     sync();
     window.addEventListener(COOKIE_CONSENT_EVENT, sync);
     window.addEventListener("storage", sync);
@@ -744,10 +757,11 @@ export default function PublicPresell() {
       window.removeEventListener(COOKIE_CONSENT_EVENT, sync);
       window.removeEventListener("storage", sync);
     };
-  }, [page?.id]);
+  }, [page?.id, setCookieConsent]);
 
   /** Ads não essenciais só após Aceitar (modal React ou widget). */
-  const marketingAllowed = cookieConsent === "all" || bannerConsent === "all";
+  const marketingAllowed =
+    isMarketingConsentGranted(cookieConsent) || isMarketingConsentGranted(bannerConsent);
   const [segmentationDismissed, setSegmentationDismissed] = useState(false);
   const [fieldGate, setFieldGate] = useState<GatePayload>({ params: {}, ctaEnabled: false });
 
@@ -759,11 +773,22 @@ export default function PublicPresell() {
   }, [uiLang]);
 
   useEffect(() => {
-    setCookieConsent(null);
+    const stored = readCookieConsentChoice();
+    setCookieConsent(stored);
+    setBannerConsent(stored);
     setSegmentationDismissed(false);
     // Gates interativos começam bloqueados até PresellGateFields reportar válido.
     setFieldGate({ params: {}, ctaEnabled: !getInteractiveGateKind(page?.type || "") });
+    // Nova presell: defaults GCM podem reaplicar-se.
+    resetGoogleConsentModeForTests();
   }, [page?.id, page?.type, setCookieConsent]);
+
+  const reopenCookieSettings = useCallback(() => {
+    clearCookieConsentChoice(DEFAULT_COOKIE_CONSENT_STORAGE_KEY);
+    setCookieConsent(null);
+    setBannerConsent(null);
+    updateGoogleConsentMode(false);
+  }, [setCookieConsent]);
 
   const [storefrontMainIdx, setStorefrontMainIdx] = useState(0);
   useEffect(() => {
@@ -836,6 +861,11 @@ export default function PublicPresell() {
      */
     const cookieGate = getPresellGateKind(page.type || "") === "cookies";
     const allowAds = !cookieGate || marketingAllowed;
+    if (cookieGate) {
+      // Consent Mode v2: defaults denied antes de qualquer tag Google do operador.
+      ensureGoogleConsentModeDefaults({ defaultDenied: true });
+      updateGoogleConsentMode(allowAds);
+    }
     if (allowAds) {
       if (conversionTrackingScript)
         cleanups.push(injectWithCleanup(conversionTrackingScript, document.head));
@@ -1374,6 +1404,9 @@ export default function PublicPresell() {
             language={uiLang}
             suppressWhileCookieGate={gateKind === "cookies" || gateKind === "segmentation"}
           />
+          {gateKind === "cookies" && cookieAccepted ? (
+            <CookieSettingsChip language={complianceLang} onClick={reopenCookieSettings} />
+          ) : null}
           {showSegmentationModal ? (
             <SegmentationChoiceModal
               copy={segmentationCopy}
@@ -2120,6 +2153,9 @@ export default function PublicPresell() {
         language={uiLang}
         suppressWhileCookieGate={showCookieModal}
       />
+      {gateKind === "cookies" && cookieAccepted ? (
+        <CookieSettingsChip language={complianceLang} onClick={reopenCookieSettings} />
+      ) : null}
       {!useHealthArticleBody ? (
         <PresellLanguageSelector override={override} onModeChange={setMode} />
       ) : null}

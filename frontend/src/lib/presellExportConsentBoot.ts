@@ -1,0 +1,98 @@
+/**
+ * Boot de consentimento para HTML exportado (fora da SPA).
+ * Gate cookies: marketing só após Aceitar; GCM v2 default denied.
+ * Sem gate: marketing imediato (comportamento histórico).
+ */
+
+import { DEFAULT_COOKIE_CONSENT_STORAGE_KEY } from "@/page-builder/cookieConsentStorage";
+
+export type ExportMarketingBundle = {
+  headHtml: string;
+  bodyHtml: string;
+  footerHtml: string;
+};
+
+function joinHtml(parts: string[]): string {
+  return parts.map((p) => p.trim()).filter(Boolean).join("\n");
+}
+
+/** Stub GCM + default denied (idempotente no browser). */
+export function buildGoogleConsentModeDefaultScript(): string {
+  return `<script>(function(){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}window.gtag=window.gtag||gtag;if(!window.__clickoraGcmDefaultsApplied){gtag("consent","default",{ad_storage:"denied",ad_user_data:"denied",ad_personalization:"denied",analytics_storage:"denied",wait_for_update:500});window.__clickoraGcmDefaultsApplied=1;}})();</script>`;
+}
+
+/**
+ * Head precoce + cauda de body para export.
+ * Com cookieGate, marketing vai no boot JS (não no head estático).
+ */
+export function buildExportConsentAwareSnippets(opts: {
+  cookieGate: boolean;
+  clickoraHead: string;
+  marketing: ExportMarketingBundle;
+}): { earlyHead: string; bodyStart: string; bodyEnd: string; cookieBootInline: boolean } {
+  const clickora = opts.clickoraHead.trim();
+  const headM = opts.marketing.headHtml.trim();
+  const bodyM = opts.marketing.bodyHtml.trim();
+  const footM = opts.marketing.footerHtml.trim();
+
+  if (!opts.cookieGate) {
+    return {
+      earlyHead: joinHtml([clickora, headM]),
+      bodyStart: bodyM,
+      bodyEnd: footM,
+      cookieBootInline: false,
+    };
+  }
+
+  const payload = JSON.stringify({
+    head: headM,
+    body: bodyM,
+    footer: footM,
+  });
+  const key = DEFAULT_COOKIE_CONSENT_STORAGE_KEY;
+  const boot = `<script>(function(){
+var KEY=${JSON.stringify(key)};
+var CHOICE=KEY+":choice";
+var PAYLOAD=${payload};
+function gtag(){window.dataLayer=window.dataLayer||[];window.dataLayer.push(arguments);}
+window.gtag=window.gtag||gtag;
+function update(allowed){gtag("consent","update",{ad_storage:allowed?"granted":"denied",ad_user_data:allowed?"granted":"denied",ad_personalization:allowed?"granted":"denied",analytics_storage:allowed?"granted":"denied"});}
+function injectHtml(html,parent){if(!html||!parent)return;var d=document.createElement("div");d.innerHTML=html;var nodes=[].slice.call(d.childNodes);for(var i=0;i<nodes.length;i++){var n=nodes[i];if(n.nodeName==="SCRIPT"){var s=document.createElement("script");for(var a=0;a<n.attributes.length;a++){var at=n.attributes[a];s.setAttribute(at.name,at.value);}if(n.src)s.src=n.src;else s.text=n.textContent||"";parent.appendChild(s);}else parent.appendChild(n);}}
+function unlockMarketing(){if(window.__clickoraMarketingInjected)return;window.__clickoraMarketingInjected=1;update(true);injectHtml(PAYLOAD.head,document.head);var mount=document.querySelector('[data-presell-inject="body-start"]')||document.body;injectHtml(PAYLOAD.body,mount);injectHtml(PAYLOAD.footer,document.body);}
+function setChoice(c){try{localStorage.setItem(KEY,"1");localStorage.setItem(CHOICE,c);}catch(e){}}
+function readChoice(){try{var v=localStorage.getItem(CHOICE);if(v==="all"||v==="essential")return v;if(localStorage.getItem(KEY)==="1")return"essential";}catch(e){}return null;}
+function hideOverlay(){var o=document.getElementById("pe-cookie-overlay");if(o)o.style.display="none";}
+function showOverlay(){var o=document.getElementById("pe-cookie-overlay");if(o)o.style.display="";}
+window.__clickoraCookieConsent={
+  accept:function(){setChoice("all");unlockMarketing();hideOverlay();},
+  essential:function(){setChoice("essential");update(false);hideOverlay();},
+  reopen:function(){try{localStorage.removeItem(KEY);localStorage.removeItem(CHOICE);}catch(e){}window.__clickoraMarketingInjected=0;update(false);showOverlay();}
+};
+var existing=readChoice();
+if(existing==="all"){unlockMarketing();hideOverlay();}
+else if(existing==="essential"){update(false);hideOverlay();}
+else{update(false);}
+})();</script>`;
+
+  return {
+    earlyHead: joinHtml([buildGoogleConsentModeDefaultScript(), clickora, boot]),
+    bodyStart: "",
+    bodyEnd: "",
+    cookieBootInline: true,
+  };
+}
+
+/** Liga botões do modal export ao boot de consentimento. */
+export function buildExportCookieModalBindingsScript(): string {
+  return `<script>(function(){
+function bind(){var api=window.__clickoraCookieConsent;if(!api)return;
+var c=document.getElementById("pe-cookie-close");
+var a=document.getElementById("pe-cookie-allow");
+var r=document.getElementById("pe-cookie-reopen");
+if(c)c.addEventListener("click",function(){api.essential();});
+if(a)a.addEventListener("click",function(){api.accept();});
+if(r)r.addEventListener("click",function(){api.reopen();});
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bind);else bind();
+})();</script>`;
+}

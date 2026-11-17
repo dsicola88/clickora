@@ -24,6 +24,10 @@ import {
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { coerceTrackingSnippetToHtml } from "@/lib/injectPresellCustomCode";
 import { buildPresellOptionalSettingsMarketing } from "@/lib/presellOptionalSettingsMarketing";
+import {
+  buildExportConsentAwareSnippets,
+  buildExportCookieModalBindingsScript,
+} from "@/lib/presellExportConsentBoot";
 import { exportPageToHtml } from "@/page-builder/export-html";
 import { bakePublicOfferHrefs, resolvePresellPageDocument } from "@/lib/presellVisualEdit";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
@@ -324,12 +328,14 @@ function buildCookieModalHtml(
 ): string {
   void _offerHref;
   const L = cookieTexts(language);
+  const ui = getPresellUiStrings(language);
   const policyHref = policyUrl.trim();
   const policyLink = policyHref
     ? `<a href="${escapeAttr(policyHref)}" target="_blank" rel="noopener noreferrer" id="pe-cookie-policy" style="display:inline-block;margin-top:.5rem;font-size:.875rem;font-weight:600;color:#0d9488;text-decoration:underline;">${escapeHtml(L.policy)}</a>`
     : "";
   const closeCtl = `<button type="button" class="pe-cookie-close" id="pe-cookie-close">${escapeHtml(L.close)}</button>`;
   const allowCtl = `<button type="button" class="pe-cookie-allow" id="pe-cookie-allow">${escapeHtml(L.allow)}</button>`;
+  const reopenCtl = `<button type="button" id="pe-cookie-reopen" style="position:fixed;bottom:1.25rem;right:1.25rem;z-index:2147483645;border-radius:999px;border:1px solid #e2e8f0;background:#fff;padding:.5rem 1rem;font-size:.875rem;font-weight:500;box-shadow:0 10px 24px rgba(15,23,42,.12);cursor:pointer;">${escapeHtml(ui.cookieReopen)}</button>`;
   return `<div class="pe-cookie-overlay" id="pe-cookie-overlay" style="z-index:2147483646;">
 <div class="pe-cookie-backdrop" id="pe-cookie-backdrop" aria-hidden="true"></div>
 <div class="pe-cookie-card" id="pe-cookie-card" role="dialog" aria-modal="true">
@@ -343,15 +349,8 @@ ${allowCtl}
 <p style="text-align:center;font-size:.75rem;color:#64748b;margin-top:1rem;">${escapeHtml(L.footer)}</p>
 </div>
 </div>
-<script>
-(function(){
-function dismiss(){var o=document.getElementById("pe-cookie-overlay");if(o)o.style.display="none";}
-var c=document.getElementById("pe-cookie-close");
-var a=document.getElementById("pe-cookie-allow");
-if(c)c.addEventListener("click",dismiss);
-if(a)a.addEventListener("click",dismiss);
-})();
-</script>`;
+${reopenCtl}
+${buildExportCookieModalBindingsScript()}`;
 }
 
 function buildVslFallbackHtml(
@@ -518,21 +517,37 @@ function injectPresellSettingsIntoFullHtml(
     apiBase: trackBase,
     presellId: page.id,
   });
-  const headScripts = [clickoraHead, conversionTrackingScript, optionalMarketing.headHtml, headerCode]
-    .filter(Boolean)
-    .join("\n");
-  if (headScripts) {
-    out = out.replace("</head>", `${headScripts}\n</head>`);
-  }
   const bodyCode = coerceTrackingSnippetToHtml(String(settings.bodyCode ?? ""));
-  const bodyOptional = optionalMarketing.bodyHtml.trim();
-  const bodyMerged = [bodyOptional, bodyCode].filter(Boolean).join("");
-  if (bodyMerged) {
-    out = out.replace(/<body([^>]*)>/i, `<body$1><div data-presell-inject="body-start">${bodyMerged}</div>`);
-  }
   const footerCode = coerceTrackingSnippetToHtml(String(settings.footerCode ?? ""));
-  if (footerCode) {
-    out = out.replace("</body>", `${footerCode}\n</body>`);
+  const cookieGate = getPresellGateKind(page.type || "") === "cookies";
+  const consentSnips = buildExportConsentAwareSnippets({
+    cookieGate,
+    clickoraHead,
+    marketing: {
+      headHtml: [conversionTrackingScript, optionalMarketing.headHtml, headerCode]
+        .filter(Boolean)
+        .join("\n"),
+      bodyHtml: [optionalMarketing.bodyHtml.trim(), bodyCode].filter(Boolean).join(""),
+      footerHtml: footerCode,
+    },
+  });
+  if (consentSnips.earlyHead) {
+    out = out.replace("</head>", `${consentSnips.earlyHead}\n</head>`);
+  }
+  if (consentSnips.bodyStart) {
+    out = out.replace(
+      /<body([^>]*)>/i,
+      `<body$1><div data-presell-inject="body-start">${consentSnips.bodyStart}</div>`,
+    );
+  } else if (cookieGate) {
+    // Mount point para inject diferido após Aceitar.
+    out = out.replace(
+      /<body([^>]*)>/i,
+      `<body$1><div data-presell-inject="body-start" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"></div>`,
+    );
+  }
+  if (consentSnips.bodyEnd) {
+    out = out.replace("</body>", `${consentSnips.bodyEnd}\n</body>`);
   }
   return injectPresellComplianceShell(out, page);
 }
@@ -625,17 +640,37 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
     typeof settings.conversionTrackingScript === "string" ? settings.conversionTrackingScript : "",
   );
   const headerCode = coerceTrackingSnippetToHtml(
-    typeof settings.headerCode === "string" ? settings.headerCode : "",
+    stripClickoraEmbedScripts(
+      typeof settings.headerCode === "string" ? settings.headerCode : "",
+    ),
   );
-  const headInjectSnippets = [conversionTrackingScript, optionalMarketing.headHtml, headerCode]
-    .filter(Boolean)
-    .join("\n");
   const bodyCode = coerceTrackingSnippetToHtml(
     typeof settings.bodyCode === "string" ? settings.bodyCode : "",
   );
   const footerCode = coerceTrackingSnippetToHtml(
     typeof settings.footerCode === "string" ? settings.footerCode : "",
   );
+  const trackBaseForEmbed =
+    opts.apiBase?.trim() ||
+    (typeof window !== "undefined" ? getTrackApiBaseUrl() : "https://www.dclickora.com/api");
+  const clickoraHeadExport = buildClickoraEmbedScriptHtml({
+    apiBase: trackBaseForEmbed,
+    presellId: page.id,
+  });
+  const exportConsent = buildExportConsentAwareSnippets({
+    cookieGate: getPresellGateKind(page.type) === "cookies",
+    clickoraHead: clickoraHeadExport,
+    marketing: {
+      headHtml: [conversionTrackingScript, optionalMarketing.headHtml, headerCode]
+        .filter(Boolean)
+        .join("\n"),
+      bodyHtml: [optionalMarketing.bodyHtml.trim(), bodyCode].filter(Boolean).join(""),
+      footerHtml: footerCode,
+    },
+  });
+  const headInjectSnippets = exportConsent.earlyHead;
+  const bodyStartExport = exportConsent.bodyStart;
+  const footerCodeExport = exportConsent.bodyEnd;
 
   const heroImage = productImages[0];
   const galleryImages = productImages.slice(1, 10);
@@ -864,15 +899,19 @@ ${
   const fontLink = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">`;
 
   const styleBlock = `<style>${EXPORT_STYLES}${customCss ? `\n/* CSS personalizado */\n${customCss}` : ""}</style>`;
+  const cookieGateExport = getPresellGateKind(page.type) === "cookies";
+  const bodyStartMount =
+    bodyStartExport || cookieGateExport
+      ? `<div data-presell-inject="body-start" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">${bodyStartExport || ""}</div>\n`
+      : "";
 
-  const bodyStartExport = [optionalMarketing.bodyHtml.trim(), bodyCode].filter(Boolean).join("");
   if (format === "htmlWidget") {
     return `${fontLink}
 ${styleBlock}
 ${headInjectSnippets ? `${headInjectSnippets}\n` : ""}
-${bodyStartExport ? `<div data-presell-inject="body-start" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">${bodyStartExport}</div>\n` : ""}
+${bodyStartMount}
 ${inner}
-${footerCode ? `${footerCode}\n` : ""}`;
+${footerCodeExport ? `${footerCodeExport}\n` : ""}`;
   }
 
   const loc = normalizePresellLocale(page.language);
@@ -961,9 +1000,9 @@ ${styleBlock}
 ${headInjectSnippets ? headInjectSnippets : ""}
 </head>
 <body class="pe-export-body" style="margin:0;">
-${bodyStartExport ? `<div data-presell-inject="body-start">${bodyStartExport}</div>` : ""}
+${bodyStartMount}
 ${inner}
-${footerCode ? footerCode : ""}
+${footerCodeExport ? footerCodeExport : ""}
 </body>
 </html>`;
 }
