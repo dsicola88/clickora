@@ -625,6 +625,10 @@ export const es = {
         "forwardLabel": "Reenviar parámetros de la URL al hoplink",
         "forwardHint": "sub1 y sub2 se pasan al enlace de la oferta cuando aún no están. sub3 no se reenvía por defecto: es el identificador de clic de SmartAdv. Añade aquí más nombres (coma o espacio): solo a-z, 0-9, - y _, hasta 32 nombres. Nunca pisa lo que el hoplink ya define.",
         "forwardPlaceholder": "p. ej. txn_id, aff_sub, ext_click_id",
+        "marketCountry": "Mercado de anuncios (país)",
+        "marketCountryHint":
+          "Define los defaults de Consent Mode en esta página. US/CA mantienen la inyección histórica de píxeles en tipos sin banner de cookies. Vacío hereda del idioma de la página (el inglés queda más estricto estilo UE/UK hasta elegir US o CA).",
+        "marketCountryInherit": "Inferir del idioma de la página",
         "pixelsTitle": "Píxeles de anuncios (Meta, TikTok, Google, Bing)",
         "pixelsHint": "Para una página hecha para Facebook, TikTok u otra red: elige el modo, pega el ID o el script del panel de la plataforma — Clickora lo inyecta en la presell publicada. El rastreo de Clickora (clics / comisión) sigue siendo automático.",
         "modeAuto": "Automático (solo IDs)",

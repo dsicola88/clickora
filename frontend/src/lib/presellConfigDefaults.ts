@@ -34,6 +34,11 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
    */
   offerQueryForwardAllowlist: "",
   /**
+   * Mercado de anúncios / consent (ISO-3166 alpha-2).
+   * Vazio = inferir do idioma (en → strict até US/CA estarem definidos).
+   */
+  marketCountry: "",
+  /**
    * Página segura para os países em cloakGeoDeny.
    * IP, bot, proxy e rajada seguem as regras da conta e usam o mesmo texto.
    * Um browser normal fora dessas regras vê a presell completa.
@@ -90,6 +95,19 @@ export function hydratePresellConfigSettings(
     customCss: String(s.customCss ?? ""),
     countdownDurationMinutes: String(s.countdownDurationMinutes ?? "15"),
     offerQueryForwardAllowlist: String(s.offerQueryForwardAllowlist ?? ""),
+    marketCountry: String(
+      s.marketCountry ??
+        s.market_country ??
+        s.adsCountry ??
+        s.ads_country ??
+        s.targetCountry ??
+        s.target_country ??
+        s.countryCode ??
+        s.country_code ??
+        "",
+    )
+      .trim()
+      .toUpperCase(),
     enterpriseCloak: Boolean(s.enterpriseCloak),
     cloakSafeTitle: String(s.cloakSafeTitle ?? ""),
     cloakSafeBody: String(s.cloakSafeBody ?? ""),

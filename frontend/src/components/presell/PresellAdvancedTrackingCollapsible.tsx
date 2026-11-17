@@ -4,13 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { CONSENT_MARKET_COUNTRY_OPTIONS } from "@/lib/consentMarketPolicy";
 import { cn } from "@/lib/utils";
 import type { PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { PresellProfessionalDocStrip } from "@/components/presell/PresellProfessionalDocStrip";
+
+const MARKET_COUNTRY_INHERIT = "inherit";
 
 type Surface = "dashboard" | "editor";
 
@@ -42,6 +52,10 @@ export function PresellAdvancedTrackingCollapsible({
   const resolvedTrigger = triggerLabel ?? t("pages.presells.advanced.triggerDefault");
   const [copiedTrackingScript, setCopiedTrackingScript] = useState(false);
   const isEditor = surface === "editor";
+  const marketCountryValue = String(configSettings.marketCountry ?? "")
+    .trim()
+    .toUpperCase();
+  const knownMarketCodes = new Set(CONSENT_MARKET_COUNTRY_OPTIONS.map((o) => o.code));
 
   return (
     <div className="space-y-2">
@@ -176,6 +190,48 @@ export function PresellAdvancedTrackingCollapsible({
                   isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : "",
                 )}
               />
+            </div>
+            <div className="space-y-2 max-w-2xl">
+              <Label htmlFor={isEditor ? "presell-market-country-editor" : "presell-market-country"}>
+                {t("pages.presells.advanced.marketCountry")}
+              </Label>
+              <p
+                className={cn(
+                  "text-[10px] leading-snug",
+                  isEditor ? "text-editor-fg-muted" : "text-muted-foreground",
+                )}
+              >
+                {t("pages.presells.advanced.marketCountryHint")}
+              </p>
+              <Select
+                value={marketCountryValue || MARKET_COUNTRY_INHERIT}
+                onValueChange={(v) =>
+                  setConfigSettings((p) => ({
+                    ...p,
+                    marketCountry: v === MARKET_COUNTRY_INHERIT ? "" : v,
+                  }))
+                }
+              >
+                <SelectTrigger
+                  id={isEditor ? "presell-market-country-editor" : "presell-market-country"}
+                  className={cn(isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : "")}
+                >
+                  <SelectValue placeholder={t("pages.presells.advanced.marketCountryInherit")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={MARKET_COUNTRY_INHERIT}>
+                    {t("pages.presells.advanced.marketCountryInherit")}
+                  </SelectItem>
+                  {marketCountryValue && !knownMarketCodes.has(marketCountryValue) ? (
+                    <SelectItem value={marketCountryValue}>{marketCountryValue}</SelectItem>
+                  ) : null}
+                  {CONSENT_MARKET_COUNTRY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.code} value={opt.code}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             {/* Pixels de anúncios — automático (IDs) ou manual (colar script) */}
             <div

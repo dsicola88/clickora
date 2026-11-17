@@ -29,4 +29,11 @@ describe("showAffiliateTrustFooter hydrate / legado", () => {
     const h = hydratePresellConfigSettings({ showAffiliateTrustFooter: true });
     expect(h.showAffiliateTrustFooter).toBe(true);
   });
+
+  it("hidrata marketCountry a partir de aliases (ads_country)", () => {
+    expect(DEFAULT_PRESELL_CONFIG_SETTINGS.marketCountry).toBe("");
+    expect(hydratePresellConfigSettings({ ads_country: "us" }).marketCountry).toBe("US");
+    expect(hydratePresellConfigSettings({ marketCountry: "ca" }).marketCountry).toBe("CA");
+    expect(hydratePresellConfigSettings({}).marketCountry).toBe("");
+  });
 });

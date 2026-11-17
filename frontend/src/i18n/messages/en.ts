@@ -631,6 +631,10 @@ export const en = {
         forwardLabel: "Forward URL parameters to the hoplink",
         forwardHint: "sub1 and sub2 are passed to the offer link when they are not already there. sub3 is not forwarded by default: it is the SmartAdv click id. Add more names here (comma or space): only a-z, 0-9, - and _, up to 32 names. Never overwrites what the hoplink already sets.",
         forwardPlaceholder: "e.g. txn_id, aff_sub, ext_click_id",
+        marketCountry: "Ads market (country)",
+        marketCountryHint:
+          "Sets Consent Mode defaults for this page. US/CA keep historical pixel inject on non-cookie types. Empty inherits from page language (English defaults to stricter EU/UK-style consent until you pick US or CA).",
+        marketCountryInherit: "Infer from page language",
         pixelsTitle: "Ad pixels (Meta, TikTok, Google, Bing)",
         pixelsHint: "For a page built for Facebook, TikTok, or another network: pick a mode, paste the ID or the script from the platform — Clickora injects it on the published presell. Clickora tracking (clicks / commission) stays automatic.",
         modeAuto: "Automatic (IDs only)",

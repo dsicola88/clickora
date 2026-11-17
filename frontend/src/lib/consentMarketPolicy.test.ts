@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CONSENT_MARKET_COUNTRY_OPTIONS,
   readMarketCountryHint,
   resolveConsentMarketMode,
   resolveConsentRuntimePolicy,
@@ -50,6 +51,11 @@ describe("consentMarketPolicy", () => {
   it("readMarketCountryHint lê settings", () => {
     expect(readMarketCountryHint({ marketCountry: "us" }, null)).toBe("US");
     expect(readMarketCountryHint({ ads_country: "de" }, null)).toBe("DE");
+  });
+
+  it("CONSENT_MARKET_COUNTRY_OPTIONS inclui US/CA e GB", () => {
+    const codes = CONSENT_MARKET_COUNTRY_OPTIONS.map((o) => o.code);
+    expect(codes).toEqual(expect.arrayContaining(["US", "CA", "GB", "DE", "BR"]));
   });
 
   it("resolveGcmGranted: cookies segue escolha; review strict fica denied", () => {
