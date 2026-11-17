@@ -62,25 +62,28 @@ const FLEXIBLE_COUNTRIES = new Set(["US", "CA"]);
 
 /**
  * Países do selector no painel (consent / ads market).
- * US/CA → flexible; restantes listados → strict; vazio → inferir do idioma.
+ * Só entram códigos com modo explícito (flexible ou strict) — evita opções “mortas”.
  */
 export const CONSENT_MARKET_COUNTRY_OPTIONS: ReadonlyArray<{
   code: string;
   label: string;
-}> = [
-  { code: "US", label: "United States (US)" },
-  { code: "CA", label: "Canada (CA)" },
-  { code: "GB", label: "United Kingdom (GB)" },
-  { code: "DE", label: "Germany (DE)" },
-  { code: "FR", label: "France (FR)" },
-  { code: "ES", label: "Spain (ES)" },
-  { code: "IT", label: "Italy (IT)" },
-  { code: "PT", label: "Portugal (PT)" },
-  { code: "BR", label: "Brazil (BR)" },
-  { code: "NL", label: "Netherlands (NL)" },
-  { code: "PL", label: "Poland (PL)" },
-  { code: "AU", label: "Australia (AU)" },
-];
+}> = (
+  [
+    { code: "US", label: "United States (US)" },
+    { code: "CA", label: "Canada (CA)" },
+    { code: "GB", label: "United Kingdom (GB)" },
+    { code: "DE", label: "Germany (DE)" },
+    { code: "FR", label: "France (FR)" },
+    { code: "ES", label: "Spain (ES)" },
+    { code: "IT", label: "Italy (IT)" },
+    { code: "PT", label: "Portugal (PT)" },
+    { code: "BR", label: "Brazil (BR)" },
+    { code: "NL", label: "Netherlands (NL)" },
+    { code: "PL", label: "Poland (PL)" },
+  ] as const
+).filter(
+  (o) => FLEXIBLE_COUNTRIES.has(o.code) || STRICT_COUNTRIES.has(o.code),
+);
 
 /** Idiomas que tipicamente implicam mercado strict (sem país explícito). */
 const STRICT_LANGS = new Set([

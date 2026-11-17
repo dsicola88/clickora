@@ -53,9 +53,22 @@ describe("consentMarketPolicy", () => {
     expect(readMarketCountryHint({ ads_country: "de" }, null)).toBe("DE");
   });
 
-  it("CONSENT_MARKET_COUNTRY_OPTIONS inclui US/CA e GB", () => {
+  it("CONSENT_MARKET_COUNTRY_OPTIONS só lista países com modo explícito", () => {
     const codes = CONSENT_MARKET_COUNTRY_OPTIONS.map((o) => o.code);
     expect(codes).toEqual(expect.arrayContaining(["US", "CA", "GB", "DE", "BR"]));
+    expect(codes).not.toContain("AU");
+    for (const code of codes) {
+      const withEn = resolveConsentMarketMode({ language: "en", marketCountry: code });
+      const inheritEn = resolveConsentMarketMode({ language: "en" });
+      // País explícito deve divergir do fallback EN→strict quando for US/CA,
+      // ou confirmar strict nos restantes (não ficar “morto” no selector).
+      if (code === "US" || code === "CA") {
+        expect(withEn).toBe("flexible");
+        expect(withEn).not.toBe(inheritEn);
+      } else {
+        expect(withEn).toBe("strict");
+      }
+    }
   });
 
   it("resolveGcmGranted: cookies segue escolha; review strict fica denied", () => {
