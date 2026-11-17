@@ -36,7 +36,7 @@ const DOCS: Record<string, CookieDoc> = {
       },
       {
         h: "5. Your choices",
-        p: "On pages with a cookie notice, Accept may unlock the page and/or continue to the offer when the operator enabled that option. Close dismisses the notice so you can read the page; it does not mean “reject all advertising cookies” unless the operator has installed a full consent manager that actually blocks non-essential tags.",
+        p: "On pages with a cookie notice, Accept records consent for non-essential advertising pixels when the operator enabled them. Close keeps essential storage and Clickora measurement only. Neither choice redirects you to the offer — purchase always uses the page’s offer buttons (tracked via /track/r/, with UTMs/gclid preserved). Close is not a full “reject all ads” switch unless a complete consent manager blocks non-essential tags.",
       },
       {
         h: "6. Merchant policies",
@@ -67,7 +67,7 @@ const DOCS: Record<string, CookieDoc> = {
       },
       {
         h: "5. Ihre Wahlmöglichkeiten",
-        p: "Bei Cookie-Hinweisen kann „Akzeptieren“ die Seite freigeben und/oder zum Angebot führen, wenn der Betreiber das so eingestellt hat. „Schließen“ blendet den Hinweis aus, damit Sie die Seite lesen können — das bedeutet nicht automatisch „alle Werbe-Cookies ablehnen“, sofern kein vollständiger Consent-Manager nicht essenzielle Tags wirklich blockiert.",
+        p: "Bei Cookie-Hinweisen speichert „Akzeptieren“ die Zustimmung für nicht essenzielle Werbe-Pixel, sofern der Betreiber sie aktiviert hat. „Schließen“ belässt nur essenzielle Speicherung und Clickora-Messung. Keine der beiden Optionen leitet zum Angebot weiter — der Kauf läuft über die Angebots-Buttons der Seite (getrackt über /track/r/, UTMs/gclid bleiben erhalten). „Schließen“ ist kein vollständiges „alle Werbung ablehnen“, sofern kein kompletter Consent-Manager nicht essenzielle Tags blockiert.",
       },
       {
         h: "6. Richtlinien des Händlers",
@@ -98,7 +98,7 @@ const DOCS: Record<string, CookieDoc> = {
       },
       {
         h: "5. As suas escolhas",
-        p: "Com aviso de cookies, Aceitar pode desbloquear a página e/ou seguir para a oferta se o operador activou essa opção. Fechar apenas dispensa o aviso para ler a página — não significa “rejeitar todos os cookies de publicidade”, salvo se existir um gestor de consentimento completo que bloqueie tags não essenciais.",
+        p: "Com aviso de cookies, Aceitar regista o consentimento para pixels de anúncios não essenciais (se o operador os activou). Fechar mantém só armazenamento essencial e medição Clickora. Nenhuma das opções redirecciona para a oferta — a compra é sempre pelos botões da página (rastreio /track/r/, UTMs/gclid preservados). Fechar não é um “rejeitar todos os anúncios” completo, salvo se existir um gestor de consentimento que bloqueie tags não essenciais.",
       },
       {
         h: "6. Políticas do comerciante",
