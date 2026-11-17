@@ -23,6 +23,19 @@ describe("presellExportConsentBoot", () => {
     expect(out.cookieBootInline).toBe(false);
   });
 
+  it("strict sem cookie gate: GCM denied + marketing imediato", () => {
+    const out = buildExportConsentAwareSnippets({
+      cookieGate: false,
+      applyConsentModeDefaults: true,
+      consentModeDefaultDenied: true,
+      clickoraHead: "<script>/*clickora*/</script>",
+      marketing: { headHtml: "<script>gtag('config','G-X')</script>", bodyHtml: "", footerHtml: "" },
+    });
+    expect(out.earlyHead).toContain("denied");
+    expect(out.earlyHead).toContain("gtag('config'");
+    expect(out.cookieBootInline).toBe(false);
+  });
+
   it("com gate: marketing diferido + GCM default denied", () => {
     const out = buildExportConsentAwareSnippets({
       cookieGate: true,

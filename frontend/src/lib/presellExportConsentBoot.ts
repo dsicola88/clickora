@@ -29,15 +29,26 @@ export function buildExportConsentAwareSnippets(opts: {
   cookieGate: boolean;
   clickoraHead: string;
   marketing: ExportMarketingBundle;
+  /** strict non-cookie: GCM denied sem diferir marketing. */
+  applyConsentModeDefaults?: boolean;
+  consentModeDefaultDenied?: boolean;
 }): { earlyHead: string; bodyStart: string; bodyEnd: string; cookieBootInline: boolean } {
   const clickora = opts.clickoraHead.trim();
   const headM = opts.marketing.headHtml.trim();
   const bodyM = opts.marketing.bodyHtml.trim();
   const footM = opts.marketing.footerHtml.trim();
+  const applyGcm = opts.applyConsentModeDefaults === true;
+  const gcmDenied = opts.consentModeDefaultDenied !== false;
 
   if (!opts.cookieGate) {
+    const gcm =
+      applyGcm && gcmDenied
+        ? buildGoogleConsentModeDefaultScript()
+        : applyGcm && !gcmDenied
+          ? `<script>(function(){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}window.gtag=window.gtag||gtag;if(!window.__clickoraGcmDefaultsApplied){gtag("consent","default",{ad_storage:"granted",ad_user_data:"granted",ad_personalization:"granted",analytics_storage:"granted"});window.__clickoraGcmDefaultsApplied=1;}})();</script>`
+          : "";
     return {
-      earlyHead: joinHtml([clickora, headM]),
+      earlyHead: joinHtml([gcm, clickora, headM]),
       bodyStart: bodyM,
       bodyEnd: footM,
       cookieBootInline: false,

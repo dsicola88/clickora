@@ -28,6 +28,10 @@ import {
   buildExportConsentAwareSnippets,
   buildExportCookieModalBindingsScript,
 } from "@/lib/presellExportConsentBoot";
+import {
+  readMarketCountryHint,
+  resolveConsentRuntimePolicy,
+} from "@/lib/consentMarketPolicy";
 import { exportPageToHtml } from "@/page-builder/export-html";
 import { bakePublicOfferHrefs, resolvePresellPageDocument } from "@/lib/presellVisualEdit";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
@@ -519,10 +523,17 @@ function injectPresellSettingsIntoFullHtml(
   });
   const bodyCode = coerceTrackingSnippetToHtml(String(settings.bodyCode ?? ""));
   const footerCode = coerceTrackingSnippetToHtml(String(settings.footerCode ?? ""));
-  const cookieGate = getPresellGateKind(page.type || "") === "cookies";
+  const consentPolicy = resolveConsentRuntimePolicy({
+    presellType: page.type || "",
+    language: page.language,
+    marketCountry: readMarketCountryHint(settings, (page.content || {}) as Record<string, unknown>),
+  });
+  const cookieGate = consentPolicy.cookieGate;
   const consentSnips = buildExportConsentAwareSnippets({
     cookieGate,
     clickoraHead,
+    applyConsentModeDefaults: consentPolicy.applyConsentModeDefaults,
+    consentModeDefaultDenied: consentPolicy.consentModeDefaultDenied,
     marketing: {
       headHtml: [conversionTrackingScript, optionalMarketing.headHtml, headerCode]
         .filter(Boolean)
@@ -657,9 +668,16 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
     apiBase: trackBaseForEmbed,
     presellId: page.id,
   });
+  const exportConsentPolicy = resolveConsentRuntimePolicy({
+    presellType: page.type,
+    language: page.language,
+    marketCountry: readMarketCountryHint(settings, content),
+  });
   const exportConsent = buildExportConsentAwareSnippets({
-    cookieGate: getPresellGateKind(page.type) === "cookies",
+    cookieGate: exportConsentPolicy.cookieGate,
     clickoraHead: clickoraHeadExport,
+    applyConsentModeDefaults: exportConsentPolicy.applyConsentModeDefaults,
+    consentModeDefaultDenied: exportConsentPolicy.consentModeDefaultDenied,
     marketing: {
       headHtml: [conversionTrackingScript, optionalMarketing.headHtml, headerCode]
         .filter(Boolean)

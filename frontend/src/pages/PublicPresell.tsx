@@ -50,6 +50,11 @@ import {
   resetGoogleConsentModeDefaultsFlag,
   updateGoogleConsentMode,
 } from "@/lib/googleConsentMode";
+import {
+  readMarketCountryHint,
+  resolveConsentRuntimePolicy,
+} from "@/lib/consentMarketPolicy";
+import { stripHtmlMarketingExecutors } from "@/lib/stripHtmlMarketingExecutors";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
 import {
   policyUrlsFromPresellContent,
@@ -855,16 +860,33 @@ export default function PublicPresell() {
     if (clickoraHead) cleanups.push(injectWithCleanup(clickoraHead, document.head));
 
     /**
-     * Gate cookies: pixels Meta/TikTok/Google/scripts do operador só após «Aceitar».
-     * «Fechar» = essenciais only — página e oferta continuam; sem fuga e sem ads pré-consentimento.
-     * Páginas sem gate de cookies: comportamento anterior (inject imediato).
+     * Política por mercado + tipo:
+     * - cookies: marketing só após Aceitar (sempre).
+     * - strict (DE/UE/BR…): GCM denied antes das tags mesmo sem banner.
+     * - flexible (US/CA sem cookie gate): inject histórico sem forçar GCM.
      */
-    const cookieGate = getPresellGateKind(page.type || "") === "cookies";
-    const allowAds = !cookieGate || marketingAllowed;
-    if (cookieGate) {
-      // Consent Mode v2: defaults denied antes de qualquer tag Google do operador.
-      ensureGoogleConsentModeDefaults({ defaultDenied: true });
-      updateGoogleConsentMode(allowAds);
+    const consentPolicy = resolveConsentRuntimePolicy({
+      presellType: page.type || "",
+      language: page.language,
+      marketCountry: readMarketCountryHint(
+        s,
+        (page.content || {}) as Record<string, unknown>,
+      ),
+    });
+    const allowAds = !consentPolicy.gateMarketingUntilAccept || marketingAllowed;
+    if (consentPolicy.applyConsentModeDefaults) {
+      ensureGoogleConsentModeDefaults({
+        defaultDenied: consentPolicy.consentModeDefaultDenied,
+      });
+      /**
+       * Cookie gate: GCM segue Aceitar/Fechar.
+       * Strict sem banner: manter denied (tags podem injectar em modo denied / modelação).
+       * Flexible: granted.
+       */
+      const gcmGranted = consentPolicy.cookieGate
+        ? allowAds
+        : !consentPolicy.consentModeDefaultDenied;
+      updateGoogleConsentMode(gcmGranted);
     }
     if (allowAds) {
       if (conversionTrackingScript)
@@ -977,8 +999,14 @@ export default function PublicPresell() {
     if (!importMirrorSrcDocRaw || !href) return "";
     const withTrack = buildMirrorSrcDocWithTrackHref(importMirrorSrcDocRaw, href);
     const baked = bakeHtmlOfferHrefs(withTrack, href, affiliateLink.trim());
-    return preserveNavHashCtaAppearance(baked);
-  }, [importMirrorSrcDocRaw, href, affiliateLink]);
+    const appeared = preserveNavHashCtaAppearance(baked);
+    /** Cookies sem Aceitar: strip scripts/handlers (sandbox já bloqueia; defesa extra). */
+    const cookieGate = getPresellGateKind(page?.type || "") === "cookies";
+    if (cookieGate && !marketingAllowed) {
+      return stripHtmlMarketingExecutors(appeared);
+    }
+    return appeared;
+  }, [importMirrorSrcDocRaw, href, affiliateLink, page?.type, marketingAllowed]);
 
   const [mirrorUseTemplateFallback, setMirrorUseTemplateFallback] = useState(false);
   useEffect(() => {
