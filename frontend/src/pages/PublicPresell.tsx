@@ -53,6 +53,7 @@ import {
 import {
   readMarketCountryHint,
   resolveConsentRuntimePolicy,
+  resolveGcmGranted,
 } from "@/lib/consentMarketPolicy";
 import { stripHtmlMarketingExecutors } from "@/lib/stripHtmlMarketingExecutors";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
@@ -878,15 +879,7 @@ export default function PublicPresell() {
       ensureGoogleConsentModeDefaults({
         defaultDenied: consentPolicy.consentModeDefaultDenied,
       });
-      /**
-       * Cookie gate: GCM segue Aceitar/Fechar.
-       * Strict sem banner: manter denied (tags podem injectar em modo denied / modelação).
-       * Flexible: granted.
-       */
-      const gcmGranted = consentPolicy.cookieGate
-        ? allowAds
-        : !consentPolicy.consentModeDefaultDenied;
-      updateGoogleConsentMode(gcmGranted);
+      updateGoogleConsentMode(resolveGcmGranted(consentPolicy, marketingAllowed));
     }
     if (allowAds) {
       if (conversionTrackingScript)

@@ -3,6 +3,7 @@ import {
   readMarketCountryHint,
   resolveConsentMarketMode,
   resolveConsentRuntimePolicy,
+  resolveGcmGranted,
 } from "./consentMarketPolicy";
 
 describe("consentMarketPolicy", () => {
@@ -49,5 +50,21 @@ describe("consentMarketPolicy", () => {
   it("readMarketCountryHint lê settings", () => {
     expect(readMarketCountryHint({ marketCountry: "us" }, null)).toBe("US");
     expect(readMarketCountryHint({ ads_country: "de" }, null)).toBe("DE");
+  });
+
+  it("resolveGcmGranted: cookies segue escolha; review strict fica denied", () => {
+    const cookies = resolveConsentRuntimePolicy({ presellType: "cookies", language: "de" });
+    expect(resolveGcmGranted(cookies, false)).toBe(false);
+    expect(resolveGcmGranted(cookies, true)).toBe(true);
+
+    const reviewDe = resolveConsentRuntimePolicy({ presellType: "review", language: "de" });
+    expect(resolveGcmGranted(reviewDe, true)).toBe(false);
+
+    const reviewUs = resolveConsentRuntimePolicy({
+      presellType: "review",
+      language: "en",
+      marketCountry: "US",
+    });
+    expect(resolveGcmGranted(reviewUs, true)).toBe(true);
   });
 });

@@ -150,3 +150,17 @@ export function resolveConsentRuntimePolicy(input: {
     consentModeDefaultDenied: false,
   };
 }
+
+/**
+ * Se o GCM deve ficar granted após defaults.
+ * Cookie gate → segue Aceitar; strict sem banner → denied; flexible → granted.
+ */
+export function resolveGcmGranted(
+  policy: ConsentRuntimePolicy,
+  marketingAllowed: boolean,
+): boolean {
+  if (policy.cookieGate) {
+    return !policy.gateMarketingUntilAccept || marketingAllowed;
+  }
+  return !policy.consentModeDefaultDenied;
+}
