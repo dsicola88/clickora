@@ -375,6 +375,10 @@ export default function CreatePresellWizardPage() {
       const settings: Record<string, unknown> = applyImportedPolicyToSettings(
         {
           ...settingsBase,
+          /** País do anúncio (passo campanha) → consent / Consent Mode na página pública. */
+          ...(country.trim()
+            ? { marketCountry: country.trim().toUpperCase().slice(0, 2) }
+            : {}),
           showAffiliateTrustFooter,
           ...(showAffiliateTrustFooter
             ? { affiliateDisclosure: defaultAffiliateDisclosureSetting(language) }

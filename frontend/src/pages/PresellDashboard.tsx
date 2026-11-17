@@ -100,6 +100,7 @@ import {
   hydratePresellConfigSettings,
   type PresellConfigSettings,
 } from "@/lib/presellConfigDefaults";
+import { CONSENT_MARKET_COUNTRY_OPTIONS } from "@/lib/consentMarketPolicy";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
 import { MirrorHtmlEditor } from "@/components/presell/MirrorHtmlEditor";
 import type { MirrorHtmlVisualPreviewHandle } from "@/components/presell/MirrorHtmlVisualPreview";
@@ -1190,6 +1191,42 @@ export default function PresellDashboard() {
                       {PRESELL_CREATION_LANGUAGES.map((l) => (
                         <SelectItem key={l.id} value={l.id}>
                           {l.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2 max-w-md">
+                  <Label htmlFor="presell-dashboard-market-country">
+                    {t("pages.presells.advanced.marketCountry")}
+                  </Label>
+                  <p className="text-[10px] leading-snug text-muted-foreground">
+                    {t("pages.presells.advanced.marketCountryHint")}
+                  </p>
+                  <Select
+                    value={
+                      String(configSettings.marketCountry ?? "")
+                        .trim()
+                        .toUpperCase() || "inherit"
+                    }
+                    onValueChange={(v) =>
+                      setConfigSettings((p) => ({
+                        ...p,
+                        marketCountry: v === "inherit" ? "" : v,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="presell-dashboard-market-country">
+                      <SelectValue placeholder={t("pages.presells.advanced.marketCountryInherit")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="inherit">
+                        {t("pages.presells.advanced.marketCountryInherit")}
+                      </SelectItem>
+                      {CONSENT_MARKET_COUNTRY_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.code} value={opt.code}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
