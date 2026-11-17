@@ -76,8 +76,11 @@ export function updateGoogleConsentMode(allowed: boolean): void {
   w.gtag!("consent", "update", signalsForMarketingConsent(allowed));
 }
 
-/** Testes / navegação SPA entre presells. */
-export function resetGoogleConsentModeForTests(): void {
+/** Reinicia flag de defaults (SPA entre presells / testes). */
+export function resetGoogleConsentModeDefaultsFlag(): void {
   if (typeof window === "undefined") return;
   delete gcmWindow().__clickoraGcmDefaultsApplied;
 }
+
+/** @deprecated Prefer `resetGoogleConsentModeDefaultsFlag`. */
+export const resetGoogleConsentModeForTests = resetGoogleConsentModeDefaultsFlag;

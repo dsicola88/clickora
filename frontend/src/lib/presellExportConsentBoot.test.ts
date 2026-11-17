@@ -39,7 +39,11 @@ describe("presellExportConsentBoot", () => {
     expect(out.earlyHead).toContain("__clickoraCookieConsent");
     expect(out.earlyHead).toContain("fbq");
     expect(out.bodyStart).toBe("");
+    expect(out.bodyEnd).toBe("");
     expect(out.cookieBootInline).toBe(true);
+    // Marketing só no PAYLOAD do boot — não como tag solta a executar no parse.
+    expect(out.earlyHead).toMatch(/PAYLOAD[\s\S]*fbq/);
+    expect(out.earlyHead).toContain('unlockMarketing');
     expect(buildGoogleConsentModeDefaultScript()).toContain("consent");
     expect(buildExportCookieModalBindingsScript()).toContain("pe-cookie-allow");
   });

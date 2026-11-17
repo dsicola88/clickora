@@ -47,7 +47,7 @@ import {
 } from "@/page-builder/cookieConsentStorage";
 import {
   ensureGoogleConsentModeDefaults,
-  resetGoogleConsentModeForTests,
+  resetGoogleConsentModeDefaultsFlag,
   updateGoogleConsentMode,
 } from "@/lib/googleConsentMode";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
@@ -780,7 +780,7 @@ export default function PublicPresell() {
     // Gates interativos começam bloqueados até PresellGateFields reportar válido.
     setFieldGate({ params: {}, ctaEnabled: !getInteractiveGateKind(page?.type || "") });
     // Nova presell: defaults GCM podem reaplicar-se.
-    resetGoogleConsentModeForTests();
+    resetGoogleConsentModeDefaultsFlag();
   }, [page?.id, page?.type, setCookieConsent]);
 
   const reopenCookieSettings = useCallback(() => {
