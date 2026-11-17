@@ -343,10 +343,7 @@ ${allowCtl}
 <p style="text-align:center;font-size:.75rem;color:#64748b;margin-top:1rem;">${escapeHtml(L.footer)}</p>
 </div>
 </div>
-${
-  goOffer
-    ? ""
-    : `<script>
+<script>
 (function(){
 function dismiss(){var o=document.getElementById("pe-cookie-overlay");if(o)o.style.display="none";}
 var c=document.getElementById("pe-cookie-close");
@@ -354,8 +351,7 @@ var a=document.getElementById("pe-cookie-allow");
 if(c)c.addEventListener("click",dismiss);
 if(a)a.addEventListener("click",dismiss);
 })();
-</script>`
-}`;
+</script>`;
 }
 
 function buildVslFallbackHtml(
