@@ -4,10 +4,13 @@
  * 1) Destino + network + cloak (cache origin)
  * 2) Cloak geo → fallback origin (safe page)
  * 3) POST /track/click sync (IP/país/secret) → sem click_id → fallback origin
- * 4) 302 oferta com params de rede (appendClickId) + ads/UTM selectivos
+ * 4) 302 oferta: honra `?to=` (subs/gate) se host/path = hoplink cacheado;
+ *    senão `dest.destination` + ads/UTM + appendClickId
  *
  * ORIGIN_API_BASE deve ser o API Railway (nunca o hostname deste Worker).
  */
+import { resolveOfferDestination } from "./offerRedirectGuard.js";
+
 const DEST_TTL_MS = 60_000;
 const memory = new Map();
 
@@ -345,7 +348,12 @@ export default {
       return originTrackRedirect(env, presellId, url.search);
     }
 
-    const clickId = await createClick(env, presellId, request, url, dest.destination);
+    const offerDest = resolveOfferDestination(dest.destination, url.searchParams);
+    if (!offerDest) {
+      return originTrackRedirect(env, presellId, url.search);
+    }
+
+    const clickId = await createClick(env, presellId, request, url, offerDest);
     if (!clickId) {
       // Guard / IP em falta / 5xx: nunca abrir oferta sem atribuição.
       return originTrackRedirect(env, presellId, url.search);
@@ -353,7 +361,7 @@ export default {
 
     const platform =
       url.searchParams.get("network") || url.searchParams.get("platform") || dest.network || null;
-    let target = forwardAdQuery(dest.destination, url.searchParams);
+    let target = forwardAdQuery(offerDest, url.searchParams);
     target = appendClickId(target, clickId, platform);
     return Response.redirect(target, 302);
   },

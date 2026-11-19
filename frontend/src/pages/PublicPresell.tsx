@@ -817,9 +817,14 @@ export default function PublicPresell() {
   /** Pixel o mais cedo possível (layout) — impressão Ads antes de paint pesado. */
   useLayoutEffect(() => {
     if (!page?.id || page.cloak_safe === true) return;
+    /** Lê a query live (gclid/gad_source do Ads) — não depender só do state omitido dos deps. */
+    const liveSearch =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search)
+        : search;
     const pixel = new Image();
     pixel.decoding = "async";
-    pixel.src = buildImpressionPixelUrl(apiBase, page.id, search);
+    pixel.src = buildImpressionPixelUrl(apiBase, page.id, liveSearch);
     // Uma visita = uma impressão; mudanças de query na mesma página não recontam.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só page.id
   }, [page?.id, page?.cloak_safe, apiBase]);
