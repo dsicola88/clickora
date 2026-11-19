@@ -95,8 +95,17 @@ export function inspectFinalUrl(raw: string, expectedHost?: string | null): Fina
       issues.push("final_url_has_valuetrack");
     }
   }
-  // ValueTrack no path (raro mas válido de flag)
-  if (/\{[a-z0-9_.]+\}/i.test(u.pathname + u.search)) {
+  // ValueTrack no path (URL pode ter `{` codificado como %7B)
+  let pathAndSearch = u.pathname + u.search;
+  try {
+    pathAndSearch = `${decodeURIComponent(u.pathname)}${u.search}`;
+  } catch {
+    /* keep encoded */
+  }
+  if (
+    /\{[a-z0-9_.]+\}/i.test(pathAndSearch) ||
+    /%7B[a-z0-9_.]+%7D/i.test(u.pathname + u.search)
+  ) {
     if (!issues.includes("final_url_has_valuetrack")) issues.push("final_url_has_valuetrack");
   }
 

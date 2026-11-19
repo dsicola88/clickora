@@ -473,6 +473,8 @@ export const paidAdsService = {
     return apiClient.post<{
       ok: true;
       repaired_count: number;
+      /** Só conta anúncios mutados com sucesso na Google Ads (não só BD local). */
+      applied_to_google_count: number;
       skipped_count: number;
       error_count: number;
       repaired: Array<{

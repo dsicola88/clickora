@@ -949,15 +949,33 @@ export function DpilotGoogleCampaignsManagerPage() {
                         );
                         return;
                       }
-                      if (data.error_count > 0) {
+                      const applied =
+                        typeof data.applied_to_google_count === "number"
+                          ? data.applied_to_google_count
+                          : data.repaired.filter((r) => r.applied_to_google).length;
+                      const sampleErr = data.errors[0]?.error;
+                      if (applied > 0 && data.error_count > 0) {
+                        toast.message(
+                          `Aplicadas na Google Ads: ${applied}. ${data.error_count} falhou(aram)${
+                            sampleErr ? ` — ${sampleErr}` : ""
+                          }.`,
+                        );
+                      } else if (applied > 0) {
+                        toast.success(
+                          `Aplicadas na Google Ads: ${applied} anúncio(s). Não precisa de colar de novo no ads.google.com. ValueTrack/UTMs dinâmicos → sufixo da URL.`,
+                        );
+                      } else if (data.error_count > 0) {
                         toast.error(
-                          `Reparadas ${data.repaired_count}; ${data.error_count} falhou(aram). Veja o detalhe e tente de novo.`,
+                          toastGoogleAdsError(
+                            sampleErr ||
+                              "Não foi possível aplicar na Google Ads. Sincronize/importe a campanha e tente de novo, ou limpe a Final URL em ads.google.com.",
+                          ),
                         );
                       } else if (data.repaired_count === 0) {
                         toast.message("Nenhuma Final URL precisava de limpeza automática.");
                       } else {
-                        toast.success(
-                          `Final URLs limpas: ${data.repaired_count} anúncio(s). Se usar parâmetros dinâmicos, ponha-os no sufixo da URL no Google Ads.`,
+                        toast.error(
+                          "A limpeza ficou só local — a Google Ads não foi actualizada. Sincronize a campanha e volte a Reparar.",
                         );
                       }
                       await load();

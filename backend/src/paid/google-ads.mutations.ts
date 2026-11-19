@@ -666,6 +666,72 @@ export async function applyGoogleUpdateRsaCopy(
   return { ok: true };
 }
 
+/**
+ * Actualiza só Final URL(s) do RSA na Google + local.
+ * Exige IDs externos — sem eles devolve erro (não finge sucesso só na BD local).
+ */
+export async function applyGoogleUpdateRsaFinalUrls(
+  projectId: string,
+  p: { paid_ads_rsa_id: string; final_urls: string[] },
+): Promise<CrResult> {
+  const c0 = await ctxForProject(projectId);
+  if ("err" in c0) return { ok: false, error: c0.err };
+  const { access, customerId, dev, login } = c0;
+
+  const rsa = await prisma.paidAdsRsa.findFirst({
+    where: { id: p.paid_ads_rsa_id, adGroup: { campaign: { projectId, platform: "google_ads" } } },
+    include: { adGroup: true },
+  });
+  if (!rsa) return { ok: false, error: "RSA não encontrado." };
+  if (!rsa.externalAdId || !rsa.adGroup.externalAdGroupId) {
+    return {
+      ok: false,
+      error:
+        "Anúncio sem ID Google. Em Campanhas → sincronizar/importar da rede, depois «Reparar Final URLs» de novo.",
+    };
+  }
+
+  const finalUrls = (p.final_urls ?? [])
+    .map((u) => sanitizeFinalUrlForAds(String(u).trim()) || String(u).trim())
+    .filter(Boolean);
+  if (!finalUrls.length) return { ok: false, error: "Final URL inválida após limpeza." };
+
+  const url0 = finalUrls[0]!.match(/^https?:\/\//i) ? finalUrls[0]! : `https://${finalUrls[0]}`;
+  const agId = rsa.adGroup.externalAdGroupId.replace(/\D/g, "");
+  const adId = rsa.externalAdId.replace(/\D/g, "");
+  if (!agId || !adId) {
+    return { ok: false, error: "IDs Google do anúncio inválidos — reimporte a campanha." };
+  }
+
+  const updateBody: Record<string, unknown> = {
+    operations: [
+      {
+        update: {
+          resourceName: `customers/${customerId}/adGroupAds/${agId}~${adId}`,
+          ad: { finalUrls: [url0] },
+        },
+        updateMask: "ad.final_urls",
+      },
+    ],
+  };
+
+  const m = await runGoogleAdsMutate(
+    access,
+    customerId,
+    dev,
+    "adGroupAds",
+    updateBody as { operations: unknown[] },
+    login,
+  );
+  if (m.error) return { ok: false, error: m.error.message ?? "Actualizar Final URL na Google Ads" };
+
+  await prisma.paidAdsRsa.update({
+    where: { id: rsa.id },
+    data: { finalUrls },
+  });
+  return { ok: true };
+}
+
 export async function applyGoogleUpdateAdGroupCpc(
   projectId: string,
   p: { ad_group_id: string; cpc_bid_micros: number },

@@ -27,6 +27,11 @@ describe("googleAdsFinalUrl", () => {
     assert.ok(a.includes("final_url_has_valuetrack"));
   });
 
+  it("detecta ValueTrack no path mesmo com encoding %7B", () => {
+    const a = inspectFinalUrl("https://land.example/p/{campaignid}");
+    assert.ok(a.includes("final_url_has_valuetrack"));
+  });
+
   it("exige https e host do projecto", () => {
     assert.ok(inspectFinalUrl("http://land.example/x").includes("not_https"));
     assert.ok(inspectFinalUrl("https://other.example/x", "land.example").includes("host_mismatch"));
