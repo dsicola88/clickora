@@ -1,9 +1,16 @@
+import { mergeLandingAdParamsIntoTrackHref } from "@/lib/presellTrackAdParams";
+
 export const CLICKORA_OFFER_NAV_MESSAGE = "clickora:offer-navigate";
 
 /** Navega a janela principal para o hoplink rastreado (iframe sandbox-safe). */
 export function navigatePresellOfferFromMirrorEvent(e: Event, dest: string): void {
-  const href = dest.trim();
-  if (!href || href === "#") return;
+  const raw = dest.trim();
+  if (!raw || raw === "#") return;
+  /** 302 via `/track/r/` — re-anexa gclid/gad_source da lander no instante do clique. */
+  const href =
+    typeof window !== "undefined"
+      ? mergeLandingAdParamsIntoTrackHref(raw, window.location.search)
+      : raw;
 
   /** Listener é registado pelo React na página pai — `window` já é a janela principal. */
   try {

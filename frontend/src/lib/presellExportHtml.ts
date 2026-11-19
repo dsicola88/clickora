@@ -28,6 +28,7 @@ import {
   buildExportConsentAwareSnippets,
   buildExportCookieModalBindingsScript,
 } from "@/lib/presellExportConsentBoot";
+import { buildExportTrackAdParamsBootstrapScript } from "@/lib/presellTrackAdParams";
 import {
   readMarketCountryHint,
   resolveConsentRuntimePolicy,
@@ -621,7 +622,12 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
       page,
       opts.apiBase,
     );
-    return `${note}${merged}`;
+    const adsBoot = buildExportTrackAdParamsBootstrapScript();
+    const withAds =
+      merged.includes("</body>")
+        ? merged.replace("</body>", `${adsBoot}\n</body>`)
+        : `${merged}\n${adsBoot}`;
+    return `${note}${withAds}`;
   }
 
   const content = (page.content || {}) as Record<string, unknown>;
@@ -903,6 +909,8 @@ ${
   const ghostScript = isGhost
     ? `<script>(function(){var u=${JSON.stringify(href)};var d=0;function go(){if(d)return;d=1;if(u)location.href=u;}["pointerdown","click","keydown","mousemove","touchstart","touchmove","scroll","wheel","pointermove"].forEach(function(ev){window.addEventListener(ev,go,{passive:true});});})();</script>`
     : "";
+  /** Runtime: gclid/gad_source da lander → CTAs /track/r/ (HTML estático não conhece a query do Ads). */
+  const adsParamScript = buildExportTrackAdParamsBootstrapScript();
 
   const inner =
     `<!-- Presell Clickora — mesmo layout que a página pública. Link: ${escapeHtml(opts.publicPageUrl)} -->
@@ -912,6 +920,7 @@ ${
     core +
     gateScript +
     ghostScript +
+    adsParamScript +
     `</div>`;
 
   const fontLink = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">`;

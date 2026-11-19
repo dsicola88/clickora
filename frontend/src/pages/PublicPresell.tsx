@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { presellService } from "@/services/presellService";
 import { ErrorState } from "@/components/ErrorState";
@@ -26,6 +26,7 @@ import {
   buildOfferForwardParamKeys,
   mergeLandingQueryIntoAffiliateUrl,
 } from "@/lib/presellOfferQueryForward";
+import { mergeLandingAdParamsIntoTrackHref } from "@/lib/presellTrackAdParams";
 import {
   getInteractiveGateKind,
   getPresellGateKind,
@@ -181,12 +182,16 @@ function makeTrackClickUrl(
   const msclkid = adParam("msclkid");
   const gbraid = adParam("gbraid");
   const wbraid = adParam("wbraid");
+  const gadSource = utmParam("gad_source");
+  const gadCampaignId = utmParam("gad_campaignid");
   const utmTerm = utmParam("utm_term");
   const utmContent = utmParam("utm_content");
   const utmSourceExplicit = utmParam("utm_source");
   if (gclid) clickUrl.searchParams.set("gclid", gclid);
   if (gbraid) clickUrl.searchParams.set("gbraid", gbraid);
   if (wbraid) clickUrl.searchParams.set("wbraid", wbraid);
+  if (gadSource) clickUrl.searchParams.set("gad_source", gadSource);
+  if (gadCampaignId) clickUrl.searchParams.set("gad_campaignid", gadCampaignId);
   if (utmSourceExplicit) clickUrl.searchParams.set("utm_source", utmSourceExplicit);
   if (fbclid) clickUrl.searchParams.set("fbclid", fbclid);
   if (ttclid) clickUrl.searchParams.set("ttclid", ttclid);
@@ -236,6 +241,8 @@ function buildImpressionPixelUrl(apiBase: string, pageId: string, pageSearch: UR
     "gclid",
     "gbraid",
     "wbraid",
+    "gad_source",
+    "gad_campaignid",
     "fbclid",
     "ttclid",
     "msclkid",
@@ -691,6 +698,7 @@ function normalizePresellRouteParam(raw: string): string {
 export default function PublicPresell() {
   const rawId = useParams().id ?? "";
   const id = useMemo(() => normalizePresellRouteParam(rawId), [rawId]);
+  const { search: locationSearch } = useLocation();
 
   useInsertionEffect(() => {
     if (id) startPublicPresellPrefetchForParam(id);
@@ -735,7 +743,8 @@ export default function PublicPresell() {
     return applyPublicPresellHeadMetadata(page);
   }, [page]);
 
-  const search = useMemo(() => new URLSearchParams(window.location.search), []);
+  /** React to URL changes (Google Ads injects gclid/gad_source on the lander). Never freeze at mount. */
+  const search = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
   const apiBase = useMemo(() => {
     const fromAccount = page?.track_api_base?.trim();
     if (fromAccount && /^https:\/\//i.test(fromAccount)) {
@@ -1021,7 +1030,8 @@ export default function PublicPresell() {
     const go = () => {
       if (ghostRedirectDone.current) return;
       ghostRedirectDone.current = true;
-      window.location.assign(href);
+      /** href já traz params; re-lê location no clique por se a query mudou. */
+      window.location.assign(mergeLandingAdParamsIntoTrackHref(href, window.location.search));
     };
     const opts = { passive: true } as const;
     window.addEventListener("pointerdown", go);

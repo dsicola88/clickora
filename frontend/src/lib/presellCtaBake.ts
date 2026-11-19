@@ -12,11 +12,19 @@ export function trackHrefForPresell(
   apiBase?: string | null,
 ): string {
   const base = (apiBase?.trim() || getTrackApiBaseUrl()).replace(/\/+$/, "");
-  const url = `${base}/track/r/${presellId}`;
   const offer = affiliateHref.trim();
-  if (!offer || offer === "#" || !/^https?:\/\//i.test(offer)) return url;
-  const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}to=${encodeURIComponent(offer)}`;
+  try {
+    const u = new URL(`${base}/track/r/${presellId}`);
+    if (offer && offer !== "#" && /^https?:\/\//i.test(offer)) {
+      u.searchParams.set("to", offer);
+    }
+    return u.toString();
+  } catch {
+    const url = `${base}/track/r/${presellId}`;
+    if (!offer || offer === "#" || !/^https?:\/\//i.test(offer)) return url;
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}to=${encodeURIComponent(offer)}`;
+  }
 }
 
 export function bakeMirrorOfferHrefsForPresell(

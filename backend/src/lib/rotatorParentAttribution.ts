@@ -8,6 +8,20 @@ import { isUnreplacedAdMacro } from "./adUrlMacros";
 /** Identificadores que a API de conversões do Google / Bing / Meta / TikTok exige no clique da venda. */
 export const AD_CLICK_QUERY_KEYS = ["gclid", "gbraid", "wbraid", "msclkid", "fbclid", "ttclid"] as const;
 
+/** Sinais Google Ads (auto-tag + Privacy Sandbox) + UTMs a encaminhar ao hoplink. */
+export const FORWARD_AD_QUERY_KEYS = [
+  ...AD_CLICK_QUERY_KEYS,
+  "gad_source",
+  "gad_campaignid",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "fbp",
+  "ttp",
+] as const;
+
 export type AdClickQueryKey = (typeof AD_CLICK_QUERY_KEYS)[number];
 export type RotatorParentMeta = {
   parent_rotator_click_id: string;

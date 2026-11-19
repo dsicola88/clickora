@@ -19,9 +19,19 @@ export function isIntentionalPublicPageCloakReason(reason: string): boolean {
   return reason === "blacklist" || reason === "whitelist";
 }
 
+function isRealPaidClickSignal(value: string | null | undefined): boolean {
+  if (value == null) return false;
+  const s = String(value).trim();
+  if (!s) return false;
+  if (/^\{[\w.]+\}$/.test(s)) return false;
+  if (/^\{\{[\w.]+\}\}$/.test(s)) return false;
+  if (/^%7B[\w.]+%7D$/i.test(s)) return false;
+  return true;
+}
+
 /**
  * Hop de oferta: proxy falso-positivo (VPN/carrier) com gclid/wbraid real
- * não deve bloquear a venda — o anúncio já foi cobrado.
+ * (ou gad_source do Google Ads) não deve bloquear a venda — o anúncio já foi cobrado.
  */
 export function shouldBypassProxyBlockForPaidClick(args: {
   guardReason: string;
@@ -31,16 +41,12 @@ export function shouldBypassProxyBlockForPaidClick(args: {
   msclkid?: string | null;
   fbclid?: string | null;
   ttclid?: string | null;
+  /** Google Ads costuma enviar `gad_source=1` mesmo quando só há wbraid/gbraid. */
+  gad_source?: string | null;
 }): boolean {
   if (args.guardReason !== "proxy_blocked") return false;
   const ids = [args.gclid, args.gbraid, args.wbraid, args.msclkid, args.fbclid, args.ttclid];
-  return ids.some((v) => {
-    if (v == null) return false;
-    const s = String(v).trim();
-    if (!s) return false;
-    if (/^\{[\w.]+\}$/.test(s)) return false;
-    if (/^\{\{[\w.]+\}\}$/.test(s)) return false;
-    if (/^%7B[\w.]+%7D$/i.test(s)) return false;
-    return true;
-  });
+  if (ids.some((v) => isRealPaidClickSignal(v))) return true;
+  const gad = String(args.gad_source ?? "").trim();
+  return Boolean(gad) && gad !== "0" && !/^\{/.test(gad);
 }

@@ -56,6 +56,19 @@ describe("rotatorParentAttribution", () => {
     assert.equal(parsed.searchParams.get("utm_term"), null);
   });
 
+  it("encaminha gad_source sem partir query já existente no hoplink", () => {
+    const url = forwardAdQueryToUrl("https://www.buygoods.com/x?aff_id=9&subid=keep", {
+      gad_source: "1",
+      gclid: "teste_google_123",
+      subid: "should_not_overwrite",
+    });
+    const parsed = new URL(url);
+    assert.equal(parsed.searchParams.get("aff_id"), "9");
+    assert.equal(parsed.searchParams.get("subid"), "keep");
+    assert.equal(parsed.searchParams.get("gad_source"), "1");
+    assert.equal(parsed.searchParams.get("gclid"), "teste_google_123");
+  });
+
   it("rejects parent without rotator_id", () => {
     const r = rotatorMetaFromParentClick({
       parentId: "11111111-1111-4111-8111-111111111111",

@@ -53,9 +53,16 @@ export function PresellTrackingHealthPanel({
 
   const testUrl = useMemo(() => {
     if (!publicPageUrl?.trim()) return null;
-    const base = publicPageUrl.trim();
-    const sep = base.includes("?") ? "&" : "?";
-    return `${base}${sep}${PRESELL_QA_UTM}`;
+    try {
+      const u = new URL(publicPageUrl.trim());
+      const qa = new URLSearchParams(PRESELL_QA_UTM.startsWith("?") ? PRESELL_QA_UTM.slice(1) : PRESELL_QA_UTM);
+      qa.forEach((v, k) => {
+        if (!u.searchParams.has(k)) u.searchParams.set(k, v);
+      });
+      return u.toString();
+    } catch {
+      return null;
+    }
   }, [publicPageUrl]);
 
   return (

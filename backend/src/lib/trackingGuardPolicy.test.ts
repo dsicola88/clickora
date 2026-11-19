@@ -56,5 +56,12 @@ describe("public page cloak vs Ads", () => {
       }),
       false,
     );
+    assert.equal(
+      shouldBypassProxyBlockForPaidClick({
+        guardReason: "proxy_blocked",
+        gad_source: "1",
+      }),
+      true,
+    );
   });
 });

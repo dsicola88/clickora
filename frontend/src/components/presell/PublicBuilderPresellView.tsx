@@ -3,6 +3,7 @@ import { PageRenderer } from "@/page-builder/components/PageRenderer";
 import type { PageDocument } from "@/page-builder/types";
 import { applyTrackingToDocument } from "@/page-builder/tracking";
 import { hrefLooksLikeOfferLink, isCtaLabel } from "@/lib/presellOfferHrefBake";
+import { mergeLandingAdParamsIntoTrackHref } from "@/lib/presellTrackAdParams";
 import { useViewportBuilderDevice } from "@/page-builder/useViewportBuilderDevice";
 import { BUILDER_PUBLIC_RESPONSIVE_CSS } from "@/page-builder/builderPublicCss";
 
@@ -102,17 +103,19 @@ export function PublicBuilderPresellView({
 
         if (!track) return;
 
+        /** Sempre re-merge query actual (gclid pode chegar após o bake do href). Hop = 302 servidor. */
+        const dest = mergeLandingAdParamsIntoTrackHref(track, window.location.search);
         if (hashOnly || hrefAttr.startsWith("mailto:") || hrefAttr.startsWith("tel:") || softHash) {
           if (labelHit || marked) {
             e.preventDefault();
             e.stopPropagation();
-            window.location.assign(track);
+            window.location.assign(dest);
           }
           return;
         }
         e.preventDefault();
         e.stopPropagation();
-        window.location.assign(track);
+        window.location.assign(dest);
         return;
       }
 
@@ -129,7 +132,7 @@ export function PublicBuilderPresellView({
         if (!track) return;
         e.preventDefault();
         e.stopPropagation();
-        window.location.assign(track);
+        window.location.assign(mergeLandingAdParamsIntoTrackHref(track, window.location.search));
       }
     };
 
