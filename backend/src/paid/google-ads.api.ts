@@ -590,28 +590,43 @@ export async function runGoogleAdsSearch(
     allowSameAsCustomer: opts?.allowSameLoginAsCustomer,
   });
 
+  /**
+   * API v17+: não enviar pageSize (PAGE_SIZE_NOT_SUPPORTED).
+   * Página fixa = 10 000; usar nextPageToken se houver mais.
+   */
   const once = async (loginHeader?: string) => {
-    const res = await fetch(`${API_BASE}/customers/${clean}/googleAds:search`, {
-      method: "POST",
-      headers: headersForGoogleAds(accessToken, devToken, loginHeader),
-      body: JSON.stringify({ query, pageSize: 500 }),
-    });
-    const j = (await res.json().catch(() => ({}))) as {
-      results?: unknown[];
-      error?: { message?: string };
-    };
-    if (!res.ok) {
-      return {
-        error: {
-          message: withCustomerContext(
-            extractGoogleAdsErrorMessage(j, `googleAds:search ${res.status}`),
-            clean,
-            loginHeader,
-          ),
-        },
+    const headers = headersForGoogleAds(accessToken, devToken, loginHeader);
+    const all: unknown[] = [];
+    let pageToken: string | undefined;
+    for (let page = 0; page < 20; page += 1) {
+      const body: { query: string; pageToken?: string } = { query };
+      if (pageToken) body.pageToken = pageToken;
+      const res = await fetch(`${API_BASE}/customers/${clean}/googleAds:search`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        results?: unknown[];
+        nextPageToken?: string;
+        error?: { message?: string };
       };
+      if (!res.ok) {
+        return {
+          error: {
+            message: withCustomerContext(
+              extractGoogleAdsErrorMessage(j, `googleAds:search ${res.status}`),
+              clean,
+              loginHeader,
+            ),
+          },
+        };
+      }
+      if (Array.isArray(j.results)) all.push(...j.results);
+      pageToken = j.nextPageToken?.trim() || undefined;
+      if (!pageToken) break;
     }
-    return { results: j.results };
+    return { results: all };
   };
 
   const first = await once(login);

@@ -227,6 +227,9 @@ export function friendlyGoogleAdsNetworkError(message: string | null | undefined
     }
     return "Não foi possível ler esta conta na Google Ads API. Conta particular: MCC vazio. Conta sob gestor: MCC do gestor. Se o OAuth for outra pessoa/Gmail, use «Mudar de conta» com quem gere ads.google.com.";
   }
+  if (/page size is not supported|PAGE_SIZE_NOT_SUPPORTED/i.test(m)) {
+    return "A Google Ads API já não aceita pageSize nas pesquisas (v17+). Actualize o servidor e volte a «Re-sincronizar e importar».";
+  }
   if (/invalid\s+argument/i.test(m)) {
     return "A Google rejeitou a leitura (argumento inválido). Conta solo → MCC em branco; conta sob gestor → MCC correcto. Depois «Re-sincronizar e importar». A lista local pode ser só rascunhos do projecto.";
   }
