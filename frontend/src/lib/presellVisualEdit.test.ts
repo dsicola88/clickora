@@ -36,7 +36,7 @@ describe("buildEditablePageDocument", () => {
     const cookie = doc.sections[2].columns[0].widgets[0];
     expect(cookie.type).toBe("cookieBanner");
     expect(cookie.content.offerHref || "").toBe("");
-    expect(cookie.content.policyUrl).toBe("/aviso-cookies");
+    expect(cookie.content.policyUrl).toBe("");
     expect(cookie.content.followLanguage).toBe(true);
     expect(cookie.content.allowLabel).toBeTruthy();
     expect(cookie.content.variant).toBe("bar");
@@ -222,7 +222,7 @@ describe("buildEditablePageDocument", () => {
       doc,
       "https://app.example/track/r/x",
       "https://buygoods.com/secure/checkout?item=1",
-      "/aviso-cookies",
+      "",
     );
     const widgets = baked.sections.flatMap((s) => s.columns.flatMap((c) => c.widgets));
     const html = String(widgets.find((w) => w.type === "html")?.content.code || "");
@@ -328,7 +328,7 @@ describe("buildEditablePageDocument", () => {
     const cookie = baked.sections
       .flatMap((s) => s.columns.flatMap((c) => c.widgets))
       .find((w) => w.type === "cookieBanner");
-    expect(cookie?.content.policyUrl).toBe("/aviso-cookies");
+    expect(cookie?.content.policyUrl).toBe("");
     expect(cookie?.content.variant).toBe("bar");
     expect(cookie?.content.position).toBe("bottom");
     expect(cookie?.content.offerHref || "").toBe("");

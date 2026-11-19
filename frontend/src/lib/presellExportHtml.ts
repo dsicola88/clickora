@@ -43,7 +43,7 @@ import {
 } from "@/lib/presellSegmentation";
 import {
   getPresellUiStrings,
-  htmlLangForLocale,
+  htmlLangForPresell,
   isRtlLocale,
   normalizePresellLocale,
 } from "@/lib/presellUiStrings";
@@ -56,6 +56,7 @@ import {
   resolveVisitorCookiePolicyUrl,
 } from "@/lib/presellFooterPolicies";
 import { isAffiliateTrustFooterEnabled } from "@/lib/presellAffiliateTrustFooter";
+import { getCookiePolicyInlineCopy } from "@/components/presell/CookiePolicyInlineSheet";
 import {
   buildTrustFooterExportHtml,
   EXPORT_COMPLIANCE_STYLES,
@@ -328,16 +329,28 @@ function buildInteractiveGateHtml(
 
 function buildCookieModalHtml(
   language: string,
-  policyUrl: string,
+  _policyUrl: string,
   offerHref?: string,
   redirectToOffer = false,
 ): string {
+  void _policyUrl; // política só in-page — nunca target=_blank para /aviso-cookies (fuga)
   const L = cookieTexts(language);
   const ui = getPresellUiStrings(language);
-  const policyHref = policyUrl.trim();
-  const policyLink = policyHref
-    ? `<a href="${escapeAttr(policyHref)}" target="_blank" rel="noopener noreferrer" id="pe-cookie-policy" style="display:inline-block;margin-top:.5rem;font-size:.875rem;font-weight:600;color:#0d9488;text-decoration:underline;">${escapeHtml(L.policy)}</a>`
-    : "";
+  const policyCopy = getCookiePolicyInlineCopy(language);
+  const policyParas = policyCopy.paragraphs
+    .map((p) => `<p style="margin:0 0 .65rem;font-size:.875rem;line-height:1.55;color:#475569;">${escapeHtml(p)}</p>`)
+    .join("");
+  const policyCtl = `<button type="button" id="pe-cookie-policy" style="display:inline-block;margin-top:.5rem;padding:0;border:0;background:transparent;font-size:.875rem;font-weight:600;color:#0d9488;text-decoration:underline;cursor:pointer;">${escapeHtml(L.policy)}</button>`;
+  const policySheet = `<div id="pe-cookie-policy-sheet" hidden style="position:fixed;inset:0;z-index:2147483647;display:none;align-items:flex-end;justify-content:center;padding:0;" role="dialog" aria-modal="true" aria-labelledby="pe-cookie-policy-title">
+<button type="button" id="pe-cookie-policy-backdrop" aria-label="${escapeAttr(policyCopy.close)}" style="position:absolute;inset:0;border:0;background:rgba(15,23,42,.25);cursor:pointer;"></button>
+<div style="position:relative;z-index:1;width:100%;max-width:32rem;max-height:min(78vh,560px);display:flex;flex-direction:column;border-radius:1rem 1rem 0 0;border:1px solid #e2e8f0;background:#fff;box-shadow:0 20px 40px rgba(15,23,42,.18);">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;border-bottom:1px solid #f1f5f9;padding:.75rem 1rem;">
+<h3 id="pe-cookie-policy-title" style="margin:0;font-size:1rem;font-weight:600;color:#0f172a;">${escapeHtml(policyCopy.title)}</h3>
+<button type="button" id="pe-cookie-policy-back" style="border:0;border-radius:.5rem;background:transparent;padding:.35rem .75rem;font-size:.875rem;font-weight:500;color:#475569;cursor:pointer;">${escapeHtml(policyCopy.close)}</button>
+</div>
+<div style="overflow:auto;padding:1rem;">${policyParas}</div>
+</div>
+</div>`;
   const closeCtl = `<button type="button" class="pe-cookie-close" id="pe-cookie-close">${escapeHtml(L.close)}</button>`;
   const offer = (offerHref || "").trim();
   const allowAsLink = redirectToOffer && offer && offer !== "#";
@@ -350,7 +363,7 @@ function buildCookieModalHtml(
 <div class="pe-cookie-card" id="pe-cookie-card" role="dialog" aria-modal="false">
 <h2>${escapeHtml(L.title)}</h2>
 <p>${escapeHtml(L.body)}</p>
-${policyLink}
+${policyCtl}
 <div class="pe-cookie-actions">
 ${closeCtl}
 ${allowCtl}
@@ -358,6 +371,7 @@ ${allowCtl}
 <p style="text-align:center;font-size:.75rem;color:#64748b;margin-top:1rem;">${escapeHtml(L.footer)}</p>
 </div>
 </div>
+${policySheet}
 ${reopenCtl}
 ${buildExportCookieModalBindingsScript()}`;
 }
@@ -984,7 +998,7 @@ ${footerCodeExport ? `${footerCodeExport}\n` : ""}`;
   }
 
   const loc = normalizePresellLocale(page.language);
-  const htmlLang = htmlLangForLocale(loc);
+  const htmlLang = htmlLangForPresell(page.language, readMarketCountryHint(settings, content));
   const htmlDir = isRtlLocale(loc) ? "rtl" : "ltr";
 
   const exportCanonical = (() => {

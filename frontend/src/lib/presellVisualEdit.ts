@@ -671,9 +671,10 @@ function offerCookie(_offer: string, policyHref: string, language?: string | nul
     followLanguage: true,
     overlayOpacity: 8,
     overlayBlur: 0,
-    /** Sem URL do produtor → aviso de cookies da plataforma (não /privacidade SaaS). */
-    policyUrl: policyHref || "/aviso-cookies",
+    /** Política só in-page (CookiePolicyInlineSheet) — nunca bakear /aviso-cookies (fuga). */
+    policyUrl: "",
   };
+  void policyHref;
   return cookie;
 }
 
@@ -984,7 +985,7 @@ export function bakePublicOfferHrefs(
            * Política só in-page (CookiePolicyInlineSheet). Não bakear URL merchant/SaaS —
            * “abrir noutra aba” era fuga da Final URL.
            */
-          next.policyUrl = "/aviso-cookies";
+          next.policyUrl = "";
           void policy;
           if (redirectToOffer && href && href !== "#") {
             next.offerHref = href;

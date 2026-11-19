@@ -83,3 +83,22 @@ export function htmlLangForLocale(locale: PresellLocaleKey): string {
       return locale;
   }
 }
+
+/**
+ * `lang` público com variantes EN por mercado ads (US/CA/AU/GB).
+ * Catálogo de strings continua em `en`; só o atributo HTML muda.
+ */
+export function htmlLangForPresell(
+  language: string | undefined,
+  marketCountry?: string | null,
+): string {
+  const locale = normalizePresellLocale(language);
+  const country = (marketCountry || "").trim().toUpperCase();
+  if (locale === "en") {
+    if (country === "US") return "en-US";
+    if (country === "GB" || country === "UK") return "en-GB";
+    if (country === "AU") return "en-AU";
+    if (country === "CA") return "en-CA";
+  }
+  return htmlLangForLocale(locale);
+}

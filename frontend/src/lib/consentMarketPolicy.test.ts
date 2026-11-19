@@ -8,12 +8,13 @@ import {
 } from "./consentMarketPolicy";
 
 describe("consentMarketPolicy", () => {
-  it("DE/BR/PT → strict; US/CA → flexible", () => {
+  it("DE/BR/PT → strict; US/CA/AU → flexible; GB → strict", () => {
     expect(resolveConsentMarketMode({ language: "de" })).toBe("strict");
     expect(resolveConsentMarketMode({ language: "pt-BR" })).toBe("strict");
     expect(resolveConsentMarketMode({ language: "pt" })).toBe("strict");
     expect(resolveConsentMarketMode({ language: "en", marketCountry: "US" })).toBe("flexible");
     expect(resolveConsentMarketMode({ language: "en", marketCountry: "CA" })).toBe("flexible");
+    expect(resolveConsentMarketMode({ language: "en", marketCountry: "AU" })).toBe("flexible");
     expect(resolveConsentMarketMode({ language: "en", marketCountry: "GB" })).toBe("strict");
   });
 
@@ -55,14 +56,13 @@ describe("consentMarketPolicy", () => {
 
   it("CONSENT_MARKET_COUNTRY_OPTIONS só lista países com modo explícito", () => {
     const codes = CONSENT_MARKET_COUNTRY_OPTIONS.map((o) => o.code);
-    expect(codes).toEqual(expect.arrayContaining(["US", "CA", "GB", "DE", "BR"]));
-    expect(codes).not.toContain("AU");
+    expect(codes).toEqual(expect.arrayContaining(["US", "CA", "AU", "GB", "DE", "BR"]));
     for (const code of codes) {
       const withEn = resolveConsentMarketMode({ language: "en", marketCountry: code });
       const inheritEn = resolveConsentMarketMode({ language: "en" });
-      // País explícito deve divergir do fallback EN→strict quando for US/CA,
+      // País explícito deve divergir do fallback EN→strict quando for US/CA/AU,
       // ou confirmar strict nos restantes (não ficar “morto” no selector).
-      if (code === "US" || code === "CA") {
+      if (code === "US" || code === "CA" || code === "AU") {
         expect(withEn).toBe("flexible");
         expect(withEn).not.toBe(inheritEn);
       } else {

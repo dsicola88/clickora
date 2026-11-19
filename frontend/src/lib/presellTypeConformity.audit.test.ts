@@ -83,7 +83,7 @@ describe("conformidade estrutural WHITE (todos os tipos)", () => {
           doc,
           "https://app.example/track/r/x",
           "https://offer.example/buy",
-          "/aviso-cookies",
+          "",
           { unlockCookieOnly: true },
         );
         const bakedCookie = widgetsOf(baked).find((w) => w.type === "cookieBanner");
@@ -286,12 +286,12 @@ describe("funil: consentimento ≠ compra (todos os tipos)", () => {
         expect(cookie?.content.offerHref || "").toBe("");
         expect(cookie?.content.followLanguage).toBe(true);
         expect(cookie?.content.variant).toBe("bar");
-        expect(cookie?.content.policyUrl).toBe("/aviso-cookies");
+        expect(cookie?.content.policyUrl).toBe("");
         const baked = bakePublicOfferHrefs(
           doc,
           "https://app.example/track/r/x?gclid=abc",
           "https://offer.example/buy",
-          "/aviso-cookies",
+          "",
           { unlockCookieOnly: true, cookieRedirectToOffer: true },
         );
         expect(widgetsOf(baked).find((w) => w.type === "cookieBanner")?.content.offerHref).toBe(
@@ -350,7 +350,7 @@ describe("conformidade estrutural BLACK (todos os tipos)", () => {
           doc,
           "https://app.example/track/r/x",
           "https://offer.example/buy",
-          "/aviso-cookies",
+          "",
           { unlockCookieOnly: true },
         );
         expect(widgetsOf(baked).find((w) => w.type === "cookieBanner")?.content.offerHref || "").toBe("");

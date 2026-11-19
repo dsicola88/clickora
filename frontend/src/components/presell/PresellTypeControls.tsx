@@ -13,6 +13,7 @@ import {
   readCookieConsentChoice,
   writeCookieConsentChoice,
 } from "@/page-builder/cookieConsentStorage";
+import { mergeLandingAdParamsIntoTrackHref } from "@/lib/presellTrackAdParams";
 
 export type GatePayload = {
   params: Record<string, string>;
@@ -26,6 +27,7 @@ const COUNTRIES = [
   { code: "PT", name: "Portugal" },
   { code: "US", name: "United States" },
   { code: "CA", name: "Canada" },
+  { code: "AU", name: "Australia" },
   { code: "GB", name: "United Kingdom" },
   { code: "ES", name: "España" },
   { code: "MX", name: "México" },
@@ -165,7 +167,10 @@ export function CookieConsentModal({
                   e.preventDefault();
                   writeCookieConsentChoice("clickora-cookie-banner", "all");
                   onAccept?.();
-                  window.location.assign(offerNav.url);
+                  const dest =
+                    mergeLandingAdParamsIntoTrackHref(offerNav.url, window.location.search) ||
+                    offerNav.url;
+                  window.location.assign(dest);
                 }}
               >
                 {L.cookieAllow}

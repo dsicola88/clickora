@@ -104,16 +104,23 @@ else{update(false);}
   };
 }
 
-/** Liga botões do modal export ao boot de consentimento. */
+/** Liga botões do modal export ao boot de consentimento + política in-page. */
 export function buildExportCookieModalBindingsScript(): string {
   return `<script>(function(){
+function showPolicy(on){var s=document.getElementById("pe-cookie-policy-sheet");if(!s)return;s.hidden=!on;s.style.display=on?"flex":"none";}
 function bind(){var api=window.__clickoraCookieConsent;if(!api)return;
 var c=document.getElementById("pe-cookie-close");
 var a=document.getElementById("pe-cookie-allow");
 var r=document.getElementById("pe-cookie-reopen");
+var p=document.getElementById("pe-cookie-policy");
+var pb=document.getElementById("pe-cookie-policy-back");
+var pd=document.getElementById("pe-cookie-policy-backdrop");
 if(c)c.addEventListener("click",function(){api.essential();});
 if(a)a.addEventListener("click",function(){api.accept();});
 if(r)r.addEventListener("click",function(){api.reopen();});
+if(p)p.addEventListener("click",function(e){e.preventDefault();showPolicy(true);});
+if(pb)pb.addEventListener("click",function(){showPolicy(false);});
+if(pd)pd.addEventListener("click",function(){showPolicy(false);});
 }
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bind);else bind();
 })();</script>`;

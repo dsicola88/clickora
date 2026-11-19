@@ -100,7 +100,7 @@ import { MirrorTypeChrome } from "@/components/presell/MirrorTypeChrome";
 import {
   darkStorefrontNavLabels,
   getPresellUiStrings,
-  htmlLangForLocale,
+  htmlLangForPresell,
   isRtlLocale,
 } from "@/lib/presellUiStrings";
 import { buildMirrorSrcDocWithTrackHref } from "@/lib/presellMirrorMarkers";
@@ -785,9 +785,13 @@ export default function PublicPresell() {
   const { resolved: uiLang, setMode, override } = usePresellUiLanguage(page?.id, page?.language);
 
   useEffect(() => {
-    document.documentElement.lang = htmlLangForLocale(uiLang);
+    const market = readMarketCountryHint(
+      (page?.settings || {}) as Record<string, unknown>,
+      (page?.content || {}) as Record<string, unknown>,
+    );
+    document.documentElement.lang = htmlLangForPresell(uiLang, market);
     document.documentElement.dir = isRtlLocale(uiLang) ? "rtl" : "ltr";
-  }, [uiLang]);
+  }, [uiLang, page?.settings, page?.content]);
 
   useEffect(() => {
     const stored = readCookieConsentChoice();

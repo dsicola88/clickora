@@ -1,12 +1,11 @@
 import { merchantFooterCopy, merchantLinkLabel } from "@/lib/presellMerchantFooterCopy";
 import {
+  isClickoraOperatorPolicyUrl,
   merchantPolicyLinks,
   policyUrlsFromPresellContent,
   resolvePresellFooterPolicies,
-  resolveVisitorCookiePolicyUrl,
 } from "@/lib/presellFooterPolicies";
 import { getPresellUiStrings } from "@/lib/presellUiStrings";
-import { getPortalChromeCopy } from "@/lib/presellPortalCopy";
 import {
   mirrorReferenceNoticeText,
   presellComplianceLanguage,
@@ -27,6 +26,10 @@ export function buildAffiliateDisclosureBannerExportHtml(language: string | unde
   return `<div class="pe-affiliate-bar" role="note">${escapeHtml(text)}</div>`;
 }
 
+/**
+ * Rodapé export: só merchant + disclosure.
+ * Sem links /privacidade /termos /aviso-* da plataforma (fuga SaaS na white).
+ */
 export function buildTrustFooterExportHtml(
   language: string | undefined,
   settings: Record<string, unknown>,
@@ -36,16 +39,18 @@ export function buildTrustFooterExportHtml(
   const locale = presellComplianceLanguage(language);
   const L = getPresellUiStrings(locale);
   const copy = merchantFooterCopy(locale);
-  const portal = getPortalChromeCopy(locale);
-  const { operator } = bundle;
-  const visitorCookies = resolveVisitorCookiePolicyUrl(settings, policyUrlsFromPresellContent(content));
 
-  const operatorLinks = [
-    { href: operator.privacy, label: copy.operatorPrivacy },
-    { href: operator.terms, label: copy.operatorTerms },
-    ...(visitorCookies ? [{ href: visitorCookies, label: L.cookiePolicy }] : []),
-    { href: operator.medical, label: portal.medical },
-  ]
+  const operatorExtras: { href: string; label: string }[] = [];
+  const privacy = String(settings.privacyPolicyUrl || "").trim();
+  const terms = String(settings.termsUrl || "").trim();
+  if (privacy && !isClickoraOperatorPolicyUrl(privacy)) {
+    operatorExtras.push({ href: privacy, label: copy.operatorPrivacy });
+  }
+  if (terms && !isClickoraOperatorPolicyUrl(terms)) {
+    operatorExtras.push({ href: terms, label: copy.operatorTerms });
+  }
+
+  const operatorLinks = operatorExtras
     .map(
       (l) =>
         `<a href="${escapeHtml(l.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(l.label)}</a>`,
@@ -71,7 +76,7 @@ export function buildTrustFooterExportHtml(
 <p class="pe-trust-kicker">${escapeHtml(L.trustNavLabel)}</p>
 <p class="pe-trust-text">${escapeHtml(L.trustDisclosure)}</p>
 <p class="pe-trust-text">${escapeHtml(L.trustAbout)}</p>
-<nav class="pe-trust-nav">${operatorLinks}</nav>
+${operatorLinks ? `<nav class="pe-trust-nav">${operatorLinks}</nav>` : ""}
 ${merchantBlock}
 </div>
 </section>`;

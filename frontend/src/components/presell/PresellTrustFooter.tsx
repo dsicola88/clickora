@@ -8,9 +8,9 @@ import {
   merchantLinkLabel,
 } from "@/lib/presellMerchantFooterCopy";
 import {
+  isClickoraOperatorPolicyUrl,
   merchantPolicyLinks,
   resolvePresellFooterPolicies,
-  resolveVisitorCookiePolicyUrl,
   type PresellFooterPolicyBundle,
 } from "@/lib/presellFooterPolicies";
 
@@ -113,15 +113,13 @@ export function PresellTrustFooter({
     termsUrl,
   });
   const { operator } = bundle;
-  const medicalHref = operator.medical;
-  const visitorCookiePolicy = resolveVisitorCookiePolicyUrl(
-    settings ?? {
-      ...(privacyPolicyUrl ? { privacyPolicyUrl } : {}),
-      ...(cookiePolicyUrl ? { cookiePolicyUrl } : {}),
-      ...(termsUrl ? { termsUrl } : {}),
-    },
-    contentPolicyUrls,
-  );
+  /** Paths SaaS (/privacidade, /termos, /aviso-*) não vão no rodapé público — fuga de confiança. */
+  const publicPrivacy =
+    operator.privacy && !isClickoraOperatorPolicyUrl(operator.privacy) ? operator.privacy : "";
+  const publicTerms =
+    operator.terms && !isClickoraOperatorPolicyUrl(operator.terms) ? operator.terms : "";
+  const medicalHref =
+    operator.medical && !isClickoraOperatorPolicyUrl(operator.medical) ? operator.medical : "";
   const email = (supportEmail || "").trim();
   const contactEmail = email;
   const mail = contactEmail ? `mailto:${contactEmail}` : "";
@@ -170,23 +168,19 @@ export function PresellTrustFooter({
             className="flex flex-wrap gap-x-4 gap-y-2 pt-1 text-xs font-medium text-slate-300"
             aria-label={portal.policies}
           >
-            <a href={operator.privacy} target="_blank" rel="noopener noreferrer" className="hover:text-white underline-offset-2 hover:underline">
-              {copy.operatorPrivacy}
-            </a>
-            <a href={operator.terms} target="_blank" rel="noopener noreferrer" className="hover:text-white underline-offset-2 hover:underline">
-              {copy.operatorTerms}
-            </a>
-            <a href={medicalHref} target="_blank" rel="noopener noreferrer" className="hover:text-white underline-offset-2 hover:underline">
-              {portal.medical}
-            </a>
-            {visitorCookiePolicy ? (
-              <a
-                href={visitorCookiePolicy}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-white underline-offset-2 hover:underline"
-              >
-                {s.cookiePolicy}
+            {publicPrivacy ? (
+              <a href={publicPrivacy} target="_blank" rel="noopener noreferrer" className="hover:text-white underline-offset-2 hover:underline">
+                {copy.operatorPrivacy}
+              </a>
+            ) : null}
+            {publicTerms ? (
+              <a href={publicTerms} target="_blank" rel="noopener noreferrer" className="hover:text-white underline-offset-2 hover:underline">
+                {copy.operatorTerms}
+              </a>
+            ) : null}
+            {medicalHref ? (
+              <a href={medicalHref} target="_blank" rel="noopener noreferrer" className="hover:text-white underline-offset-2 hover:underline">
+                {portal.medical}
               </a>
             ) : null}
             {onReopenCookieSettings ? (
@@ -248,15 +242,14 @@ export function PresellTrustFooter({
           className={cn("flex flex-wrap gap-x-4 gap-y-2 text-xs sm:text-sm font-medium pt-1", text)}
           aria-label={s.trustNavLabel}
         >
-          <a href={operator.privacy} target="_blank" rel="noopener noreferrer" className={link}>
-            {copy.operatorPrivacy}
-          </a>
-          <a href={operator.terms} target="_blank" rel="noopener noreferrer" className={link}>
-            {copy.operatorTerms}
-          </a>
-          {visitorCookiePolicy ? (
-            <a href={visitorCookiePolicy} target="_blank" rel="noopener noreferrer" className={link}>
-              {s.cookiePolicy}
+          {publicPrivacy ? (
+            <a href={publicPrivacy} target="_blank" rel="noopener noreferrer" className={link}>
+              {copy.operatorPrivacy}
+            </a>
+          ) : null}
+          {publicTerms ? (
+            <a href={publicTerms} target="_blank" rel="noopener noreferrer" className={link}>
+              {copy.operatorTerms}
             </a>
           ) : null}
           {onReopenCookieSettings ? (
@@ -269,9 +262,11 @@ export function PresellTrustFooter({
               {s.cookieReopen}
             </button>
           ) : null}
-          <a href={medicalHref} target="_blank" rel="noopener noreferrer" className={link}>
-            {portal.medical}
-          </a>
+          {medicalHref ? (
+            <a href={medicalHref} target="_blank" rel="noopener noreferrer" className={link}>
+              {portal.medical}
+            </a>
+          ) : null}
           {email && mail ? (
             <a href={mail} className={link}>
               {s.trustContact}

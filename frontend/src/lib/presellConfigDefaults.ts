@@ -61,7 +61,7 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
   cookieRedirectToOffer: false,
   /**
    * Rodapé POLICIES / identidade do afiliado na página pública.
-   * Novas páginas: false (página limpa). Páginas antigas sem chave: hydrate → true.
+   * Opt-in: false por defeito; chave ausente no hydrate também → false.
    */
   showAffiliateTrustFooter: false,
 };

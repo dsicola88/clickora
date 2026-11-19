@@ -58,7 +58,8 @@ const STRICT_COUNTRIES = new Set([
   "BR",
 ]);
 
-const FLEXIBLE_COUNTRIES = new Set(["US", "CA"]);
+/** Mercados ads EN sem GDPR prévio típico (US/CA/AU). UK/GB fica em STRICT. */
+const FLEXIBLE_COUNTRIES = new Set(["US", "CA", "AU"]);
 
 /**
  * Países do selector no painel (consent / ads market).
@@ -71,6 +72,7 @@ export const CONSENT_MARKET_COUNTRY_OPTIONS: ReadonlyArray<{
   [
     { code: "US", label: "United States (US)" },
     { code: "CA", label: "Canada (CA)" },
+    { code: "AU", label: "Australia (AU)" },
     { code: "GB", label: "United Kingdom (GB)" },
     { code: "DE", label: "Germany (DE)" },
     { code: "FR", label: "France (FR)" },
@@ -134,7 +136,7 @@ export function resolveConsentMarketMode(input: {
 
   const lang = normalizePresellLocale(input.language || undefined);
   if (STRICT_LANGS.has(lang)) return "strict";
-  // `en` sem país: strict por defeito (UK/ads UE); US/CA devem setar marketCountry.
+  // `en` sem país: strict por defeito (UK/ads UE); US/CA/AU devem setar marketCountry.
   if (lang === "en") return "strict";
   return "strict";
 }

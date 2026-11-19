@@ -63,6 +63,11 @@ function pick(language: string) {
   return COPY.en;
 }
 
+/** Copy partilhado SPA + export HTML (sem marca SaaS). */
+export function getCookiePolicyInlineCopy(language: string) {
+  return pick(language);
+}
+
 /**
  * Painel de política dentro da presell — sem link externo e sem marca SaaS.
  */
