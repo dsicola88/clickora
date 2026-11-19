@@ -5,7 +5,6 @@
 import type { PaidAdsMatchType } from "@prisma/client";
 import { runGoogleAdsSearch } from "./google-ads.api";
 import {
-  GOOGLE_ADS_LOGIN_CUSTOMER_ID,
   resolveGoogleAdsAccess,
   resolveGoogleAdsDateRange,
   deriveMetricRates,
@@ -65,7 +64,7 @@ export async function fetchGoogleAdsSearchTerms(
     ORDER BY metrics.cost_micros DESC
     LIMIT 200
   `;
-  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
   if (s.error) {
     return {
       ok: false as const,
@@ -240,7 +239,7 @@ export async function fetchGoogleAdsProjectSearchTerms(
     ORDER BY metrics.cost_micros DESC
     LIMIT ${limit}
   `;
-  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
   if (s.error) {
     return {
       ok: false as const,
@@ -352,7 +351,7 @@ export async function fetchGoogleAdsKeywordMetrics(
         WHERE ad_group_criterion.criterion_id IN (${chunk.join(",")})
           AND segments.date BETWEEN '${range.from}' AND '${range.to}'
       `;
-      const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+      const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
       if (s.error) {
         return { ok: false as const, error: s.error.message ?? "Falha ao ler métricas de keywords.", code: "gaql_error" };
       }

@@ -7,7 +7,6 @@ import { parseGoogleBudgetShareFromRow } from "./google-ads-budget";
 import { computeClickCapture } from "./google-ads-click-capture";
 import {
   deriveMetricRates,
-  GOOGLE_ADS_LOGIN_CUSTOMER_ID,
   resolveGoogleAdsAccess,
   resolveGoogleAdsDateRange,
 } from "./google-ads-connection";
@@ -97,7 +96,7 @@ export async function fetchGoogleAdsAccountOverview(
     FROM customer
     WHERE segments.date BETWEEN '${range.from}' AND '${range.to}'
   `;
-  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
   if (s.error) {
     return {
       ok: false as const,
@@ -192,7 +191,7 @@ export async function fetchGoogleAdsCampaignsMetrics(
         WHERE campaign.id IN (${ids.join(",")})
           AND segments.date BETWEEN '${range.from}' AND '${range.to}'
       `;
-      const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+      const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
       if (s.error) {
         return { ok: false as const, error: s.error.message ?? "Falha ao ler métricas das campanhas.", code: "gaql_error" };
       }
@@ -225,7 +224,7 @@ export async function fetchGoogleAdsCampaignsMetrics(
         FROM campaign
         WHERE campaign.id IN (${ids.join(",")})
       `;
-      const bs = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, bq, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+      const bs = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, bq, ctx.loginCustomerId);
       if (!bs.error) {
         for (const raw of Array.isArray(bs.results) ? bs.results : []) {
           const row = raw as Record<string, unknown>;
@@ -443,7 +442,7 @@ export async function fetchGoogleAdsRecommendations(projectId: string) {
     WHERE recommendation.dismissed = FALSE
     LIMIT 100
   `;
-  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
   if (s.error) {
     return {
       ok: false as const,
@@ -502,7 +501,7 @@ export async function applyOrDismissGoogleRecommendation(
       ctx.dev,
       "recommendations:dismiss",
       { operations: [{ resourceName: rn }] },
-      GOOGLE_ADS_LOGIN_CUSTOMER_ID,
+      ctx.loginCustomerId,
     );
     if (!out.ok) return { ok: false as const, error: out.error, code: "dismiss_failed" };
     return { ok: true as const, action: "dismiss" as const };
@@ -514,7 +513,7 @@ export async function applyOrDismissGoogleRecommendation(
     ctx.dev,
     "recommendations:apply",
     { operations: [{ resourceName: rn }] },
-    GOOGLE_ADS_LOGIN_CUSTOMER_ID,
+    ctx.loginCustomerId,
   );
   if (!out.ok) return { ok: false as const, error: out.error, code: "apply_failed" };
   return { ok: true as const, action: "apply" as const };
@@ -587,7 +586,7 @@ export async function fetchGoogleAdsDevicePerformance(
       FROM customer
       WHERE segments.date BETWEEN '${range.from}' AND '${range.to}'
     `;
-    const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+    const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
     if (s.error) {
       return {
         ok: false as const,
@@ -637,7 +636,7 @@ export async function fetchGoogleAdsDevicePerformance(
       WHERE campaign.id IN (${ids.join(",")})
         AND segments.date BETWEEN '${range.from}' AND '${range.to}'
     `;
-    const cs = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, cq, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+    const cs = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, cq, ctx.loginCustomerId);
     if (cs.error) {
       return {
         ok: false as const,

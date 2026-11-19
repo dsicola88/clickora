@@ -1,9 +1,11 @@
 /**
  * Contexto OAuth Google Ads do projecto Paid — partilhado por overview, métricas e mutações.
+ * Preferência: token Paid; se falhar, cura com o refresh de Integrações (mesma conta).
  */
+import { resolveUserGoogleAdsRefreshToken } from "../modules/googleAds/googleAds.service";
 import { getAccessFromRefreshToken, getGoogleDeveloperToken } from "./google-ads.api";
 import { prisma } from "./paidPrisma";
-import { loadPaidToken } from "./tokenSecrets";
+import { loadPaidToken, storePaidToken } from "./tokenSecrets";
 
 export const GOOGLE_ADS_LOGIN_CUSTOMER_ID =
   process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") || undefined;
@@ -12,6 +14,8 @@ export type GoogleAdsAccessOk = {
   ok: true;
   access: string;
   customerId: string;
+  /** MCC / login-customer-id do utilizador (Integrações) ou env. */
+  loginCustomerId: string | undefined;
   dev: string;
   accountName: string | null;
   connectionId: string;
@@ -30,26 +34,69 @@ export async function resolveGoogleAdsAccess(projectId: string): Promise<GoogleA
       code: "oauth_required",
     };
   }
-  const refresh = loadPaidToken(conn.tokenRef);
-  if (!refresh) {
-    return { ok: false, error: "Token Google em falta ou corrompido. Volte a ligar a conta.", code: "token_missing" };
-  }
+
+  const owner = await prisma.user.findUnique({
+    where: { id: conn.userId },
+    select: {
+      googleAdsRefreshToken: true,
+      googleAdsLoginCustomerId: true,
+    },
+  });
+  const loginCustomerId =
+    owner?.googleAdsLoginCustomerId?.replace(/\D/g, "") || GOOGLE_ADS_LOGIN_CUSTOMER_ID || undefined;
+
   /** Pós-sunset a API aceita header vazio; preferimos env quando existir. */
   const dev = getGoogleDeveloperToken() ?? "";
-  let access: string;
-  try {
-    ({ access_token: access } = await getAccessFromRefreshToken(refresh));
-  } catch (e) {
+
+  const tryRefresh = async (refresh: string): Promise<string | null> => {
+    try {
+      const { access_token } = await getAccessFromRefreshToken(refresh);
+      return access_token;
+    } catch {
+      return null;
+    }
+  };
+
+  let refresh = loadPaidToken(conn.tokenRef);
+  let access = refresh ? await tryRefresh(refresh) : null;
+  let lastErr = "Token Google inválido ou expirado. Reconecte a conta.";
+
+  if (!access) {
+    const fromIntegrations = owner ? resolveUserGoogleAdsRefreshToken(owner) : null;
+    if (fromIntegrations && fromIntegrations !== refresh) {
+      access = await tryRefresh(fromIntegrations);
+      if (access) {
+        refresh = fromIntegrations;
+        await prisma.paidAdsGoogleAdsConnection.update({
+          where: { id: conn.id },
+          data: {
+            tokenRef: storePaidToken(fromIntegrations),
+            lastSyncAt: new Date(),
+            errorMessage: null,
+            status: "connected",
+          },
+        });
+      } else {
+        lastErr = "Token Google (Integrações) inválido. Volte a ligar a conta em Integrações → Google.";
+      }
+    } else if (!refresh) {
+      lastErr = "Token Google em falta ou corrompido. Volte a ligar a conta.";
+    }
+  }
+
+  if (!access) {
     return {
       ok: false,
-      error: e instanceof Error ? e.message : "Token Google inválido ou expirado. Reconecte a conta.",
-      code: "token_refresh_failed",
+      error: lastErr,
+      code: refresh ? "token_refresh_failed" : "token_missing",
     };
   }
+
   return {
     ok: true,
     access,
     customerId: conn.googleCustomerId.replace(/\D/g, ""),
+    loginCustomerId,
     dev,
     accountName: conn.accountName,
     connectionId: conn.id,

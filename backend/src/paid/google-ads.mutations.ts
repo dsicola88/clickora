@@ -4,12 +4,7 @@
  */
 import type { PaidAdsEntityStatus as EntityStatus, PaidAdsMatchType as MatchType, Prisma } from "@prisma/client";
 
-import {
-  getAccessFromRefreshToken,
-  getGoogleDeveloperToken,
-  runGoogleAdsMutate,
-  runGoogleAdsSearch,
-} from "./google-ads.api";
+import { runGoogleAdsMutate, runGoogleAdsSearch } from "./google-ads.api";
 import {
   googleAdGroupCpcBidMicros,
   googleCampaignBiddingUpdateMask,
@@ -22,10 +17,9 @@ import { publishGoogleCampaignAssetExtensions } from "./google-ads-asset-extensi
 import { removeGoogleCampaignExtensionAssetLinks } from "./google-ads-campaign-assets-sync";
 import type { GoogleCampaignAssetExtensionsStored } from "./google-campaign-asset-extensions";
 import { parseGoogleBudgetShareFromRow, sharedBudgetBlockMessage } from "./google-ads-budget";
+import { resolveGoogleAdsAccess } from "./google-ads-connection";
 import { prisma } from "./paidPrisma";
-import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
-
-const LOGIN = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") || undefined;
+import { isOAuthPendingToken } from "./tokenSecrets";
 
 function matchTypeToGoogle(m: MatchType): "EXACT" | "PHRASE" | "BROAD" {
   if (m === "exact") return "EXACT";
@@ -53,25 +47,18 @@ function clipPathCol(v: string | null | undefined): string | undefined {
 
 export type CrResult = { ok: true } | { ok: false; error: string };
 
-async function ctxForProject(
-  projectId: string,
-): Promise<{ err: string } | { access: string; customerId: string; dev: string }> {
-  const conn = await prisma.paidAdsGoogleAdsConnection.findUnique({ where: { projectId } });
-  if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.googleCustomerId) {
-    return { err: "Ligue a conta Google Ads (OAuth) antes de aplicar." };
-  }
-  const dev = getGoogleDeveloperToken();
-  if (!dev) return { err: "GOOGLE_ADS_DEVELOPER_TOKEN em falta." };
-  let access: string;
-  try {
-    ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
-  } catch (e) {
-    return { err: e instanceof Error ? e.message : "Token Google inválido." };
-  }
+async function ctxForProject(projectId: string): Promise<
+  | { err: string }
+  | { access: string; customerId: string; dev: string; login: string | undefined }
+> {
+  const ctx = await resolveGoogleAdsAccess(projectId);
+  if (!ctx.ok) return { err: ctx.error };
+  if (!ctx.dev) return { err: "GOOGLE_ADS_DEVELOPER_TOKEN em falta." };
   return {
-    access,
-    customerId: conn.googleCustomerId.replace(/\D/g, ""),
-    dev,
+    access: ctx.access,
+    customerId: ctx.customerId,
+    dev: ctx.dev,
+    login: ctx.loginCustomerId,
   };
 }
 
@@ -81,7 +68,7 @@ export async function applyGoogleUpdateBudget(
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
   if ("err" in c0) return { ok: false, error: c0.err };
-  const { access, customerId, dev } = c0;
+  const { access, customerId, dev, login } = c0;
 
   const camp = await prisma.paidAdsCampaign.findFirst({
     where: { id: p.campaign_id, projectId, platform: "google_ads" },
@@ -99,7 +86,7 @@ export async function applyGoogleUpdateBudget(
     FROM campaign
     WHERE campaign.id = ${extId}
   `;
-  const s = await runGoogleAdsSearch(access, customerId, dev, q, LOGIN);
+  const s = await runGoogleAdsSearch(access, customerId, dev, q, login);
   if (s.error) return { ok: false, error: s.error.message ?? "Falha na consulta" };
   const row = s.results?.[0] as
     | {
@@ -134,7 +121,7 @@ export async function applyGoogleUpdateBudget(
         },
       ],
     },
-    LOGIN,
+    login,
   );
   if (m.error) return { ok: false, error: m.error.message ?? "Mutate orçamento" };
   await prisma.paidAdsCampaign.update({
@@ -153,7 +140,7 @@ export async function applyGoogleAddKeywords(
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
   if ("err" in c0) return { ok: false, error: c0.err };
-  const { access, customerId, dev } = c0;
+  const { access, customerId, dev, login } = c0;
 
   const ag = await prisma.paidAdsAdGroup.findFirst({
     where: { id: p.ad_group_id, campaign: { projectId, platform: "google_ads" } },
@@ -184,7 +171,7 @@ export async function applyGoogleAddKeywords(
           },
         ],
       },
-      LOGIN,
+      login,
     );
     if (m.error) {
       return { ok: false, error: m.error.message ?? "Adicionar palavra-chave" };
@@ -212,7 +199,7 @@ export async function applyGooglePublishRsa(
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
   if ("err" in c0) return { ok: false, error: c0.err };
-  const { access, customerId, dev } = c0;
+  const { access, customerId, dev, login } = c0;
 
   const rsa = await prisma.paidAdsRsa.findFirst({
     where: { id: p.paid_ads_rsa_id, adGroup: { campaign: { projectId, platform: "google_ads" } } },
@@ -261,7 +248,7 @@ export async function applyGooglePublishRsa(
         },
       ],
     },
-    LOGIN,
+    login,
   );
   if (m.error) return { ok: false, error: m.error.message ?? "Criar anúncio RSA" };
   const rn = m.results?.[0]?.resourceName;
@@ -281,7 +268,7 @@ export async function applyGooglePauseEntity(
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
   if ("err" in c0) return { ok: false, error: c0.err };
-  const { access, customerId, dev } = c0;
+  const { access, customerId, dev, login } = c0;
   const cid = `customers/${customerId}`;
 
   if (p.entity === "campaign") {
@@ -307,7 +294,7 @@ export async function applyGooglePauseEntity(
           },
         ],
       },
-      LOGIN,
+      login,
     );
     if (m.error) return { ok: false, error: m.error.message ?? "Pausar campanha" };
     await prisma.paidAdsCampaign.update({
@@ -339,7 +326,7 @@ export async function applyGooglePauseEntity(
           },
         ],
       },
-      LOGIN,
+      login,
     );
     if (m.error) return { ok: false, error: m.error.message ?? "Pausar ad group" };
     await prisma.paidAdsAdGroup.update({ where: { id: ag.id }, data: { status: "paused" } });
@@ -372,7 +359,7 @@ export async function applyGooglePauseEntity(
           },
         ],
       },
-      LOGIN,
+      login,
     );
     if (m.error) return { ok: false, error: m.error.message ?? "Pausar critério" };
     await prisma.paidAdsKeyword.update({ where: { id: kw.id }, data: { status: "paused" } });
@@ -401,7 +388,7 @@ export async function applyGooglePauseEntity(
         },
       ],
     },
-    LOGIN,
+    login,
   );
   if (m.error) return { ok: false, error: m.error.message ?? "Pausar anúncio" };
   await prisma.paidAdsRsa.update({ where: { id: rsa.id }, data: { status: "paused" } });
@@ -415,7 +402,7 @@ export async function applyGoogleResumeEntity(
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
   if ("err" in c0) return { ok: false, error: c0.err };
-  const { access, customerId, dev } = c0;
+  const { access, customerId, dev, login } = c0;
   const cid = `customers/${customerId}`;
 
   if (p.entity === "campaign") {
@@ -441,7 +428,7 @@ export async function applyGoogleResumeEntity(
           },
         ],
       },
-      LOGIN,
+      login,
     );
     if (m.error) return { ok: false, error: m.error.message ?? "Reactivar campanha" };
     await prisma.paidAdsCampaign.update({
@@ -473,7 +460,7 @@ export async function applyGoogleResumeEntity(
           },
         ],
       },
-      LOGIN,
+      login,
     );
     if (m.error) return { ok: false, error: m.error.message ?? "Reactivar ad group" };
     await prisma.paidAdsAdGroup.update({ where: { id: ag.id }, data: { status: "live" } });
@@ -506,7 +493,7 @@ export async function applyGoogleResumeEntity(
           },
         ],
       },
-      LOGIN,
+      login,
     );
     if (m.error) return { ok: false, error: m.error.message ?? "Reactivar critério" };
     await prisma.paidAdsKeyword.update({ where: { id: kw.id }, data: { status: "live" } });
@@ -535,7 +522,7 @@ export async function applyGoogleResumeEntity(
         },
       ],
     },
-    LOGIN,
+    login,
   );
   if (m.error) return { ok: false, error: m.error.message ?? "Reactivar anúncio" };
   await prisma.paidAdsRsa.update({ where: { id: rsa.id }, data: { status: "live" } });
@@ -549,7 +536,7 @@ export async function applyGoogleRemoveKeyword(
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
   if ("err" in c0) return { ok: false, error: c0.err };
-  const { access, customerId, dev } = c0;
+  const { access, customerId, dev, login } = c0;
   const cid = `customers/${customerId}`;
 
   const kw = await prisma.paidAdsKeyword.findFirst({
@@ -571,7 +558,7 @@ export async function applyGoogleRemoveKeyword(
     {
       operations: [{ remove: resourceName }],
     },
-    LOGIN,
+    login,
   );
   if (m.error) return { ok: false, error: m.error.message ?? "Remover palavra-chave" };
   await prisma.paidAdsKeyword.delete({ where: { id: kw.id } });
@@ -593,7 +580,7 @@ export async function applyGoogleUpdateRsaCopy(
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
   if ("err" in c0) return { ok: false, error: c0.err };
-  const { access, customerId, dev } = c0;
+  const { access, customerId, dev, login } = c0;
 
   const rsa = await prisma.paidAdsRsa.findFirst({
     where: { id: p.paid_ads_rsa_id, adGroup: { campaign: { projectId, platform: "google_ads" } } },
@@ -669,7 +656,7 @@ export async function applyGoogleUpdateRsaCopy(
     ],
   };
 
-  const m = await runGoogleAdsMutate(access, customerId, dev, "adGroupAds", updateBody as { operations: unknown[] }, LOGIN);
+  const m = await runGoogleAdsMutate(access, customerId, dev, "adGroupAds", updateBody as { operations: unknown[] }, login);
   if (m.error) return { ok: false, error: m.error.message ?? "Actualizar anúncio RSA" };
   return { ok: true };
 }
@@ -680,7 +667,7 @@ export async function applyGoogleUpdateAdGroupCpc(
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
   if ("err" in c0) return { ok: false, error: c0.err };
-  const { access, customerId, dev } = c0;
+  const { access, customerId, dev, login } = c0;
   const cid = `customers/${customerId}`;
 
   const micros = Math.round(p.cpc_bid_micros);
@@ -712,7 +699,7 @@ export async function applyGoogleUpdateAdGroupCpc(
         },
       ],
     },
-    LOGIN,
+    login,
   );
   if (m.error) return { ok: false, error: m.error.message ?? "Actualizar CPC do grupo" };
   await prisma.paidAdsAdGroup.update({
@@ -734,7 +721,7 @@ export async function applyGoogleUpdateCampaignBidding(
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
   if ("err" in c0) return { ok: false, error: c0.err };
-  const { access, customerId, dev } = c0;
+  const { access, customerId, dev, login } = c0;
 
   const camp = await prisma.paidAdsCampaign.findFirst({
     where: { id: p.campaign_id, projectId, platform: "google_ads" },
@@ -773,7 +760,7 @@ export async function applyGoogleUpdateCampaignBidding(
         },
       ],
     },
-    LOGIN,
+    login,
   );
   if (m.error) return { ok: false, error: m.error.message ?? "Actualizar estratégia de licitação" };
 
@@ -806,7 +793,7 @@ export async function applyGoogleUpdateCampaignBidding(
               },
             ],
           },
-          LOGIN,
+          login,
         );
         if (um.error) {
           return { ok: false, error: um.error.message ?? "Actualizar CPC dos grupos" };
@@ -852,7 +839,7 @@ async function mutateThrow(
   body: { operations: unknown[] },
   loginCustomerId?: string,
 ): Promise<{ resourceNames: string[] }> {
-  const m = await runGoogleAdsMutate(access, customerId, dev, servicePath, body, loginCustomerId ?? LOGIN);
+  const m = await runGoogleAdsMutate(access, customerId, dev, servicePath, body, loginCustomerId);
   if (m.error?.message) throw new Error(m.error.message);
   const resourceNames = (m.results ?? []).map((r) => r.resourceName).filter((n): n is string => Boolean(n));
   return { resourceNames };
@@ -865,7 +852,7 @@ export async function applyGoogleReplaceAssetExtensions(
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
   if ("err" in c0) return { ok: false, error: c0.err };
-  const { access, customerId, dev } = c0;
+  const { access, customerId, dev, login } = c0;
 
   const camp = await prisma.paidAdsCampaign.findFirst({
     where: { id: p.campaign_id, projectId, platform: "google_ads" },
@@ -888,7 +875,7 @@ export async function applyGoogleReplaceAssetExtensions(
     accessToken: access,
     customerId,
     devToken: dev,
-    loginCustomerId: LOGIN,
+    loginCustomerId: login,
     campaignNumericId: extCamp,
   });
   if (!rm.ok) return { ok: false, error: rm.error };
@@ -901,7 +888,7 @@ export async function applyGoogleReplaceAssetExtensions(
       accessToken: access,
       devToken: dev,
       customerId,
-      loginCustomerId: LOGIN,
+      loginCustomerId: login,
       campaignResourceName: campaignRn,
       extensions: p.extensions,
     });
@@ -919,7 +906,7 @@ export async function applyGoogleSyncCampaignNegativeKeywords(
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
   if ("err" in c0) return { ok: false, error: c0.err };
-  const { access, customerId, dev } = c0;
+  const { access, customerId, dev, login } = c0;
   const cid = `customers/${customerId}`;
 
   const camp = await prisma.paidAdsCampaign.findFirst({
@@ -943,7 +930,7 @@ export async function applyGoogleSyncCampaignNegativeKeywords(
       dev,
       "campaignCriteria",
       { operations: [{ remove: rn }] },
-      LOGIN,
+      login,
     );
     if (m.error?.message) return { ok: false, error: m.error.message };
   }
@@ -970,7 +957,7 @@ export async function applyGoogleSyncCampaignNegativeKeywords(
           },
         ],
       },
-      LOGIN,
+      login,
     );
     if (m.error?.message) return { ok: false, error: m.error.message };
     const createdRn = m.results?.[0]?.resourceName;
@@ -997,7 +984,7 @@ export async function applyGoogleSyncAdGroupNegativeKeywords(
 ): Promise<CrResult> {
   const c0 = await ctxForProject(projectId);
   if ("err" in c0) return { ok: false, error: c0.err };
-  const { access, customerId, dev } = c0;
+  const { access, customerId, dev, login } = c0;
   const cid = `customers/${customerId}`;
 
   const ag = await prisma.paidAdsAdGroup.findFirst({
@@ -1021,7 +1008,7 @@ export async function applyGoogleSyncAdGroupNegativeKeywords(
       dev,
       "adGroupCriteria",
       { operations: [{ remove: rn }] },
-      LOGIN,
+      login,
     );
     if (m.error?.message) return { ok: false, error: m.error.message };
   }
@@ -1049,7 +1036,7 @@ export async function applyGoogleSyncAdGroupNegativeKeywords(
           },
         ],
       },
-      LOGIN,
+      login,
     );
     if (m.error?.message) return { ok: false, error: m.error.message };
     const createdRn = m.results?.[0]?.resourceName;

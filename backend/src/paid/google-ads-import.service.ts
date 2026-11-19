@@ -5,10 +5,7 @@
 import type { PaidAdsCampaignStatus, PaidAdsEntityStatus, PaidAdsMatchType, Prisma } from "@prisma/client";
 import { runGoogleAdsSearch } from "./google-ads.api";
 import { parseGoogleBudgetShareFromRow } from "./google-ads-budget";
-import {
-  GOOGLE_ADS_LOGIN_CUSTOMER_ID,
-  resolveGoogleAdsAccess,
-} from "./google-ads-connection";
+import { resolveGoogleAdsAccess } from "./google-ads-connection";
 import { prisma } from "./paidPrisma";
 
 function numId(v: unknown): string {
@@ -85,7 +82,7 @@ export async function listRemoteGoogleSearchCampaigns(projectId: string) {
     ORDER BY campaign.name
     LIMIT 200
   `;
-  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
   if (s.error) {
     return { ok: false as const, error: s.error.message ?? "Falha ao listar campanhas remotas.", code: "gaql_error" };
   }
@@ -164,7 +161,7 @@ async function pullStructureIntoLocalCampaign(
     WHERE campaign.id = ${ext}
     LIMIT 1
   `;
-  const campS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, campQ, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const campS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, campQ, ctx.loginCustomerId);
   if (campS.error) return { ok: false, error: campS.error.message ?? "Falha ao ler campanha." };
   const campRow = (campS.results?.[0] ?? null) as Record<string, unknown> | null;
   if (!campRow) return { ok: false, error: "Campanha não encontrada na conta Google." };
@@ -248,7 +245,7 @@ async function pullStructureIntoLocalCampaign(
       AND ad_group.status != 'REMOVED'
     LIMIT 100
   `;
-  const agS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, agQ, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const agS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, agQ, ctx.loginCustomerId);
   if (agS.error) return { ok: false, error: agS.error.message ?? "Falha ao ler grupos." };
 
   const adGroupLocalByExt = new Map<string, string>();
@@ -312,7 +309,7 @@ async function pullStructureIntoLocalCampaign(
       AND ad_group_criterion.negative = FALSE
     LIMIT 2000
   `;
-  const kwS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, kwQ, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const kwS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, kwQ, ctx.loginCustomerId);
   if (kwS.error) return { ok: false, error: kwS.error.message ?? "Falha ao ler keywords." };
 
   const kwCreates: Array<{
@@ -385,7 +382,7 @@ async function pullStructureIntoLocalCampaign(
       AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'
     LIMIT 500
   `;
-  const adS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, adQ, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const adS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, adQ, ctx.loginCustomerId);
   if (adS.error) return { ok: false, error: adS.error.message ?? "Falha ao ler anúncios." };
 
   for (const raw of Array.isArray(adS.results) ? adS.results : []) {
@@ -459,7 +456,7 @@ async function pullStructureIntoLocalCampaign(
       AND campaign_criterion.status != 'REMOVED'
     LIMIT 1000
   `;
-  const negS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, negQ, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const negS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, negQ, ctx.loginCustomerId);
   if (!negS.error) {
     for (const raw of Array.isArray(negS.results) ? negS.results : []) {
       const row = raw as Record<string, unknown>;
@@ -500,7 +497,7 @@ async function pullStructureIntoLocalCampaign(
       AND ad_group_criterion.status != 'REMOVED'
     LIMIT 2000
   `;
-  const agNegS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, agNegQ, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const agNegS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, agNegQ, ctx.loginCustomerId);
   if (!agNegS.error) {
     for (const raw of Array.isArray(agNegS.results) ? agNegS.results : []) {
       const row = raw as Record<string, unknown>;
@@ -617,7 +614,7 @@ export async function fetchGoogleRsaPolicyStatus(projectId: string, localCampaig
       AND ad_group_ad.status != 'REMOVED'
     LIMIT 200
   `;
-  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
   if (s.error) {
     return { ok: false as const, error: s.error.message ?? "Falha ao ler política dos anúncios.", code: "gaql_error" };
   }
@@ -721,7 +718,7 @@ export async function fetchGoogleRsaPolicyProjectAudit(projectId: string) {
       AND ad_group_ad.status != 'REMOVED'
     LIMIT 500
   `;
-  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
   if (s.error) {
     return {
       ok: false as const,
