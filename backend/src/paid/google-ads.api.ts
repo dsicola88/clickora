@@ -665,17 +665,23 @@ export async function runGoogleAdsMutate(
         body: JSON.stringify(body),
       },
     );
-    const j = (await res.json().catch(() => ({}))) as {
+    const j = (await res.json().catch(() => ({}))) as unknown;
+    const root = j as {
       results?: { resourceName?: string }[];
       error?: { message?: string };
     };
-    if (!res.ok) {
-      return { error: { message: j.error?.message ?? `mutate ${servicePath} (${res.status})` } };
+    if (!res.ok || root.error) {
+      return {
+        error: {
+          message: withCustomerContext(
+            extractGoogleAdsErrorMessage(j, root.error?.message ?? `mutate ${servicePath} (${res.status})`),
+            clean,
+            loginHeader,
+          ),
+        },
+      };
     }
-    if (j.error) {
-      return { error: j.error };
-    }
-    return { results: j.results };
+    return { results: root.results };
   };
 
   const first = await once(login);
@@ -683,7 +689,11 @@ export async function runGoogleAdsMutate(
   if (login && looksLikeBadLoginCustomer(first.error.message)) {
     const retry = await once(undefined);
     if (!retry.error) return retry;
-    return first;
+    return {
+      error: {
+        message: `${first.error.message} (também falhou sem MCC: ${retry.error?.message ?? "—"})`,
+      },
+    };
   }
   return first;
 }

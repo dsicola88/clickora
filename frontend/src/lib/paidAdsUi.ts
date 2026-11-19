@@ -234,7 +234,15 @@ export function friendlyGoogleAdsNetworkError(message: string | null | undefined
     return "A Google Ads API já não aceita pageSize nas pesquisas (v17+). Actualize o servidor e volte a «Re-sincronizar e importar».";
   }
   if (/invalid\s+argument/i.test(m)) {
-    return "A Google rejeitou a leitura (argumento inválido). Conta solo → MCC em branco; conta sob gestor → MCC correcto. Depois «Re-sincronizar e importar». A lista local pode ser só rascunhos do projecto.";
+    if (/login-customer|login customer|mcc|manager/i.test(m)) {
+      return "A Google rejeitou o pedido (MCC/login). Conta solo → gestor em branco em Integrações; conta sob gestor → MCC correcto. Depois «Re-sincronizar e importar».";
+    }
+    if (/final.?url|final_url|landing|destination|url/i.test(m)) {
+      return "A Google rejeitou a Final URL. Em ads.google.com deixe só a presell https://…/p/… (sem gclid nem {ValueTrack}); macros vão no sufixo da URL. Depois sincronize de novo.";
+    }
+    /** Não culpar MCC quando Integrações já está solo — mostrar detalhe útil da API. */
+    const short = m.length > 280 ? `${m.slice(0, 280)}…` : m;
+    return `A Google rejeitou o pedido (argumento inválido). Detalhe: ${short} Se o MCC em Integrações já está vazio e a conta é solo, use «Trocar de conta», aceite Ads + Data Manager, e limpe a Final URL no anúncio se o Reparar falhar.`;
   }
   if (/ACTION_NOT_PERMITTED_FOR_SUSPENDED_ACCOUNT|account is suspended|suspended account/i.test(m)) {
     return (

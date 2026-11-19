@@ -667,7 +667,10 @@ export async function applyGoogleUpdateRsaCopy(
 }
 
 /**
- * Actualiza só Final URL(s) do RSA na Google + local.
+ * Actualiza Final URL(s) do RSA na Google + local.
+ * 1) Tenta mutate só `ad.final_urls`.
+ * 2) Se a Google rejeitar (invalid argument), faz fallback com headlines/descriptions
+ *    (algumas contas RSA não aceitam updateMask só com final_urls).
  * Exige IDs externos — sem eles devolve erro (não finge sucesso só na BD local).
  */
 export async function applyGoogleUpdateRsaFinalUrls(
@@ -703,11 +706,12 @@ export async function applyGoogleUpdateRsaFinalUrls(
     return { ok: false, error: "IDs Google do anúncio inválidos — reimporte a campanha." };
   }
 
-  const updateBody: Record<string, unknown> = {
+  const resourceName = `customers/${customerId}/adGroupAds/${agId}~${adId}`;
+  const slimBody: Record<string, unknown> = {
     operations: [
       {
         update: {
-          resourceName: `customers/${customerId}/adGroupAds/${agId}~${adId}`,
+          resourceName,
           ad: { finalUrls: [url0] },
         },
         updateMask: "ad.final_urls",
@@ -715,21 +719,46 @@ export async function applyGoogleUpdateRsaFinalUrls(
     ],
   };
 
-  const m = await runGoogleAdsMutate(
+  const slim = await runGoogleAdsMutate(
     access,
     customerId,
     dev,
     "adGroupAds",
-    updateBody as { operations: unknown[] },
+    slimBody as { operations: unknown[] },
     login,
   );
-  if (m.error) return { ok: false, error: m.error.message ?? "Actualizar Final URL na Google Ads" };
 
-  await prisma.paidAdsRsa.update({
-    where: { id: rsa.id },
-    data: { finalUrls },
-  });
-  return { ok: true };
+  if (!slim.error) {
+    await prisma.paidAdsRsa.update({
+      where: { id: rsa.id },
+      data: { finalUrls },
+    });
+    return { ok: true };
+  }
+
+  const slimMsg = slim.error.message ?? "";
+  /** Contas RSA: updateMask só com final_urls → invalid argument; usar copy completo. */
+  if (/invalid argument|update.?mask|field.?mask|cannot be modified/i.test(slimMsg)) {
+    const headlines = parseJsonStringArray(rsa.headlines);
+    const descriptions = parseJsonStringArray(rsa.descriptions);
+    if (headlines.length >= 3 && descriptions.length >= 2) {
+      const full = await applyGoogleUpdateRsaCopy(projectId, {
+        paid_ads_rsa_id: rsa.id,
+        headlines,
+        descriptions,
+        final_urls: finalUrls,
+        path1: rsa.displayPath1 ?? undefined,
+        path2: rsa.displayPath2 ?? undefined,
+      });
+      if (full.ok) return full;
+      return {
+        ok: false,
+        error: full.error || slimMsg || "Actualizar Final URL na Google Ads",
+      };
+    }
+  }
+
+  return { ok: false, error: slimMsg || "Actualizar Final URL na Google Ads" };
 }
 
 export async function applyGoogleUpdateAdGroupCpc(
