@@ -639,7 +639,7 @@ export default function PresellDashboard() {
       minAge: typeOptions.minAge,
     };
     if (
-      base.showAffiliateTrustFooter !== false &&
+      base.showAffiliateTrustFooter === true &&
       !String(base.affiliateDisclosure ?? "").trim()
     ) {
       base.affiliateDisclosure = defaultAffiliateDisclosureSetting(formData.language);
@@ -1572,7 +1572,7 @@ export default function PresellDashboard() {
                 contactEmail: String(configSettings.contactEmail ?? ""),
                 brandKitName: kit.brandName,
                 hasAffiliateDisclosure: Boolean(configSettings.affiliateDisclosure),
-                showAffiliateTrustFooter: configSettings.showAffiliateTrustFooter !== false,
+                showAffiliateTrustFooter: configSettings.showAffiliateTrustFooter === true,
                 productImagesCount: imgs,
               });
               return (

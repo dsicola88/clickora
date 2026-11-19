@@ -42,7 +42,7 @@ export function buildEliteQualityBar(input: {
   const name = (input.businessName || input.brandKitName || "").trim();
   const email = (input.contactEmail || "").trim();
   const imgs = input.productImagesCount ?? 0;
-  const trustFooterOn = input.showAffiliateTrustFooter !== false;
+  const trustFooterOn = input.showAffiliateTrustFooter === true;
 
   const nicheItems: EliteQualityItem[] =
     input.niche === "black"

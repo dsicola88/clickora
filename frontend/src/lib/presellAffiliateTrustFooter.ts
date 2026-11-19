@@ -1,13 +1,13 @@
 /**
  * Rodapé «POLICIES» / identidade do afiliado na página pública.
- * Páginas antigas sem a chave mantêm o rodapé (comportamento anterior).
- * Novas presells gravam `showAffiliateTrustFooter: false` por defeito (página limpa).
+ * Só aparece com `showAffiliateTrustFooter: true` explícito.
+ * Ausente ou false = página limpa (alinhado ao wizard e DEFAULT_PRESELL_CONFIG_SETTINGS).
  */
 export function isAffiliateTrustFooterEnabled(
   settings: Record<string, unknown> | null | undefined,
 ): boolean {
   if (!settings || !Object.prototype.hasOwnProperty.call(settings, "showAffiliateTrustFooter")) {
-    return true;
+    return false;
   }
   const v = settings.showAffiliateTrustFooter;
   if (v === false || v === 0 || v === "false" || v === "0") return false;

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { isAffiliateTrustFooterEnabled } from "./presellAffiliateTrustFooter";
 
 describe("isAffiliateTrustFooterEnabled", () => {
-  it("páginas antigas sem a chave mantêm o rodapé", () => {
-    expect(isAffiliateTrustFooterEnabled(undefined)).toBe(true);
-    expect(isAffiliateTrustFooterEnabled({})).toBe(true);
+  it("sem a chave = rodapé desligado (opt-in explícito)", () => {
+    expect(isAffiliateTrustFooterEnabled(undefined)).toBe(false);
+    expect(isAffiliateTrustFooterEnabled({})).toBe(false);
   });
 
   it("respeita o interruptor explícito", () => {

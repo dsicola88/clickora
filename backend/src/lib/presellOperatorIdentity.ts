@@ -1,4 +1,5 @@
 import type { User } from "@prisma/client";
+import { isAffiliateTrustFooterEnabled } from "./presellAffiliateTrustFooter";
 import { normalizePresellGenerationNiche } from "./presellGenerationNiche";
 
 function asString(value: unknown): string {
@@ -27,6 +28,7 @@ export function resolveOperatorDisplayName(user: OperatorIdentityInput): string 
 
 /**
  * Garante nome + e-mail nas definições para passar CT-002 (white e black).
+ * Só preenche quando o rodapé de afiliado está ligado (opt-in).
  * Não sobrescreve valores já preenchidos pelo utilizador.
  */
 export function enrichPresellSettingsWithOperatorIdentity(args: {
@@ -36,6 +38,10 @@ export function enrichPresellSettingsWithOperatorIdentity(args: {
 }): { settings: Record<string, unknown>; changed: boolean } {
   const settings = { ...args.settings };
   let changed = false;
+
+  if (!isAffiliateTrustFooterEnabled(settings)) {
+    return { settings, changed: false };
+  }
 
   const niche = normalizePresellGenerationNiche(
     args.content.generationNiche ?? args.content.generation_niche,

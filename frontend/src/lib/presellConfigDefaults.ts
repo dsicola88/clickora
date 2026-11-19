@@ -126,7 +126,7 @@ export function hydratePresellConfigSettings(
           s.showAffiliateTrustFooter === "false" ||
           s.showAffiliateTrustFooter === "0"
         )
-      : true,
+      : false,
     ...(typeof s.operatorDocument === "string" && s.operatorDocument.trim()
       ? { operatorDocument: s.operatorDocument }
       : {}),

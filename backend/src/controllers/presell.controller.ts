@@ -42,6 +42,7 @@ import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { sanitizeMirrorInContentRecord } from "../lib/presellMirrorSanitizeContent";
 import { assertPublishAllowed } from "../compliance/service";
 import { shouldEnforceComplianceServeBlock } from "../compliance/evaluate";
+import { ensureShowAffiliateTrustFooterOnCreate } from "../lib/presellAffiliateTrustFooter";
 import {
   enrichPresellPageRecords,
   enrichPresellSettingsWithOperatorIdentity,
@@ -630,7 +631,7 @@ export const presellController = {
 
         const tIdent = Date.now();
         const identityEnriched = enrichPresellSettingsWithOperatorIdentity({
-          settings: settingsRecord(parsed.data.settings),
+          settings: ensureShowAffiliateTrustFooterOnCreate(settingsRecord(parsed.data.settings)),
           content: contentPayload,
           user: operatorUser ?? {},
         });

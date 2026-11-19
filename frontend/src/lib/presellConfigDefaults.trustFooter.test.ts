@@ -10,13 +10,13 @@ describe("showAffiliateTrustFooter hydrate / legado", () => {
     expect(DEFAULT_PRESELL_CONFIG_SETTINGS.showAffiliateTrustFooter).toBe(false);
   });
 
-  it("páginas antigas sem a chave mantêm o rodapé ao editar", () => {
+  it("sem a chave ao editar = rodapé desligado (opt-in)", () => {
     const h = hydratePresellConfigSettings({
       businessName: "Antiga Lda",
       contactEmail: "a@example.com",
     });
-    expect(h.showAffiliateTrustFooter).toBe(true);
-    expect(isAffiliateTrustFooterEnabled(h)).toBe(true);
+    expect(h.showAffiliateTrustFooter).toBe(false);
+    expect(isAffiliateTrustFooterEnabled(h)).toBe(false);
   });
 
   it("respeita false explícito gravado na API", () => {

@@ -383,10 +383,7 @@ export function PresellAdsCompliancePanel({
 
   const runPrimaryJump = () => {
     if (!primaryJump) return;
-    if (primaryJump.enableFooter && !isAffiliateTrustFooterEnabled(configSettings)) {
-      setField("showAffiliateTrustFooter", true);
-    }
-    // Retry interno cobre o re-render dos campos após ligar o footer.
+    // Não liga o rodapé automaticamente — só o operador opta-in no interruptor.
     focusComplianceAnchor(primaryJump.anchorId);
   };
 

@@ -13,6 +13,7 @@ describe("buildEliteQualityBar", () => {
       contactEmail: "",
       productImagesCount: 3,
       hasAffiliateDisclosure: true,
+      showAffiliateTrustFooter: true,
     });
     expect(r.items.find((i) => i.id === "identity")?.ok).toBe(false);
     expect(r.ready).toBe(false);
@@ -29,6 +30,7 @@ describe("buildEliteQualityBar", () => {
       contactEmail: "joao@exemplo.com",
       productImagesCount: 3,
       hasAffiliateDisclosure: true,
+      showAffiliateTrustFooter: true,
     });
     expect(r.items.find((i) => i.id === "identity")?.ok).toBe(true);
     expect(r.score).toBeGreaterThanOrEqual(85);
