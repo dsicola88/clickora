@@ -4,6 +4,7 @@ import {
   isClickoraOperatorPolicyUrl,
   merchantPolicyLinks,
   migrateLegacyOperatorUrls,
+  policyUrlsFromPresellContent,
   resolvePresellFooterPolicies,
   resolveVisitorCookiePolicyUrl,
 } from "./presellFooterPolicies";
@@ -57,6 +58,18 @@ describe("presellFooterPolicies", () => {
     expect(bundle.merchant.privacy).toBeUndefined();
     expect(bundle.merchant.terms).toBeUndefined();
     expect(merchantPolicyLinks(bundle)).toEqual([]);
+  });
+
+  it("policyUrlsFromPresellContent descarta fugas SaaS em content.policyUrls", () => {
+    expect(
+      policyUrlsFromPresellContent({
+        policyUrls: {
+          privacy: "https://www.dclickora.com/privacy",
+          terms: "https://www.dclickora.com/terms",
+          refund: "https://melarapro.com/refund",
+        },
+      }),
+    ).toEqual({ refund: "https://melarapro.com/refund" });
   });
 
   it("mantém política real do produtor no merchant", () => {

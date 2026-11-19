@@ -50,13 +50,15 @@ function num(v: unknown, fallback: number): number {
 
 /**
  * Resolve destino da oferta quando «cookieRedirectToOffer» está activo.
- * Sem URL válida o modal fica na página (só desbloqueia).
+ * Fechar (dismiss) nunca navega — a página e os CTAs ficam acessíveis.
+ * Aceitar (allow) só navega se houver URL válida.
  */
 export function cookieConsentNavigation(
-  _action: "allow" | "dismiss",
+  action: "allow" | "dismiss",
   redirectHref: string,
   fallbackHref?: string,
 ): { kind: "assign"; url: string } | { kind: "stay" } {
+  if (action === "dismiss") return { kind: "stay" };
   const a = redirectHref.trim();
   const b = (fallbackHref || "").trim();
   const url = a && a !== "#" ? a : b && b !== "#" ? b : "";
@@ -73,20 +75,20 @@ export function isCookieRedirectToOfferEnabled(
 }
 
 /**
- * Consentimento compacto (barra inferior): não tapa a oferta.
- * Aceitar = cookies não essenciais; Fechar = só essenciais.
- * A compra vai sempre pelos CTAs `/track/r/` (UTMs/gclid) — nunca depende do Aceitar.
+ * Consentimento compacto (barra inferior): não tapa a oferta nem bloqueia scroll/CTAs.
+ * Aceitar = cookies não essenciais (+ redirect opcional para /track/r/).
+ * Fechar = só essenciais; página e CTAs continuam.
  */
 export function CookieConsentModal({
   language,
   policyUrl,
-  redirectHref: _redirectHref = "",
-  fallbackHref: _fallbackHref = "",
+  redirectHref = "",
+  fallbackHref = "",
   accepted,
   onAccept,
   onDismiss,
-  /** @deprecated Ignorado: a oferta não depende do Aceitar (anti-bloqueio do funil). */
-  navigateOnAccept: _navigateOnAccept = false,
+  /** Quando true (settings.cookieRedirectToOffer), Aceitar vai à oferta via /track/r/. */
+  navigateOnAccept = false,
 }: {
   language: string;
   policyUrl: string;
@@ -96,15 +98,14 @@ export function CookieConsentModal({
   onAccept?: () => void;
   /** Fechar / só essenciais — nunca redireciona; CTAs da oferta continuam. */
   onDismiss?: () => void;
-  /** @deprecated Mantido por compat; não redireciona para a oferta. */
   navigateOnAccept?: boolean;
 }) {
-  void _redirectHref;
-  void _fallbackHref;
-  void _navigateOnAccept;
   const L = getPresellUiStrings(language);
   const cookieBody = stripTrailingCookiePolicyLabel(L.cookieBody, L.cookiePolicy);
   const [policyOpen, setPolicyOpen] = useState(false);
+  const offerNav = navigateOnAccept
+    ? cookieConsentNavigation("allow", redirectHref, fallbackHref)
+    : ({ kind: "stay" } as const);
 
   if (accepted) return null;
 
@@ -122,36 +123,18 @@ export function CookieConsentModal({
   const closeClass =
     "inline-flex h-11 min-h-[44px] flex-1 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50";
 
-  /**
-   * Backdrop a bloquear a lander (white/espelho incluído) até Aceitar/Fechar.
-   * Compra continua possível depois do Fechar (essential) — sem esconder CTAs.
-   */
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
-
   return (
     <>
       <div
-        className="fixed inset-0 z-[520] flex items-end justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-auto"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[520] flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         role="dialog"
-        aria-modal="true"
+        aria-modal="false"
         aria-labelledby="cookie-policy-title"
         data-testid="presell-cookie-sheet"
       >
         <div
-          data-testid="presell-cookie-backdrop"
-          className="pointer-events-auto absolute inset-0 bg-slate-950/45 backdrop-blur-[1px]"
-          aria-hidden="true"
-        />
-        <div
           data-testid="presell-cookie-card"
           className="pointer-events-auto relative z-10 w-full max-w-lg rounded-2xl border border-slate-200/90 bg-white/95 px-4 py-3.5 text-slate-900 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] ring-1 ring-black/5 backdrop-blur-[2px] sm:px-5"
-          onClick={(e) => e.stopPropagation()}
         >
           <h2 id="cookie-policy-title" className="text-sm font-bold tracking-tight text-slate-950 sm:text-base">
             {L.cookieTitle}
@@ -172,18 +155,25 @@ export function CookieConsentModal({
             .
           </p>
           <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row">
-            {/**
-             * Funil: Aceitar/Fechar só registam consentimento.
-             * Compra = CTAs da página com /track/r/ (atribuição essencial preservada).
-             */}
-            <Button
-              type="button"
-              className={allowClass}
-              data-testid="presell-cookie-allow"
-              onClick={acceptStay}
-            >
-              {L.cookieAllow}
-            </Button>
+            {offerNav.kind === "assign" ? (
+              <a
+                href={offerNav.url}
+                className={allowClass}
+                data-testid="presell-cookie-allow-offer"
+                onClick={acceptStay}
+              >
+                {L.cookieAllow}
+              </a>
+            ) : (
+              <Button
+                type="button"
+                className={allowClass}
+                data-testid="presell-cookie-allow"
+                onClick={acceptStay}
+              >
+                {L.cookieAllow}
+              </Button>
+            )}
             <button
               type="button"
               className={closeClass}

@@ -47,6 +47,7 @@ import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { resolveTrackApiBaseForExport, resolveTrackApiBaseForPanelEmbed } from "@/lib/apiOrigin";
 import { defaultAffiliateDisclosureSetting } from "@/lib/presellPublicComplianceCopy";
+import { sanitizeImportedPolicyUrls } from "@/lib/presellFooterPolicies";
 import { readBrandKitPro } from "@/lib/brandKitPro";
 import { bakeAndMaybePublishPresell } from "@/lib/publishPresellFlow";
 import {
@@ -250,7 +251,7 @@ export default function CreatePresellWizardPage() {
             productImages: data.images,
             sourceUrl: data.source_url || productPage,
             generationNiche: data.generation_niche ?? generationNiche,
-            policyUrls: data.policy_urls,
+            policyUrls: sanitizeImportedPolicyUrls(data.policy_urls) ?? undefined,
             storefrontTheme: data.storefront_theme,
             storefrontHeroTint: data.storefront_hero_tint,
             mirrorShowSpotlight: false,

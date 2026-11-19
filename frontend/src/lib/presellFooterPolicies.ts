@@ -138,11 +138,11 @@ export function resolvePresellFooterPolicies(
   };
 }
 
-export function policyUrlsFromPresellContent(content: Record<string, unknown>): ImportedPolicyUrls | null {
-  const raw = content.policyUrls ?? content.policy_urls;
+/** Remove hosts SaaS (dclickora/clickora) de um mapa policy_urls importado. */
+export function sanitizeImportedPolicyUrls(raw: unknown): ImportedPolicyUrls | null {
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
-  const pick = (k: string) => (typeof row[k] === "string" ? row[k].trim() : undefined);
+  const pick = (k: string) => sanitizeMerchantUrl(typeof row[k] === "string" ? row[k].trim() : undefined);
   const urls: ImportedPolicyUrls = {
     ...(pick("privacy") ? { privacy: pick("privacy") } : {}),
     ...(pick("terms") ? { terms: pick("terms") } : {}),
@@ -150,6 +150,10 @@ export function policyUrlsFromPresellContent(content: Record<string, unknown>): 
     ...(pick("shipping") ? { shipping: pick("shipping") } : {}),
   };
   return Object.keys(urls).length ? urls : null;
+}
+
+export function policyUrlsFromPresellContent(content: Record<string, unknown>): ImportedPolicyUrls | null {
+  return sanitizeImportedPolicyUrls(content.policyUrls ?? content.policy_urls);
 }
 
 /** Paths/URLs da Clickora — nunca usar no modal de cookies da oferta. */

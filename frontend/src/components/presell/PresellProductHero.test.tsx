@@ -52,7 +52,7 @@ describe("PresellProductHero", () => {
 });
 
 describe("CookieConsentModal", () => {
-  it("mostra barra inferior compacta com Aceitar e Fechar", () => {
+  it("mostra barra inferior compacta sem bloquear a página", () => {
     render(
       <CookieConsentModal
         language="en"
@@ -63,18 +63,18 @@ describe("CookieConsentModal", () => {
       />,
     );
     const sheet = screen.getByTestId("presell-cookie-sheet");
-    expect(sheet.className).toContain("inset-0");
-    expect(sheet.getAttribute("aria-modal")).toBe("true");
-    const backdrop = screen.getByTestId("presell-cookie-backdrop");
-    expect(backdrop.className).toContain("pointer-events-auto");
-    expect(screen.getByTestId("presell-cookie-card")).toBeTruthy();
+    expect(sheet.className).toContain("pointer-events-none");
+    expect(sheet.className).toContain("inset-x-0");
+    expect(sheet.getAttribute("aria-modal")).toBe("false");
+    expect(screen.queryByTestId("presell-cookie-backdrop")).toBeNull();
+    expect(screen.getByTestId("presell-cookie-card").className).toContain("pointer-events-auto");
     expect(screen.getByRole("heading", { name: /privacy matters/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Accept" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
     expect(screen.getByTestId("presell-cookie-policy-open")).toBeTruthy();
   });
 
-  it("Aceitar e Fechar só registam consentimento — nenhum redireciona à oferta", () => {
+  it("com redirect: Aceitar é link /track/r/; Fechar só desbloqueia", () => {
     const onAccept = vi.fn();
     const onDismiss = vi.fn();
     render(
@@ -88,12 +88,32 @@ describe("CookieConsentModal", () => {
         onDismiss={onDismiss}
       />,
     );
-    expect(screen.queryByTestId("presell-cookie-allow-offer")).toBeNull();
-    const allow = screen.getByTestId("presell-cookie-allow");
-    expect(allow.tagName).toBe("BUTTON");
+    const allow = screen.getByTestId("presell-cookie-allow-offer");
+    expect(allow.tagName).toBe("A");
+    expect(allow.getAttribute("href")).toContain("/track/r/abc");
     fireEvent.click(allow);
     expect(onAccept).toHaveBeenCalled();
     expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it("sem redirect: Aceitar e Fechar só registam consentimento", () => {
+    const onAccept = vi.fn();
+    const onDismiss = vi.fn();
+    render(
+      <CookieConsentModal
+        language="en"
+        policyUrl="/aviso-cookies"
+        redirectHref="/track/r/abc?to=https%3A%2F%2Foffer.example"
+        accepted={false}
+        onAccept={onAccept}
+        onDismiss={onDismiss}
+      />,
+    );
+    expect(screen.queryByTestId("presell-cookie-allow-offer")).toBeNull();
+    fireEvent.click(screen.getByTestId("presell-cookie-allow"));
+    expect(onAccept).toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("presell-cookie-close"));
+    expect(onDismiss).toHaveBeenCalled();
   });
 
   it("Fechar desbloqueia sem ir à oferta", () => {
@@ -105,6 +125,7 @@ describe("CookieConsentModal", () => {
         policyUrl="/aviso-cookies"
         redirectHref="/track/r/abc?to=https%3A%2F%2Foffer.example"
         accepted={false}
+        navigateOnAccept
         onAccept={onAccept}
         onDismiss={onDismiss}
       />,

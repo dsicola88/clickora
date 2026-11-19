@@ -65,6 +65,7 @@ import {
 import { buildEliteQualityBar } from "@/lib/presellEliteQuality";
 import { readBrandKitPro } from "@/lib/brandKitPro";
 import { bakeMirrorOfferHrefsForPresell } from "@/lib/presellCtaBake";
+import { sanitizeImportedPolicyUrls } from "@/lib/presellFooterPolicies";
 import { bakeAndMaybePublishPresell } from "@/lib/publishPresellFlow";
 import { defaultAffiliateDisclosureSetting } from "@/lib/presellPublicComplianceCopy";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
@@ -825,7 +826,7 @@ export default function PresellDashboard() {
           productImages: data.images,
           sourceUrl: data.source_url,
           generationNiche: data.generation_niche,
-          policyUrls: data.policy_urls,
+          policyUrls: sanitizeImportedPolicyUrls(data.policy_urls) ?? undefined,
           /** Espelho visual para landings escuras (detetado no import). */
           storefrontTheme: data.storefront_theme,
           storefrontHeroTint: data.storefront_hero_tint,

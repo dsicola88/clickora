@@ -12,10 +12,9 @@ describe("cookieConsentNavigation", () => {
     });
   });
 
-  it("Fechar segue para a oferta rastreada quando há destino", () => {
+  it("Fechar nunca navega — página e CTAs ficam acessíveis", () => {
     expect(cookieConsentNavigation("dismiss", "/track/r/1?gclid=abc", "https://offer.example")).toEqual({
-      kind: "assign",
-      url: "/track/r/1?gclid=abc",
+      kind: "stay",
     });
   });
 

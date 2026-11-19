@@ -17,6 +17,7 @@ import { ErrorState } from "@/components/ErrorState";
 import {
   CookieConsentModal,
   CookieSettingsChip,
+  isCookieRedirectToOfferEnabled,
   mergeParamsIntoAffiliateUrl,
   PresellGateFields,
   useCookieAcceptedState,
@@ -1408,7 +1409,7 @@ export default function PublicPresell() {
             doc={visualDoc}
             trackOfferHref={href || undefined}
             offerUrl={offerUrl}
-            interactionLocked={Boolean(showCookieModal || (interactiveKind && !ctaEnabled))}
+            interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
             marketingAllowed={marketingAllowed}
             gateMarketingUntilAccept={gateKind === "cookies"}
           />
@@ -1519,6 +1520,7 @@ export default function PublicPresell() {
           redirectHref={href}
           fallbackHref={cookieConsentFallbackHref}
           accepted={cookieAccepted}
+          navigateOnAccept={isCookieRedirectToOfferEnabled(settings)}
           onAccept={() => setCookieConsent("all")}
           onDismiss={() => setCookieConsent("essential")}
         />
@@ -1582,7 +1584,7 @@ export default function PublicPresell() {
           srcDoc={mirrorSrcDoc}
           title={primarySeoLabel}
           onMirrorProbablyEmpty={() => setMirrorUseTemplateFallback(true)}
-          interactionLocked={Boolean(showCookieModal || (interactiveKind && !ctaEnabled))}
+          interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
           offerHref={href}
           affiliateHref={affiliateLink.trim()}
         />

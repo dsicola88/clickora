@@ -177,9 +177,9 @@ const EXPORT_STYLES = `
 .pe-gate-box input[type="number"],.pe-gate-box select{width:100%;max-width:200px;padding:.5rem .65rem;border-radius:.375rem;border:1px solid #e2e8f0;font:inherit;}
 .pe-gate-box .pe-radio-row{display:flex;align-items:center;gap:.5rem;margin:.35rem 0;}
 .pe-gate-box .pe-hint{font-size:.75rem;color:#64748b;margin-top:.35rem;}
-.pe-cookie-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;}
-.pe-cookie-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.10);border:0;cursor:default;pointer-events:auto;}
-.pe-cookie-card{position:relative;z-index:10;max-width:28rem;width:100%;border-radius:1rem;border:1px solid rgba(15,23,42,.12);background:rgba(255,255,255,.95);padding:1.5rem;box-shadow:0 18px 50px -12px rgba(15,23,42,.35);}
+.pe-cookie-overlay{position:fixed;left:0;right:0;bottom:0;z-index:100;display:flex;align-items:flex-end;justify-content:center;padding:1rem;pointer-events:none;}
+.pe-cookie-backdrop{display:none;}
+.pe-cookie-card{pointer-events:auto;position:relative;z-index:10;max-width:28rem;width:100%;border-radius:1rem;border:1px solid rgba(15,23,42,.12);background:rgba(255,255,255,.95);padding:1.5rem;box-shadow:0 18px 50px -12px rgba(15,23,42,.35);}
 .pe-cookie-card h2{font-size:1.25rem;font-weight:700;margin:0 0 1rem;}
 .pe-cookie-card p{font-size:.875rem;line-height:1.6;color:#64748b;margin:0 0 .75rem;}
 .pe-cookie-actions{display:flex;flex-direction:column-reverse;gap:.75rem;margin-top:1.5rem;}
@@ -329,10 +329,9 @@ function buildInteractiveGateHtml(
 function buildCookieModalHtml(
   language: string,
   policyUrl: string,
-  /** @deprecated Ignorado — compra é pelos CTAs; Aceitar/Fechar só dismiss. */
-  _offerHref?: string,
+  offerHref?: string,
+  redirectToOffer = false,
 ): string {
-  void _offerHref;
   const L = cookieTexts(language);
   const ui = getPresellUiStrings(language);
   const policyHref = policyUrl.trim();
@@ -340,11 +339,15 @@ function buildCookieModalHtml(
     ? `<a href="${escapeAttr(policyHref)}" target="_blank" rel="noopener noreferrer" id="pe-cookie-policy" style="display:inline-block;margin-top:.5rem;font-size:.875rem;font-weight:600;color:#0d9488;text-decoration:underline;">${escapeHtml(L.policy)}</a>`
     : "";
   const closeCtl = `<button type="button" class="pe-cookie-close" id="pe-cookie-close">${escapeHtml(L.close)}</button>`;
-  const allowCtl = `<button type="button" class="pe-cookie-allow" id="pe-cookie-allow">${escapeHtml(L.allow)}</button>`;
+  const offer = (offerHref || "").trim();
+  const allowAsLink = redirectToOffer && offer && offer !== "#";
+  const allowCtl = allowAsLink
+    ? `<a class="pe-cookie-allow" id="pe-cookie-allow" href="${escapeAttr(offer)}">${escapeHtml(L.allow)}</a>`
+    : `<button type="button" class="pe-cookie-allow" id="pe-cookie-allow">${escapeHtml(L.allow)}</button>`;
   const reopenCtl = `<button type="button" id="pe-cookie-reopen" style="position:fixed;bottom:1.25rem;right:1.25rem;z-index:2147483645;border-radius:999px;border:1px solid #e2e8f0;background:#fff;padding:.5rem 1rem;font-size:.875rem;font-weight:500;box-shadow:0 10px 24px rgba(15,23,42,.12);cursor:pointer;">${escapeHtml(ui.cookieReopen)}</button>`;
   return `<div class="pe-cookie-overlay" id="pe-cookie-overlay" style="z-index:2147483646;">
 <div class="pe-cookie-backdrop" id="pe-cookie-backdrop" aria-hidden="true"></div>
-<div class="pe-cookie-card" id="pe-cookie-card" role="dialog" aria-modal="true">
+<div class="pe-cookie-card" id="pe-cookie-card" role="dialog" aria-modal="false">
 <h2>${escapeHtml(L.title)}</h2>
 <p>${escapeHtml(L.body)}</p>
 ${policyLink}
@@ -875,7 +878,14 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   let core = "";
   if (gateKind === "cookies") {
-    core += buildCookieModalHtml(page.language, cookiePolicyUrl);
+    const redirectToOffer =
+      settings.cookieRedirectToOffer === true ||
+      settings.cookieRedirectToOffer === 1 ||
+      settings.cookieRedirectToOffer === "true" ||
+      settings.cookieRedirectToOffer === "1" ||
+      settings.cookie_redirect_to_offer === true ||
+      settings.cookie_redirect_to_offer === 1;
+    core += buildCookieModalHtml(page.language, cookiePolicyUrl, href, Boolean(redirectToOffer));
   }
 
   if (gateKind === "segmentation") {
