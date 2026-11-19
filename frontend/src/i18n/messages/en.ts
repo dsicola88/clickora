@@ -667,8 +667,10 @@ export const en = {
         fullScriptHint: "Paste the code Meta, TikTok, Google Ads, or Bing give you (it can include several script tags). It is injected in the head of the published page. In manual mode the IDs above do not generate an automatic script (avoids a duplicate pixel).",
         fullScriptPlaceholder: "<!-- e.g. full Meta or TikTok pixel -->",
         cloakTitle: "Safe page by country",
-        cloakHint: "Countries on this list see the safe text, with no offer. The same safe text is also used for IPs you add to the blacklist or whitelist (manual lists). Bot/proxy rules block the offer hop and pixel — they do not change the landing page (Ads compliance).",
-        cloakWarn: "Google Ads / Meta warning: showing different content by country or IP can violate cloaking policies. Use geo cloak only with care (for example local compliance) and keep the landing AdsBot sees aligned with the ad. Official Google crawlers should not be blocked.",
+        cloakHint:
+          "Off by default. With the switch ON, only listed countries see safe text with no offer. IP blacklist/whitelist and bot/proxy rules block the hop and pixel — they never swap landing HTML (Ads compliance).",
+        cloakWarn:
+          "Google Ads / Meta warning: different content by country can violate cloaking policies. Leave OFF for Ads campaigns. AdsBot / Googlebot always see the real Final URL. Prefer hop antifraud (IP protections), not this landing swap.",
         cloakSafeTitle: "Safe page title",
         cloakSafeTitlePlaceholder: "Information",
         cloakSafeBody: "Safe page text",
@@ -2357,10 +2359,11 @@ export const en = {
       clickLimitHint: "Off by default (0). If you set a maximum (≥30), it counts clicks already stored in the window; when the limit is hit, that IP enters the blacklist and the hoplink stops opening. It is a rule you turn on — there is no silent cloud/datacenter block.",
       maxClicks: "Max clicks per IP (0 = off, active minimum 30)",
       allowEffect: "It only takes effect if there is at least one IP:",
-      allowEffectBody: "in that mode, only those IPv4 addresses can generate tracked clicks/impressions; everyone else gets 403 (the blacklist still blocks as well).",
+      allowEffectBody:
+        "in that mode, only those IPv4 addresses generate tracked clicks/impressions; everyone else gets 403 on hop/pixel. The landing (Final URL) does not change — restricted mode is off when the list is empty.",
       allowPlaceholder: "Allowed IPv4",
       notePlaceholder: "Note (optional)",
-      allowEmpty: "No IP on the allowlist — restricted mode is off.",
+      allowEmpty: "No IP on the allowlist — restricted mode is off (default).",
       added: "Added",
       note: "Note",
       action: "Action",

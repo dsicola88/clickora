@@ -9,14 +9,17 @@ export function effectiveAutoBlacklistThreshold(raw: number): number {
 }
 
 /**
- * Só estes motivos podem trocar a landing pública por página segura.
- * Bot/proxy/rate-limit/UA vazio NÃO devem alterar o HTML que o Ads vê —
- * isso é cloaking para Google Ads e mata conversões de media buyers
- * (clique conta no Ads, visitante vê texto sem oferta, zero hop /track/r).
- * Antifraude de bot/proxy continua no hop `/track/r/` e no pixel.
+ * Motivos que trocam a landing pública por página segura.
+ *
+ * Por defeito / compliance Ads: **nenhum** — blacklist, whitelist, bot, proxy,
+ * rate-limit e UA vazio NÃO alteram o HTML da Final URL.
+ * Antifraude continua no hop `/track/r/` e no pixel (403 / sem clique).
+ *
+ * Cloak geo (`enterpriseCloak` + `cloakGeoDeny`) é opt-in por presell
+ * (`shouldServeCloakSafePage`); AdsBot / Googlebot bypassam.
  */
-export function isIntentionalPublicPageCloakReason(reason: string): boolean {
-  return reason === "blacklist" || reason === "whitelist";
+export function isIntentionalPublicPageCloakReason(_reason: string): boolean {
+  return false;
 }
 
 function isRealPaidClickSignal(value: string | null | undefined): boolean {

@@ -25,9 +25,9 @@ describe("effectiveAutoBlacklistThreshold", () => {
 });
 
 describe("public page cloak vs Ads", () => {
-  it("só blacklist/whitelist trocam a landing", () => {
-    assert.equal(isIntentionalPublicPageCloakReason("blacklist"), true);
-    assert.equal(isIntentionalPublicPageCloakReason("whitelist"), true);
+  it("IP lists / bot / proxy nunca trocam a landing (Final URL intacta)", () => {
+    assert.equal(isIntentionalPublicPageCloakReason("blacklist"), false);
+    assert.equal(isIntentionalPublicPageCloakReason("whitelist"), false);
     assert.equal(isIntentionalPublicPageCloakReason("bot_blocked"), false);
     assert.equal(isIntentionalPublicPageCloakReason("proxy_blocked"), false);
     assert.equal(isIntentionalPublicPageCloakReason("rate_limit"), false);

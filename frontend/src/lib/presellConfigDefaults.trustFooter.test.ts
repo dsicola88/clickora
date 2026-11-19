@@ -36,4 +36,13 @@ describe("showAffiliateTrustFooter hydrate / legado", () => {
     expect(hydratePresellConfigSettings({ marketCountry: "ca" }).marketCountry).toBe("CA");
     expect(hydratePresellConfigSettings({}).marketCountry).toBe("");
   });
+
+  it("enterpriseCloak fica OFF por defeito e só liga com true explícito", () => {
+    expect(DEFAULT_PRESELL_CONFIG_SETTINGS.enterpriseCloak).toBe(false);
+    expect(hydratePresellConfigSettings({}).enterpriseCloak).toBe(false);
+    expect(hydratePresellConfigSettings({ enterpriseCloak: false }).enterpriseCloak).toBe(false);
+    expect(hydratePresellConfigSettings({ enterpriseCloak: "false" }).enterpriseCloak).toBe(false);
+    expect(hydratePresellConfigSettings({ enterpriseCloak: true }).enterpriseCloak).toBe(true);
+    expect(hydratePresellConfigSettings({ enterpriseCloak: "true" }).enterpriseCloak).toBe(true);
+  });
 });

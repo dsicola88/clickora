@@ -282,8 +282,8 @@ export const presellController = {
       recordedEventType: "other",
     });
     /**
-     * Bot/proxy/rate-limit: não desviar a landing lite (mesmo HTML que Ads deve ver).
-     * Blacklist/whitelist: afiliado pediu bloqueio → SPA (página segura).
+     * Listas IP / bot / proxy: não desviam a landing lite (mesmo HTML que Ads deve ver).
+     * Antifraude no hop/pixel. Cloak geo opt-in: shouldServeCloakSafePage acima.
      */
     if (!guard.ok && isIntentionalPublicPageCloakReason(guard.reason)) {
       res.setHeader("Cache-Control", "private, no-store");
@@ -1080,9 +1080,9 @@ async function sendPublicPresell(
   });
   if (!guard.ok) {
     /**
-     * Só blacklist/whitelist trocam a landing (intenção explícita).
-     * Bot/proxy/UA/rate-limit: servir a mesma página (compliance Ads + conversões).
-     * O antifraude continua no `/track/r/` e no pixel.
+     * Listas IP / bot / proxy: landing intacta (compliance Ads + conversões).
+     * Antifraude continua no `/track/r/` e no pixel.
+     * Cloak geo opt-in trata-se acima via shouldServeCloakSafePage.
      */
     if (isIntentionalPublicPageCloakReason(guard.reason)) {
       console.info("[presell.public] página segura", { id: page.id, reason: guard.reason });
