@@ -868,12 +868,13 @@ export function DpilotGoogleCampaignsManagerPage() {
         }
         const costUsd = cost / 1e6;
         const roas = costUsd > 0 ? value / costUsd : null;
+        const avgCpc = clicks > 0 ? Math.round(cost / clicks) : null;
         const capturePct = withCapture > 0 && gClicks > 0 ? tClicks / gClicks : null;
         const tile = (label: string, val: string, hint?: string) => (
           <Card key={label} className="border-border/70 shadow-none">
             <CardContent className="px-3 py-2.5">
               <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-              <p className="mt-0.5 text-lg font-semibold tabular-nums">{val}</p>
+              <p className="mt-0.5 text-lg font-semibold tabular-nums tracking-tight">{val}</p>
               {hint ? <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{hint}</p> : null}
             </CardContent>
           </Card>
@@ -881,22 +882,28 @@ export function DpilotGoogleCampaignsManagerPage() {
         return (
           <div className="mt-4 space-y-1.5">
             <p className="text-[11px] text-muted-foreground">
-              KPIs = soma das campanhas <span className="font-medium text-foreground/80">importadas</span> no período
-              (não o total da conta se faltar importação).
+              Métricas Google Ads das campanhas <span className="font-medium text-foreground/80">importadas</span> —
+              custo/CPC da API (sem inventar). Re-sincronize se faltar país/idioma no estúdio.
             </p>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9">
+            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10">
               {tile("Na Google", fmtNum(chipCounts.on_google))}
               {tile("Rascunhos", fmtNum(chipCounts.local_drafts))}
               {tile("Ativas", fmtNum(chipCounts.live))}
               {tile("Impr.", withM ? fmtNum(impressions) : "—")}
-              {tile("Investimento", withM ? formatUsdFromMicros(cost) : "—")}
               {tile("Cliques", withM ? fmtNum(clicks) : "—")}
+              {tile("CPC méd.", withM && avgCpc != null ? formatUsdFromMicros(avgCpc) : "—")}
+              {tile("Investimento", withM ? formatUsdFromMicros(cost) : "—")}
               {tile("Conversões", withM ? fmtNum(conv, 1) : "—")}
               {tile(
-                "Receita · ROAS",
-                withM && (value > 0 || roas != null)
-                  ? `${value > 0 ? value.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }) : "—"} · ${roas != null ? roas.toFixed(2) : "—"}`
-                  : "—",
+                "ROAS",
+                withM && roas != null ? roas.toFixed(2) : "—",
+                withM && value > 0
+                  ? value.toLocaleString(undefined, {
+                      style: "currency",
+                      currency: "USD",
+                      maximumFractionDigits: 0,
+                    })
+                  : undefined,
               )}
               {tile(
                 "Captura",

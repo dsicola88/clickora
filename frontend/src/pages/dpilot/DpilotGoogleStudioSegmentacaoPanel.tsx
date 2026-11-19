@@ -1,5 +1,6 @@
 /**
  * Segmentação no estúdio: Localizações | Dispositivos | Idades — cada bloco separado.
+ * Só mostra / grava o que o afiliado define ou o que veio da Google — sem inventar lances.
  */
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -9,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GOOGLE_ADS_COUNTRY_OPTIONS } from "@/lib/googleAdsTargeting";
+import { GOOGLE_ADS_COUNTRY_OPTIONS, countryLabel, languageLabel } from "@/lib/googleAdsTargeting";
 import { toastGoogleAdsError } from "@/lib/paidAdsUi";
 import { paidAdsService } from "@/services/paidAdsService";
 import { toast } from "sonner";
@@ -24,11 +25,18 @@ const AGE_OPTIONS = [
   { code: "AGE_RANGE_UNDETERMINED", label: "Idade desconhecida" },
 ] as const;
 
-type DeviceBids = { MOBILE: number; DESKTOP: number; TABLET: number };
+type DeviceKey = "MOBILE" | "DESKTOP" | "TABLET";
+/** null = sem dado guardado (não inventar 0%). */
+type DeviceBids = Partial<Record<DeviceKey, number | null>>;
 
 function parseGeoList(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   return v.map((x) => String(x).trim().toUpperCase()).filter(Boolean);
+}
+
+function parseLangList(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => String(x).trim().toLowerCase()).filter(Boolean);
 }
 
 function readTargeting(bidding: unknown): {
@@ -36,19 +44,19 @@ function readTargeting(bidding: unknown): {
   device_bids: DeviceBids;
   age_exclude: string[];
 } {
-  const empty: DeviceBids = { MOBILE: 0, DESKTOP: 0, TABLET: 0 };
   if (!bidding || typeof bidding !== "object" || Array.isArray(bidding)) {
-    return { geo_exclude: [], device_bids: empty, age_exclude: [] };
+    return { geo_exclude: [], device_bids: {}, age_exclude: [] };
   }
   const t = (bidding as { targeting?: unknown }).targeting;
   if (!t || typeof t !== "object" || Array.isArray(t)) {
-    return { geo_exclude: [], device_bids: empty, age_exclude: [] };
+    return { geo_exclude: [], device_bids: {}, age_exclude: [] };
   }
   const o = t as Record<string, unknown>;
-  const device_bids = { ...empty };
+  const device_bids: DeviceBids = {};
   if (o.device_bids && typeof o.device_bids === "object" && !Array.isArray(o.device_bids)) {
     const d = o.device_bids as Record<string, unknown>;
     for (const k of ["MOBILE", "DESKTOP", "TABLET"] as const) {
+      if (d[k] == null || d[k] === "") continue;
       const n = Number(d[k]);
       if (Number.isFinite(n)) device_bids[k] = Math.max(-100, Math.min(900, Math.round(n)));
     }
@@ -74,6 +82,7 @@ export function DpilotGoogleStudioSegmentacaoPanel({
   published: boolean;
   campaign: {
     geo_targets?: unknown;
+    language_targets?: unknown;
     bidding_config?: unknown;
   };
   onSaved: () => void;
@@ -82,11 +91,12 @@ export function DpilotGoogleStudioSegmentacaoPanel({
     const t = readTargeting(campaign.bidding_config);
     return {
       include: parseGeoList(campaign.geo_targets),
+      languages: parseLangList(campaign.language_targets),
       exclude: t.geo_exclude,
       devices: t.device_bids,
       ages: t.age_exclude,
     };
-  }, [campaign.bidding_config, campaign.geo_targets]);
+  }, [campaign.bidding_config, campaign.geo_targets, campaign.language_targets]);
 
   const [include, setInclude] = useState<string[]>(initial.include);
   const [exclude, setExclude] = useState<string[]>(initial.exclude);
@@ -102,6 +112,10 @@ export function DpilotGoogleStudioSegmentacaoPanel({
   }, [initial]);
 
   const countryOpts = useMemo(() => GOOGLE_ADS_COUNTRY_OPTIONS, []);
+  const langSummary =
+    initial.languages.length > 0
+      ? initial.languages.map((c) => languageLabel(c)).join(", ")
+      : "Ainda não importado da Google — re-sincronize a campanha";
 
   const runStudio = async (body: Record<string, unknown>, kind: "geo" | "device" | "age") => {
     setBusy(kind);
@@ -114,19 +128,17 @@ export function DpilotGoogleStudioSegmentacaoPanel({
         }
         const st = data?.change_request?.status;
         if (st === "failed") {
-          toast.error("Falhou na rede — veja Aprovações para o detalhe.");
+          toast.error("Falhou na rede — veja Aprovações.");
           return;
         }
-        toast.success(
-          st === "applied" ? "Aplicado na Google." : "Enviado para Aprovações (ou Autopilot).",
-        );
+        toast.success(st === "applied" ? "Aplicado na Google." : "Enviado para Aprovações.");
       } else {
         const { error } = await paidAdsService.patchGoogleCampaignDraft(projectId, campaignId, body);
         if (error) {
           toast.error(toastGoogleAdsError(error));
           return;
         }
-        toast.success("Guardado no rascunho — aplica na primeira publicação.");
+        toast.success("Guardado no rascunho.");
       }
       onSaved();
     } finally {
@@ -151,10 +163,19 @@ export function DpilotGoogleStudioSegmentacaoPanel({
   };
 
   const saveDevices = () => {
+    const payload: Partial<Record<DeviceKey, number>> = {};
+    for (const k of ["MOBILE", "DESKTOP", "TABLET"] as const) {
+      const v = devices[k];
+      if (v != null && Number.isFinite(v)) payload[k] = v;
+    }
+    if (Object.keys(payload).length === 0) {
+      toast.message("Nada a gravar — defina um ajuste ou exclusão por dispositivo.");
+      return;
+    }
     if (published) {
-      void runStudio({ action: "sync_campaign_device_bids", device_bids: devices }, "device");
+      void runStudio({ action: "sync_campaign_device_bids", device_bids: payload }, "device");
     } else {
-      void runStudio({ device_bids: devices }, "device");
+      void runStudio({ device_bids: payload }, "device");
     }
   };
 
@@ -166,11 +187,20 @@ export function DpilotGoogleStudioSegmentacaoPanel({
     }
   };
 
-  const setDevice = (key: keyof DeviceBids, raw: string) => {
+  const setDevice = (key: DeviceKey, raw: string) => {
+    if (raw.trim() === "") {
+      setDevices((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      return;
+    }
     const n = Number(raw.replace(",", "."));
+    if (!Number.isFinite(n)) return;
     setDevices((prev) => ({
       ...prev,
-      [key]: Number.isFinite(n) ? Math.max(-100, Math.min(900, Math.round(n))) : prev[key],
+      [key]: Math.max(-100, Math.min(900, Math.round(n))),
     }));
   };
 
@@ -178,56 +208,84 @@ export function DpilotGoogleStudioSegmentacaoPanel({
     setAges((prev) => (on ? [...new Set([...prev, code])] : prev.filter((x) => x !== code)));
   };
 
-  const deviceRow = (key: keyof DeviceBids, label: string) => (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5">
-      <div className="min-w-[7rem] flex-1 space-y-1">
-        <Label className="text-xs">{label}</Label>
-        <p className="text-[11px] text-muted-foreground">
-          {devices[key] <= -100
-            ? "Excluído (−100%)"
-            : devices[key] === 0
-              ? "Sem ajuste"
-              : `${devices[key] > 0 ? "+" : ""}${devices[key]}% no lance`}
-        </p>
+  const deviceRow = (key: DeviceKey, label: string) => {
+    const val = devices[key];
+    const has = val != null;
+    return (
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200/80 bg-slate-50/50 px-3 py-2.5">
+        <div className="min-w-[7rem] flex-1 space-y-1">
+          <Label className="text-xs font-medium text-slate-800">{label}</Label>
+          <p className="text-[11px] text-slate-500">
+            {!has
+              ? "Sem ajuste guardado (padrão da conta Google)"
+              : val! <= -100
+                ? "Excluído"
+                : val === 0
+                  ? "Sem ajuste (0%)"
+                  : `${val! > 0 ? "+" : ""}${val}% no lance`}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`dev-${key}`} className="text-[10px] text-slate-500">
+            Ajuste %
+          </Label>
+          <Input
+            id={`dev-${key}`}
+            className="w-24"
+            inputMode="numeric"
+            placeholder="—"
+            value={has ? String(val) : ""}
+            onChange={(e) => setDevice(key, e.target.value)}
+          />
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant={has && val! <= -100 ? "secondary" : "outline"}
+          onClick={() => setDevices((p) => ({ ...p, [key]: -100 }))}
+        >
+          Excluir
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() =>
+            setDevices((p) => {
+              const n = { ...p };
+              delete n[key];
+              return n;
+            })
+          }
+        >
+          Limpar
+        </Button>
       </div>
-      <div className="space-y-1">
-        <Label htmlFor={`dev-${key}`} className="text-[10px] text-muted-foreground">
-          Ajuste %
-        </Label>
-        <Input
-          id={`dev-${key}`}
-          className="w-24"
-          inputMode="numeric"
-          value={String(devices[key])}
-          onChange={(e) => setDevice(key, e.target.value)}
-        />
-      </div>
-      <Button
-        type="button"
-        size="sm"
-        variant={devices[key] <= -100 ? "secondary" : "outline"}
-        onClick={() => setDevices((p) => ({ ...p, [key]: -100 }))}
-      >
-        Excluir
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        onClick={() => setDevices((p) => ({ ...p, [key]: 0 }))}
-      >
-        Reset
-      </Button>
-    </div>
-  );
+    );
+  };
 
   return (
-    <div className="space-y-6">
-      <Card className="border-muted-foreground/15 shadow-sm">
+    <div className="space-y-5">
+      <p className="text-xs leading-relaxed text-slate-500">
+        Dados de países e idiomas vêm da Google ao importar. Não inventamos segmentação — se estiver vazio,
+        re-sincronize a campanha em Campanhas.
+      </p>
+
+      <Card className="border-slate-200/90 shadow-none">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Localizações</CardTitle>
-          <CardDescription>
-            Onde quer anunciar e países a excluir. Não mistura com dispositivos nem idades.
+          <CardTitle className="text-base font-semibold text-slate-900">Localizações</CardTitle>
+          <CardDescription className="text-xs">
+            Onde anuncia e o que exclui. Idiomas importados:{" "}
+            <span className="font-medium text-slate-700">{langSummary}</span>
+            {initial.include.length > 0 ? (
+              <>
+                {" "}
+                · Agora na conta:{" "}
+                <span className="font-medium text-slate-700">
+                  {initial.include.map((c) => countryLabel(c)).join(", ")}
+                </span>
+              </>
+            ) : null}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -236,7 +294,7 @@ export function DpilotGoogleStudioSegmentacaoPanel({
             value={include}
             onChange={setInclude}
             label="Países onde anuncia"
-            hint="Pelo menos um."
+            hint="Mínimo 1 — vem da Google ou do que gravar aqui."
             searchPlaceholder="Pesquisar país…"
             emptyText="Sem países"
             max={30}
@@ -246,7 +304,7 @@ export function DpilotGoogleStudioSegmentacaoPanel({
             value={exclude}
             onChange={setExclude}
             label="Países a excluir"
-            hint="Opcional — quem está nestes mercados não vê o anúncio."
+            hint="Opcional."
             searchPlaceholder="Pesquisar país a excluir…"
             emptyText="Sem exclusões"
             max={30}
@@ -254,17 +312,17 @@ export function DpilotGoogleStudioSegmentacaoPanel({
           <div className="flex justify-end">
             <Button type="button" disabled={busy === "geo"} onClick={saveGeo}>
               {busy === "geo" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {published ? "Aplicar localizações" : "Guardar localizações no rascunho"}
+              {published ? "Aplicar localizações" : "Guardar no rascunho"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="border-muted-foreground/15 shadow-sm">
+      <Card className="border-slate-200/90 shadow-none">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Dispositivos</CardTitle>
-          <CardDescription>
-            Ajuste o lance por telemóvel, computador ou tablet. −100% = excluir esse dispositivo.
+          <CardTitle className="text-base font-semibold text-slate-900">Dispositivos</CardTitle>
+          <CardDescription className="text-xs">
+            Só grava o que definir. Vazio = deixa o padrão da Google (não inventamos 0%).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -274,17 +332,17 @@ export function DpilotGoogleStudioSegmentacaoPanel({
           <div className="flex justify-end pt-1">
             <Button type="button" disabled={busy === "device"} onClick={saveDevices}>
               {busy === "device" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {published ? "Aplicar dispositivos" : "Guardar dispositivos no rascunho"}
+              {published ? "Aplicar dispositivos" : "Guardar no rascunho"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="border-muted-foreground/15 shadow-sm">
+      <Card className="border-slate-200/90 shadow-none">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Idades</CardTitle>
-          <CardDescription>
-            Marque as faixas que quer excluir. As outras continuam a ver o anúncio.
+          <CardTitle className="text-base font-semibold text-slate-900">Idades</CardTitle>
+          <CardDescription className="text-xs">
+            Marque só o que quer excluir. Lista vazia = sem exclusões guardadas.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -294,7 +352,7 @@ export function DpilotGoogleStudioSegmentacaoPanel({
               return (
                 <label
                   key={opt.code}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200/80 px-3 py-2 text-sm"
                 >
                   <Checkbox
                     checked={on}
@@ -309,7 +367,7 @@ export function DpilotGoogleStudioSegmentacaoPanel({
           <div className="flex justify-end">
             <Button type="button" disabled={busy === "age"} onClick={saveAges}>
               {busy === "age" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {published ? "Aplicar exclusões de idade" : "Guardar idades no rascunho"}
+              {published ? "Aplicar idades" : "Guardar no rascunho"}
             </Button>
           </div>
         </CardContent>

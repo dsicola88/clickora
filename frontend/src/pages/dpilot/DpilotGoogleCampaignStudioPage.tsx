@@ -1621,7 +1621,13 @@ export function DpilotGoogleCampaignStudioPage() {
                 projectId={projectId}
                 campaignId={campaignId}
                 published={published}
-                campaign={campaign as { geo_targets?: unknown; bidding_config?: unknown }}
+                campaign={
+                  campaign as {
+                    geo_targets?: unknown;
+                    language_targets?: unknown;
+                    bidding_config?: unknown;
+                  }
+                }
                 onSaved={() => {
                   void loadStudio();
                   void reloadPaid();

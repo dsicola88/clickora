@@ -12,6 +12,7 @@ import {
   resolveGoogleAdsDateRange,
 } from "./google-ads-connection";
 import { detachStaleGoogleCampaignLinks } from "./google-ads-detach-stale";
+import { parseGoogleAdsMetrics } from "./google-ads-metric-fields";
 import { aggregateTrackingMetricsForCampaign } from "./optimizer/tracking-metrics";
 import { prisma } from "./paidPrisma";
 
@@ -41,14 +42,8 @@ function num(v: unknown): number {
 }
 
 function parseMetrics(row: Record<string, unknown>) {
-  const met = (row.metrics ?? {}) as Record<string, unknown>;
-  return deriveMetricRates({
-    impressions: num(met.impressions),
-    clicks: num(met.clicks),
-    cost_micros: num(met.cost_micros),
-    conversions: num(met.conversions),
-    conversions_value: num(met.conversions_value),
-  });
+  /** REST JSON usa costMicros / conversionsValue — nunca inventar custo se o campo falhar. */
+  return deriveMetricRates(parseGoogleAdsMetrics(row));
 }
 
 export async function fetchGoogleAdsAccountOverview(
@@ -799,18 +794,7 @@ export async function fetchGoogleAdsDevicePerformance(
     for (const raw of Array.isArray(s.results) ? s.results : []) {
       const row = raw as Record<string, unknown>;
       const device = String((row.segments as { device?: string } | undefined)?.device ?? "UNKNOWN");
-      const met = (row.metrics ?? {}) as Record<string, unknown>;
-      accumulateDeviceMetrics(
-        byDevice,
-        device,
-        deriveMetricRates({
-          impressions: num(met.impressions),
-          clicks: num(met.clicks),
-          cost_micros: num(met.cost_micros),
-          conversions: num(met.conversions),
-          conversions_value: num(met.conversions_value),
-        }),
-      );
+      accumulateDeviceMetrics(byDevice, device, deriveMetricRates(parseGoogleAdsMetrics(row)));
     }
   }
 
@@ -866,14 +850,7 @@ export async function fetchGoogleAdsDevicePerformance(
       const localCamp = byExt.get(ext);
       if (!localCamp) continue;
       const device = String((row.segments as { device?: string } | undefined)?.device ?? "UNKNOWN");
-      const met = (row.metrics ?? {}) as Record<string, unknown>;
-      const cur = deriveMetricRates({
-        impressions: num(met.impressions),
-        clicks: num(met.clicks),
-        cost_micros: num(met.cost_micros),
-        conversions: num(met.conversions),
-        conversions_value: num(met.conversions_value),
-      });
+      const cur = deriveMetricRates(parseGoogleAdsMetrics(row));
       const key = `${localCamp.id}::${device}`;
       const prev = agg.get(key);
       if (prev) {

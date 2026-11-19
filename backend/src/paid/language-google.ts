@@ -174,3 +174,13 @@ export function normalizeGoogleLanguageTargetsOrThrow(raw: string[]): string[] {
   }
   return out;
 }
+
+/** ID languageConstants → ISO (só idiomas mapeados). */
+export function isoFromGoogleLanguageConstantId(constantId: string | number): string | null {
+  const n = Number(String(constantId).replace(/\D/g, ""));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  for (const [iso, id] of Object.entries(GOOGLE_ADS_LANGUAGE_NUMERIC_ID)) {
+    if (id === n) return iso;
+  }
+  return null;
+}

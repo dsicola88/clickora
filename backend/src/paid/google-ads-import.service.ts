@@ -6,6 +6,8 @@ import type { PaidAdsCampaignStatus, PaidAdsEntityStatus, PaidAdsMatchType, Pris
 import { runGoogleAdsSearch } from "./google-ads.api";
 import { parseGoogleBudgetShareFromRow } from "./google-ads-budget";
 import { resolveGoogleAdsAccess } from "./google-ads-connection";
+import { isoFromGoogleGeoCriterionId } from "./geo-google";
+import { isoFromGoogleLanguageConstantId } from "./language-google";
 import { prisma } from "./paidPrisma";
 
 function numId(v: unknown): string {
@@ -566,6 +568,84 @@ async function pullStructureIntoLocalCampaign(
       }
     }
   }
+
+  /** Países / idiomas reais da campanha na Google — sem inventar defaults. */
+  const geoInclude: string[] = [];
+  const geoExclude: string[] = [];
+  const languages: string[] = [];
+  const locQ = `
+    SELECT
+      campaign_criterion.negative,
+      campaign_criterion.location.geo_target_constant,
+      campaign_criterion.language.language_constant,
+      campaign_criterion.type
+    FROM campaign_criterion
+    WHERE campaign.id = ${ext}
+      AND campaign_criterion.type IN ('LOCATION', 'LANGUAGE')
+      AND campaign_criterion.status != 'REMOVED'
+    LIMIT 200
+  `;
+  const locS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, locQ, ctx.loginCustomerId);
+  if (!locS.error) {
+    for (const raw of Array.isArray(locS.results) ? locS.results : []) {
+      const row = raw as Record<string, unknown>;
+      const crit = (row.campaignCriterion ?? row.campaign_criterion ?? {}) as {
+        negative?: boolean;
+        type?: string;
+        location?: { geoTargetConstant?: string; geo_target_constant?: string };
+        language?: { languageConstant?: string; language_constant?: string };
+      };
+      const type = String(crit.type ?? "").toUpperCase();
+      const loc = crit.location;
+      const lang = crit.language;
+      const gtcRaw = loc?.geoTargetConstant ?? loc?.geo_target_constant;
+      const langRaw = lang?.languageConstant ?? lang?.language_constant;
+      if (type === "LOCATION" || gtcRaw) {
+        const id = String(gtcRaw ?? "").split("/").pop() ?? "";
+        const iso = isoFromGoogleGeoCriterionId(id);
+        if (iso) {
+          if (crit.negative) {
+            if (!geoExclude.includes(iso)) geoExclude.push(iso);
+          } else if (!geoInclude.includes(iso)) {
+            geoInclude.push(iso);
+          }
+        }
+      }
+      if (type === "LANGUAGE" || langRaw) {
+        const id = String(langRaw ?? "").split("/").pop() ?? "";
+        const iso = isoFromGoogleLanguageConstantId(id);
+        if (iso && !languages.includes(iso)) languages.push(iso);
+      }
+    }
+  }
+
+  const prevCamp = await prisma.paidAdsCampaign.findUnique({
+    where: { id: localId },
+    select: { biddingConfig: true },
+  });
+  const prevBc: Record<string, unknown> =
+    prevCamp?.biddingConfig &&
+    typeof prevCamp.biddingConfig === "object" &&
+    !Array.isArray(prevCamp.biddingConfig)
+      ? { ...(prevCamp.biddingConfig as Record<string, unknown>) }
+      : { imported_from_google: true };
+  const prevTargeting =
+    prevBc.targeting && typeof prevBc.targeting === "object" && !Array.isArray(prevBc.targeting)
+      ? { ...(prevBc.targeting as Record<string, unknown>) }
+      : {};
+  prevBc.targeting = {
+    ...prevTargeting,
+    geo_exclude: geoExclude,
+  };
+
+  await prisma.paidAdsCampaign.update({
+    where: { id: localId },
+    data: {
+      ...(geoInclude.length ? { geoTargets: geoInclude } : {}),
+      ...(languages.length ? { languageTargets: languages } : {}),
+      biddingConfig: prevBc as Prisma.InputJsonValue,
+    },
+  });
 
   return {
     ok: true,

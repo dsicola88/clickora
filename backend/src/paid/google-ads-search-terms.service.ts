@@ -9,12 +9,8 @@ import {
   resolveGoogleAdsDateRange,
   deriveMetricRates,
 } from "./google-ads-connection";
+import { parseGoogleAdsMetrics } from "./google-ads-metric-fields";
 import { prisma } from "./paidPrisma";
-
-function num(v: unknown): number {
-  const n = Number(v ?? 0);
-  return Number.isFinite(n) ? n : 0;
-}
 
 export async function fetchGoogleAdsSearchTerms(
   projectId: string,
@@ -84,15 +80,8 @@ export async function fetchGoogleAdsSearchTerms(
       searchTerm?: string;
       status?: string;
     };
-    const met = (row.metrics ?? {}) as Record<string, unknown>;
     const text = String(st.searchTerm ?? "").trim();
-    const metrics = deriveMetricRates({
-      impressions: num(met.impressions),
-      clicks: num(met.clicks),
-      cost_micros: num(met.cost_micros),
-      conversions: num(met.conversions),
-      conversions_value: num(met.conversions_value),
-    });
+    const metrics = deriveMetricRates(parseGoogleAdsMetrics(row));
     return {
       search_term: text,
       status: st.status ?? null,
@@ -257,19 +246,12 @@ export async function fetchGoogleAdsProjectSearchTerms(
         searchTerm?: string;
         status?: string;
       };
-      const met = (row.metrics ?? {}) as Record<string, unknown>;
       const extId = String(camp.id ?? "").replace(/\D/g, "");
       const local = byExt.get(extId);
       if (!local) return null;
       const text = String(st.searchTerm ?? "").trim();
       if (!text) return null;
-      const metrics = deriveMetricRates({
-        impressions: num(met.impressions),
-        clicks: num(met.clicks),
-        cost_micros: num(met.cost_micros),
-        conversions: num(met.conversions),
-        conversions_value: num(met.conversions_value),
-      });
+      const metrics = deriveMetricRates(parseGoogleAdsMetrics(row));
       campaignsTouched.add(local.id);
       return {
         campaign_id: local.id,
@@ -362,14 +344,7 @@ export async function fetchGoogleAdsKeywordMetrics(
         const crit = (row.adGroupCriterion ?? row.ad_group_criterion ?? {}) as { criterionId?: string };
         const id = String(crit.criterionId ?? "").replace(/\D/g, "");
         if (!id) continue;
-        const met = (row.metrics ?? {}) as Record<string, unknown>;
-        const cur = deriveMetricRates({
-          impressions: num(met.impressions),
-          clicks: num(met.clicks),
-          cost_micros: num(met.cost_micros),
-          conversions: num(met.conversions),
-          conversions_value: num(met.conversions_value),
-        });
+        const cur = deriveMetricRates(parseGoogleAdsMetrics(row));
         const prev = byCriterion.get(id);
         byCriterion.set(
           id,

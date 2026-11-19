@@ -193,3 +193,13 @@ export function normalizeGoogleGeoTargetsOrThrow(raw: string[]): string[] {
   }
   return out;
 }
+
+/** ID numérico geoTargetConstants → ISO (só países mapeados; desconhecidos ignorados). */
+export function isoFromGoogleGeoCriterionId(criterionId: string | number): string | null {
+  const n = Number(String(criterionId).replace(/\D/g, ""));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  for (const [iso, id] of Object.entries(GOOGLE_GEO_CRITERION_IDS)) {
+    if (id === n && iso !== "UK") return iso;
+  }
+  return null;
+}

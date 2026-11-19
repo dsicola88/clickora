@@ -3,6 +3,7 @@
  */
 import { runGoogleAdsSearch } from "./google-ads.api";
 import { resolveGoogleAdsAccess } from "./google-ads-connection";
+import { parseGoogleAdsMetrics } from "./google-ads-metric-fields";
 import { prisma } from "./paidPrisma";
 
 export type GoogleCampaignPerformanceDayRow = {
@@ -99,25 +100,19 @@ export async function fetchGoogleCampaignPerformanceSeries(
   for (const raw of list) {
     const row = raw as Record<string, unknown>;
     const date = ((row.segments as { date?: string } | undefined)?.date ?? "").slice(0, 10);
-    const met = row.metrics as
-      | { impressions?: unknown; clicks?: unknown; cost_micros?: unknown; conversions?: unknown }
-      | undefined;
-    const im = Number(met?.impressions ?? 0);
-    const cl = Number(met?.clicks ?? 0);
-    const co = Number(met?.cost_micros ?? 0);
-    const cv = Number(met?.conversions ?? 0);
+    const m = parseGoogleAdsMetrics(row);
     if (!date) continue;
     rows.push({
       date,
-      impressions: im,
-      clicks: cl,
-      cost_micros: co,
-      conversions: cv,
+      impressions: m.impressions,
+      clicks: m.clicks,
+      cost_micros: m.cost_micros,
+      conversions: m.conversions,
     });
-    impressions += im;
-    clicks += cl;
-    cost_micros += co;
-    conversions += cv;
+    impressions += m.impressions;
+    clicks += m.clicks;
+    cost_micros += m.cost_micros;
+    conversions += m.conversions;
   }
   return {
     ok: true,
