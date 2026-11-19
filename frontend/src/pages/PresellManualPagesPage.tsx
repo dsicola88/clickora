@@ -40,7 +40,7 @@ import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
 import {
   extractPageDocumentFromExportedHtml,
-  parsePageDocumentFromJson,
+  parsePageDocumentFromJsonDetailed,
 } from "@/page-builder/document-import";
 import { id as builderId } from "@/page-builder/factory";
 import type { Presell } from "@/types/api";
@@ -263,13 +263,21 @@ export default function PresellManualPagesPage() {
       let parsed =
         lower.endsWith(".html") || lower.endsWith(".htm")
           ? extractPageDocumentFromExportedHtml(text)
-          : parsePageDocumentFromJson(text);
-      if (!parsed && (lower.endsWith(".html") || lower.endsWith(".htm"))) {
-        parsed = parsePageDocumentFromJson(text);
-      }
+          : null;
       if (!parsed) {
-        toast.error(t("pages.manualPages.importInvalid"));
-        return;
+        const detailed = parsePageDocumentFromJsonDetailed(text);
+        if (detailed.ok) {
+          parsed = detailed.doc;
+        } else {
+          toast.error(
+            t(
+              detailed.reason === "not_json"
+                ? "pages.manualPages.importNotJson"
+                : "pages.manualPages.importWrongShape",
+            ),
+          );
+          return;
+        }
       }
       const doc = {
         ...parsed,

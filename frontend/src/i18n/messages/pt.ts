@@ -3887,6 +3887,10 @@ export const pt = {
       "importJson": "Importar JSON",
       "importDefaultName": "Página importada",
       "importInvalid": "Ficheiro inválido. Use o .json (ou .html Clickora) exportado do editor.",
+      "importNotJson":
+        "Este ficheiro não é JSON legível (backup encriptado, binário ou corrompido). Exporte de novo no builder ⋯ → Exportar JSON.",
+      "importWrongShape":
+        "O JSON foi lido, mas não é uma página Clickora (precisa de sections[]). Elementor e outros formatos não são suportados — use Exportar JSON deste editor ou um JSON de presell com content.pageDocument.",
       "importCreateError": "Não foi possível criar a página importada.",
       "importOk": "Página importada — personalize no editor e publique.",
       "importFailed": "Falha ao importar a página.",
@@ -3969,6 +3973,10 @@ export const pt = {
         "docMissing": "Documento em falta.",
         "jsonDownloaded": "JSON descarregado.",
         "importInvalid": "Ficheiro inválido. Use JSON exportado pelo editor ou HTML gerado pelo Clickora (com dados embutidos).",
+        "importNotJson":
+          "Este ficheiro não é JSON legível (backup encriptado, binário ou corrompido). Exporte de novo ⋯ → Exportar JSON.",
+        "importWrongShape":
+          "O JSON foi lido, mas não é um documento de página Clickora (precisa de sections[]). Elementor não é suportado — use Exportar JSON deste editor.",
         "imported": "Documento importado para o editor.",
         "readFailed": "Erro ao ler o ficheiro.",
         "title": "Biblioteca de páginas",
@@ -4194,6 +4202,10 @@ export const pt = {
         "pageTracking": "Tracking da página",
         "importFile": "Importar JSON / HTML",
         "importInvalid": "Ficheiro inválido. Use um .json ou .html Clickora exportado deste editor.",
+        "importNotJson":
+          "Este ficheiro não é JSON legível (backup encriptado, binário ou corrompido). Exporte de novo ⋯ → Exportar JSON.",
+        "importWrongShape":
+          "O JSON foi lido, mas não é uma página Clickora (precisa de sections[]). Elementor não é suportado — use Exportar JSON deste editor ou um JSON com content.pageDocument.",
         "imported": "Página importada no editor.",
         "exportHtml": "Exportar HTML",
         "exportJson": "Exportar JSON",

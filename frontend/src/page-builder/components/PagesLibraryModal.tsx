@@ -24,7 +24,7 @@ import {
 } from "../library-storage";
 import {
   extractPageDocumentFromExportedHtml,
-  parsePageDocumentFromJson,
+  parsePageDocumentFromJsonDetailed,
 } from "../document-import";
 import { downloadHtml } from "../export-html";
 import { useBuilder } from "../store";
@@ -155,15 +155,24 @@ export function PagesLibraryModal({ open, onClose }: { open: boolean; onClose: (
     try {
       const text = await file.text();
       const lower = file.name.toLowerCase();
-      let parsed = lower.endsWith(".html") || lower.endsWith(".htm")
-        ? extractPageDocumentFromExportedHtml(text)
-        : parsePageDocumentFromJson(text);
-      if (!parsed && (lower.endsWith(".html") || lower.endsWith(".htm"))) {
-        parsed = parsePageDocumentFromJson(text);
-      }
+      let parsed =
+        lower.endsWith(".html") || lower.endsWith(".htm")
+          ? extractPageDocumentFromExportedHtml(text)
+          : null;
       if (!parsed) {
-        toast.error(t("pages.pageBuilder.library.importInvalid"));
-        return;
+        const detailed = parsePageDocumentFromJsonDetailed(text);
+        if (detailed.ok) {
+          parsed = detailed.doc;
+        } else {
+          toast.error(
+            t(
+              detailed.reason === "not_json"
+                ? "pages.pageBuilder.library.importNotJson"
+                : "pages.pageBuilder.library.importWrongShape",
+            ),
+          );
+          return;
+        }
       }
       hydrateDocument(parsed, {});
       toast.success(t("pages.pageBuilder.library.imported"));

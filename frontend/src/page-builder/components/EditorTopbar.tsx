@@ -6,7 +6,7 @@ import { useBuilder } from "../store";
 import { downloadHtml } from "../export-html";
 import {
   extractPageDocumentFromExportedHtml,
-  parsePageDocumentFromJson,
+  parsePageDocumentFromJsonDetailed,
 } from "../document-import";
 import { slugify } from "../published";
 import {
@@ -169,13 +169,19 @@ export function EditorTopbar() {
       let parsed =
         lower.endsWith(".html") || lower.endsWith(".htm")
           ? extractPageDocumentFromExportedHtml(text)
-          : parsePageDocumentFromJson(text);
-      if (!parsed && (lower.endsWith(".html") || lower.endsWith(".htm"))) {
-        parsed = parsePageDocumentFromJson(text);
-      }
+          : null;
       if (!parsed) {
-        toast.error(t("pages.pageBuilder.topbar.importInvalid"));
-        return;
+        const detailed = parsePageDocumentFromJsonDetailed(text);
+        if (detailed.ok) {
+          parsed = detailed.doc;
+        } else {
+          const key =
+            detailed.reason === "not_json"
+              ? "pages.pageBuilder.topbar.importNotJson"
+              : "pages.pageBuilder.topbar.importWrongShape";
+          toast.error(t(key));
+          return;
+        }
       }
       hydrateDocument(parsed, {});
       toast.success(t("pages.pageBuilder.topbar.imported"));
