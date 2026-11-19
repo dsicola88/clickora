@@ -106,7 +106,7 @@ export const es = {
     "reports": "Informes",
     "integrations": "Integraciones",
     "networkSales": "Ventas de la red",
-    "googleAds": "Google Ads",
+    "googleAds": "Google Ads · Conversiones",
     "automizer": "Costos automáticos",
     "settings": "Ajustes",
     "profile": "Perfil",
@@ -118,7 +118,7 @@ export const es = {
     "ipProtections": "IP y protecciones",
     "logs": "Registros",
     "manualPages": "Páginas manuales",
-    "dpilot": "dPilot",
+    "dpilot": "Ads Studio",
   },
   "auth": {
     "title": "Iniciar sesión",
@@ -627,8 +627,10 @@ export const es = {
         "forwardPlaceholder": "p. ej. txn_id, aff_sub, ext_click_id",
         "marketCountry": "Mercado de anuncios (país)",
         "marketCountryHint":
-          "Define los defaults de Consent Mode en esta página. US/CA mantienen la inyección histórica de píxeles en tipos sin banner de cookies. Vacío hereda del idioma de la página (el inglés queda más estricto estilo UE/UK hasta elegir US o CA).",
+          "Define los defaults de Consent Mode en esta página. US/CA/AU mantienen la inyección histórica de píxeles en tipos sin banner de cookies. Vacío hereda del idioma de la página (el inglés queda más estricto estilo UE/UK hasta elegir US, CA, AU o GB).",
         "marketCountryInherit": "Inferir del idioma de la página",
+        "marketCountryEnWarn":
+          "Página en inglés sin mercado: Consent Mode queda strict (estilo UK/UE). Para tráfico US, Canadá o Australia, elige ese país antes de publicar anuncios.",
         "pixelsTitle": "Píxeles de anuncios (Meta, TikTok, Google, Bing)",
         "pixelsHint": "Para una página hecha para Facebook, TikTok u otra red: elige el modo, pega el ID o el script del panel de la plataforma — Clickora lo inyecta en la presell publicada. El rastreo de Clickora (clics / comisión) sigue siendo automático.",
         "modeAuto": "Automático (solo IDs)",
@@ -2766,8 +2768,8 @@ export const es = {
         "routeUnknownBody": "Ruta de anuncios no reconocida. Confirma la dirección o vuelve al módulo.",
         "backToModule": "Volver a Anuncios"
       },
-      "title": "dPilot",
-      "subtitle": "Crear y gestionar campañas de pago.",
+      "title": "Ads Studio",
+      "subtitle": "Opera Search Ads sin salir de Clickora — métricas, términos, presupuesto y conversiones.",
       "common": {
         "saving": "Guardando…",
         "loading": "Cargando…",

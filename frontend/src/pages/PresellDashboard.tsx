@@ -101,7 +101,10 @@ import {
   hydratePresellConfigSettings,
   type PresellConfigSettings,
 } from "@/lib/presellConfigDefaults";
-import { CONSENT_MARKET_COUNTRY_OPTIONS } from "@/lib/consentMarketPolicy";
+import {
+  CONSENT_MARKET_COUNTRY_OPTIONS,
+  needsExplicitMarketCountry,
+} from "@/lib/consentMarketPolicy";
 import { PresellAdvancedTrackingCollapsible } from "@/components/presell/PresellAdvancedTrackingCollapsible";
 import { MirrorHtmlEditor } from "@/components/presell/MirrorHtmlEditor";
 import type { MirrorHtmlVisualPreviewHandle } from "@/components/presell/MirrorHtmlVisualPreview";
@@ -1232,6 +1235,17 @@ export default function PresellDashboard() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {needsExplicitMarketCountry(
+                    formData.language,
+                    configSettings.marketCountry,
+                  ) ? (
+                    <p
+                      className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-[11px] leading-snug text-amber-950 dark:text-amber-100"
+                      data-testid="presell-market-country-en-warn"
+                    >
+                      {t("pages.presells.advanced.marketCountryEnWarn")}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             ) : null}

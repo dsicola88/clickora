@@ -106,7 +106,7 @@ export const en = {
     reports: "Reports",
     integrations: "Integrations",
     networkSales: "Network sales",
-    googleAds: "Google Ads",
+    googleAds: "Google Ads · Conversions",
     automizer: "Auto costs",
     settings: "Settings",
     profile: "Profile",
@@ -118,7 +118,7 @@ export const en = {
     ipProtections: "IP & protections",
     logs: "Logs",
     manualPages: "Manual pages",
-    dpilot: "dPilot",
+    dpilot: "Ads Studio",
   },
   auth: {
     title: "Sign in",
@@ -633,8 +633,10 @@ export const en = {
         forwardPlaceholder: "e.g. txn_id, aff_sub, ext_click_id",
         marketCountry: "Ads market (country)",
         marketCountryHint:
-          "Sets Consent Mode defaults for this page. US/CA keep historical pixel inject on non-cookie types. Empty inherits from page language (English defaults to stricter EU/UK-style consent until you pick US or CA).",
+          "Sets Consent Mode defaults for this page. US/CA/AU keep historical pixel inject on non-cookie types. Empty inherits from page language (English defaults to stricter EU/UK-style consent until you pick US, CA, AU, or GB).",
         marketCountryInherit: "Infer from page language",
+        marketCountryEnWarn:
+          "English page without a market: Consent Mode stays UK/EU-strict. For US, Canada, or Australia traffic, pick that country before publishing ads.",
         pixelsTitle: "Ad pixels (Meta, TikTok, Google, Bing)",
         pixelsHint: "For a page built for Facebook, TikTok, or another network: pick a mode, paste the ID or the script from the platform — Clickora injects it on the published presell. Clickora tracking (clicks / commission) stays automatic.",
         modeAuto: "Automatic (IDs only)",
@@ -2791,8 +2793,8 @@ export const en = {
       postback: "Postback",
     },
     dpilot: {
-      title: "dPilot",
-      subtitle: "Create and manage paid campaigns.",
+      title: "Ads Studio",
+      subtitle: "Run Search Ads without leaving Clickora — metrics, search terms, budgets and conversions.",
       app: {
         loading: "Loading…",
         loadingSession: "Loading session…",

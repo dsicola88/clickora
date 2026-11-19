@@ -141,6 +141,19 @@ export function resolveConsentMarketMode(input: {
   return "strict";
 }
 
+/**
+ * EN sem país explícito → GCM strict (estilo UK/UE).
+ * Aviso no painel para media buyers US/CA/AU não deixarem o mercado vazio.
+ */
+export function needsExplicitMarketCountry(
+  language?: string | null,
+  marketCountry?: string | null,
+): boolean {
+  const country = (marketCountry || "").trim();
+  if (country) return false;
+  return normalizePresellLocale(language || undefined) === "en";
+}
+
 export function resolveConsentRuntimePolicy(input: {
   presellType: string;
   language?: string | null;

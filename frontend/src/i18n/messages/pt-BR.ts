@@ -106,7 +106,7 @@ export const ptBR = {
     "reports": "Relatórios",
     "integrations": "Integrações",
     "networkSales": "Vendas da rede",
-    "googleAds": "Google Ads",
+    "googleAds": "Google Ads · Conversões",
     "automizer": "Custos automáticos",
     "settings": "Configurações",
     "profile": "Perfil",
@@ -118,7 +118,7 @@ export const ptBR = {
     "ipProtections": "IP e proteções",
     "logs": "Registros",
     "manualPages": "Páginas manuais",
-    "dpilot": "dPilot",
+    "dpilot": "Ads Studio",
   },
   "auth": {
     "title": "Entrar",
@@ -627,8 +627,10 @@ export const ptBR = {
         "forwardPlaceholder": "ex.: txn_id, aff_sub, ext_click_id",
         "marketCountry": "Mercado de anúncios (país)",
         "marketCountryHint":
-          "Define os defaults do Consent Mode nesta página. US/CA mantêm o inject histórico de pixels em tipos sem banner de cookies. Vazio herda do idioma da página (inglês fica mais restrito estilo UE/UK até escolher US ou CA).",
+          "Define os defaults do Consent Mode nesta página. US/CA/AU mantêm o inject histórico de pixels em tipos sem banner de cookies. Vazio herda do idioma da página (inglês fica mais restrito estilo UE/UK até escolher US, CA, AU ou GB).",
         "marketCountryInherit": "Inferir do idioma da página",
+        "marketCountryEnWarn":
+          "Página em inglês sem mercado: o Consent Mode fica strict (estilo UK/UE). Para tráfego US, Canadá ou Austrália, escolha esse país antes de publicar anúncios.",
         "pixelsTitle": "Pixels de anúncios (Meta, TikTok, Google, Bing)",
         "pixelsHint": "Para uma página feita para Facebook, TikTok ou outra rede: escolha o modo, cole o ID ou o script do painel da plataforma — a Clickora injeta na presell publicada. O rastreio Clickora (cliques / comissão) continua automático.",
         "modeAuto": "Automático (só IDs)",
@@ -2766,8 +2768,8 @@ export const ptBR = {
         "routeUnknownBody": "Rota de anúncios não reconhecida. Confirme o endereço ou volte ao módulo.",
         "backToModule": "Voltar a Anúncios"
       },
-      "title": "dPilot",
-      "subtitle": "Criar e gerenciar campanhas pagas.",
+      "title": "Ads Studio",
+      "subtitle": "Operar Search Ads sem sair da Clickora — métricas, termos, orçamento e conversões.",
       "common": {
         "saving": "Salvando…",
         "loading": "Carregando…",
