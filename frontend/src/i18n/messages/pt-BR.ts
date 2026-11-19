@@ -3894,10 +3894,6 @@ export const ptBR = {
         "Este ficheiro não é JSON legível (backup encriptado, binário ou corrompido). Exporte de novo no builder ⋯ → Exportar JSON.",
       "importWrongShape":
         "O JSON foi lido, mas não é uma página Clickora (precisa de sections[]). Elementor e outros formatos não são suportados — use Exportar JSON deste editor ou um JSON de presell com content.pageDocument.",
-      "importNotJson":
-        "Este ficheiro não é JSON legível (backup encriptado, binário ou corrompido). Exporte de novo no builder ⋯ → Exportar JSON.",
-      "importWrongShape":
-        "O JSON foi lido, mas não é uma página Clickora (precisa de sections[]). Elementor e outros formatos não são suportados — use Exportar JSON deste editor ou um JSON de presell com content.pageDocument.",
       "importCreateError": "Não foi possível criar a página importada.",
       "importOk": "Página importada — personalize no editor e publique.",
       "importFailed": "Falha ao importar a página.",

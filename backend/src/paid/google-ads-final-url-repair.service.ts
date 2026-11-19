@@ -2,7 +2,11 @@
  * Repara Final URLs RSA: strip gclid/ValueTrack e aplica na Google (mutate) + local.
  * Não cria inventário; só limpa URLs de RSAs já importadas/publicadas.
  */
-import { inspectFinalUrl, sanitizeFinalUrlForAds } from "../lib/googleAdsFinalUrl";
+import {
+  inspectFinalUrl,
+  sanitizeFinalUrlForAds,
+  type FinalUrlIssueCode,
+} from "../lib/googleAdsFinalUrl";
 import { applyGoogleUpdateRsaCopy } from "./google-ads.mutations";
 import { prisma } from "./paidPrisma";
 
@@ -66,7 +70,7 @@ export async function repairGoogleFinalUrls(projectId: string) {
     }
 
     const before = urls[0] ?? null;
-    const issues = before ? inspectFinalUrl(before) : (["empty_final_url"] as const);
+    const issues: FinalUrlIssueCode[] = before ? inspectFinalUrl(before) : ["empty_final_url"];
     const needs =
       issues.includes("final_url_has_click_id") || issues.includes("final_url_has_valuetrack");
     if (!needs) {

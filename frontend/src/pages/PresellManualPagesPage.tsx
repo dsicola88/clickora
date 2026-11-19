@@ -266,7 +266,7 @@ export default function PresellManualPagesPage() {
           : null;
       if (!parsed) {
         const detailed = parsePageDocumentFromJsonDetailed(text);
-        if (detailed.ok) {
+        if (detailed.ok === true) {
           parsed = detailed.doc;
         } else {
           toast.error(

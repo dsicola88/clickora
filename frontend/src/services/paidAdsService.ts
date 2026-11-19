@@ -426,6 +426,7 @@ export const paidAdsService = {
       ok: true;
       connected: boolean;
       connection_error?: string | null;
+      connection_error_code?: string | null;
       range: { from: string; to: string };
       counts: Record<string, number>;
       metrics: {
@@ -440,7 +441,6 @@ export const paidAdsService = {
         roas: number;
       } | null;
       source: string;
-      connection_error?: string;
       account?: { customer_id: string; account_name: string | null };
     }>(`/paid/projects/${projectId}/google-ads/overview${qs}`);
   },

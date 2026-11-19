@@ -99,7 +99,7 @@ function looksLikeElementor(raw: unknown): boolean {
  */
 export function parsePageDocumentFromJson(text: string): PageDocument | null {
   const result = parsePageDocumentFromJsonDetailed(text);
-  return result.ok ? result.doc : null;
+  return result.ok === true ? result.doc : null;
 }
 
 export function parsePageDocumentFromJsonDetailed(text: string): ParsePageDocumentResult {
@@ -148,5 +148,5 @@ export function extractPageDocumentFromExportedHtml(html: string): PageDocument 
   }
   // Fallback: HTML que é só um JSON (raro) ou script sem id.
   const detailed = parsePageDocumentFromJsonDetailed(html);
-  return detailed.ok ? detailed.doc : null;
+  return detailed.ok === true ? detailed.doc : null;
 }

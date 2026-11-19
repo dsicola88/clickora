@@ -41,12 +41,12 @@ describe("parsePageDocumentFromJson", () => {
       JSON.stringify({ version: "0.4", title: "x", type: "page", content: [] }),
     );
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason).toBe("wrong_shape");
+    if (r.ok === false) expect(r.reason).toBe("wrong_shape");
   });
 
   it("rejeita texto que não é JSON", () => {
     const r = parsePageDocumentFromJsonDetailed("not json {{{");
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason).toBe("not_json");
+    if (r.ok === false) expect(r.reason).toBe("not_json");
   });
 });

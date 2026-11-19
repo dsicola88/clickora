@@ -172,7 +172,7 @@ export function EditorTopbar() {
           : null;
       if (!parsed) {
         const detailed = parsePageDocumentFromJsonDetailed(text);
-        if (detailed.ok) {
+        if (detailed.ok === true) {
           parsed = detailed.doc;
         } else {
           const key =
