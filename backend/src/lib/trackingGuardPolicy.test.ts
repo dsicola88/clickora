@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { effectiveAutoBlacklistThreshold } from "./trackingGuardPolicy";
+import {
+  effectiveAutoBlacklistThreshold,
+  isIntentionalPublicPageCloakReason,
+  shouldBypassProxyBlockForPaidClick,
+} from "./trackingGuardPolicy";
 
 describe("effectiveAutoBlacklistThreshold", () => {
   it("0 desliga", () => {
@@ -17,5 +21,40 @@ describe("effectiveAutoBlacklistThreshold", () => {
     assert.equal(effectiveAutoBlacklistThreshold(30), 30);
     assert.equal(effectiveAutoBlacklistThreshold(80), 80);
     assert.equal(effectiveAutoBlacklistThreshold(9000), 5000);
+  });
+});
+
+describe("public page cloak vs Ads", () => {
+  it("só blacklist/whitelist trocam a landing", () => {
+    assert.equal(isIntentionalPublicPageCloakReason("blacklist"), true);
+    assert.equal(isIntentionalPublicPageCloakReason("whitelist"), true);
+    assert.equal(isIntentionalPublicPageCloakReason("bot_blocked"), false);
+    assert.equal(isIntentionalPublicPageCloakReason("proxy_blocked"), false);
+    assert.equal(isIntentionalPublicPageCloakReason("rate_limit"), false);
+    assert.equal(isIntentionalPublicPageCloakReason("empty_user_agent"), false);
+  });
+
+  it("proxy + gclid real não bloqueia o hop de oferta", () => {
+    assert.equal(
+      shouldBypassProxyBlockForPaidClick({
+        guardReason: "proxy_blocked",
+        gclid: "Cj0KCQjwTestPaidClick",
+      }),
+      true,
+    );
+    assert.equal(
+      shouldBypassProxyBlockForPaidClick({
+        guardReason: "proxy_blocked",
+        gclid: "{gclid}",
+      }),
+      false,
+    );
+    assert.equal(
+      shouldBypassProxyBlockForPaidClick({
+        guardReason: "bot_blocked",
+        gclid: "Cj0KCQjwTestPaidClick",
+      }),
+      false,
+    );
   });
 });

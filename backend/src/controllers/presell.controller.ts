@@ -30,6 +30,7 @@ import {
 } from "../lib/presellEnterpriseCloak";
 import { resolvePublicFooterBranding } from "../lib/publicFooterBranding";
 import { enforceTrackingRules } from "../lib/trackGuard";
+import { isIntentionalPublicPageCloakReason } from "../lib/trackingGuardPolicy";
 import {
   preferredTrackApiBaseForUser,
   publicApiBaseFromRequest,
@@ -278,7 +279,11 @@ export const presellController = {
       channel: "public_page",
       recordedEventType: "other",
     });
-    if (!guard.ok) {
+    /**
+     * Bot/proxy/rate-limit: não desviar a landing lite (mesmo HTML que Ads deve ver).
+     * Blacklist/whitelist: afiliado pediu bloqueio → SPA (página segura).
+     */
+    if (!guard.ok && isIntentionalPublicPageCloakReason(guard.reason)) {
       res.setHeader("Cache-Control", "private, no-store");
       return res.redirect(302, spaUrl);
     }
@@ -1067,11 +1072,24 @@ async function sendPublicPresell(
     recordedEventType: "other",
   });
   if (!guard.ok) {
-    console.info("[presell.public] página segura", { id: page.id, reason: guard.reason });
-    res.setHeader("Cache-Control", "private, no-store");
-    return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: guard.reason }));
+    /**
+     * Só blacklist/whitelist trocam a landing (intenção explícita).
+     * Bot/proxy/UA/rate-limit: servir a mesma página (compliance Ads + conversões).
+     * O antifraude continua no `/track/r/` e no pixel.
+     */
+    if (isIntentionalPublicPageCloakReason(guard.reason)) {
+      console.info("[presell.public] página segura", { id: page.id, reason: guard.reason });
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.json(
+        buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: guard.reason }),
+      );
+    }
+    console.info("[presell.public] guard soft (landing intacta)", {
+      id: page.id,
+      reason: guard.reason,
+    });
   }
-  // Publicado OK: cache curto partilhável (CDN/browser) — cloak/guard já filtraram.
+  // Publicado OK: cache curto partilhável (CDN/browser) — cloak geo / listas manuais já filtraram.
   res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
   return res.json(mapped);
 }

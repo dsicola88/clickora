@@ -1,0 +1,27 @@
+---
+description: Gate de produto — afiliado, segurança e compliance Ads
+alwaysApply: true
+---
+
+# Dclickora — gate antes de qualquer funcionalidade
+
+Nenhuma funcionalidade nova ou mudança de funil deve ser implementada sem verificar as três perguntas:
+
+1. **É útil para o afiliado / media buyer profissional?**  
+   Resolve cadastro de oferta, presell, tracking, conversões ou tráfego inválido num único sistema?
+
+2. **É tecnicamente segura e transparente?**  
+   Medição essencial (pixel/impressão, `/track/r/`) não pode depender de consentimento de marketing. Comportamento previsível; sem “magia” que só funciona no browser local do dono da conta.
+
+3. **Pode criar risco de conformidade com Google Ads / Meta / outras redes?**  
+   Não servir conteúdo diferente da landing por IP/UA/bot heurístico (cloaking). AdsBot e o visitante pago devem ver a mesma página. Antifraude age no hop da oferta e nos relatórios — não troca o HTML da Final URL.
+
+## Três pilares (avançar em paralelo)
+
+- **Presells** — tipos, mercados, CMP sem matar a medição
+- **Tracking** — `gclid` / `wbraid` / `gbraid` / UTMs preservados ponta a ponta
+- **Antifraude** — listas manuais, bot/proxy no hop, KPI limpo — sem cloaking da landing
+
+## Sintoma clássico a evitar
+
+Cliques no Google Ads que não aparecem na dclickora nem na rede de afiliados, mas o clique local funciona → quase sempre landing substituída (cloak/guard) ou Final URL errada — investigar o funil antes de assumir CORS.

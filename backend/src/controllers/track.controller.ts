@@ -20,6 +20,7 @@ import {
 import { isFastlyEdgeIp } from "../lib/fastlyEdges";
 import { assessClickQuality, isProtectedGoogleCrawlerUserAgent } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
+import { shouldBypassProxyBlockForPaidClick } from "../lib/trackingGuardPolicy";
 import { consumeTrackRateLimitAsync } from "../lib/trackRateLimit";
 import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
 import { datacenterClickMeta, datacenterClickPlace } from "../lib/ipNetworkClass";
@@ -485,8 +486,24 @@ export const trackController = {
       skipRateLimit: true,
     });
     if (!guard.ok) {
-      console.warn("[track.redirect] bloqueado sem oferta", { presellId, reason: guard.reason, ip });
-      return sendSafeVisitorPage(res, page.settings);
+      const paidProxyBypass = shouldBypassProxyBlockForPaidClick({
+        guardReason: guard.reason,
+        gclid,
+        gbraid,
+        wbraid,
+        msclkid,
+        fbclid,
+        ttclid,
+      });
+      if (!paidProxyBypass) {
+        console.warn("[track.redirect] bloqueado sem oferta", { presellId, reason: guard.reason, ip });
+        return sendSafeVisitorPage(res, page.settings);
+      }
+      console.info("[track.redirect] proxy bypass com click-id pago", {
+        presellId,
+        reason: guard.reason,
+        ip,
+      });
     }
     if (countryOnCloakDenyList(page.settings, seen.routeCountry)) {
       console.warn("[track.redirect] país sem oferta", { presellId, ip });
@@ -738,8 +755,23 @@ export const trackController = {
       skipRateLimit: true,
     });
     if (!guard.ok) {
-      console.warn("[track.rotator] bloqueado sem oferta", { rotatorId, reason: guard.reason });
-      return sendSafeVisitorPage(res, rot.contextPresell.settings);
+      const paidProxyBypass = shouldBypassProxyBlockForPaidClick({
+        guardReason: guard.reason,
+        gclid,
+        gbraid,
+        wbraid,
+        msclkid,
+        fbclid,
+        ttclid,
+      });
+      if (!paidProxyBypass) {
+        console.warn("[track.rotator] bloqueado sem oferta", { rotatorId, reason: guard.reason });
+        return sendSafeVisitorPage(res, rot.contextPresell.settings);
+      }
+      console.info("[track.rotator] proxy bypass com click-id pago", {
+        rotatorId,
+        reason: guard.reason,
+      });
     }
     if (countryOnCloakDenyList(rot.contextPresell.settings, country)) {
       console.warn("[track.rotator] país sem oferta", { rotatorId, country });
