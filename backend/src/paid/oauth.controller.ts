@@ -127,7 +127,17 @@ export const oauthController = {
     }
     try {
       const { refresh_token, access_token: access } = await exchangeGoogleAuthorizationCode(code, redirectUri);
-      const { customerId } = await listFirstAccessibleCustomerId(access);
+      /** Preferir conta cliente de Integrações — listFirstAccessible pode devolver outra conta (ex. 150… vs 160…). */
+      const owner = await prisma.user.findUnique({
+        where: { id: conn.userId },
+        select: { googleAdsCustomerId: true },
+      });
+      const fromIntegrations = (owner?.googleAdsCustomerId ?? "").replace(/\D/g, "");
+      let customerId = fromIntegrations;
+      if (!customerId) {
+        const listed = await listFirstAccessibleCustomerId(access);
+        customerId = listed.customerId.replace(/\D/g, "");
+      }
       const name = (await fetchCustomerName(access, customerId)) ?? `Conta ${customerId}`;
 
       await prisma.paidAdsGoogleAdsConnection.update({

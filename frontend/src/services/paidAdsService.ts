@@ -481,13 +481,17 @@ export const paidAdsService = {
       ok: true;
       connected: boolean;
       connection_error: string | null;
+      connection_error_code?: string | null;
+      account?: { customer_id: string; account_name: string | null } | null;
       range: { from: string; to: string };
       source: string;
+      inventory_scope?: "local_drafts" | "google_network";
       campaigns: Array<{
         id: string;
         name: string;
         local_status: string;
         external_campaign_id: string | null;
+        inventory_origin?: "google" | "local_draft";
         daily_budget_micros: number | null;
         bidding_strategy: string | null;
         created_at: string;
@@ -512,7 +516,12 @@ export const paidAdsService = {
         click_capture_ratio: number | null;
         funnel_risk: boolean;
       }>;
-      totals?: { funnel_risk: number; with_google_clicks: number };
+      totals?: {
+        funnel_risk: number;
+        with_google_clicks: number;
+        linked_to_google?: number;
+        local_drafts?: number;
+      };
     }>(`/paid/projects/${projectId}/google-ads/campaigns-metrics${qs}`);
   },
 

@@ -80,7 +80,13 @@ export async function listRemoteGoogleSearchCampaigns(projectId: string) {
   `;
   let s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, qMinimal, ctx.loginCustomerId);
   if (s.error) {
-    return { ok: false as const, error: s.error.message ?? "Falha ao listar campanhas remotas.", code: "gaql_error" };
+    return {
+      ok: false as const,
+      error:
+        s.error.message ??
+        `Falha ao listar campanhas remotas (conta ${ctx.customerId}). Confirme o customer ID em Integrações.`,
+      code: "gaql_error",
+    };
   }
 
   const qBudget = `

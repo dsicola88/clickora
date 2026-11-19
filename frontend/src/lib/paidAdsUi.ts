@@ -215,8 +215,11 @@ export function friendlyGoogleAdsNetworkError(message: string | null | undefined
   if (/manager_account|conta gestor|é mcc/i.test(m)) {
     return "A conta ligada é MCC (gestor). Em Integrações escolha a conta cliente onde estão os anúncios reais.";
   }
+  if (/customer_id_required|sem customer|defina o número da conta/i.test(m)) {
+    return "Falta o número da conta cliente em Integrações → Google. Use o ID de ads.google.com (ex. 160-828-0409), não a MCC, e sincronize de novo.";
+  }
   if (/invalid\s+argument/i.test(m)) {
-    return "A Google rejeitou a leitura desta conta (argumento inválido). Confirme em Integrações o número da conta cliente (não MCC) e volte a sincronizar — a lista local pode não ser a da Google.";
+    return "A Google rejeitou a leitura desta conta (argumento inválido). Confirme em Integrações o customer ID da conta onde estão os anúncios (o mesmo de ads.google.com) e use «Re-sincronizar e importar» — a lista local pode ser só rascunhos do projecto.";
   }
   if (/ACTION_NOT_PERMITTED_FOR_SUSPENDED_ACCOUNT|account is suspended|suspended account/i.test(m)) {
     return (

@@ -40,11 +40,32 @@ export async function resolveGoogleAdsAccess(projectId: string): Promise<GoogleA
     select: {
       googleAdsRefreshToken: true,
       googleAdsLoginCustomerId: true,
+      googleAdsCustomerId: true,
     },
   });
+
+  /** Conta cliente escolhida em Integrações — fonte de verdade (não a 1.ª acessível do OAuth Paid). */
+  const integrationsCid = (owner?.googleAdsCustomerId ?? "").replace(/\D/g, "");
+  let customerDigits = conn.googleCustomerId.replace(/\D/g, "");
+  let accountName = conn.accountName;
+
+  if (integrationsCid && integrationsCid !== customerDigits) {
+    await prisma.paidAdsGoogleAdsConnection.update({
+      where: { id: conn.id },
+      data: {
+        googleCustomerId: integrationsCid,
+        accountName: `Conta ${integrationsCid}`,
+        lastSyncAt: new Date(),
+        errorMessage: null,
+        status: "connected",
+      },
+    });
+    customerDigits = integrationsCid;
+    accountName = `Conta ${integrationsCid}`;
+  }
+
   /** Só MCC do utilizador — o env global partilhado entre contas causa «invalid argument». */
   const rawLogin = owner?.googleAdsLoginCustomerId?.replace(/\D/g, "") || undefined;
-  const customerDigits = conn.googleCustomerId.replace(/\D/g, "");
   const loginCustomerId =
     rawLogin && rawLogin !== customerDigits ? rawLogin : undefined;
 
@@ -97,13 +118,22 @@ export async function resolveGoogleAdsAccess(projectId: string): Promise<GoogleA
     };
   }
 
+  if (!customerDigits) {
+    return {
+      ok: false,
+      error:
+        "Defina o número da conta cliente Google em Integrações → Google (não use a conta MCC) e volte a sincronizar.",
+      code: "customer_id_required",
+    };
+  }
+
   return {
     ok: true,
     access,
-    customerId: conn.googleCustomerId.replace(/\D/g, ""),
+    customerId: customerDigits,
     loginCustomerId,
     dev,
-    accountName: conn.accountName,
+    accountName,
     connectionId: conn.id,
   };
 }

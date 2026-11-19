@@ -1056,6 +1056,26 @@ export const integrationsController = {
       await prisma.user.update({ where: { id: userId }, data });
     }
 
+    /** Conta/MCC alterados em Integrações → alinhar todos os projectos Paid (sem import pesado). */
+    let paid_projects_linked = 0;
+    if (
+      d.google_ads_customer_id !== undefined ||
+      d.google_ads_login_customer_id !== undefined ||
+      (d.google_ads_refresh_token !== undefined && d.google_ads_refresh_token.trim())
+    ) {
+      try {
+        const { linkAllPaidProjectsFromIntegrations } = await import(
+          "../paid/google-ads-link-from-integrations"
+        );
+        const linked = await linkAllPaidProjectsFromIntegrations(userId, {
+          import_campaigns: false,
+        });
+        paid_projects_linked = linked.linked;
+      } catch {
+        paid_projects_linked = 0;
+      }
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -1081,6 +1101,7 @@ export const integrationsController = {
       has_refresh_token: hasUserRefresh || hasEnvRefresh,
       api_env_configured: envOk,
       can_upload: isGoogleAdsClickUploadReadyForUser(user),
+      paid_projects_linked,
     });
   },
 

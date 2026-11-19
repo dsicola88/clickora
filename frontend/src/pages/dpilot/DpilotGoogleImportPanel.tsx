@@ -146,8 +146,9 @@ export function DpilotGoogleImportPanel({
           <AlertDescription className="space-y-2">
             <p>{toastGoogleAdsError(err)}</p>
             <p className="text-xs opacity-90">
-              Enquanto isto falhar, a lista «Campanhas» acima continua a ser só rascunhos deste projecto — não o
-              inventário de ads.google.com.
+              Enquanto isto falhar, a vista «Na Google» fica vazia. Os rascunhos do projecto estão em «Só neste
+              projecto» — não são o inventário de ads.google.com. Confirme o customer ID (ex. 160-828-0409) em
+              Integrações e use «Re-sincronizar e importar».
             </p>
             <Button size="sm" variant="outline" asChild>
               <Link to="/integracoes/google-ads">Verificar Integrações → Google</Link>

@@ -461,13 +461,17 @@ export function DpilotGoogleCampaignsManagerPage() {
   const { projectId, reload, overview, isConnConnected } = useDpilotPaid();
   const [preset, setPreset] = useState("last_7");
   const [q, setQ] = useState("");
-  const [st, setSt] = useState("live");
+  const [st, setSt] = useState<"on_google" | "local_drafts" | "excluding_archived" | "live" | "paused">(
+    "on_google",
+  );
   const [linking, setLinking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<
     NonNullable<Awaited<ReturnType<typeof paidAdsService.getGoogleAdsCampaignsMetrics>>["data"]>["campaigns"]
   >([]);
   const [source, setSource] = useState<string>("");
+  const [inventoryScope, setInventoryScope] = useState<string>("");
+  const [accountCustomerId, setAccountCustomerId] = useState<string | null>(null);
   const [connErr, setConnErr] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [termsCampaignId, setTermsCampaignId] = useState<string | null>(null);
@@ -493,10 +497,13 @@ export function DpilotGoogleCampaignsManagerPage() {
     ]);
     if (metricsRes.error) toast.error(metricsRes.error);
     else {
-      setRows(metricsRes.data?.campaigns ?? []);
-      setSource(metricsRes.data?.source ?? "");
-      setConnErr(metricsRes.data?.connection_error ?? null);
-      setFunnelRiskCount(metricsRes.data?.totals?.funnel_risk ?? 0);
+      const data = metricsRes.data;
+      setRows(data?.campaigns ?? []);
+      setSource(data?.source ?? "");
+      setInventoryScope(data?.inventory_scope ?? "");
+      setAccountCustomerId(data?.account?.customer_id ?? null);
+      setConnErr(data?.connection_error ?? null);
+      setFunnelRiskCount(data?.totals?.funnel_risk ?? 0);
     }
     if (!auditRes.error && auditRes.data) {
       const map = new Map<string, (typeof auditRes.data.campaigns)[number]>();
@@ -516,10 +523,16 @@ export function DpilotGoogleCampaignsManagerPage() {
 
   const filtered = useMemo(() => {
     let xs = rows;
-    if (st === "excluding_archived") xs = xs.filter((c) => c.local_status !== "archived");
-    else if (st === "live") xs = xs.filter((c) => c.local_status === "live");
-    else if (st === "paused") xs = xs.filter((c) => c.local_status === "paused");
-    else if (st !== "all") xs = xs.filter((c) => c.local_status === st);
+    if (st === "on_google") {
+      xs = xs.filter((c) => Boolean(c.external_campaign_id) && c.local_status !== "archived");
+    } else if (st === "local_drafts") {
+      xs = xs.filter((c) => !c.external_campaign_id && c.local_status !== "archived");
+    } else if (st === "excluding_archived") xs = xs.filter((c) => c.local_status !== "archived");
+    else if (st === "live") {
+      xs = xs.filter((c) => c.local_status === "live" && Boolean(c.external_campaign_id));
+    } else if (st === "paused") {
+      xs = xs.filter((c) => c.local_status === "paused" && Boolean(c.external_campaign_id));
+    }
     const needle = q.trim().toLowerCase();
     if (needle) {
       xs = xs.filter(
@@ -531,12 +544,17 @@ export function DpilotGoogleCampaignsManagerPage() {
 
   const chipCounts = useMemo(() => {
     const work = rows.filter((c) => c.local_status !== "archived");
+    const onGoogle = work.filter((c) => Boolean(c.external_campaign_id));
     return {
-      all: work.length,
-      live: work.filter((c) => c.local_status === "live").length,
-      paused: work.filter((c) => c.local_status === "paused").length,
+      on_google: onGoogle.length,
+      local_drafts: work.filter((c) => !c.external_campaign_id).length,
+      live: onGoogle.filter((c) => c.local_status === "live").length,
+      paused: onGoogle.filter((c) => c.local_status === "paused").length,
     };
   }, [rows]);
+
+  const localOnlyInventory =
+    source === "local_only" || inventoryScope === "local_drafts" || Boolean(connErr);
 
   const paidConnected = isConnConnected(overview?.connection);
   const connMeta = overview?.connection as
@@ -753,18 +771,53 @@ export function DpilotGoogleCampaignsManagerPage() {
       ) : null}
 
       {connErr && paidConnected && !googleAdsNeedsReauth(connErr) ? (
-        <Alert className="mt-4">
-          <AlertTitle>Métricas de rede indisponíveis</AlertTitle>
-          <AlertDescription>
-            {friendlyGoogleAdsNetworkError(connErr) ?? connErr}
+        <Alert className="mt-4 border-amber-500/40 bg-amber-500/5">
+          <AlertTitle>Lista local ≠ conta Google</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{friendlyGoogleAdsNetworkError(connErr) ?? connErr}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Campanhas sem ID Google são rascunhos deste projecto — não o inventário de ads.google.com
+              {accountCustomerId
+                ? ` (conta ${accountCustomerId.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3")})`
+                : ""}
+              . Use «Re-sincronizar e importar» para trazer as campanhas reais da conta.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" disabled={linking} onClick={() => void syncAccount()}>
+                {linking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Re-sincronizar e importar
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/integracoes/google-ads">Verificar Integrações → Google</Link>
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : paidConnected && localOnlyInventory && chipCounts.on_google === 0 ? (
+        <Alert className="mt-4 border-amber-500/40 bg-amber-500/5">
+          <AlertTitle>Ainda sem campanhas importadas da Google</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p className="text-xs leading-relaxed">
+              A vista «Na Google» está vazia. Os rascunhos do projecto estão em «Só neste projecto» — não confundir com
+              ads.google.com.
+            </p>
+            <Button size="sm" disabled={linking} onClick={() => void syncAccount()}>
+              {linking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Re-sincronizar e importar
+            </Button>
           </AlertDescription>
         </Alert>
       ) : paidConnected && !connErr ? (
-        <p className="mt-2 text-xs text-muted-foreground">Fonte: {source || "—"}</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Fonte: {source || "—"}
+          {accountCustomerId
+            ? ` · conta ${accountCustomerId.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3")}`
+            : ""}
+        </p>
       ) : null}
 
       {(() => {
-        const work = rows.filter((c) => c.local_status !== "archived");
+        const work = rows.filter((c) => c.local_status !== "archived" && Boolean(c.external_campaign_id));
         let clicks = 0;
         let cost = 0;
         let conv = 0;
@@ -780,7 +833,6 @@ export function DpilotGoogleCampaignsManagerPage() {
         }
         const costUsd = cost / 1e6;
         const roas = costUsd > 0 ? value / costUsd : null;
-        const cpa = conv > 0 ? cost / conv : null;
         const tile = (label: string, val: string) => (
           <Card key={label} className="border-border/70 shadow-none">
             <CardContent className="px-3 py-2.5">
@@ -791,13 +843,13 @@ export function DpilotGoogleCampaignsManagerPage() {
         );
         return (
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-            {tile("Campanhas", fmtNum(work.length))}
-            {tile("Ativas", fmtNum(work.filter((c) => c.local_status === "live").length))}
-            {tile("Pausadas", fmtNum(work.filter((c) => c.local_status === "paused").length))}
+            {tile("Na Google", fmtNum(chipCounts.on_google))}
+            {tile("Rascunhos", fmtNum(chipCounts.local_drafts))}
+            {tile("Ativas", fmtNum(chipCounts.live))}
+            {tile("Pausadas", fmtNum(chipCounts.paused))}
             {tile("Investimento", withM ? formatUsdFromMicros(cost) : "—")}
             {tile("Cliques", withM ? fmtNum(clicks) : "—")}
             {tile("Conversões", withM ? fmtNum(conv, 1) : "—")}
-            {tile("Custo / conv.", cpa != null ? formatUsdFromMicros(cpa) : "—")}
             {tile(
               "Receita · ROAS",
               withM && (value > 0 || roas != null)
@@ -836,9 +888,10 @@ export function DpilotGoogleCampaignsManagerPage() {
           <div className="flex flex-wrap items-center gap-2">
             {(
               [
-                { id: "excluding_archived", label: `Todas ${chipCounts.all}` },
-                { id: "live", label: `Ativas ${chipCounts.live}` },
-                { id: "paused", label: `Pausadas ${chipCounts.paused}` },
+                { id: "on_google" as const, label: `Na Google ${chipCounts.on_google}` },
+                { id: "local_drafts" as const, label: `Só neste projecto ${chipCounts.local_drafts}` },
+                { id: "live" as const, label: `Ativas ${chipCounts.live}` },
+                { id: "paused" as const, label: `Pausadas ${chipCounts.paused}` },
               ] as const
             ).map((chip) => (
               <button
@@ -872,11 +925,23 @@ export function DpilotGoogleCampaignsManagerPage() {
           {loading && rows.length === 0 ? (
             <Skeleton className="h-40 w-full" />
           ) : filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {paidConnected
-                ? "Nenhuma campanha neste filtro. Importe da conta em Conta ou crie uma nova."
-                : "Sincronize a conta para listar campanhas."}
-            </p>
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-muted-foreground">
+                {!paidConnected
+                  ? "Sincronize a conta para listar campanhas."
+                  : st === "on_google" || st === "live" || st === "paused"
+                    ? "Nenhuma campanha da conta Google neste filtro. Importe com «Re-sincronizar e importar» — os rascunhos locais estão em «Só neste projecto»."
+                    : st === "local_drafts"
+                      ? "Sem rascunhos locais neste projecto."
+                      : "Nenhuma campanha neste filtro."}
+              </p>
+              {paidConnected && (st === "on_google" || st === "live") && chipCounts.on_google === 0 ? (
+                <Button size="sm" disabled={linking} onClick={() => void syncAccount()}>
+                  {linking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Re-sincronizar e importar
+                </Button>
+              ) : null}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -918,12 +983,19 @@ export function DpilotGoogleCampaignsManagerPage() {
                           )}
                         </TableCell>
                         <TableCell className="max-w-[18rem]">
-                          <Link
-                            to={`/tracking/dpilot/p/${projectId}/campanhas/${c.id}/google`}
-                            className="font-medium text-[#1a73e8] hover:underline line-clamp-2"
-                          >
-                            {c.name}
-                          </Link>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Link
+                              to={`/tracking/dpilot/p/${projectId}/campanhas/${c.id}/google`}
+                              className="font-medium text-[#1a73e8] hover:underline line-clamp-2"
+                            >
+                              {c.name}
+                            </Link>
+                            {!c.external_campaign_id ? (
+                              <Badge variant="secondary" className="font-normal text-[10px]">
+                                Só local
+                              </Badge>
+                            ) : null}
+                          </div>
                           {urlAudit && urlAudit.severity !== "ok" ? (
                             <p className="mt-0.5 text-[10px] text-amber-800 dark:text-amber-200">
                               Final URL: {urlAudit.severity === "critical" ? "crítica" : "aviso"}

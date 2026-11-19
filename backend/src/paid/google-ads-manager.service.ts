@@ -230,7 +230,20 @@ export async function fetchGoogleAdsCampaignsMetrics(
     const ids = local
       .map((c) => c.externalCampaignId?.replace(/\D/g, ""))
       .filter((id): id is string => Boolean(id));
-    if (ids.length > 0) {
+
+    /** Sem IDs importados ainda — sonda a conta para não fingir «rede OK» com só rascunhos. */
+    if (ids.length === 0) {
+      const probe = await runGoogleAdsSearch(
+        ctx.access,
+        ctx.customerId,
+        ctx.dev,
+        "SELECT campaign.id FROM campaign WHERE campaign.status != 'REMOVED' LIMIT 1",
+        ctx.loginCustomerId,
+      );
+      if (probe.error) {
+        networkError = probe.error.message ?? "Falha ao ler a conta Google Ads.";
+      }
+    } else {
       const q = `
         SELECT
           campaign.id,
@@ -335,11 +348,12 @@ export async function fetchGoogleAdsCampaignsMetrics(
       name: c.name,
       local_status: c.status,
       external_campaign_id: ext,
+      inventory_origin: ext ? ("google" as const) : ("local_draft" as const),
       daily_budget_micros: budgetMeta?.amount_micros ?? localBudget,
       bidding_strategy: bidding.google?.strategy ?? null,
       created_at: c.createdAt.toISOString(),
       metrics,
-      metrics_available: Boolean(ext && ctx.ok),
+      metrics_available: Boolean(ext && ctx.ok && !networkError),
       budget_shared: budgetMeta?.explicitly_shared ?? false,
       budget_reference_count: budgetMeta?.reference_count ?? 1,
       budget_editable: budgetMeta ? budgetMeta.budget_editable : true,
@@ -352,18 +366,29 @@ export async function fetchGoogleAdsCampaignsMetrics(
   });
 
   const funnelRiskCount = campaigns.filter((c) => c.funnel_risk).length;
+  const linkedCount = campaigns.filter((c) => c.external_campaign_id).length;
+  const networkOk = ctx.ok && !networkError;
+  const inventoryScope =
+    !networkOk || linkedCount === 0 ? ("local_drafts" as const) : ("google_network" as const);
 
   return {
     ok: true as const,
     connected: ctx.ok,
     connection_error: ctx.ok ? networkError : ctx.error,
+    connection_error_code: ctx.ok ? (networkError ? "gaql_error" : null) : ctx.code,
+    account: ctx.ok
+      ? { customer_id: ctx.customerId, account_name: ctx.accountName }
+      : null,
     range,
     campaigns,
     totals: {
       funnel_risk: funnelRiskCount,
       with_google_clicks: campaigns.filter((c) => (c.google_clicks ?? 0) > 0).length,
+      linked_to_google: linkedCount,
+      local_drafts: campaigns.filter((c) => !c.external_campaign_id).length,
     },
-    source: ctx.ok && !networkError ? ("google_ads_api" as const) : ("local_only" as const),
+    source: networkOk ? ("google_ads_api" as const) : ("local_only" as const),
+    inventory_scope: inventoryScope,
   };
 }
 

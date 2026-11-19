@@ -203,21 +203,18 @@ export async function fetchCustomerMeta(
   const dev = resolveDeveloperTokenHeader();
   assertDeveloperToken(dev);
   const clean = customerId.replace(/\D/g, "");
-  const login = normalizeLoginCustomerId(clean, loginCustomerId);
-  const res = await fetch(`${API_BASE}/customers/${clean}/googleAds:search`, {
-    method: "POST",
-    headers: headersForGoogleAds(accessToken, dev, login),
-    body: JSON.stringify({
-      query: "SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1",
-    }),
-  });
-  if (!res.ok) return null;
-  const j = (await res.json()) as {
-    results?: Array<{
-      customer?: { id?: string | number; descriptiveName?: string; manager?: boolean };
-    }>;
+  const s = await runGoogleAdsSearch(
+    accessToken,
+    clean,
+    dev,
+    "SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1",
+    loginCustomerId,
+  );
+  if (s.error || !Array.isArray(s.results) || s.results.length === 0) return null;
+  const row = s.results[0] as {
+    customer?: { id?: string | number; descriptiveName?: string; manager?: boolean };
   };
-  const c = j.results?.[0]?.customer;
+  const c = row.customer;
   if (!c) return null;
   return {
     id: String(c.id ?? clean).replace(/\D/g, ""),
@@ -409,6 +406,39 @@ function looksLikeBadLoginCustomer(message: string | undefined): boolean {
   );
 }
 
+/** Extrai mensagens detalhadas de GoogleAdsFailure (REST). */
+function extractGoogleAdsErrorMessage(j: unknown, fallback: string): string {
+  const root = j as {
+    error?: {
+      message?: string;
+      status?: string;
+      details?: Array<{
+        errors?: Array<{ message?: string; errorCode?: Record<string, string> }>;
+        requestId?: string;
+      }>;
+    };
+  };
+  const base = root.error?.message ?? fallback;
+  const parts: string[] = [];
+  for (const d of root.error?.details ?? []) {
+    for (const e of d.errors ?? []) {
+      if (e.message) parts.push(e.message);
+    }
+    if (d.requestId) parts.push(`requestId=${d.requestId}`);
+  }
+  if (parts.length === 0) return base;
+  return `${base} — ${parts.slice(0, 4).join("; ")}`;
+}
+
+function withCustomerContext(
+  message: string,
+  customerId: string,
+  loginCustomerId?: string,
+): string {
+  const login = loginCustomerId ? ` MCC ${loginCustomerId}` : " sem MCC";
+  return `Conta ${customerId}${login}: ${message}`;
+}
+
 /** Consulta genérica (GAQL). Se o MCC no header for errado, tenta de novo sem login-customer-id. */
 export async function runGoogleAdsSearch(
   accessToken: string,
@@ -432,7 +462,15 @@ export async function runGoogleAdsSearch(
       error?: { message?: string };
     };
     if (!res.ok) {
-      return { error: { message: j.error?.message ?? `googleAds:search ${res.status}` } };
+      return {
+        error: {
+          message: withCustomerContext(
+            extractGoogleAdsErrorMessage(j, `googleAds:search ${res.status}`),
+            clean,
+            loginHeader,
+          ),
+        },
+      };
     }
     return { results: j.results };
   };
@@ -442,7 +480,11 @@ export async function runGoogleAdsSearch(
   if (login && looksLikeBadLoginCustomer(first.error.message)) {
     const retry = await once(undefined);
     if (!retry.error) return retry;
-    return first;
+    return {
+      error: {
+        message: `${first.error.message} (também falhou sem MCC: ${retry.error?.message ?? "—"})`,
+      },
+    };
   }
   return first;
 }
