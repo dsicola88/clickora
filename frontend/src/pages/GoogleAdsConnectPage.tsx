@@ -112,9 +112,16 @@ export default function GoogleAdsConnectPage() {
       if (error) throw new Error(error);
       return d;
     },
-    onSuccess: async () => {
+    onSuccess: async (d) => {
       toast.success(t("pages.googleAds.saved"));
-      await bootstrap.mutateAsync();
+      /** Não correr bootstrap aqui — reescrevia a conta manual (ex. 160…) pela 1.ª acessível. */
+      void qc.invalidateQueries({ queryKey: ["integrations", "google-ads"] });
+      if (d && typeof d === "object" && "google_ads_customer_id" in d) {
+        const cid = String((d as { google_ads_customer_id?: string }).google_ads_customer_id ?? "");
+        if (cid) setCustomerDraft(cid);
+        const mcc = String((d as { google_ads_login_customer_id?: string }).google_ads_login_customer_id ?? "");
+        setMccDraft(mcc);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });

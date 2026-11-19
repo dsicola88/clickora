@@ -1236,20 +1236,32 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
     return empty("Nenhuma conta Google Ads acessível com este login.");
   }
 
-  const accounts = await probeGoogleAdsAccounts(client, creds.refreshToken, accessibleIds.slice(0, 25));
-
   let loginCustomerId: string | null = onlyDigits(user.googleAdsLoginCustomerId);
   let customerId: string | null = onlyDigits(user.googleAdsCustomerId);
+
+  /** Sempre incluir a conta escolhida à mão — slice(0,25) apagava IDs válidos (ex. 160… → 583…). */
+  const probeIds = [
+    ...new Set(
+      [customerId, ...accessibleIds.slice(0, 40)].filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const accounts = await probeGoogleAdsAccounts(client, creds.refreshToken, probeIds);
   const managers = accounts.filter((a) => a.kind === "manager");
   const clients = accounts.filter((a) => a.kind === "direct" || a.kind === "needs_manager");
 
   if (customerId && !accounts.some((account) => account.id === customerId)) {
-    customerId = null;
-    loginCustomerId = null;
-    await systemPrisma.user.update({
-      where: { id: userId },
-      data: { googleAdsCustomerId: null, googleAdsLoginCustomerId: null },
-    });
+    if (accessibleIds.includes(customerId)) {
+      /** Acessível mas o probe falhou sem MCC — manter e tratar como needs_manager. */
+      accounts.push({ id: customerId, name: customerId, kind: "needs_manager" });
+      clients.push({ id: customerId, name: customerId, kind: "needs_manager" });
+    } else {
+      customerId = null;
+      loginCustomerId = null;
+      await systemPrisma.user.update({
+        where: { id: userId },
+        data: { googleAdsCustomerId: null, googleAdsLoginCustomerId: null },
+      });
+    }
   }
 
   if (!customerId) {
