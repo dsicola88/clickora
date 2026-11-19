@@ -87,6 +87,19 @@ describe("appendClickIdToAffiliateUrl", () => {
     assert.equal(adcombo.searchParams.get("subid"), null);
   });
 
+  it("host BR/CPA detecta rede sem platform explícita", () => {
+    const mon = new URL(appendClickIdToAffiliateUrl("https://go.monetizze.com.br/check/ABC", uuid));
+    assert.equal(mon.searchParams.get("src"), uuid);
+    assert.equal(mon.searchParams.get("sck"), uuid);
+    assert.equal(mon.searchParams.get("subid"), null);
+
+    const braip = new URL(appendClickIdToAffiliateUrl("https://ev.braip.com/track/1", uuid));
+    assert.equal(braip.searchParams.get("xcod"), uuid);
+
+    const ever = new URL(appendClickIdToAffiliateUrl("https://www.everflow.io/aff", uuid));
+    assert.equal(ever.searchParams.get("sub1"), uuid);
+  });
+
   it("Hotmart escreve src e sck", () => {
     const out = appendClickIdToAffiliateUrl("https://pay.hotmart.com/ABC", uuid);
     const u = new URL(out);

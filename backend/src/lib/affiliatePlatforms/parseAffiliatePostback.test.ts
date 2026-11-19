@@ -636,3 +636,30 @@ test("nativas: buildTestSaleQuery aprova venda; S2S documentado usa contrato gen
   assert.equal(canonicalPlatformId("AdCombo"), "adcombo");
   assert.equal(canonicalPlatformId("CJ Affiliate"), "cjaffiliate");
 });
+
+test("documented_s2s: eco cru da chave outbound (sem clickora_click_id) atribui venda", () => {
+  const cases: Array<{ platform: string; key: string }> = [
+    { platform: "Monetizze", key: "src" },
+    { platform: "Braip", key: "xcod" },
+    { platform: "AdCombo", key: "clickid" },
+    { platform: "EverFlow", key: "sub1" },
+    { platform: "DrCash", key: "sub1" },
+    { platform: "Eduzz", key: "tracker" },
+    { platform: "LeadBit", key: "subid" },
+    { platform: "MaxBounty", key: "s1" },
+  ];
+  for (const { platform, key } of cases) {
+    const parsed = parseAffiliatePostback({
+      platform,
+      flat: {
+        [key]: UUID,
+        orderid: `ORD-${key}`,
+        amount: "9.99",
+        status: "approved",
+        cy: "USD",
+      },
+    });
+    assert.equal(parsed.outcome.kind, "approved", platform);
+    assert.equal(parsed.clickId, UUID, platform);
+  }
+});

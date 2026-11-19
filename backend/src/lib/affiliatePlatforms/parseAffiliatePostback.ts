@@ -384,20 +384,34 @@ function parseJvzoo(flat: Record<string, string>): ParsedAffiliatePostback {
   return done("jvzoo", flat, { ...base, outcome: { kind: "ignore", reason: tx ? `ctransaction:${tx}` : "sem_ctransaction" } });
 }
 
-/** Contrato explícito para redes sem IPN próprio. Não lê campos de outras plataformas. */
+/**
+ * Chaves de click id no contrato genérico + ecos nativos das redes documented_s2s.
+ * Preferência: clickora_click_id / subid* (URL FE) antes de sub1/clickid/xcod/src
+ * (eco cru da rede quando o postback não remapeia).
+ * Não inclui cid/tid: Digistore/ClickBank têm adaptador NAMED.
+ */
+const GENERIC_CLICK_ID_KEYS = [
+  "clickora_click_id",
+  "subid1",
+  "subid2",
+  "SUBID2",
+  "subid",
+  "SUBID",
+  "subid3",
+  "SUBID3",
+  "sub1",
+  "s1",
+  "clickid",
+  "xcod",
+  "tracker",
+  "src",
+  "sck",
+] as const;
+
+/** Contrato explícito para redes sem IPN próprio (documented_s2s + genérico). */
 function parseGeneric(flat: Record<string, string>, adapterId = "generic"): ParsedAffiliatePostback {
   const funnel = funnelFrom(flat);
-  // Contrato genérico: não ler cid/tid/src (são de adaptadores nativos).
-  const clickId = firstUuid(flat, [
-    "clickora_click_id",
-    "subid1",
-    "subid2",
-    "SUBID2",
-    "subid",
-    "SUBID",
-    "subid3",
-    "SUBID3",
-  ]);
+  const clickId = firstUuid(flat, [...GENERIC_CLICK_ID_KEYS]);
   const externalId = firstText(flat, ["orderid", "order_id", "transaction_id"]);
   const amount = moneyFrom(flat, ["amount"]);
   const currency = currencyFrom(flat, ["cy", "currency"]);
@@ -717,7 +731,8 @@ export function buildTestSaleQuery(platform: string, clickId: string, orderId: s
       tid: clickId,
     };
   }
-  return {
+  /** documented_s2s / genérico: ecoa também a chave outbound da rede. */
+  const q: Record<string, string> = {
     platform: platform || "generic",
     clickora_click_id: clickId,
     subid1: clickId,
@@ -726,4 +741,21 @@ export function buildTestSaleQuery(platform: string, clickId: string, orderId: s
     cy: "USD",
     status: "approved",
   };
+  if (id === "monetizze" || id === "kiwify") {
+    q.src = clickId;
+    q.sck = clickId;
+  } else if (id === "braip") {
+    q.xcod = clickId;
+  } else if (id === "adcombo") {
+    q.clickid = clickId;
+  } else if (id === "everflow" || id === "drcash") {
+    q.sub1 = clickId;
+  } else if (id === "eduzz") {
+    q.tracker = clickId;
+  } else if (id === "leadbit") {
+    q.subid = clickId;
+  } else if (id === "maxbounty") {
+    q.s1 = clickId;
+  }
+  return q;
 }

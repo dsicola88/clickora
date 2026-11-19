@@ -2414,7 +2414,7 @@ export const es = {
         "postbackTitle": "Postback y redes de afiliados",
         "postbackDesc": "Vincular ventas BuyGoods, SmartAdv, Digistore, Hotmart… al clic.",
         "postbackByNetwork": "Postback por red (copiar URL con macros)",
-        "postbackByNetworkHint": "BuyGoods {SUBID} · SmartAdv {sub3} · Digistore {cid}",
+        "postbackByNetworkHint": "BuyGoods/MaxWeb {SUBID2} · Digistore {sid1} · SmartAdv {sub3}",
         "postbackHub": "Hub Integraciones",
         "postbackHubHint": "Flujo en 4 pasos",
         "postbackConversions": "Conversiones",

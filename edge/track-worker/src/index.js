@@ -34,6 +34,7 @@ const OUTBOUND = {
   leadbit: ["subid"],
   drcash: ["sub1"],
   maxbounty: ["s1"],
+  kiwify: ["src", "sck"],
 };
 const UNKNOWN_OUTBOUND_KEYS = ["subid", "subid1", "subid2"];
 const REPLACEABLE_NON_UUID_KEYS = new Set([
@@ -136,6 +137,10 @@ function forwardAdQuery(destUrl, searchParams) {
   }
 }
 
+function hostMatches(host, root) {
+  return host === root || host.endsWith(`.${root}`);
+}
+
 function platformIdFromOfferHost(hostname) {
   const host = String(hostname || "")
     .trim()
@@ -149,7 +154,7 @@ function platformIdFromOfferHost(hostname) {
   ) {
     return "digistore24";
   }
-  if (host === "buygoods.com" || host.endsWith(".buygoods.com")) return "buygoods";
+  if (hostMatches(host, "buygoods.com")) return "buygoods";
   if (
     host === "maxweb.com" ||
     host.endsWith(".maxweb.com") ||
@@ -158,7 +163,7 @@ function platformIdFromOfferHost(hostname) {
   ) {
     return "maxweb";
   }
-  if (host === "hotmart.com" || host.endsWith(".hotmart.com") || host === "pay.hotmart.com") {
+  if (hostMatches(host, "hotmart.com") || host === "pay.hotmart.com") {
     return "hotmart";
   }
   if (
@@ -169,9 +174,20 @@ function platformIdFromOfferHost(hostname) {
   ) {
     return "clickbank";
   }
-  if (host === "warriorplus.com" || host.endsWith(".warriorplus.com")) return "warriorplus";
-  if (host === "jvzoo.com" || host.endsWith(".jvzoo.com")) return "jvzoo";
+  if (hostMatches(host, "warriorplus.com")) return "warriorplus";
+  if (hostMatches(host, "jvzoo.com")) return "jvzoo";
   if (host.includes("smartadv") || host.endsWith(".smartadv.com")) return "smartadv";
+  if (hostMatches(host, "monetizze.com.br") || hostMatches(host, "monetizze.com")) return "monetizze";
+  if (hostMatches(host, "braip.com.br") || hostMatches(host, "braip.com")) return "braip";
+  if (hostMatches(host, "eduzz.com") || hostMatches(host, "myeduzz.com")) return "eduzz";
+  if (hostMatches(host, "adcombo.com")) return "adcombo";
+  if (hostMatches(host, "everflow.io") || hostMatches(host, "eflow.team") || host.includes("everflowclient")) {
+    return "everflow";
+  }
+  if (hostMatches(host, "leadbit.com")) return "leadbit";
+  if (host === "dr.cash" || host.endsWith(".dr.cash") || hostMatches(host, "drcash.io")) return "drcash";
+  if (hostMatches(host, "maxbounty.com")) return "maxbounty";
+  if (hostMatches(host, "kiwify.com.br") || hostMatches(host, "kiwify.com")) return "kiwify";
   return null;
 }
 
@@ -200,6 +216,7 @@ function canonicalPlatformId(raw) {
     leadbit: "leadbit",
     drcash: "drcash",
     maxbounty: "maxbounty",
+    kiwify: "kiwify",
   };
   return aliases[s] || (OUTBOUND[s] ? s : null);
 }

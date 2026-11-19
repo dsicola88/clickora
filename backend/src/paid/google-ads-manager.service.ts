@@ -2,7 +2,12 @@
  * Centro de operações Google Ads (Paid) — métricas de conta, inventário e recomendações via API oficial.
  * Não inventa números: sem OAuth / sem developer token → erro explícito.
  */
-import { fetchCustomerMeta, runGoogleAdsCustomerAction, runGoogleAdsSearch } from "./google-ads.api";
+import {
+  fetchCustomerMeta,
+  resolveReadableGoogleAdsCustomer,
+  runGoogleAdsCustomerAction,
+  runGoogleAdsSearch,
+} from "./google-ads.api";
 import { parseGoogleBudgetShareFromRow } from "./google-ads-budget";
 import { computeClickCapture } from "./google-ads-click-capture";
 import {
@@ -122,7 +127,8 @@ export async function fetchGoogleAdsAccountOverview(
     FROM customer
     WHERE segments.date BETWEEN '${range.from}' AND '${range.to}'
   `;
-  let s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, qCustomer, ctx.loginCustomerId);
+  let loginCustomerId = ctx.loginCustomerId;
+  let s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, qCustomer, loginCustomerId);
 
   /** Fallback: algumas contas rejeitam métricas ao nível customer — agregar por campanha. */
   if (s.error) {
@@ -142,9 +148,77 @@ export async function fetchGoogleAdsAccountOverview(
       ctx.customerId,
       ctx.dev,
       qCampaign,
-      ctx.loginCustomerId,
+      loginCustomerId,
     );
     if (!retry.error) s = retry;
+  }
+
+  /**
+   * Overview falhou: descobrir solo↔MCC (como no «Re-sincronizar») e persistir.
+   * Evita ficar preso em INVALID_ARGUMENT com MCC errado / em falta.
+   */
+  if (s.error) {
+    const healed = await resolveReadableGoogleAdsCustomer(
+      ctx.access,
+      ctx.customerId,
+      loginCustomerId,
+    );
+    if (healed.ok) {
+      const nextLogin = healed.loginCustomerId ?? null;
+      const prevLogin = loginCustomerId ?? null;
+      if (nextLogin !== prevLogin) {
+        const connRow = await prisma.paidAdsGoogleAdsConnection.findUnique({
+          where: { id: ctx.connectionId },
+          select: { userId: true },
+        });
+        if (connRow) {
+          await prisma.user.update({
+            where: { id: connRow.userId },
+            data: { googleAdsLoginCustomerId: nextLogin },
+          });
+        }
+      }
+      loginCustomerId = healed.loginCustomerId;
+      s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, qCustomer, loginCustomerId);
+      if (s.error) {
+        const qCampaign2 = `
+          SELECT
+            metrics.impressions,
+            metrics.clicks,
+            metrics.cost_micros,
+            metrics.conversions,
+            metrics.conversions_value
+          FROM campaign
+          WHERE segments.date BETWEEN '${range.from}' AND '${range.to}'
+            AND campaign.status != 'REMOVED'
+        `;
+        const retry2 = await runGoogleAdsSearch(
+          ctx.access,
+          ctx.customerId,
+          ctx.dev,
+          qCampaign2,
+          loginCustomerId,
+        );
+        if (!retry2.error) s = retry2;
+      }
+    } else if (!meta) {
+      /** Conta ilegível com este OAuth — UI não deve listar rascunhos como inventário Google. */
+      return {
+        ok: true as const,
+        connected: true,
+        range,
+        counts,
+        metrics: null,
+        source: "local_only" as const,
+        inventory_scope: "local_drafts" as const,
+        connection_error: healed.error || s.error.message,
+        connection_error_code: "customer_unreadable",
+        account: {
+          customer_id: ctx.customerId,
+          account_name: ctx.accountName,
+        },
+      };
+    }
   }
 
   if (s.error) {

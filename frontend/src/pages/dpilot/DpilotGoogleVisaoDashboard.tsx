@@ -38,7 +38,7 @@ function KpiCard({ label, value }: { label: string; value: string }) {
 }
 
 export function DpilotGoogleVisaoDashboard() {
-  const { projectId, campaigns, reload, isConnConnected, overview } = useDpilotPaid();
+  const { projectId, reload, isConnConnected, overview } = useDpilotPaid();
   const [loading, setLoading] = useState(true);
   const [ov, setOv] = useState<Awaited<ReturnType<typeof paidAdsService.getGoogleAdsManagerOverview>>["data"]>(
     null,
@@ -87,21 +87,23 @@ export function DpilotGoogleVisaoDashboard() {
     }));
   }, [rows]);
 
+  /**
+   * Só campanhas com ID Google — nunca listar rascunhos locais como inventário da conta
+   * (quando a rede falha, isso parecia “dados de outra conta”).
+   */
   const list = useMemo(
     () =>
-      rows
-        .filter(
-          (c) =>
-            c.local_status !== "archived" &&
-            (networkOk ? Boolean(c.external_campaign_id) : true),
-        )
-        .slice()
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .slice(0, 12),
+      networkOk
+        ? rows
+            .filter((c) => c.local_status !== "archived" && Boolean(c.external_campaign_id))
+            .slice()
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .slice(0, 12)
+        : [],
     [rows, networkOk],
   );
 
-  const localGoogle = campaigns.filter((c) => c.platform === "google_ads" && c.status !== "archived");
+  const draftCount = ov?.counts?.campaigns_local_drafts ?? 0;
 
   return (
     <div className="space-y-6">
@@ -169,18 +171,19 @@ export function DpilotGoogleVisaoDashboard() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard
-            label={localOnly ? "Campanhas (local)" : "Total de campanhas"}
-            value={fmtNum(ov?.counts?.campaigns_total)}
-          />
-          <KpiCard
-            label={localOnly ? "Ativas (local)" : "Campanhas ativas"}
-            value={fmtNum(ov?.counts?.campaigns_live)}
-          />
-          <KpiCard
-            label={localOnly ? "Pausadas (local)" : "Campanhas pausadas"}
-            value={fmtNum(ov?.counts?.campaigns_paused)}
-          />
+          {localOnly ? (
+            <>
+              <KpiCard label="Na Google (lidas)" value="—" />
+              <KpiCard label="Rascunhos neste projecto" value={fmtNum(draftCount)} />
+              <KpiCard label="IDs importados (não verificados)" value={fmtNum(ov?.counts?.campaigns_linked)} />
+            </>
+          ) : (
+            <>
+              <KpiCard label="Total de campanhas" value={fmtNum(ov?.counts?.campaigns_linked ?? ov?.counts?.campaigns_total)} />
+              <KpiCard label="Campanhas ativas" value={fmtNum(ov?.counts?.campaigns_live)} />
+              <KpiCard label="Campanhas pausadas" value={fmtNum(ov?.counts?.campaigns_paused)} />
+            </>
+          )}
           <KpiCard
             label="Investimento total"
             value={metrics ? formatUsdFromMicros(metrics.cost_micros) : "—"}
@@ -255,11 +258,13 @@ export function DpilotGoogleVisaoDashboard() {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div>
             <CardTitle className="text-base font-semibold text-slate-900">
-              {localOnly ? "Campanhas neste projecto" : "Campanhas"}
+              {localOnly ? "Inventário Google" : "Campanhas"}
             </CardTitle>
             {localOnly ? (
               <p className="mt-1 text-xs text-amber-800/90">
-                Rascunhos Clickora — podem não existir na conta Google. Importe Search em Campanhas para alinhar.
+                A rede não respondeu — não listamos rascunhos deste projecto como se fossem da conta{" "}
+                {ov?.account?.customer_id ?? "Google"}. Use «Re-sincronizar e importar» em Campanhas.
+                {draftCount > 0 ? ` (${draftCount} rascunho${draftCount === 1 ? "" : "s"} só neste projecto.)` : ""}
               </p>
             ) : null}
           </div>
@@ -270,20 +275,19 @@ export function DpilotGoogleVisaoDashboard() {
           </Button>
         </CardHeader>
         <CardContent className="space-y-0 divide-y divide-slate-100 px-0">
-          {loading && list.length === 0 && localGoogle.length === 0 ? (
+          {loading && list.length === 0 ? (
             <div className="space-y-2 px-6 py-2">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : list.length === 0 && localGoogle.length === 0 ? (
-            <p className="px-6 py-6 text-sm text-slate-500">Ainda não há campanhas Google neste projecto.</p>
+          ) : list.length === 0 ? (
+            <p className="px-6 py-6 text-sm text-slate-500">
+              {localOnly
+                ? "Nenhuma campanha da Google confirmada. Os rascunhos ficam em Campanhas → «Só neste projecto»."
+                : "Ainda não há campanhas Google importadas neste projecto."}
+            </p>
           ) : (
-            (list.length > 0 ? list : localGoogle.map((c) => ({
-              id: c.id,
-              name: c.name,
-              local_status: c.status,
-              metrics: null as null,
-            }))).map((c) => (
+            list.map((c) => (
               <Link
                 key={c.id}
                 to={`/tracking/dpilot/p/${projectId}/campanhas/${c.id}/google`}

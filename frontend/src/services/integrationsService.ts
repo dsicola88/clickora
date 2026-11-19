@@ -74,6 +74,37 @@ export const integrationsService = {
     );
   },
 
+  /** Cliques OK mas vendas não no relatório — bloqueios + últimos postbacks. */
+  async diagnoseSales() {
+    return apiClient.get<{
+      ok: boolean;
+      verdict: "ok" | "blocked" | "needs_attention";
+      counts: {
+        clicks: number;
+        conversions_approved: number;
+        conversions_unattributed: number;
+        conversions_pending: number;
+        network_postbacks: number;
+        postbacks_ignored_or_rejected: number;
+      };
+      blockers: Array<{ code: string; severity: "critical" | "warn" | "info"; detail: string }>;
+      next_steps: string[];
+      recent_conversions?: Array<{
+        id: string;
+        attribution: string | null;
+        google_ads_sync: string | null;
+        unattributed_reason: string | null;
+        created_at: string;
+      }>;
+      recent_postbacks?: Array<{
+        platform: string;
+        status: string;
+        message: string | null;
+        created_at: string;
+      }>;
+    }>("/integrations/diagnose-sales");
+  },
+
   async getGoogleAdsSettings() {
     return apiClient.get<{
       google_ads_enabled: boolean;

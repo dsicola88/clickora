@@ -30,6 +30,8 @@ authed.post(
   requireWorkspaceIntegrationsWrite,
   integrationsController.testAffiliatePostback,
 );
+/** Diagnóstico: cliques OK mas vendas não aparecem no relatório. */
+authed.get("/diagnose-sales", integrationsController.diagnoseSalesPipeline);
 authed.patch("/notification-email", requireWorkspaceIntegrationsWrite, integrationsController.patchNotificationEmail);
 authed.get("/telegram", integrationsController.getTelegramSettings);
 authed.patch("/telegram", requireWorkspaceIntegrationsWrite, integrationsController.patchTelegramSettings);

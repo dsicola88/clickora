@@ -85,6 +85,17 @@ export default function Plataformas() {
     },
   });
 
+  const { data: salesDiag } = useQuery({
+    queryKey: ["integrations-diagnose-sales"],
+    enabled: !authLoading && !hookPlanDenied && canReadSecrets,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error: err } = await integrationsService.diagnoseSales();
+      if (err) throw new Error(err);
+      return data ?? null;
+    },
+  });
+
   useEffect(() => {
     if (info?.sale_notify_email !== undefined) {
       setEmailField(info.sale_notify_email);
@@ -242,6 +253,7 @@ export default function Plataformas() {
       return data;
     },
     onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: ["integrations-diagnose-sales"] });
       if (data.ok) {
         toast.success(data.message || t("pages.networkSales.linkOk"));
       } else {
@@ -314,6 +326,54 @@ export default function Plataformas() {
         title={t("pages.networkSales.title")}
         subtitle={t("pages.networkSales.subtitle")}
       />
+
+      {salesDiag && salesDiag.verdict !== "ok" ? (
+        <div
+          className={`mb-4 rounded-lg border px-3 py-3 text-sm space-y-2 ${
+            salesDiag.verdict === "blocked"
+              ? "border-destructive/35 bg-destructive/5"
+              : "border-amber-500/30 bg-amber-500/[0.07]"
+          }`}
+        >
+          <p className="font-medium text-foreground flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
+            {salesDiag.verdict === "blocked"
+              ? "Vendas não estão a chegar ao relatório"
+              : "Pipeline de vendas precisa de atenção"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Cliques 14d: {salesDiag.counts.clicks} · Aprovadas: {salesDiag.counts.conversions_approved} ·
+            Sem atribuição: {salesDiag.counts.conversions_unattributed} · Avisos da rede:{" "}
+            {salesDiag.counts.network_postbacks}
+          </p>
+          <ul className="space-y-1.5 text-xs text-foreground/90 leading-relaxed">
+            {salesDiag.blockers.slice(0, 4).map((b) => (
+              <li key={b.code}>
+                <span className="font-medium">[{b.severity}]</span> {b.detail}
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-muted-foreground">
+            Testar o URL da lander confirma o clique — a venda só entra quando a rede chama o postback com{" "}
+            <code className="text-foreground/80">{"{SUBID2}"}</code> / <code className="text-foreground/80">{"{sid1}"}</code>.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={intLocked || testPostback.isPending}
+              onClick={() => testPostback.mutate()}
+            >
+              {testPostback.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Testar ligação
+            </Button>
+            <Button type="button" size="sm" variant="outline" asChild>
+              <Link to="/resultados/relatorios/conversoes">Ver conversões</Link>
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {intLocked ? (
         <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-sm text-amber-950/90 dark:text-amber-100/90 mb-4">

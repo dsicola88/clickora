@@ -980,6 +980,225 @@ export const integrationsController = {
     });
   },
 
+  /**
+   * Diagnóstico ponta a ponta: clique Ads OK ≠ venda no relatório.
+   * A venda só entra quando a rede chama o affiliate-webhook com UUID (subid2/sid1).
+   */
+  async diagnoseSalesPipeline(req: Request, res: Response) {
+    if (await denyIfCannotReadIntegrationSecrets(req, res)) return;
+    const userId = billingUserId(req);
+    const sub = await subscriptionPlanForWebhookGate(userId);
+    const planOk = planAllowsAffiliateWebhook(sub?.plan);
+
+    const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    const [clicks, conversions, postbacks, recentClicksMeta, googleUser] = await Promise.all([
+      systemPrisma.trackingEvent.count({
+        where: { userId, eventType: "click", createdAt: { gte: since } },
+      }),
+      systemPrisma.conversion.findMany({
+        where: { userId, createdAt: { gte: since } },
+        orderBy: { createdAt: "desc" },
+        take: 15,
+        select: {
+          id: true,
+          status: true,
+          attribution: true,
+          amount: true,
+          currency: true,
+          clickId: true,
+          presellId: true,
+          externalOrderId: true,
+          googleAdsSync: true,
+          createdAt: true,
+          metadata: true,
+        },
+      }),
+      systemPrisma.postbackLog.findMany({
+        where: {
+          userId,
+          createdAt: { gte: since },
+          NOT: { platform: { in: ["google_ads_offline_upload", "tracking_guard", "blacklist_block"] } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          platform: true,
+          status: true,
+          message: true,
+          createdAt: true,
+          payload: true,
+        },
+      }),
+      systemPrisma.trackingEvent.findMany({
+        where: { userId, eventType: "click", createdAt: { gte: since } },
+        orderBy: { createdAt: "desc" },
+        take: 40,
+        select: { id: true, createdAt: true, metadata: true, campaign: true },
+      }),
+      systemPrisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          googleAdsEnabled: true,
+          googleAdsCustomerId: true,
+          googleAdsConversionActionId: true,
+        },
+      }),
+    ]);
+
+    const hasPaidClickId = (meta: unknown): boolean => {
+      if (!meta || typeof meta !== "object" || Array.isArray(meta)) return false;
+      const m = meta as Record<string, unknown>;
+      for (const k of ["gclid", "gbraid", "wbraid"] as const) {
+        const v = m[k];
+        if (typeof v === "string" && v.trim() && !/^\{/.test(v.trim())) return true;
+      }
+      return false;
+    };
+    const lastClickWithGclid = recentClicksMeta.find((c) => hasPaidClickId(c.metadata)) ?? null;
+
+    const approved = conversions.filter((c) => c.status === "approved");
+    const unattributed = approved.filter((c) => c.attribution === "unattributed" || !c.clickId);
+    const pending = conversions.filter((c) => c.status === "pending");
+    const networkPostbacks = postbacks.filter((p) => p.platform !== "clickora_test");
+    const ignored = networkPostbacks.filter(
+      (p) =>
+        p.status === "ignored" ||
+        p.status === "rejected" ||
+        (typeof p.message === "string" && /ignored|missing_click|sem_encomenda/i.test(p.message)),
+    );
+    const createdLogs = networkPostbacks.filter(
+      (p) => typeof p.message === "string" && /created/i.test(p.message),
+    );
+
+    const blockers: Array<{ code: string; severity: "critical" | "warn" | "info"; detail: string }> = [];
+    if (!planOk) {
+      blockers.push({
+        code: "AFFILIATE_WEBHOOK_PLAN",
+        severity: "critical",
+        detail: "O plano não tem webhook de afiliados activo — a rede não consegue registar vendas.",
+      });
+    }
+    if (clicks === 0) {
+      blockers.push({
+        code: "NO_CLICKS",
+        severity: "critical",
+        detail: "Sem cliques nos últimos 14 dias. O URL da oferta tem de gerar um clique em /track/r/ antes da venda.",
+      });
+    }
+    if (clicks > 0 && networkPostbacks.length === 0 && approved.length === 0) {
+      blockers.push({
+        code: "NO_POSTBACK",
+        severity: "critical",
+        detail:
+          "Há cliques mas zero avisos da rede. Cole o URL de Integrações → Postback na BuyGoods/Digistore/MaxWeb (com {SUBID2} ou {sid1}). Testar o URL da lander NÃO configura o postback.",
+      });
+    }
+    if (unattributed.length > 0) {
+      blockers.push({
+        code: "UNATTRIBUTED_SALES",
+        severity: "warn",
+        detail: `${unattributed.length} venda(s) sem clique ligado (falta UUID no postback). Na MaxWeb/BuyGoods use {SUBID2}; na Digistore use {sid1}. Aparecem em Resultados → Conversões mas não sobem ao Google Ads nem à presell.`,
+      });
+    }
+    if (pending.length > 0) {
+      blockers.push({
+        code: "PENDING_SALES",
+        severity: "info",
+        detail: `${pending.length} venda(s) pending — o relatório de receita só conta status=approved.`,
+      });
+    }
+    if (ignored.length > 0 && createdLogs.length === 0) {
+      blockers.push({
+        code: "POSTBACKS_IGNORED",
+        severity: "warn",
+        detail:
+          "A rede está a chamar o webhook mas os avisos foram ignorados (macros/estado/funnel). Veja os últimos logs abaixo.",
+      });
+    }
+    const googleReady =
+      Boolean(googleUser?.googleAdsEnabled) &&
+      Boolean(googleUser?.googleAdsCustomerId?.trim()) &&
+      Boolean(googleUser?.googleAdsConversionActionId?.trim());
+    const syncSkipped = approved.filter((c) =>
+      ["skipped_no_gclid", "skipped_disabled", "skipped_no_config", "error"].includes(
+        String(c.googleAdsSync || ""),
+      ),
+    );
+    if (googleReady && syncSkipped.length > 0) {
+      blockers.push({
+        code: "GOOGLE_ADS_SYNC_SKIP",
+        severity: "warn",
+        detail: `${syncSkipped.length} venda(s) não foram enviadas ao Google Ads (sem gclid no clique, sync desligado, ou erro). Relatório Clickora ≠ conversões no painel Google.`,
+      });
+    }
+    if (!lastClickWithGclid && clicks > 0 && googleReady) {
+      blockers.push({
+        code: "NO_GCLID_ON_CLICKS",
+        severity: "warn",
+        detail:
+          "Cliques sem gclid/gbraid/wbraid — o Google Ads não recebe conversões offline. Confirme auto-tagging e a Final URL da campanha.",
+      });
+    }
+
+    const verdict =
+      approved.length > 0 && unattributed.length === 0 && blockers.every((b) => b.severity !== "critical")
+        ? "ok"
+        : blockers.some((b) => b.severity === "critical")
+          ? "blocked"
+          : "needs_attention";
+
+    return res.json({
+      ok: verdict === "ok",
+      verdict,
+      window_days: 14,
+      plan_webhook_enabled: planOk,
+      counts: {
+        clicks,
+        conversions_total: conversions.length,
+        conversions_approved: approved.length,
+        conversions_unattributed: unattributed.length,
+        conversions_pending: pending.length,
+        network_postbacks: networkPostbacks.length,
+        postbacks_ignored_or_rejected: ignored.length,
+      },
+      google_ads: {
+        upload_enabled: googleReady,
+        last_click_with_gclid_at: lastClickWithGclid?.createdAt?.toISOString() ?? null,
+      },
+      blockers,
+      recent_conversions: approved.slice(0, 8).map((c) => {
+        const meta = (c.metadata || {}) as Record<string, unknown>;
+        return {
+          id: c.id,
+          status: c.status,
+          attribution: c.attribution,
+          amount: c.amount != null ? Number(c.amount) : null,
+          currency: c.currency,
+          click_id: c.clickId,
+          presell_id: c.presellId,
+          order_id: c.externalOrderId,
+          google_ads_sync: c.googleAdsSync,
+          unattributed_reason: typeof meta.unattributed_reason === "string" ? meta.unattributed_reason : null,
+          created_at: c.createdAt.toISOString(),
+        };
+      }),
+      recent_postbacks: networkPostbacks.slice(0, 10).map((p) => ({
+        id: p.id,
+        platform: p.platform,
+        status: p.status,
+        message: p.message,
+        created_at: p.createdAt.toISOString(),
+      })),
+      next_steps: [
+        "1. Copiar URL em Integrações → Postback (não o URL da lander).",
+        "2. Colar na rede: BuyGoods/MaxWeb com {SUBID2}; Digistore24 com {sid1}+{cid}+billing_status+transaction_type.",
+        "3. Clicar CTA real → fazer venda teste OU «Testar ligação» nesta página.",
+        "4. Ver Resultados → Conversões (aprovadas). Aba «sem GCLID» = vendas sem upload Google.",
+      ],
+    });
+  },
+
   /** Estado da integração Google Ads (offline conversions). */
   async getGoogleAdsSettings(req: Request, res: Response) {
     const userId = billingUserId(req);

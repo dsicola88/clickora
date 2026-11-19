@@ -2453,7 +2453,7 @@ export const en = {
         postbackTitle: "Postback and affiliate networks",
         postbackDesc: "Link BuyGoods, SmartAdv, Digistore, Hotmart… sales to the click.",
         postbackByNetwork: "Postback by network (copy URL with macros)",
-        postbackByNetworkHint: "BuyGoods {SUBID} · SmartAdv {sub3} · Digistore {cid}",
+        postbackByNetworkHint: "BuyGoods/MaxWeb {SUBID2} · Digistore {sid1} · SmartAdv {sub3}",
         postbackHub: "Integrations hub",
         postbackHubHint: "4-step flow",
         postbackConversions: "Conversions",
