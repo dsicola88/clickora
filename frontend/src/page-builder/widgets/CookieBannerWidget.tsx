@@ -24,6 +24,8 @@ import { usePageBuilderT } from "../usePageBuilderT";
 import type { ResponsiveValue } from "../types";
 import type { CookieButtonLayout } from "../cookieBannerStyle";
 import { CookiePolicyInlineSheet } from "@/components/presell/CookiePolicyInlineSheet";
+import { cookieConsentNavigation } from "@/components/presell/PresellTypeControls";
+import { mergeLandingAdParamsIntoTrackHref } from "@/lib/presellTrackAdParams";
 import {
   COOKIE_CONSENT_EVENT,
   readCookieConsentChoice,
@@ -143,8 +145,15 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const overlayOpacity = clampCookieOverlayOpacity(c.overlayOpacity);
   const overlayBlur = clampCookieOverlayBlur(c.overlayBlur);
   const storageKey = (c.storageKey ?? "clickora-cookie-banner").trim() || "clickora-cookie-banner";
-  /** offerHref legado ignorado: compra vai pelos CTAs; Aceitar ≠ redirect à oferta. */
+  /**
+   * `offerHref` só é baked quando `settings.cookieRedirectToOffer` está activo.
+   * Sem ele, Aceitar grava consentimento e a compra fica nos CTAs (`/track/r/`).
+   */
   const inBuilder = useBuilderSurface();
+  const offerNav =
+    !inBuilder
+      ? cookieConsentNavigation("allow", (c.offerHref ?? "").trim(), "")
+      : ({ kind: "stay" } as const);
   const [dismissed, setDismissed] = useState(false);
   const [policyOpen, setPolicyOpen] = useState(false);
   const [delayReady, setDelayReady] = useState(() => !c.delayMs || c.delayMs <= 0 || inBuilder);
@@ -387,25 +396,48 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
           }}
         >
           {/**
-           * Aceitar / Fechar = consentimento apenas.
-           * Compra pelos CTAs da página (/track/r/ + UTMs) — zero bloqueio artificial.
+           * Fechar = só essenciais; página/CTAs ficam.
+           * Aceitar = all; se cookieRedirectToOffer (offerHref baked) → /track/r/.
            */}
-          <button
-            type="button"
-            data-testid="presell-cookie-allow"
-            onClick={inBuilder ? undefined : () => dismiss("all")}
-            style={allowClass}
-          >
-            {commit ? (
-              <CookieText
-                field="allowLabel"
-                value={allowLabel}
-                style={{ color: "#ffffff", fontWeight: 700 }}
-              />
-            ) : (
-              allowLabel
-            )}
-          </button>
+          {offerNav.kind === "assign" ? (
+            <a
+              href={offerNav.url}
+              data-testid="presell-cookie-allow-offer"
+              data-clickora-cookie-allow-offer="1"
+              style={{ ...allowClass, textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              onClick={(e) => {
+                if (inBuilder) {
+                  e.preventDefault();
+                  return;
+                }
+                dismiss("all");
+                const dest = mergeLandingAdParamsIntoTrackHref(offerNav.url, window.location.search);
+                if (dest && dest !== offerNav.url) {
+                  e.preventDefault();
+                  window.location.assign(dest);
+                }
+              }}
+            >
+              {allowLabel}
+            </a>
+          ) : (
+            <button
+              type="button"
+              data-testid="presell-cookie-allow"
+              onClick={inBuilder ? undefined : () => dismiss("all")}
+              style={allowClass}
+            >
+              {commit ? (
+                <CookieText
+                  field="allowLabel"
+                  value={allowLabel}
+                  style={{ color: "#ffffff", fontWeight: 700 }}
+                />
+              ) : (
+                allowLabel
+              )}
+            </button>
+          )}
           <button
             type="button"
             data-testid="presell-cookie-close"

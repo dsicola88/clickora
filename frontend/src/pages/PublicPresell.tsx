@@ -1297,6 +1297,7 @@ export default function PublicPresell() {
       {
         /** CTAs sempre activos; consentimento nunca remove botões de compra. */
         unlockCookieOnly: true,
+        cookieRedirectToOffer: isCookieRedirectToOfferEnabled(settings),
       },
     );
     return (
@@ -1367,6 +1368,7 @@ export default function PublicPresell() {
       cookiePolicyUrl,
       {
         unlockCookieOnly: true,
+        cookieRedirectToOffer: isCookieRedirectToOfferEnabled(settings),
       },
     );
     const mirrorHtmlFold =

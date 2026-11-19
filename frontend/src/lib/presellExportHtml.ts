@@ -630,6 +630,13 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
       cookiePolicyUrl,
       {
         unlockCookieOnly: true,
+        cookieRedirectToOffer:
+          builderSettings.cookieRedirectToOffer === true ||
+          builderSettings.cookieRedirectToOffer === 1 ||
+          builderSettings.cookieRedirectToOffer === "true" ||
+          builderSettings.cookieRedirectToOffer === "1" ||
+          builderSettings.cookie_redirect_to_offer === true ||
+          builderSettings.cookie_redirect_to_offer === 1,
       },
     );
     const merged = injectPresellSettingsIntoFullHtml(

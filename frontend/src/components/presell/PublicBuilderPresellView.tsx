@@ -157,7 +157,7 @@ export function PublicBuilderPresellView({
       data-interaction-locked={interactionLocked ? "1" : undefined}
       className={
         interactionLocked
-          ? "[&_a]:pointer-events-none [&_a]:opacity-50 [&_button]:pointer-events-none [&_button]:opacity-50"
+          ? "[&_a:not([data-clickora-cookie-allow-offer])]:pointer-events-none [&_a:not([data-clickora-cookie-allow-offer])]:opacity-50 [&_button:not([data-testid=presell-cookie-allow]):not([data-testid=presell-cookie-close])]:pointer-events-none [&_button:not([data-testid=presell-cookie-allow]):not([data-testid=presell-cookie-close])]:opacity-50"
           : "[&_[data-presell-portal-photo]_img]:object-contain [&_[data-clickora-offer-primary='1']]:hover:brightness-105 [&_[data-clickora-offer-primary='1']]:active:scale-[0.99]"
       }
     >

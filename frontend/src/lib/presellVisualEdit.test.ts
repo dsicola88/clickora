@@ -168,8 +168,8 @@ describe("buildEditablePageDocument", () => {
     const redirectCookie = redirectBaked.sections
       .flatMap((s) => s.columns.flatMap((c) => c.widgets))
       .find((w) => w.type === "cookieBanner");
-    // Aceitar já não leva à oferta — CTAs da página sim.
-    expect(redirectCookie?.content.offerHref || "").toBe("");
+    // Toggle activo: Aceitar recebe /track/r/; CTAs da página também.
+    expect(redirectCookie?.content.offerHref).toBe("https://app.example/track/r/x");
     expect(
       redirectBaked.sections
         .flatMap((s) => s.columns.flatMap((c) => c.widgets))

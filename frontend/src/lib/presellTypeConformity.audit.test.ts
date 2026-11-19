@@ -294,8 +294,8 @@ describe("funil: consentimento ≠ compra (todos os tipos)", () => {
           "/aviso-cookies",
           { unlockCookieOnly: true, cookieRedirectToOffer: true },
         );
-        expect(widgetsOf(baked).find((w) => w.type === "cookieBanner")?.content.offerHref || "").toBe(
-          "",
+        expect(widgetsOf(baked).find((w) => w.type === "cookieBanner")?.content.offerHref).toBe(
+          "https://app.example/track/r/x?gclid=abc",
         );
         expect(widgetsOf(baked).find((w) => w.type === "button")?.content.href).toContain(
           "/track/r/",

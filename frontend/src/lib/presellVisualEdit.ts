@@ -927,10 +927,16 @@ export type BakePublicOfferOptions = {
    */
   unlockCookieOnly?: boolean;
   /**
-   * @deprecated Ignorado: Aceitar já não redireciona à oferta (funil só via CTAs).
+   * Quando true (`settings.cookieRedirectToOffer`), Aceitar no CookieBannerWidget
+   * recebe `offerHref` = `/track/r/` (mesmo comportamento do CookieConsentModal).
+   * Default false: Aceitar só grava consentimento; compra fica nos CTAs.
    */
-  cookieRedirectToOffer?: boolean;
+  cookieRedirectToOffer?: boolean | 0 | 1 | "true" | "false" | "0" | "1";
 };
+
+function isBakeCookieRedirectEnabled(v: BakePublicOfferOptions["cookieRedirectToOffer"]): boolean {
+  return v === true || v === 1 || v === "true" || v === "1";
+}
 
 /** Na pública, o hoplink e o marcador do espelho passam a `/track/r/`. */
 export function bakePublicOfferHrefs(
@@ -944,7 +950,7 @@ export function bakePublicOfferHrefs(
   const href = trackHref.trim() || affiliateHref.trim();
   const policy = policyHref.trim();
   const affiliate = affiliateHref.trim();
-  void options.cookieRedirectToOffer;
+  const redirectToOffer = isBakeCookieRedirectEnabled(options.cookieRedirectToOffer);
   const unlockCookieOnly = options.unlockCookieOnly !== false;
   const cookieGate = clone.sections.some((section) =>
     section.columns.some((column) => column.widgets.some((widget) => widget.type === "cookieBanner")),
@@ -984,8 +990,11 @@ export function bakePublicOfferHrefs(
               next.policyUrl = "/aviso-cookies";
             }
           }
-          // Consentimento ≠ compra: nunca offerHref no banner.
-          delete next.offerHref;
+          if (redirectToOffer && href && href !== "#") {
+            next.offerHref = href;
+          } else {
+            delete next.offerHref;
+          }
           widget.content = next;
         }
       }
@@ -994,7 +1003,7 @@ export function bakePublicOfferHrefs(
   if (href) {
     pointOfferButtonsAt(clone, href, affiliate || undefined, {
       forceAllButtons: true,
-      preserveCookieOfferHref: false,
+      preserveCookieOfferHref: redirectToOffer,
     });
   }
   if (cookieGate && !unlockCookieOnly) {
