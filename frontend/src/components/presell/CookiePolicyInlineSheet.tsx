@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { normalizePresellLocale } from "@/lib/presellUiStrings";
-import { SITE_LEGAL_NAME } from "@/lib/siteLegal";
 
 type Props = {
   language: string;
@@ -13,6 +12,11 @@ type Props = {
   policyUrl?: string;
 };
 
+/**
+ * Texto curto e neutro para landers de afiliado.
+ * Sem nome do SaaS (Clickora/dclickora) nem lista de redes de ads — isso quebra confiança na white.
+ * Políticas do produto/merchant ficam no rodapé da página, não neste aviso de cookies.
+ */
 const COPY: Record<
   string,
   { title: string; close: string; paragraphs: string[] }
@@ -21,30 +25,33 @@ const COPY: Record<
     title: "Cookie notice",
     close: "Back",
     paragraphs: [
-      `This page may use essential storage so the notice can remember your choice, plus ${SITE_LEGAL_NAME} visit/click measurement (impression pixel and tracked redirects) for the page operator.`,
-      "Advertising pixels (Meta, TikTok, Google, Bing, or custom scripts) load only if the operator enabled them and you accept non-essential cookies.",
-      "Closing the banner lets you keep reading and use offer buttons. It does not send you away from this page.",
-      "Accept may continue to the offer through the tracked link when the operator enabled that option.",
+      "We use essential storage so this notice can remember your choice, and basic visit measurement so the page operator can see that the page loaded and that offer buttons were used.",
+      "Optional advertising or analytics tools load only if the page operator enabled them and you choose Accept.",
+      "Close keeps you on this page so you can keep reading and use the offer buttons. It does not send you away.",
+      "Accept saves your choice. If the operator turned on redirect, Accept may continue to the product offer through the same tracked button path used on this page.",
+      "Product privacy, refunds, and terms (when shown in the page footer) are from the seller and are separate from this cookie notice.",
     ],
   },
   de: {
     title: "Cookie-Hinweis",
     close: "Zurück",
     paragraphs: [
-      `Diese Seite kann notwendige Speicherung nutzen, damit der Hinweis Ihre Wahl merkt, sowie ${SITE_LEGAL_NAME}-Messung (Impression-Pixel und getrackte Weiterleitungen) für den Seitenbetreiber.`,
-      "Werbe-Pixel (Meta, TikTok, Google, Bing oder eigene Skripte) laden nur, wenn der Betreiber sie aktiviert hat und Sie nicht essenzielle Cookies akzeptieren.",
-      "„Schließen“ lässt Sie weiterlesen und Angebots-Buttons nutzen. Es führt nicht von dieser Seite weg.",
-      "„Akzeptieren“ kann zur Offerte über den getrackten Link weiterleiten, wenn der Betreiber das aktiviert hat.",
+      "Wir nutzen notwendige Speicherung, damit dieser Hinweis Ihre Wahl merkt, sowie eine einfache Besuchsmessung, damit der Seitenbetreiber sieht, dass die Seite geladen wurde und Angebots-Buttons genutzt wurden.",
+      "Optionale Werbe- oder Analysetools laden nur, wenn der Betreiber sie aktiviert hat und Sie „Akzeptieren“ wählen.",
+      "„Schließen“ lässt Sie auf dieser Seite und Sie können weiterlesen und die Angebots-Buttons nutzen. Es führt nicht weg.",
+      "„Akzeptieren“ speichert Ihre Wahl. Wenn der Betreiber die Weiterleitung aktiviert hat, kann „Akzeptieren“ zur Produkt-Offerte über denselben getrackten Pfad wie die Buttons dieser Seite fortfahren.",
+      "Datenschutz, Rückgabe und AGB des Produkts (falls im Footer) kommen vom Verkäufer und sind von diesem Cookie-Hinweis getrennt.",
     ],
   },
   "pt-BR": {
     title: "Aviso de cookies",
     close: "Voltar",
     paragraphs: [
-      `Esta página pode usar armazenamento essencial para o aviso lembrar a sua escolha, e medição ${SITE_LEGAL_NAME} (pixel de impressão e redirects rastreados) para o operador.`,
-      "Pixels de anúncios (Meta, TikTok, Google, Bing ou scripts próprios) só carregam se o operador os activou e você aceitar cookies não essenciais.",
-      "Fechar o aviso permite continuar a ler e usar os botões da oferta. Não o tira desta página.",
-      "Aceitar pode continuar para a oferta pelo link rastreado quando o operador activou essa opção.",
+      "Usamos armazenamento essencial para este aviso lembrar a sua escolha, e medição básica de visitas para o operador ver que a página carregou e que os botões da oferta foram usados.",
+      "Ferramentas opcionais de anúncios ou análise só carregam se o operador as activou e você escolher Aceitar.",
+      "Fechar mantém-no nesta página para continuar a ler e usar os botões da oferta. Não o tira daqui.",
+      "Aceitar guarda a sua escolha. Se o operador activou o redirecionamento, Aceitar pode continuar para a oferta do produto pelo mesmo caminho rastreado dos botões desta página.",
+      "Privacidade, reembolsos e termos do produto (quando no rodapé) são do vendedor e são separados deste aviso de cookies.",
     ],
   },
 };
@@ -57,7 +64,7 @@ function pick(language: string) {
 }
 
 /**
- * Painel de política dentro da presell — sem link externo (evita fuga da Final URL / Ads).
+ * Painel de política dentro da presell — sem link externo e sem marca SaaS.
  */
 export function CookiePolicyInlineSheet({ language, open, onClose, policyUrl: _policyUrl }: Props) {
   const copy = useMemo(() => pick(language), [language]);
@@ -95,7 +102,7 @@ export function CookiePolicyInlineSheet({ language, open, onClose, policyUrl: _p
         </div>
         <div className="space-y-3 overflow-y-auto px-4 py-4 text-sm leading-relaxed text-slate-600">
           {copy.paragraphs.map((p) => (
-            <p key={p.slice(0, 24)}>{p}</p>
+            <p key={p.slice(0, 28)}>{p}</p>
           ))}
         </div>
       </div>

@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { CookiePolicyInlineSheet } from "./CookiePolicyInlineSheet";
 
 describe("CookiePolicyInlineSheet", () => {
-  it("abre in-page e não oferece link externo merchant (fuga)", () => {
+  it("abre in-page, sem link externo e sem marca SaaS (fuga de confiança)", () => {
     render(
       <CookiePolicyInlineSheet
         language="en"
@@ -15,5 +15,7 @@ describe("CookiePolicyInlineSheet", () => {
     expect(screen.getByTestId("cookie-policy-inline-sheet")).toBeInTheDocument();
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.queryByText(/new tab/i)).toBeNull();
+    expect(screen.queryByText(/clickora|dclickora|tiktok|meta,/i)).toBeNull();
+    expect(screen.getByText(/product privacy|seller/i)).toBeInTheDocument();
   });
 });
