@@ -184,7 +184,7 @@ export function PresellTrackingHealthPanel({
                 onClick={copyAdsFinalUrl}
               >
                 <Link2 className="h-3.5 w-3.5" />
-                {t("pages.presells.copyFullUrl")}
+                {t("pages.createPresell.copyFullUrl")}
               </Button>
             ) : null}
             {testUrl ? (

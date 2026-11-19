@@ -253,6 +253,8 @@ export function isClickoraSaasLegalUrl(raw: string): boolean {
       path === "/privacy-policy" ||
       path === "/terms" ||
       path === "/terms-of-service" ||
+      path === "/contact" ||
+      path === "/contato" ||
       path === "/privacidade" ||
       path === "/termos" ||
       path === "/aviso-cookies" ||

@@ -66,6 +66,7 @@ describe("presellFooterPolicies", () => {
         policyUrls: {
           privacy: "https://www.dclickora.com/privacy",
           terms: "https://www.dclickora.com/terms",
+          contact: "https://www.dclickora.com/contact",
           refund: "https://melarapro.com/refund",
         },
       }),
