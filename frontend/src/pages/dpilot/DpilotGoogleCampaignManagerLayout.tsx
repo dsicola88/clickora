@@ -1,6 +1,7 @@
 /**
  * Chrome «Campaign Manager» Google Ads — layout profissional (header + sidebar GESTÃO).
  */
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useParams } from "react-router-dom";
 import {
   Bot,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { DpilotGoogleNetworkBanner } from "@/components/dpilot/DpilotGoogleNetworkBanner";
 import { cn } from "@/lib/utils";
+import { paidAdsService } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 
 const navBtn =
@@ -37,10 +39,47 @@ export function DpilotGoogleCampaignManagerLayout() {
     | { account_name?: string | null; google_customer_id?: string | null; status?: string }
     | undefined;
   const connected = isConnConnected(conn);
+  const [networkOk, setNetworkOk] = useState<boolean | null>(null);
+  const [liveCustomerId, setLiveCustomerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id || !connected) {
+      setNetworkOk(null);
+      setLiveCustomerId(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await paidAdsService.getGoogleAdsManagerOverview(id, { preset: "last_7" });
+      if (cancelled) return;
+      const ok =
+        Boolean(data?.connected) &&
+        !data?.connection_error &&
+        data?.source === "google_ads_api";
+      setNetworkOk(ok);
+      setLiveCustomerId(data?.account?.customer_id ?? conn?.google_customer_id ?? null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, connected, conn?.google_customer_id]);
+
   const accountLabel =
-    conn?.google_customer_id?.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3") ||
+    (liveCustomerId ?? conn?.google_customer_id)?.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3") ||
     conn?.account_name ||
     null;
+  const badgeLabel = !connected
+    ? "Google Ads por sincronizar"
+    : networkOk === false
+      ? "Ligada · rede indisponível"
+      : networkOk === true
+        ? "Conta Google · rede OK"
+        : "Conta Google ligada";
+  const badgeClass = !connected
+    ? "bg-amber-500/20 text-amber-100"
+    : networkOk === false
+      ? "bg-amber-500/25 text-amber-100"
+      : "bg-emerald-500/20 text-emerald-200";
 
   const gestao = [
     { to: googlePath(base, "visao"), label: "Visão geral", icon: LayoutDashboard, end: true },
@@ -74,10 +113,10 @@ export function DpilotGoogleCampaignManagerLayout() {
           <span
             className={cn(
               "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
-              connected ? "bg-emerald-500/20 text-emerald-200" : "bg-amber-500/20 text-amber-100",
+              badgeClass,
             )}
           >
-            {connected ? "Conta Google ligada" : "Google Ads por sincronizar"}
+            {badgeLabel}
           </span>
           {accountLabel ? (
             <p className="mt-1 font-mono text-[11px] text-slate-300">Conta: {accountLabel}</p>

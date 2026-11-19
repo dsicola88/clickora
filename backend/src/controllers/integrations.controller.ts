@@ -997,14 +997,13 @@ export const integrationsController = {
 
     const envOk = Boolean(getGoogleAdsApiClientConfigFromEnv());
     const hasUserRefresh = Boolean(user.googleAdsRefreshToken?.trim());
-    const hasEnvRefresh = Boolean(process.env.GOOGLE_ADS_REFRESH_TOKEN?.trim());
 
     res.json({
       google_ads_enabled: user.googleAdsEnabled,
       google_ads_customer_id: user.googleAdsCustomerId ?? "",
       google_ads_conversion_action_id: user.googleAdsConversionActionId ?? "",
       google_ads_login_customer_id: user.googleAdsLoginCustomerId ?? "",
-      has_refresh_token: hasUserRefresh || hasEnvRefresh,
+      has_refresh_token: hasUserRefresh,
       api_env_configured: envOk,
       can_upload: isGoogleAdsClickUploadReadyForUser(user),
     });
@@ -1090,7 +1089,6 @@ export const integrationsController = {
 
     const envOk = Boolean(getGoogleAdsApiClientConfigFromEnv());
     const hasUserRefresh = Boolean(user.googleAdsRefreshToken?.trim());
-    const hasEnvRefresh = Boolean(process.env.GOOGLE_ADS_REFRESH_TOKEN?.trim());
 
     res.json({
       ok: true,
@@ -1098,7 +1096,7 @@ export const integrationsController = {
       google_ads_customer_id: user.googleAdsCustomerId ?? "",
       google_ads_conversion_action_id: user.googleAdsConversionActionId ?? "",
       google_ads_login_customer_id: user.googleAdsLoginCustomerId ?? "",
-      has_refresh_token: hasUserRefresh || hasEnvRefresh,
+      has_refresh_token: hasUserRefresh,
       api_env_configured: envOk,
       can_upload: isGoogleAdsClickUploadReadyForUser(user),
       paid_projects_linked,

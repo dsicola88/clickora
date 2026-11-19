@@ -8,7 +8,8 @@ import type {
   PaidAdsPlatform as PaidPlatform,
 } from "@prisma/client";
 
-import { API_BASE, getAccessFromRefreshToken, getGoogleDeveloperToken } from "./google-ads.api";
+import { API_BASE } from "./google-ads.api";
+import { resolveGoogleAdsAccess } from "./google-ads-connection";
 import { humanizeGoogleAdsPublishError } from "./google-ads-errors";
 import { GOOGLE_GEO_CRITERION_IDS, normalizeGoogleCountryCode } from "./geo-google";
 import { googleAdGroupCpcBidMicros, googleCampaignCreateBiddingOneof } from "./google-campaign-bidding";
@@ -18,7 +19,6 @@ import {
   readGoogleAssetExtensionsFromBidding,
 } from "./google-ads-asset-extensions-publish";
 import { prisma } from "./paidPrisma";
-import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
 
 /** ISO-3166 alpha-2 → google geoTargetConstants/id (exportado também em geo-google.ts). */
 const GEO_ID = GOOGLE_GEO_CRITERION_IDS;
@@ -235,25 +235,16 @@ export async function publishGoogleSearchCampaignFromLocal(
   options: { platform?: PaidPlatform; loginCustomerId?: string } = {},
 ): Promise<GooglePublishResult> {
   const { platform, loginCustomerId: loginFromOpts } = options;
-  const loginCustomerId =
-    loginFromOpts?.replace(/\D/g, "") ||
-    process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") ||
-    undefined;
   if (platform && platform !== "google_ads") {
     return { ok: false, error: "Esta publicação aplica-se apenas a Google Ads." };
   }
 
-  const conn = await prisma.paidAdsGoogleAdsConnection.findUnique({
-    where: { projectId },
-  });
-  if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.googleCustomerId) {
-    return { ok: false, error: "Ligue a conta Google Ads (OAuth) antes de publicar." };
+  const accessCtx = await resolveGoogleAdsAccess(projectId);
+  if (!accessCtx.ok) {
+    return { ok: false, error: accessCtx.error };
   }
-
-  const dev = getGoogleDeveloperToken();
-  if (!dev) {
-    return { ok: false, error: "GOOGLE_ADS_DEVELOPER_TOKEN em falta." };
-  }
+  const loginCustomerId =
+    loginFromOpts?.replace(/\D/g, "") || accessCtx.loginCustomerId || undefined;
 
   const campaign = await prisma.paidAdsCampaign.findFirst({
     where: { id: campaignId, projectId, platform: "google_ads" },
@@ -279,8 +270,16 @@ export async function publishGoogleSearchCampaignFromLocal(
   if (!campaign.adGroups.length) {
     return { ok: false, error: "A campanha não tem ad groups." };
   }
+  if (campaign.dailyBudgetMicros == null) {
+    return {
+      ok: false,
+      error: "Defina o orçamento diário antes de publicar — não inventamos um valor por omissão.",
+    };
+  }
 
-  const customerId = conn.googleCustomerId.replace(/\D/g, "");
+  const customerId = accessCtx.customerId;
+  const access = accessCtx.access;
+  const dev = accessCtx.dev;
   publishLog("info", "start", { projectId, campaignId, customerId, adGroups: campaign.adGroups.length });
 
   for (const ag of campaign.adGroups) {
@@ -314,15 +313,7 @@ export async function publishGoogleSearchCampaignFromLocal(
     }
   }
 
-  let access: string;
-  try {
-    ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
-  } catch (e) {
-    const m = e instanceof Error ? e.message : "Falha ao renovar o token Google.";
-    return { ok: false, error: m };
-  }
-
-  const dailyMicros = campaign.dailyBudgetMicros ?? 5_000_000n;
+  const dailyMicros = campaign.dailyBudgetMicros;
   const budgetMicrosStr = String(dailyMicros);
   const geoList = parseJsonStringArray(campaign.geoTargets);
   const langList = parseJsonStringArray(campaign.languageTargets);

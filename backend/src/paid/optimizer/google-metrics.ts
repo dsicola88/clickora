@@ -1,11 +1,9 @@
 /**
  * Gasto e métricas ao nível da campanha via Google Ads API (REST search).
+ * Usa resolveGoogleAdsAccess — mesma conta/token/MCC que o Campaign Manager.
  */
-import { getAccessFromRefreshToken, getGoogleDeveloperToken, runGoogleAdsSearch } from "../google-ads.api";
-import { prisma } from "../paidPrisma";
-import { isOAuthPendingToken, loadPaidToken } from "../tokenSecrets";
-
-const LOGIN = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") || undefined;
+import { runGoogleAdsSearch } from "../google-ads.api";
+import { resolveGoogleAdsAccess } from "../google-ads-connection";
 
 function gaDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -21,21 +19,9 @@ export async function fetchGoogleCampaignCostMicros(args: {
   const ext = args.externalCampaignId?.replace(/\D/g, "");
   if (!ext) return { ok: false, error: "Sem external_campaign_id Google." };
 
-  const conn = await prisma.paidAdsGoogleAdsConnection.findUnique({ where: { projectId: args.projectId } });
-  if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.googleCustomerId) {
-    return { ok: false, error: "Google Ads não ligado." };
-  }
-  const dev = getGoogleDeveloperToken();
-  if (!dev) return { ok: false, error: "Developer token em falta." };
+  const ctx = await resolveGoogleAdsAccess(args.projectId);
+  if (!ctx.ok) return { ok: false, error: ctx.error };
 
-  let access: string;
-  try {
-    ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Token Google." };
-  }
-
-  const customerId = conn.googleCustomerId.replace(/\D/g, "");
   const fromStr = gaDate(args.from);
   const toStr = gaDate(args.to);
 
@@ -46,7 +32,7 @@ export async function fetchGoogleCampaignCostMicros(args: {
       AND segments.date BETWEEN '${fromStr}' AND '${toStr}'
   `;
 
-  const s = await runGoogleAdsSearch(access, customerId, dev, q, LOGIN);
+  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
   if (s.error?.message) return { ok: false, error: s.error.message };
 
   let total = 0;
@@ -59,6 +45,7 @@ export async function fetchGoogleCampaignCostMicros(args: {
     const micros = typeof raw === "string" ? Number(raw) : Number(raw);
     if (Number.isFinite(micros)) total += micros;
   }
+  /** Sem linhas no intervalo = custo 0 real da API, não inventado. */
   return { ok: true, costMicros: total };
 }
 
@@ -80,23 +67,11 @@ export async function fetchGoogleAdGroupAdMetrics(args: {
   const ext = args.externalCampaignId?.replace(/\D/g, "");
   if (!ext) return { ok: false, error: "Sem external_campaign_id Google." };
 
-  const conn = await prisma.paidAdsGoogleAdsConnection.findUnique({ where: { projectId: args.projectId } });
-  if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.googleCustomerId) {
-    return { ok: false, error: "Google Ads não ligado." };
-  }
-  const dev = getGoogleDeveloperToken();
-  if (!dev) return { ok: false, error: "Developer token em falta." };
-
-  let access: string;
-  try {
-    ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Token Google." };
-  }
+  const ctx = await resolveGoogleAdsAccess(args.projectId);
+  if (!ctx.ok) return { ok: false, error: ctx.error };
 
   const to = args.to ?? new Date();
   const from = args.from ?? new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const customerId = conn.googleCustomerId.replace(/\D/g, "");
   const fromStr = gaDate(from);
   const toStr = gaDate(to);
 
@@ -113,7 +88,7 @@ export async function fetchGoogleAdGroupAdMetrics(args: {
       AND ad_group_ad.status != 'REMOVED'
   `;
 
-  const s = await runGoogleAdsSearch(access, customerId, dev, q, LOGIN);
+  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
   if (s.error?.message) return { ok: false, error: s.error.message };
 
   const byAd = new Map<string, GoogleAdMetricRow>();
@@ -130,28 +105,29 @@ export async function fetchGoogleAdGroupAdMetrics(args: {
         cost_micros?: unknown;
       };
     };
-    const adIdRaw =
-      row.adGroupAd?.ad?.id ?? row.ad_group_ad?.ad?.id ?? null;
-    const ad_id = adIdRaw != null ? String(adIdRaw).replace(/\D/g, "") : "";
-    if (!ad_id) continue;
-
-    const n = (v: unknown) => {
-      const x = typeof v === "string" ? Number(v) : Number(v ?? 0);
-      return Number.isFinite(x) ? x : 0;
-    };
-    const prev = byAd.get(ad_id) ?? {
-      ad_id,
+    const adId = String(
+      row.adGroupAd?.ad?.id ?? row.ad_group_ad?.ad?.id ?? "",
+    ).replace(/\D/g, "");
+    if (!adId) continue;
+    const impressions = Number(row.metrics?.impressions ?? 0) || 0;
+    const clicks = Number(row.metrics?.clicks ?? 0) || 0;
+    const conversions = Number(row.metrics?.conversions ?? 0) || 0;
+    const costRaw = row.metrics?.costMicros ?? row.metrics?.cost_micros ?? 0;
+    const cost_micros = typeof costRaw === "string" ? Number(costRaw) : Number(costRaw) || 0;
+    const prev = byAd.get(adId) ?? {
+      ad_id: adId,
       impressions: 0,
       clicks: 0,
       conversions: 0,
       cost_micros: 0,
     };
-    prev.impressions += n(row.metrics?.impressions);
-    prev.clicks += n(row.metrics?.clicks);
-    prev.conversions += n(row.metrics?.conversions);
-    prev.cost_micros += n(row.metrics?.costMicros ?? row.metrics?.cost_micros);
-    byAd.set(ad_id, prev);
+    byAd.set(adId, {
+      ad_id: adId,
+      impressions: prev.impressions + impressions,
+      clicks: prev.clicks + clicks,
+      conversions: prev.conversions + conversions,
+      cost_micros: prev.cost_micros + (Number.isFinite(cost_micros) ? cost_micros : 0),
+    });
   }
-
   return { ok: true, rows: [...byAd.values()] };
 }

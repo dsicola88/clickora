@@ -1,11 +1,9 @@
 /**
  * Séries simples de desempenho (GAQL) para o estúdio — mesma conta OAuth do projecto Paid.
  */
-import { getAccessFromRefreshToken, getGoogleDeveloperToken, runGoogleAdsSearch } from "./google-ads.api";
+import { runGoogleAdsSearch } from "./google-ads.api";
+import { resolveGoogleAdsAccess } from "./google-ads-connection";
 import { prisma } from "./paidPrisma";
-import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
-
-const LOGIN = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") || undefined;
 
 export type GoogleCampaignPerformanceDayRow = {
   date: string;
@@ -17,25 +15,16 @@ export type GoogleCampaignPerformanceDayRow = {
 
 async function googleAccessCtx(projectId: string): Promise<
   | { ok: false; error: string }
-  | { ok: true; access: string; customerId: string; dev: string }
+  | { ok: true; access: string; customerId: string; dev: string; loginCustomerId?: string }
 > {
-  const conn = await prisma.paidAdsGoogleAdsConnection.findUnique({ where: { projectId } });
-  if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.googleCustomerId) {
-    return { ok: false, error: "Ligue a conta Google Ads (OAuth)." };
-  }
-  const dev = getGoogleDeveloperToken();
-  if (!dev) return { ok: false, error: "GOOGLE_ADS_DEVELOPER_TOKEN em falta." };
-  let access: string;
-  try {
-    ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Token Google inválido." };
-  }
+  const ctx = await resolveGoogleAdsAccess(projectId);
+  if (!ctx.ok) return { ok: false, error: ctx.error };
   return {
     ok: true,
-    access,
-    customerId: conn.googleCustomerId.replace(/\D/g, ""),
-    dev,
+    access: ctx.access,
+    customerId: ctx.customerId,
+    dev: ctx.dev,
+    loginCustomerId: ctx.loginCustomerId,
   };
 }
 
@@ -97,7 +86,7 @@ export async function fetchGoogleCampaignPerformanceSeries(
     LIMIT 10000
   `;
 
-  const s = await runGoogleAdsSearch(c0.access, c0.customerId, c0.dev, q, LOGIN);
+  const s = await runGoogleAdsSearch(c0.access, c0.customerId, c0.dev, q, c0.loginCustomerId);
   if (s.error) {
     return { ok: false, error: s.error.message ?? "Falha ao ler estatísticas." };
   }

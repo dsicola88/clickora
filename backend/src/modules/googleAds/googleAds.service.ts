@@ -75,11 +75,15 @@ export function buildGoogleAdsCredentialsForUser(user: Pick<User, "googleAdsRefr
   };
 }
 
+/**
+ * Refresh token do utilizador (Integrações). Sem fallback ao env do servidor —
+ * esse fallback ligava contas SaaS à conta Google do host e inventava inventário.
+ * Scripts/ops que precisem do env leem `GOOGLE_ADS_REFRESH_TOKEN` directamente.
+ */
 export function resolveUserGoogleAdsRefreshToken(user: Pick<User, "googleAdsRefreshToken">): string | null {
   const raw = user.googleAdsRefreshToken?.trim();
   const fromUser = raw ? decryptSecretField(raw) : null;
-  if (fromUser?.trim()) return fromUser.trim();
-  return process.env.GOOGLE_ADS_REFRESH_TOKEN?.trim() || null;
+  return fromUser?.trim() || null;
 }
 
 export type GoogleAdsUserSettings = Pick<
@@ -1267,45 +1271,66 @@ export async function bootstrapGoogleAdsAfterOAuth(userId: string): Promise<Goog
       if (!loginCustomerId && clients[0]!.kind === "needs_manager") {
         loginCustomerId = await managerLoginForClient(client, creds.refreshToken, customerId, managers);
       }
+    } else if (clients.length > 1) {
+      return {
+        ok: false,
+        customer_id: null,
+        login_customer_id: loginCustomerId,
+        conversion_action_id: null,
+        conversion_action_created: false,
+        enabled: false,
+        can_upload: false,
+        accounts_found: accounts.length,
+        detail: `Encontrámos várias contas de anúncios (${clients.map((account) => account.id).join(", ")}). Indique o número da conta cliente em Integrações e use «Actualizar ligação».`,
+      };
     } else {
-      const manager = accounts[0]!;
-      loginCustomerId = manager.id;
-      try {
-        const mc = client.Customer({
-          customer_id: manager.id,
-          refresh_token: creds.refreshToken,
-          login_customer_id: manager.id,
-        });
-        const clients = await mc.query(`
-          SELECT customer_client.client_customer, customer_client.descriptive_name, customer_client.manager, customer_client.status
-          FROM customer_client
-          WHERE customer_client.status = 'ENABLED'
-          LIMIT 40
-        `);
-        const list = Array.isArray(clients) ? clients : [];
-        for (const row of list) {
-          const cc = row.customer_client as {
-            client_customer?: string;
-            manager?: boolean;
-            descriptive_name?: string;
-          };
-          if (cc?.manager) continue;
-          const m = /customers\/(\d+)/.exec(String(cc?.client_customer || ""));
-          if (m?.[1]) {
-            customerId = m[1];
-            break;
+      /** Só MCC no probe — listar filhos; exigir exactamente 1 cliente (nunca escolher o 1.º em silêncio). */
+      const childIds: string[] = [];
+      for (const manager of managers) {
+        try {
+          const mc = client.Customer({
+            customer_id: manager.id,
+            refresh_token: creds.refreshToken,
+            login_customer_id: manager.id,
+          });
+          const rows = await mc.query(`
+            SELECT customer_client.client_customer, customer_client.manager, customer_client.status
+            FROM customer_client
+            WHERE customer_client.status = 'ENABLED'
+            LIMIT 40
+          `);
+          for (const row of Array.isArray(rows) ? rows : []) {
+            const cc = row.customer_client as { client_customer?: string; manager?: boolean };
+            if (cc?.manager) continue;
+            const m = /customers\/(\d+)/.exec(String(cc?.client_customer || ""));
+            if (m?.[1] && !childIds.includes(m[1])) childIds.push(m[1]);
           }
+        } catch (e) {
+          console.warn("[bootstrapGoogleAdsAfterOAuth] customer_client", e);
         }
-      } catch (e) {
-        console.warn("[bootstrapGoogleAdsAfterOAuth] customer_client", e);
       }
-      if (!customerId) {
+      if (childIds.length === 1) {
+        customerId = childIds[0]!;
+        loginCustomerId = managers[0]?.id ?? loginCustomerId;
+      } else if (childIds.length > 1) {
+        return {
+          ok: false,
+          customer_id: null,
+          login_customer_id: managers[0]?.id ?? loginCustomerId,
+          conversion_action_id: null,
+          conversion_action_created: false,
+          enabled: false,
+          can_upload: false,
+          accounts_found: accounts.length + childIds.length,
+          detail: `Conta gestor com várias contas cliente (${childIds.join(", ")}). Indique em Integrações o número da conta onde estão os anúncios (não a MCC).`,
+        };
+      } else {
         return {
           ...empty(
             "Ligou uma conta que gere outras, mas não há conta de anúncios acessível. Escolha a conta onde estão os anúncios e volte a ligar.",
           ),
           accounts_found: accounts.length,
-          login_customer_id: loginCustomerId,
+          login_customer_id: managers[0]?.id ?? loginCustomerId,
         };
       }
     }

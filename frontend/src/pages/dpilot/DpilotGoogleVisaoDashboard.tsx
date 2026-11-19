@@ -70,15 +70,16 @@ export function DpilotGoogleVisaoDashboard() {
 
   const chartData = useMemo(() => {
     const withCost = rows
-      .filter((c) => c.metrics && c.local_status !== "archived")
+      .filter(
+        (c) =>
+          c.metrics &&
+          c.local_status !== "archived" &&
+          Boolean(c.external_campaign_id),
+      )
       .slice()
       .sort((a, b) => (b.metrics?.cost_micros ?? 0) - (a.metrics?.cost_micros ?? 0))
       .slice(0, 8);
-    if (withCost.length === 0) {
-      return [
-        { name: "—", investimento: 0, cliques: 0 },
-      ];
-    }
+    /** Sem dados reais — gráfico vazio (não inventar zero como se fosse a conta). */
     return withCost.map((c) => ({
       name: c.name.length > 18 ? `${c.name.slice(0, 16)}…` : c.name,
       investimento: (c.metrics?.cost_micros ?? 0) / 1e6,
@@ -89,11 +90,15 @@ export function DpilotGoogleVisaoDashboard() {
   const list = useMemo(
     () =>
       rows
-        .filter((c) => c.local_status !== "archived")
+        .filter(
+          (c) =>
+            c.local_status !== "archived" &&
+            (networkOk ? Boolean(c.external_campaign_id) : true),
+        )
         .slice()
         .sort((a, b) => a.name.localeCompare(b.name))
         .slice(0, 12),
-    [rows],
+    [rows, networkOk],
   );
 
   const localGoogle = campaigns.filter((c) => c.platform === "google_ads" && c.status !== "archived");
@@ -164,9 +169,18 @@ export function DpilotGoogleVisaoDashboard() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Total de campanhas" value={fmtNum(ov?.counts?.campaigns_total)} />
-          <KpiCard label="Campanhas ativas" value={fmtNum(ov?.counts?.campaigns_live)} />
-          <KpiCard label="Campanhas pausadas" value={fmtNum(ov?.counts?.campaigns_paused)} />
+          <KpiCard
+            label={localOnly ? "Campanhas (local)" : "Total de campanhas"}
+            value={fmtNum(ov?.counts?.campaigns_total)}
+          />
+          <KpiCard
+            label={localOnly ? "Ativas (local)" : "Campanhas ativas"}
+            value={fmtNum(ov?.counts?.campaigns_live)}
+          />
+          <KpiCard
+            label={localOnly ? "Pausadas (local)" : "Campanhas pausadas"}
+            value={fmtNum(ov?.counts?.campaigns_paused)}
+          />
           <KpiCard
             label="Investimento total"
             value={metrics ? formatUsdFromMicros(metrics.cost_micros) : "—"}

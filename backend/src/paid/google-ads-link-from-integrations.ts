@@ -1,14 +1,14 @@
 /**
  * Copia OAuth de Integrações (User) → PaidAdsGoogleAdsConnection do projecto
- * e opcionalmente importa campanhas Search.
+ * e opcionalmente importa campanhas Search reais da conta ligada (GAQL).
  */
 import { resolveUserGoogleAdsRefreshToken } from "../modules/googleAds/googleAds.service";
 import {
-  fetchCustomerName,
+  fetchCustomerMeta,
   getAccessFromRefreshToken,
   isGoogleAdsOAuthConfigured,
-  listFirstAccessibleCustomerId,
 } from "./google-ads.api";
+import { detachStaleGoogleCampaignLinks } from "./google-ads-detach-stale";
 import {
   importGoogleSearchCampaigns,
   listRemoteGoogleSearchCampaigns,
@@ -22,7 +22,7 @@ export type LinkFromIntegrationsResult =
       project_id: string;
       customer_id: string;
       account_name: string | null;
-      import: { imported: number; errors: number; remote: number } | null;
+      import: { imported: number; errors: number; remote: number; detached: number } | null;
     }
   | { ok: false; error: string; code: string };
 
@@ -52,6 +52,7 @@ export async function linkGoogleAdsProjectFromIntegrations(
     select: {
       googleAdsRefreshToken: true,
       googleAdsCustomerId: true,
+      googleAdsLoginCustomerId: true,
     },
   });
   if (!user) {
@@ -67,31 +68,49 @@ export async function linkGoogleAdsProjectFromIntegrations(
     };
   }
 
-  let customerId = (user.googleAdsCustomerId ?? "").replace(/\D/g, "");
-  let accountName: string | null = customerId ? `Conta ${customerId}` : null;
+  const customerId = (user.googleAdsCustomerId ?? "").replace(/\D/g, "");
+  if (!customerId) {
+    return {
+      ok: false,
+      error:
+        "Defina em Integrações → Google o número da conta cliente (o mesmo de ads.google.com). Não usamos a 1.ª conta acessível automaticamente.",
+      code: "customer_id_required",
+    };
+  }
 
+  const loginCustomerId = (user.googleAdsLoginCustomerId ?? "").replace(/\D/g, "") || undefined;
+
+  let accountName: string | null = `Conta ${customerId}`;
   try {
     const { access_token: access } = await getAccessFromRefreshToken(refresh);
-    if (!customerId) {
-      const listed = await listFirstAccessibleCustomerId(access);
-      customerId = listed.customerId.replace(/\D/g, "");
-      accountName = listed.name ?? `Conta ${customerId}`;
-    } else {
-      const name = await fetchCustomerName(access, customerId);
-      if (name) accountName = name;
+    const meta = await fetchCustomerMeta(access, customerId, loginCustomerId);
+    if (!meta) {
+      return {
+        ok: false,
+        error: `Não foi possível ler a conta ${customerId} na Google Ads API. Confirme o customer ID (cliente, não MCC) e o MCC em Integrações.`,
+        code: "customer_unreadable",
+      };
     }
+    if (meta.manager) {
+      return {
+        ok: false,
+        error:
+          "A conta indicada é MCC (gestor). Em Integrações escolha a conta cliente onde estão os anúncios reais.",
+        code: "manager_account",
+      };
+    }
+    if (meta.name) accountName = meta.name;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Token Google inválido.";
     return { ok: false, error: message, code: "token_refresh_failed" };
   }
 
-  if (!customerId) {
-    return {
-      ok: false,
-      error: "Conta Google sem customer ID.",
-      code: "customer_id_required",
-    };
-  }
+  const prev = await prisma.paidAdsGoogleAdsConnection.findUnique({
+    where: { projectId: project.id },
+    select: { googleCustomerId: true },
+  });
+  const prevCid = (prev?.googleCustomerId ?? "").replace(/\D/g, "");
+  const customerChanged = Boolean(prevCid && prevCid !== customerId);
 
   await prisma.paidAdsGoogleAdsConnection.upsert({
     where: { projectId: project.id },
@@ -115,31 +134,52 @@ export async function linkGoogleAdsProjectFromIntegrations(
     },
   });
 
-  let importSummary: { imported: number; errors: number; remote: number } | null = null;
+  /** Conta mudou → IDs da conta anterior não são inventário desta. */
+  if (customerChanged) {
+    await detachStaleGoogleCampaignLinks(project.id);
+  }
+
+  let importSummary: {
+    imported: number;
+    errors: number;
+    remote: number;
+    detached: number;
+  } | null = null;
   const doImport = opts?.import_campaigns !== false;
 
   if (doImport) {
     const remote = await listRemoteGoogleSearchCampaigns(project.id);
-    if (remote.ok) {
-      const ids = remote.campaigns
-        .filter((c) => !c.already_imported)
-        .map((c) => c.external_campaign_id);
-      let imported = 0;
-      let errors = 0;
-      for (let i = 0; i < ids.length; i += 25) {
-        const chunk = ids.slice(i, i + 25);
-        const out = await importGoogleSearchCampaigns(project.id, project.userId, chunk, {
-          refresh_existing: false,
-        });
-        if (out.ok) {
-          imported += out.imported.length;
-          errors += out.errors.length;
-        } else {
-          errors += chunk.length;
-        }
-      }
-      importSummary = { imported, errors, remote: remote.totals.remote };
+    if (!remote.ok) {
+      return {
+        ok: false,
+        error: remote.error,
+        code: remote.code ?? "gaql_error",
+      };
     }
+
+    const remoteIds = new Set(remote.campaigns.map((c) => c.external_campaign_id));
+    const { detached } = await detachStaleGoogleCampaignLinks(project.id, {
+      keepExternalIds: remoteIds,
+    });
+
+    const ids = remote.campaigns
+      .filter((c) => String(c.channel_type || "").toUpperCase() === "SEARCH" && !c.already_imported)
+      .map((c) => c.external_campaign_id);
+    let imported = 0;
+    let errors = 0;
+    for (let i = 0; i < ids.length; i += 25) {
+      const chunk = ids.slice(i, i + 25);
+      const out = await importGoogleSearchCampaigns(project.id, project.userId, chunk, {
+        refresh_existing: false,
+      });
+      if (out.ok) {
+        imported += out.imported.length;
+        errors += out.errors.length;
+      } else {
+        errors += chunk.length;
+      }
+    }
+    importSummary = { imported, errors, remote: remote.totals.remote, detached };
   }
 
   return {

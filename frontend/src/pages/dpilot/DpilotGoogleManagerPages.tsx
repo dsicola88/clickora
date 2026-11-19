@@ -1499,6 +1499,7 @@ export function DpilotGoogleKeywordsPage() {
   >([]);
   const [q, setQ] = useState("");
   const [connErr, setConnErr] = useState<string | null>(null);
+  const [kwSource, setKwSource] = useState<string>("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1507,6 +1508,7 @@ export function DpilotGoogleKeywordsPage() {
     else {
       setRows(data?.keywords ?? []);
       setConnErr(data?.connection_error ?? null);
+      setKwSource(data?.source ?? "");
     }
     setLoading(false);
   }, [projectId, preset]);
@@ -1548,7 +1550,9 @@ export function DpilotGoogleKeywordsPage() {
         title="Google Ads · Palavras-chave"
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            Métricas reais por keyword (GAQL). Pause perdedoras aqui; edite/adicione no estúdio da campanha.
+            {kwSource === "google_ads_api"
+              ? "Métricas por keyword via GAQL da conta ligada. Pause perdedoras aqui; edite no estúdio."
+              : "Lista local do projecto — métricas Google só aparecem após import/publicação com criterion ID na rede."}
           </p>
         }
         actions={

@@ -17,7 +17,8 @@ function mapCampaignStatus(s: string | undefined): PaidAdsCampaignStatus {
   if (u === "ENABLED") return "live";
   if (u === "PAUSED" || u === "SUSPENDED") return "paused";
   if (u === "REMOVED") return "archived";
-  return "live";
+  /** Desconhecido ≠ ENABLED — não inventar «activa». */
+  return "paused";
 }
 
 function mapEntityStatus(s: string | undefined): PaidAdsEntityStatus {
@@ -25,7 +26,7 @@ function mapEntityStatus(s: string | undefined): PaidAdsEntityStatus {
   if (u === "ENABLED") return "live";
   if (u === "PAUSED") return "paused";
   if (u === "REMOVED") return "archived";
-  return "live";
+  return "paused";
 }
 
 function mapMatchType(s: string | undefined): PaidAdsMatchType {
@@ -139,11 +140,12 @@ export async function listRemoteGoogleSearchCampaigns(projectId: string) {
       external_campaign_id: ext,
       name: String(camp.name ?? `Campaign ${ext}`),
       status: String(camp.status ?? ""),
-      channel_type: channel === "UNKNOWN" ? "SEARCH" : channel,
+      channel_type: channel,
       daily_budget_micros: share?.amount_micros ?? null,
       budget_shared: share?.explicitly_shared ?? false,
       budget_reference_count: share?.reference_count ?? 1,
-      budget_editable: share?.budget_editable ?? true,
+      /** Só editável quando a Google devolveu metadados de orçamento. */
+      budget_editable: share ? share.budget_editable : false,
       already_imported: Boolean(localId),
       local_campaign_id: localId,
     });

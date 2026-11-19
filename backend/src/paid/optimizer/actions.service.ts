@@ -95,7 +95,13 @@ async function scaleBudget(
   const t = { ...trace, projectId, campaignId: campaign.id, platform: campaign.platform, action: "scale_budget" };
 
   if (campaign.platform === "google_ads") {
-    const cur = campaign.dailyBudgetMicros ?? BigInt(5_000_000);
+    if (campaign.dailyBudgetMicros == null) {
+      return {
+        ok: false,
+        detail: "Google: campanha sem orçamento diário — não inventamos um valor para escalar.",
+      };
+    }
+    const cur = campaign.dailyBudgetMicros;
     const scaled = BigInt(Math.round(Number(cur) * (1 + frac)));
     const capped = scaled > maxMicros ? maxMicros : scaled;
     const micros = Number(capped);

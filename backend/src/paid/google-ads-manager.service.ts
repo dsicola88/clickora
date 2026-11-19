@@ -10,6 +10,7 @@ import {
   resolveGoogleAdsAccess,
   resolveGoogleAdsDateRange,
 } from "./google-ads-connection";
+import { detachStaleGoogleCampaignLinks } from "./google-ads-detach-stale";
 import { aggregateTrackingMetricsForCampaign } from "./optimizer/tracking-metrics";
 import { prisma } from "./paidPrisma";
 
@@ -62,11 +63,16 @@ export async function fetchGoogleAdsAccountOverview(
     where: { projectId, platform: "google_ads", status: { not: "archived" } },
     select: { id: true, status: true, externalCampaignId: true, name: true, dailyBudgetMicros: true },
   });
+  const linked = local.filter((c) => Boolean(c.externalCampaignId?.replace(/\D/g, "")));
+  const draftsOnly = local.filter((c) => !c.externalCampaignId?.replace(/\D/g, ""));
   const counts = {
     connected_accounts: 0,
+    /** Contagens locais do projecto — não confundir com inventário remoto. */
     campaigns_total: local.length,
-    campaigns_live: local.filter((c) => c.status === "live").length,
-    campaigns_paused: local.filter((c) => c.status === "paused").length,
+    campaigns_linked: linked.length,
+    campaigns_local_drafts: draftsOnly.length,
+    campaigns_live: linked.filter((c) => c.status === "live").length,
+    campaigns_paused: linked.filter((c) => c.status === "paused").length,
     campaigns_draft: local.filter((c) => c.status === "draft" || c.status === "pending_publish").length,
     campaigns_error: local.filter((c) => c.status === "error").length,
   };
@@ -186,7 +192,8 @@ export async function fetchGoogleAdsAccountOverview(
     counts,
     metrics,
     source: "google_ads_api" as const,
-    inventory_scope: "google_network" as const,
+    /** Métricas de conta são reais; inventário de campanhas só se houver IDs importados. */
+    inventory_scope: linked.length > 0 ? ("google_network" as const) : ("local_drafts" as const),
     account: {
       customer_id: ctx.customerId,
       account_name: meta?.name ?? ctx.accountName,
@@ -244,72 +251,123 @@ export async function fetchGoogleAdsCampaignsMetrics(
         networkError = probe.error.message ?? "Falha ao ler a conta Google Ads.";
       }
     } else {
-      const q = `
-        SELECT
-          campaign.id,
-          campaign.status,
-          campaign.advertising_channel_type,
-          campaign_budget.amount_micros,
-          metrics.impressions,
-          metrics.clicks,
-          metrics.cost_micros,
-          metrics.conversions,
-          metrics.conversions_value
+      /** Confirma quais IDs ainda existem nesta conta — órfãos voltam a rascunho local. */
+      const existQ = `
+        SELECT campaign.id
         FROM campaign
         WHERE campaign.id IN (${ids.join(",")})
-          AND segments.date BETWEEN '${range.from}' AND '${range.to}'
+          AND campaign.status != 'REMOVED'
       `;
-      const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
-      if (s.error) {
-        networkError = s.error.message ?? "Falha ao ler métricas das campanhas.";
-      }
-      for (const raw of !s.error && Array.isArray(s.results) ? s.results : []) {
-        const row = raw as Record<string, unknown>;
-        const camp = row.campaign as { id?: string } | undefined;
-        const id = String(camp?.id ?? "").replace(/\D/g, "");
-        if (!id) continue;
-        const prev = byExternal.get(id) ?? deriveMetricRates({ impressions: 0, clicks: 0, cost_micros: 0, conversions: 0 });
-        const cur = parseMetrics(row);
-        byExternal.set(
-          id,
-          deriveMetricRates({
-            impressions: prev.impressions + cur.impressions,
-            clicks: prev.clicks + cur.clicks,
-            cost_micros: prev.cost_micros + cur.cost_micros,
-            conversions: prev.conversions + cur.conversions,
-            conversions_value: prev.conversions_value + cur.conversions_value,
-          }),
-        );
-      }
+      const existS = await runGoogleAdsSearch(
+        ctx.access,
+        ctx.customerId,
+        ctx.dev,
+        existQ,
+        ctx.loginCustomerId,
+      );
+      if (existS.error) {
+        networkError = existS.error.message ?? "Falha ao validar campanhas na Google.";
+      } else {
+        const alive = new Set<string>();
+        for (const raw of Array.isArray(existS.results) ? existS.results : []) {
+          const row = raw as { campaign?: { id?: string } };
+          const id = String(row.campaign?.id ?? "").replace(/\D/g, "");
+          if (id) alive.add(id);
+        }
+        if (alive.size < ids.length) {
+          await detachStaleGoogleCampaignLinks(projectId, { keepExternalIds: alive });
+        }
+        const liveIds = ids.filter((id) => alive.has(id));
+        if (liveIds.length === 0) {
+          /* só rascunhos após detach — já tratado pelo probe no próximo load */
+        } else {
+          const q = `
+            SELECT
+              campaign.id,
+              campaign.status,
+              campaign.advertising_channel_type,
+              campaign_budget.amount_micros,
+              metrics.impressions,
+              metrics.clicks,
+              metrics.cost_micros,
+              metrics.conversions,
+              metrics.conversions_value
+            FROM campaign
+            WHERE campaign.id IN (${liveIds.join(",")})
+              AND segments.date BETWEEN '${range.from}' AND '${range.to}'
+          `;
+          const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
+          if (s.error) {
+            networkError = s.error.message ?? "Falha ao ler métricas das campanhas.";
+          }
+          for (const raw of !s.error && Array.isArray(s.results) ? s.results : []) {
+            const row = raw as Record<string, unknown>;
+            const camp = row.campaign as { id?: string } | undefined;
+            const id = String(camp?.id ?? "").replace(/\D/g, "");
+            if (!id) continue;
+            const prev =
+              byExternal.get(id) ??
+              deriveMetricRates({ impressions: 0, clicks: 0, cost_micros: 0, conversions: 0 });
+            const cur = parseMetrics(row);
+            byExternal.set(
+              id,
+              deriveMetricRates({
+                impressions: prev.impressions + cur.impressions,
+                clicks: prev.clicks + cur.clicks,
+                cost_micros: prev.cost_micros + cur.cost_micros,
+                conversions: prev.conversions + cur.conversions,
+                conversions_value: prev.conversions_value + cur.conversions_value,
+              }),
+            );
+          }
 
-      // Pré-voo de orçamento partilhado (sem segmentos de data — uma linha por campanha).
-      const bq = `
-        SELECT
-          campaign.id,
-          campaign_budget.amount_micros,
-          campaign_budget.explicitly_shared,
-          campaign_budget.reference_count
-        FROM campaign
-        WHERE campaign.id IN (${ids.join(",")})
-      `;
-      const bs = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, bq, ctx.loginCustomerId);
-      if (!bs.error) {
-        for (const raw of Array.isArray(bs.results) ? bs.results : []) {
-          const row = raw as Record<string, unknown>;
-          const camp = row.campaign as { id?: string } | undefined;
-          const id = String(camp?.id ?? "").replace(/\D/g, "");
-          if (!id) continue;
-          const share = parseGoogleBudgetShareFromRow(row);
-          budgetByExternal.set(id, {
-            explicitly_shared: share.explicitly_shared,
-            reference_count: share.reference_count,
-            budget_editable: share.budget_editable,
-            amount_micros: share.amount_micros,
-          });
+          const bq = `
+            SELECT
+              campaign.id,
+              campaign_budget.amount_micros,
+              campaign_budget.explicitly_shared,
+              campaign_budget.reference_count
+            FROM campaign
+            WHERE campaign.id IN (${liveIds.join(",")})
+          `;
+          const bs = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, bq, ctx.loginCustomerId);
+          if (!bs.error) {
+            for (const raw of Array.isArray(bs.results) ? bs.results : []) {
+              const row = raw as Record<string, unknown>;
+              const camp = row.campaign as { id?: string } | undefined;
+              const id = String(camp?.id ?? "").replace(/\D/g, "");
+              if (!id) continue;
+              const share = parseGoogleBudgetShareFromRow(row);
+              budgetByExternal.set(id, {
+                explicitly_shared: share.explicitly_shared,
+                reference_count: share.reference_count,
+                budget_editable: share.budget_editable,
+                amount_micros: share.amount_micros,
+              });
+            }
+          }
         }
       }
     }
   }
+
+  /** Re-ler após possível detach de IDs que já não existem na conta Google. */
+  const localRows = ctx.ok
+    ? await prisma.paidAdsCampaign.findMany({
+        where: { projectId, platform: "google_ads" },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          externalCampaignId: true,
+          dailyBudgetMicros: true,
+          biddingConfig: true,
+          createdAt: true,
+          geoTargets: true,
+        },
+        orderBy: { updatedAt: "desc" },
+      })
+    : local;
 
   const project = await prisma.paidAdsProject.findUnique({
     where: { id: projectId },
@@ -318,7 +376,7 @@ export async function fetchGoogleAdsCampaignsMetrics(
   const since = new Date(`${range.from}T00:00:00.000Z`);
   const trackingByCampaign = new Map<string, number>();
   if (project?.userId && Number.isFinite(since.getTime())) {
-    const targets = local.slice(0, 60);
+    const targets = localRows.slice(0, 60);
     const settled = await Promise.all(
       targets.map(async (c) => {
         try {
@@ -336,7 +394,7 @@ export async function fetchGoogleAdsCampaignsMetrics(
     for (const [id, clicks] of settled) trackingByCampaign.set(id, clicks);
   }
 
-  const campaigns = local.map((c) => {
+  const campaigns = localRows.map((c) => {
     const ext = c.externalCampaignId?.replace(/\D/g, "") ?? null;
     const metrics = ext ? byExternal.get(ext) ?? null : null;
     const budgetMeta = ext ? budgetByExternal.get(ext) : undefined;
@@ -356,7 +414,7 @@ export async function fetchGoogleAdsCampaignsMetrics(
       metrics_available: Boolean(ext && ctx.ok && !networkError),
       budget_shared: budgetMeta?.explicitly_shared ?? false,
       budget_reference_count: budgetMeta?.reference_count ?? 1,
-      budget_editable: budgetMeta ? budgetMeta.budget_editable : true,
+      budget_editable: budgetMeta ? budgetMeta.budget_editable : false,
       tracking_clicks: capture.tracking_clicks,
       google_clicks: capture.google_clicks,
       click_delta: capture.click_delta,

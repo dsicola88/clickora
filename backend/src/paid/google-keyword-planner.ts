@@ -4,11 +4,10 @@
  *
  * @see https://developers.google.com/google-ads/api/docs/keyword-planning/generate-keyword-ideas
  */
-import { API_BASE, getAccessFromRefreshToken, getGoogleDeveloperToken } from "./google-ads.api";
+import { API_BASE } from "./google-ads.api";
+import { resolveGoogleAdsAccess } from "./google-ads-connection";
 import { GOOGLE_GEO_CRITERION_IDS } from "./geo-google";
 import { GOOGLE_ADS_LANGUAGE_NUMERIC_ID, normalizeGoogleLanguageCode } from "./language-google";
-import { prisma } from "./paidPrisma";
-import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
 
 export type PlannerSnapshot = {
   monthly_volume: number;
@@ -174,15 +173,8 @@ export async function fetchKeywordPlannerMetrics(
   projectId: string,
   input: KeywordPlannerMetricsInput,
 ): Promise<{ ok: false } | { ok: true; snapshot: PlannerSnapshot }> {
-  const conn = await prisma.paidAdsGoogleAdsConnection.findUnique({
-    where: { projectId },
-  });
-  if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.googleCustomerId) {
-    return { ok: false };
-  }
-
-  const dev = getGoogleDeveloperToken();
-  if (!dev) return { ok: false };
+  const ctx = await resolveGoogleAdsAccess(projectId);
+  if (!ctx.ok) return { ok: false };
 
   const codes = [...new Set(input.countryCodes.map((c) => String(c).trim().toUpperCase()).filter(Boolean))].slice(
     0,
@@ -200,22 +192,13 @@ export async function fetchKeywordPlannerMetrics(
   const langNum = GOOGLE_ADS_LANGUAGE_NUMERIC_ID[langIso];
   if (langNum == null) return { ok: false };
 
-  let access: string;
-  try {
-    ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
-  } catch {
-    return { ok: false };
-  }
-
-  const customerId = conn.googleCustomerId.replace(/\D/g, "");
-  const login = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "");
-
+  const customerId = ctx.customerId;
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${access}`,
-    "developer-token": dev,
+    Authorization: `Bearer ${ctx.access}`,
+    "developer-token": ctx.dev,
     "Content-Type": "application/json",
   };
-  if (login) headers["login-customer-id"] = login;
+  if (ctx.loginCustomerId) headers["login-customer-id"] = ctx.loginCustomerId;
 
   const seedKw = input.keyword.trim().slice(0, 80);
   if (!seedKw) return { ok: false };

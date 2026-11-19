@@ -4,6 +4,7 @@
  */
 import { resolveUserGoogleAdsRefreshToken } from "../modules/googleAds/googleAds.service";
 import { getAccessFromRefreshToken, getGoogleDeveloperToken } from "./google-ads.api";
+import { detachStaleGoogleCampaignLinks } from "./google-ads-detach-stale";
 import { prisma } from "./paidPrisma";
 import { loadPaidToken, storePaidToken } from "./tokenSecrets";
 
@@ -50,6 +51,7 @@ export async function resolveGoogleAdsAccess(projectId: string): Promise<GoogleA
   let accountName = conn.accountName;
 
   if (integrationsCid && integrationsCid !== customerDigits) {
+    const prevCid = customerDigits;
     await prisma.paidAdsGoogleAdsConnection.update({
       where: { id: conn.id },
       data: {
@@ -62,6 +64,10 @@ export async function resolveGoogleAdsAccess(projectId: string): Promise<GoogleA
     });
     customerDigits = integrationsCid;
     accountName = `Conta ${integrationsCid}`;
+    /** IDs da conta anterior não pertencem a esta — não inventar inventário. */
+    if (prevCid) {
+      await detachStaleGoogleCampaignLinks(projectId);
+    }
   }
 
   /** Só MCC do utilizador — o env global partilhado entre contas causa «invalid argument». */

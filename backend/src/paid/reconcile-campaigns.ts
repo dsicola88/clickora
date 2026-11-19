@@ -5,13 +5,13 @@
 import type { PaidAdsCampaignStatus } from "@prisma/client";
 
 import { paidLog } from "../lib/paidLog";
-import { getAccessFromRefreshToken, getGoogleDeveloperToken, runGoogleAdsSearch } from "./google-ads.api";
+import { runGoogleAdsSearch } from "./google-ads.api";
+import { resolveGoogleAdsAccess } from "./google-ads-connection";
 import { prisma } from "./paidPrisma";
 import { tiktokApiPostWithTokenRetry } from "./tiktok-oauth.api";
 import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
-const LOGIN = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") || undefined;
 
 export type ReconcileEntry = {
   campaign_id: string;
@@ -25,9 +25,10 @@ export type ReconcileError = { campaign_id: string; platform: string; error: str
 
 function mapGoogleStatus(s: string | undefined): PaidAdsCampaignStatus | null {
   const u = (s ?? "").toUpperCase();
-  if (u === "ENABLED" || u === "UNKNOWN" /* legacy */) return "live";
+  if (u === "ENABLED") return "live";
   if (u === "PAUSED" || u === "SUSPENDED") return "paused";
   if (u === "REMOVED" || u === "DELETED") return "archived";
+  /** UNKNOWN ≠ ENABLED — não inventar activa. */
   return null;
 }
 
@@ -65,17 +66,15 @@ export async function reconcileProjectCampaigns(projectId: string): Promise<{
   });
 
   const googleCtx = (async () => {
-    const conn = await prisma.paidAdsGoogleAdsConnection.findUnique({ where: { projectId } });
-    if (!conn?.tokenRef || !conn.googleCustomerId) return { ok: false as const, err: "Google não ligado." };
-    const dev = getGoogleDeveloperToken();
-    if (!dev) return { ok: false as const, err: "GOOGLE_ADS_DEVELOPER_TOKEN em falta." };
-    let access: string;
-    try {
-      ({ access_token: access } = await getAccessFromRefreshToken(loadPaidToken(conn.tokenRef)!));
-    } catch (e) {
-      return { ok: false as const, err: e instanceof Error ? e.message : "Token Google inválido." };
-    }
-    return { ok: true as const, access, customerId: conn.googleCustomerId.replace(/\D/g, ""), dev };
+    const ctx = await resolveGoogleAdsAccess(projectId);
+    if (!ctx.ok) return { ok: false as const, err: ctx.error };
+    return {
+      ok: true as const,
+      access: ctx.access,
+      customerId: ctx.customerId,
+      dev: ctx.dev,
+      loginCustomerId: ctx.loginCustomerId,
+    };
   })();
 
   const metaToken = (async () => {
@@ -102,7 +101,7 @@ export async function reconcileProjectCampaigns(projectId: string): Promise<{
       }
       const ext = extId.replace(/\D/g, "");
       const q = `SELECT campaign.id, campaign.status FROM campaign WHERE campaign.id = ${ext}`;
-      const s = await runGoogleAdsSearch(g.access, g.customerId, g.dev, q, LOGIN);
+      const s = await runGoogleAdsSearch(g.access, g.customerId, g.dev, q, g.loginCustomerId);
       if (s.error) {
         errors.push({
           campaign_id: row.id,

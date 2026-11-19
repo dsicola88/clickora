@@ -151,6 +151,10 @@ export function buildGoogleOAuthAuthUrl(redirectUri: string, state: string): str
   return u.toString();
 }
 
+/**
+ * @deprecated Não usar para ligar contas Paid/Integrações — escolhe `resourceNames[0]`
+ * e pode apontar para outra conta. Preferir customer ID explícito + fetchCustomerMeta.
+ */
 export async function listFirstAccessibleCustomerId(
   accessToken: string,
 ): Promise<{ customerId: string; name: string | null }> {

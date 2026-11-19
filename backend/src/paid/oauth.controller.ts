@@ -5,10 +5,10 @@ import { z } from "zod";
 import {
   buildGoogleOAuthAuthUrl,
   exchangeGoogleAuthorizationCode,
-  fetchCustomerName,
+  fetchCustomerMeta,
   isGoogleAdsOAuthConfigured,
-  listFirstAccessibleCustomerId,
 } from "./google-ads.api";
+import { detachStaleGoogleCampaignLinks } from "./google-ads-detach-stale";
 import { linkGoogleAdsProjectFromIntegrations } from "./google-ads-link-from-integrations";
 import { prisma } from "./paidPrisma";
 import { getPaidActor, canAdminProject } from "./permissions";
@@ -127,18 +127,41 @@ export const oauthController = {
     }
     try {
       const { refresh_token, access_token: access } = await exchangeGoogleAuthorizationCode(code, redirectUri);
-      /** Preferir conta cliente de Integrações — listFirstAccessible pode devolver outra conta (ex. 150… vs 160…). */
+      /** Conta cliente explícita em Integrações — nunca a 1.ª acessível (evita inventário de outra conta). */
       const owner = await prisma.user.findUnique({
         where: { id: conn.userId },
-        select: { googleAdsCustomerId: true },
+        select: { googleAdsCustomerId: true, googleAdsLoginCustomerId: true },
       });
-      const fromIntegrations = (owner?.googleAdsCustomerId ?? "").replace(/\D/g, "");
-      let customerId = fromIntegrations;
+      const customerId = (owner?.googleAdsCustomerId ?? "").replace(/\D/g, "");
       if (!customerId) {
-        const listed = await listFirstAccessibleCustomerId(access);
-        customerId = listed.customerId.replace(/\D/g, "");
+        await prisma.paidAdsGoogleAdsConnection.update({
+          where: { id: conn.id },
+          data: {
+            status: "error",
+            errorMessage:
+              "Defina o customer ID da conta cliente em Integrações → Google antes de sincronizar o Ads Studio.",
+            tokenRef: null,
+          },
+        });
+        return redirectToFrontend(res, projectId, { google: "error" }, "google");
       }
-      const name = (await fetchCustomerName(access, customerId)) ?? `Conta ${customerId}`;
+      const login = (owner?.googleAdsLoginCustomerId ?? "").replace(/\D/g, "") || undefined;
+      const meta = await fetchCustomerMeta(access, customerId, login);
+      if (!meta || meta.manager) {
+        await prisma.paidAdsGoogleAdsConnection.update({
+          where: { id: conn.id },
+          data: {
+            status: "error",
+            errorMessage: meta?.manager
+              ? "A conta em Integrações é MCC — escolha a conta cliente dos anúncios."
+              : `Não foi possível ler a conta ${customerId} na Google Ads API.`,
+            tokenRef: null,
+          },
+        });
+        return redirectToFrontend(res, projectId, { google: "error" }, "google");
+      }
+      const prevCid = (conn.googleCustomerId ?? "").replace(/\D/g, "");
+      const name = meta.name ?? `Conta ${customerId}`;
 
       await prisma.paidAdsGoogleAdsConnection.update({
         where: { id: conn.id },
@@ -151,6 +174,9 @@ export const oauthController = {
           errorMessage: null,
         },
       });
+      if (prevCid && prevCid !== customerId) {
+        await detachStaleGoogleCampaignLinks(projectId);
+      }
       return redirectToFrontend(res, projectId, { google: "connected" }, "google");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";

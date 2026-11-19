@@ -425,6 +425,7 @@ export const paidAdsService = {
     return apiClient.get<{
       ok: true;
       connected: boolean;
+      connection_error?: string | null;
       range: { from: string; to: string };
       counts: Record<string, number>;
       metrics: {

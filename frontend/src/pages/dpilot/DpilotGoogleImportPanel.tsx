@@ -60,7 +60,7 @@ export function DpilotGoogleImportPanel({
     });
   };
 
-  const isSearch = (r: RemoteRow) => String(r.channel_type || "SEARCH").toUpperCase() === "SEARCH";
+  const isSearch = (r: RemoteRow) => String(r.channel_type || "").toUpperCase() === "SEARCH";
 
   const selectNew = () => {
     setSelected(

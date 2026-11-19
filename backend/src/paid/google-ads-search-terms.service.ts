@@ -325,6 +325,7 @@ export async function fetchGoogleAdsKeywordMetrics(
 
   const ctx = await resolveGoogleAdsAccess(projectId);
   const byCriterion = new Map<string, ReturnType<typeof deriveMetricRates>>();
+  let gaqlRan = false;
 
   if (ctx.ok) {
     const criterionIds: string[] = [];
@@ -355,6 +356,7 @@ export async function fetchGoogleAdsKeywordMetrics(
       if (s.error) {
         return { ok: false as const, error: s.error.message ?? "Falha ao ler métricas de keywords.", code: "gaql_error" };
       }
+      gaqlRan = true;
       for (const raw of Array.isArray(s.results) ? s.results : []) {
         const row = raw as Record<string, unknown>;
         const crit = (row.adGroupCriterion ?? row.ad_group_criterion ?? {}) as { criterionId?: string };
@@ -399,7 +401,7 @@ export async function fetchGoogleAdsKeywordMetrics(
           ad_group_id: ag.id,
           ad_group_name: ag.name,
           external_criterion_id: ext,
-          metrics: ext ? byCriterion.get(ext) ?? null : null,
+          metrics: ext && gaqlRan ? byCriterion.get(ext) ?? null : null,
         };
       }),
     ),
@@ -411,7 +413,8 @@ export async function fetchGoogleAdsKeywordMetrics(
     connection_error: ctx.ok ? null : ctx.error,
     range,
     keywords,
-    source: ctx.ok ? ("google_ads_api" as const) : ("local_only" as const),
+    /** Só «google_ads_api» depois de GAQL real — lista local sem critério ≠ inventário Google. */
+    source: gaqlRan ? ("google_ads_api" as const) : ("local_only" as const),
   };
 }
 
