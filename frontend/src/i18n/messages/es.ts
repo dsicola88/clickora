@@ -1825,7 +1825,7 @@ export const es = {
       "managerSet": "Cuenta de administrador {id}.",
       "managerMissing": "Cuenta de administrador sin definir.",
       "autoTagging": "Para que las ventas aparezcan en Google Ads: activa el etiquetado automático en la cuenta, pega la URL generada por Clickora (campaña / constructor de URL) como URL final y no añadas gclid=… a mano — Google inyecta el ID real en el clic.",
-      "apiErrorHint": "Si Informes muestra «error de API» en el envío a Google, haz clic una vez en Cambiar de cuenta / conectar de nuevo — Google exige el nuevo acceso Data Manager para conversiones offline.",
+      "apiErrorHint": "Si fallan métricas, pausa o el envío de ventas, usa «Cambiar de cuenta» una vez y acepta el acceso Google (Ads + Data Manager). Ads Studio sincroniza la misma cuenta automáticamente.",
       "statusTitle": "Estado",
       "statusDesc": "Lo que ya es automático en esta cuenta.",
       "rowAccount": "Cuenta de Google",

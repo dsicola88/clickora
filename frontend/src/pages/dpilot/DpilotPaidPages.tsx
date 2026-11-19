@@ -28,6 +28,7 @@ import {
   changeRequestCampaignIdFromPayload,
   friendlyGoogleAdsNetworkError,
   summarizeChangeRequestPayload,
+  toastGoogleAdsError,
 } from "@/lib/paidAdsUi";
 import { approvalQueueTransparencyBullets, explainOptimizerDecision } from "@/lib/paidAdsTransparency";
 import type { CampaignRow, ChangeRequestRow, OptimizerDecisionRow, PaidOverviewDto } from "@/services/paidAdsService";
@@ -288,7 +289,7 @@ export function DpilotGooglePage() {
           import_campaigns: true,
         });
         if (error || !data) {
-          if (!opts?.silent) toast.error(error || "Não foi possível sincronizar a conta.");
+          if (!opts?.silent) toast.error(toastGoogleAdsError(error || "Não foi possível sincronizar a conta."));
           return;
         }
         const imp = data.import;

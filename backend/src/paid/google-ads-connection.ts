@@ -62,7 +62,8 @@ export async function resolveGoogleAdsAccess(projectId: string): Promise<GoogleA
 
   let refresh = loadPaidToken(conn.tokenRef);
   let access = refresh ? await tryRefresh(refresh) : null;
-  let lastErr = "Token Google inválido ou expirado. Reconecte a conta.";
+  let lastErr =
+    "A ligação Google expirou (invalid_grant). Em Integrações → Google use «Mudar de conta» e aceite o acesso.";
 
   if (!access) {
     const fromIntegrations = owner ? resolveUserGoogleAdsRefreshToken(owner) : null;
@@ -80,10 +81,11 @@ export async function resolveGoogleAdsAccess(projectId: string): Promise<GoogleA
           },
         });
       } else {
-        lastErr = "Token Google (Integrações) inválido. Volte a ligar a conta em Integrações → Google.";
+        lastErr =
+          "Token Google (Integrações) inválido. Volte a ligar a conta em Integrações → Google («Mudar de conta»).";
       }
     } else if (!refresh) {
-      lastErr = "Token Google em falta ou corrompido. Volte a ligar a conta.";
+      lastErr = "Token Google em falta. Ligue a conta em Integrações → Google.";
     }
   }
 

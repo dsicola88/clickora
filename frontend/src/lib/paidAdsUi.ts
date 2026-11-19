@@ -187,15 +187,33 @@ export function campaignStatusPurgeableLocally(status: string): boolean {
   return status === "archived";
 }
 
+/** Token OAuth Google revogado / expirado — precisa «Mudar de conta» em Integrações. */
+export function googleAdsNeedsReauth(message: string | null | undefined): boolean {
+  if (!message?.trim()) return false;
+  const m = message.toLowerCase();
+  return (
+    m.includes("invalid_grant") ||
+    m.includes("token google") ||
+    m.includes("token_refresh") ||
+    (m.includes("integrações") && m.includes("inválido")) ||
+    m.includes("reconecte a conta") ||
+    m.includes("volte a ligar") ||
+    (m.includes("oauth") && (m.includes("expir") || m.includes("inválid") || m.includes("falta")))
+  );
+}
+
 /** Explicações legíveis para erros habituais da API Google Ads (mensagens já gravadas no pedido). */
 export function friendlyGoogleAdsNetworkError(message: string | null | undefined): string | null {
   if (!message?.trim()) return null;
   const m = message.trim();
+  if (googleAdsNeedsReauth(m)) {
+    return "A ligação Google expirou. Em Integrações → Google, use «Mudar de conta», aceite o acesso e volte — o Ads Studio sincroniza sozinho.";
+  }
   if (/not compatible with the campaign type|setting type is not compatible/i.test(m)) {
     return "O Google recusou opções de segmentação incompatíveis com campanhas Search (foi aplicada uma correcção no servidor — volte a «Aplicar na rede»).";
   }
   if (/invalid\s+argument/i.test(m)) {
-    return "O Google Ads devolveu «invalid argument»: confirme liga OAuth, orçamento mínimo e critérios. Se já corrigiu o rascunho, pode tentar de novo.";
+    return "O Google Ads rejeitou o pedido (argumento inválido). Se a conta acabou de mudar, sincronize em Conta; senão confirme orçamento e critérios e tente de novo.";
   }
   if (/ACTION_NOT_PERMITTED_FOR_SUSPENDED_ACCOUNT|account is suspended|suspended account/i.test(m)) {
     return (
@@ -203,6 +221,12 @@ export function friendlyGoogleAdsNetworkError(message: string | null | undefined
     );
   }
   return null;
+}
+
+/** Toast / alert: mensagem amigável ou original. */
+export function toastGoogleAdsError(message: string | null | undefined): string {
+  const raw = (message ?? "").trim() || "Operação Google Ads falhou.";
+  return friendlyGoogleAdsNetworkError(raw) ?? raw;
 }
 
 /** `campaign_id` opcional no payload dos pedidos create_campaign / update_* . */

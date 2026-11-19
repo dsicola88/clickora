@@ -14,6 +14,7 @@ import {
   Settings2,
   Type,
 } from "lucide-react";
+import { DpilotGoogleNetworkBanner } from "@/components/dpilot/DpilotGoogleNetworkBanner";
 import { cn } from "@/lib/utils";
 import { useDpilotPaid } from "./DpilotPaidContext";
 
@@ -133,6 +134,7 @@ export function DpilotGoogleCampaignManagerLayout() {
         </aside>
 
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-white p-4 sm:p-6">
+          {id ? <DpilotGoogleNetworkBanner projectId={id} /> : null}
           <Outlet />
         </main>
       </div>

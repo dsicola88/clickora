@@ -36,7 +36,10 @@ import {
   changeRequestStatusLabel,
   changeRequestTypeLabel,
   formatUsdFromMicros,
+  friendlyGoogleAdsNetworkError,
+  googleAdsNeedsReauth,
   summarizeChangeRequestPayload,
+  toastGoogleAdsError,
 } from "@/lib/paidAdsUi";
 import {
   alignGoogleCustomers,
@@ -587,7 +590,7 @@ export function DpilotGoogleCampaignsManagerPage() {
     });
     setBusyId(null);
     if (error) {
-      toast.error(error);
+      toast.error(toastGoogleAdsError(error));
       return;
     }
     toast.success(`Cópia criada: ${data?.name}`);
@@ -635,7 +638,7 @@ export function DpilotGoogleCampaignsManagerPage() {
       daily_budget_usd: usd,
     });
     setBusyId(null);
-    if (error) toast.error(error);
+    if (error) toast.error(toastGoogleAdsError(error));
     else {
       toast.success(`Orçamento ${usd.toFixed(2)} USD/dia — pedido enviado`);
       reload();
@@ -649,7 +652,7 @@ export function DpilotGoogleCampaignsManagerPage() {
     setBusyId(campaignId);
     const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, { action });
     setBusyId(null);
-    if (error) toast.error(error);
+    if (error) toast.error(toastGoogleAdsError(error));
     else {
       toast.success(`${label}: pedido enviado`);
       reload();
@@ -749,12 +752,14 @@ export function DpilotGoogleCampaignsManagerPage() {
         </Alert>
       ) : null}
 
-      {connErr && paidConnected ? (
+      {connErr && paidConnected && !googleAdsNeedsReauth(connErr) ? (
         <Alert className="mt-4">
           <AlertTitle>Métricas de rede indisponíveis</AlertTitle>
-          <AlertDescription>{connErr}</AlertDescription>
+          <AlertDescription>
+            {friendlyGoogleAdsNetworkError(connErr) ?? connErr}
+          </AlertDescription>
         </Alert>
-      ) : paidConnected ? (
+      ) : paidConnected && !connErr ? (
         <p className="mt-2 text-xs text-muted-foreground">Fonte: {source || "—"}</p>
       ) : null}
 
