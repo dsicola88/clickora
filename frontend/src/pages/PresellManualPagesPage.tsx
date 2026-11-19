@@ -1,6 +1,6 @@
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { fill } from "@/i18n";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,6 +13,7 @@ import {
   Loader2,
   LayoutGrid,
   Check,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,6 +38,11 @@ import { resolveTrackApiBaseForExport } from "@/lib/apiOrigin";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
+import {
+  extractPageDocumentFromExportedHtml,
+  parsePageDocumentFromJson,
+} from "@/page-builder/document-import";
+import { id as builderId } from "@/page-builder/factory";
 import type { Presell } from "@/types/api";
 
 function sanitizeSlug(raw: string): string {
@@ -58,6 +64,7 @@ export default function PresellManualPagesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const { data: customDomains = [] } = useQuery({
     queryKey: ["custom-domain", tenantKey],
@@ -244,6 +251,62 @@ export default function PresellManualPagesPage() {
     }
   };
 
+  /** JSON (ou HTML Clickora) → rascunho builder totalmente editável. */
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !canWritePresells) return;
+    setBusyId("import");
+    try {
+      const text = await file.text();
+      const lower = file.name.toLowerCase();
+      let parsed =
+        lower.endsWith(".html") || lower.endsWith(".htm")
+          ? extractPageDocumentFromExportedHtml(text)
+          : parsePageDocumentFromJson(text);
+      if (!parsed && (lower.endsWith(".html") || lower.endsWith(".htm"))) {
+        parsed = parsePageDocumentFromJson(text);
+      }
+      if (!parsed) {
+        toast.error(t("pages.manualPages.importInvalid"));
+        return;
+      }
+      const doc = {
+        ...parsed,
+        id: builderId("page_"),
+        name: parsed.name?.trim() || t("pages.manualPages.importDefaultName"),
+        updatedAt: Date.now(),
+      };
+      const slug = `${sanitizeSlug(doc.name)}_${Date.now().toString(36).slice(-4)}`;
+      const content: Record<string, unknown> = {
+        pageDocument: doc,
+        editorWorkingDocument: doc,
+        affiliateLink: "",
+        manualVisualEdit: true,
+      };
+      const { data: created, error } = await presellService.create({
+        title: doc.name,
+        slug,
+        type: "builder",
+        category: "other",
+        language: "en",
+        content,
+        settings: {},
+        status: "draft",
+      });
+      if (error || !created?.id) {
+        throw new Error(error || t("pages.manualPages.importCreateError"));
+      }
+      await queryClient.invalidateQueries({ queryKey: ["presells"] });
+      toast.success(t("pages.manualPages.importOk"));
+      navigate(`/presell/builder/${created.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("pages.manualPages.importFailed"));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   if (!tenantKey) {
     return (
       <div className={APP_PAGE_SHELL}>
@@ -275,10 +338,33 @@ export default function PresellManualPagesPage() {
         description={t("pages.manualPages.listDesc")}
         actions={
           canWritePresells ? (
-            <Button type="button" className="gap-2" onClick={() => navigate("/presell/builder")}>
-              <LayoutGrid className="h-4 w-4" />
-              {t("pages.manualPages.newInEditor")}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".json,.html,.htm,application/json,text/html"
+                className="sr-only"
+                onChange={(ev) => void handleImportFile(ev)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                disabled={busyId === "import"}
+                onClick={() => importInputRef.current?.click()}
+              >
+                {busyId === "import" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                {t("pages.manualPages.importJson")}
+              </Button>
+              <Button type="button" className="gap-2" onClick={() => navigate("/presell/builder")}>
+                <LayoutGrid className="h-4 w-4" />
+                {t("pages.manualPages.newInEditor")}
+              </Button>
+            </div>
           ) : null
         }
       />

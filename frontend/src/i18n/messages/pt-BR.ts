@@ -3884,6 +3884,12 @@ export const ptBR = {
       "downloadHtml": "Baixar .html",
       "downloadJson": "Baixar .json",
       "removeTitle": "Remover",
+      "importJson": "Importar JSON",
+      "importDefaultName": "Página importada",
+      "importInvalid": "Arquivo inválido. Use o .json (ou .html Clickora) exportado do editor.",
+      "importCreateError": "Não foi possível criar a página importada.",
+      "importOk": "Página importada — personalize no editor e publique.",
+      "importFailed": "Falha ao importar a página.",
     },
     "affiliateGuide": {
       "title": "Guia de afiliado",

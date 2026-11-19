@@ -3929,6 +3929,12 @@ export const en = {
       downloadHtml: "Download .html",
       downloadJson: "Download .json",
       removeTitle: "Remove",
+      importJson: "Import JSON",
+      importDefaultName: "Imported page",
+      importInvalid: "Invalid file. Use the .json (or Clickora .html) exported from the editor.",
+      importCreateError: "Could not create the imported page.",
+      importOk: "Page imported — customize in the editor and publish.",
+      importFailed: "Failed to import the page.",
     },
     affiliateGuide: {
       title: "Affiliate guide",

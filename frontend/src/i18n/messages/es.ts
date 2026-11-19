@@ -3884,6 +3884,12 @@ export const es = {
       "downloadHtml": "Descargar .html",
       "downloadJson": "Descargar .json",
       "removeTitle": "Eliminar",
+      "importJson": "Importar JSON",
+      "importDefaultName": "Página importada",
+      "importInvalid": "Archivo inválido. Usa el .json (o .html Clickora) exportado del editor.",
+      "importCreateError": "No se pudo crear la página importada.",
+      "importOk": "Página importada — personalízala en el editor y publícala.",
+      "importFailed": "Error al importar la página.",
     },
     "affiliateGuide": {
       "title": "Guía de afiliado",
