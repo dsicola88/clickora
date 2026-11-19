@@ -19,6 +19,7 @@ import { removeGoogleCampaignExtensionAssetLinks } from "./google-ads-campaign-a
 import type { GoogleCampaignAssetExtensionsStored } from "./google-campaign-asset-extensions";
 import { parseGoogleBudgetShareFromRow, sharedBudgetBlockMessage } from "./google-ads-budget";
 import { resolveGoogleAdsAccess } from "./google-ads-connection";
+import { normalizeGoogleCriterionId, normalizeGoogleNumericId } from "./google-ads-ids";
 import { prisma } from "./paidPrisma";
 import { isOAuthPendingToken } from "./tokenSecrets";
 
@@ -341,8 +342,9 @@ export async function applyGooglePauseEntity(
     if (!kw?.externalCriterionId || !kw.adGroup.externalAdGroupId) {
       return { ok: false, error: "Palavra-chave sem ID remoto completo." };
     }
-    const agId = kw.adGroup.externalAdGroupId.replace(/\D/g, "");
-    const crit = kw.externalCriterionId.replace(/\D/g, "");
+    const agId = normalizeGoogleNumericId(kw.adGroup.externalAdGroupId);
+    const crit = normalizeGoogleCriterionId(kw.externalCriterionId);
+    if (!agId || !crit) return { ok: false, error: "ID remoto de keyword inválido." };
     const resourceName = `${cid}/adGroupCriteria/${agId}~${crit}`;
     const m = await runGoogleAdsMutate(
       access,
@@ -475,8 +477,9 @@ export async function applyGoogleResumeEntity(
     if (!kw?.externalCriterionId || !kw.adGroup.externalAdGroupId) {
       return { ok: false, error: "Palavra-chave sem ID remoto completo." };
     }
-    const agId = kw.adGroup.externalAdGroupId.replace(/\D/g, "");
-    const crit = kw.externalCriterionId.replace(/\D/g, "");
+    const agId = normalizeGoogleNumericId(kw.adGroup.externalAdGroupId);
+    const crit = normalizeGoogleCriterionId(kw.externalCriterionId);
+    if (!agId || !crit) return { ok: false, error: "ID remoto de keyword inválido." };
     const resourceName = `${cid}/adGroupCriteria/${agId}~${crit}`;
     const m = await runGoogleAdsMutate(
       access,
@@ -548,8 +551,9 @@ export async function applyGoogleRemoveKeyword(
   if (!kw.externalCriterionId || !kw.adGroup.externalAdGroupId) {
     return { ok: false, error: "Palavra-chave não publicada no Google; elimine-a no editor de rascunho." };
   }
-  const agId = kw.adGroup.externalAdGroupId.replace(/\D/g, "");
-  const crit = kw.externalCriterionId.replace(/\D/g, "");
+  const agId = normalizeGoogleNumericId(kw.adGroup.externalAdGroupId);
+  const crit = normalizeGoogleCriterionId(kw.externalCriterionId);
+  if (!agId || !crit) return { ok: false, error: "ID remoto de keyword inválido." };
   const resourceName = `${cid}/adGroupCriteria/${agId}~${crit}`;
   const m = await runGoogleAdsMutate(
     access,
@@ -1022,7 +1026,8 @@ export async function applyGoogleSyncCampaignNegativeKeywords(
 
   for (const row of camp.campaignNegativeKeywords) {
     if (!row.externalCriterionId) continue;
-    const crit = row.externalCriterionId.replace(/\D/g, "");
+    const crit = normalizeGoogleCriterionId(row.externalCriterionId);
+    if (!crit) continue;
     const rn = `${cid}/campaignCriteria/${extCamp}~${crit}`;
     const m = await runGoogleAdsMutate(
       access,
@@ -1100,7 +1105,8 @@ export async function applyGoogleSyncAdGroupNegativeKeywords(
 
   for (const row of ag.negativeKeywords) {
     if (!row.externalCriterionId) continue;
-    const crit = row.externalCriterionId.replace(/\D/g, "");
+    const crit = normalizeGoogleCriterionId(row.externalCriterionId);
+    if (!crit) continue;
     const rn = `${cid}/adGroupCriteria/${agNum}~${crit}`;
     const m = await runGoogleAdsMutate(
       access,

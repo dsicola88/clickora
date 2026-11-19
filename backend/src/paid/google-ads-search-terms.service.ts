@@ -9,6 +9,7 @@ import {
   resolveGoogleAdsDateRange,
   deriveMetricRates,
 } from "./google-ads-connection";
+import { normalizeGoogleCriterionId } from "./google-ads-ids";
 import { parseGoogleAdsMetrics } from "./google-ads-metric-fields";
 import { prisma } from "./paidPrisma";
 
@@ -308,20 +309,22 @@ export async function fetchGoogleAdsKeywordMetrics(
   const ctx = await resolveGoogleAdsAccess(projectId);
   const byCriterion = new Map<string, ReturnType<typeof deriveMetricRates>>();
   let gaqlRan = false;
+  let metricsError: string | null = null;
 
   if (ctx.ok) {
     const criterionIds: string[] = [];
     for (const c of local) {
       for (const ag of c.adGroups) {
         for (const kw of ag.keywords) {
-          const id = kw.externalCriterionId?.replace(/\D/g, "");
+          const id = normalizeGoogleCriterionId(kw.externalCriterionId);
           if (id) criterionIds.push(id);
         }
       }
     }
-    if (criterionIds.length > 0) {
+    const unique = [...new Set(criterionIds)];
+    if (unique.length > 0) {
       // Limitar IN clause
-      const chunk = criterionIds.slice(0, 200);
+      const chunk = unique.slice(0, 200);
       const q = `
         SELECT
           ad_group_criterion.criterion_id,
@@ -336,28 +339,33 @@ export async function fetchGoogleAdsKeywordMetrics(
       `;
       const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
       if (s.error) {
-        return { ok: false as const, error: s.error.message ?? "Falha ao ler métricas de keywords.", code: "gaql_error" };
-      }
-      gaqlRan = true;
-      for (const raw of Array.isArray(s.results) ? s.results : []) {
-        const row = raw as Record<string, unknown>;
-        const crit = (row.adGroupCriterion ?? row.ad_group_criterion ?? {}) as { criterionId?: string };
-        const id = String(crit.criterionId ?? "").replace(/\D/g, "");
-        if (!id) continue;
-        const cur = deriveMetricRates(parseGoogleAdsMetrics(row));
-        const prev = byCriterion.get(id);
-        byCriterion.set(
-          id,
-          prev
-            ? deriveMetricRates({
-                impressions: prev.impressions + cur.impressions,
-                clicks: prev.clicks + cur.clicks,
-                cost_micros: prev.cost_micros + cur.cost_micros,
-                conversions: prev.conversions + cur.conversions,
-                conversions_value: prev.conversions_value + cur.conversions_value,
-              })
-            : cur,
-        );
+        /** Não esconder a lista local — toast GAQL completo partia a UX. */
+        metricsError =
+          "Métricas Google indisponíveis (IDs de keyword inválidos ou rede). A lista local mantém-se; re-sincronize a campanha se faltar dados.";
+      } else {
+        gaqlRan = true;
+        for (const raw of Array.isArray(s.results) ? s.results : []) {
+          const row = raw as Record<string, unknown>;
+          const crit = (row.adGroupCriterion ?? row.ad_group_criterion ?? {}) as {
+            criterionId?: string;
+          };
+          const id = normalizeGoogleCriterionId(crit.criterionId);
+          if (!id) continue;
+          const cur = deriveMetricRates(parseGoogleAdsMetrics(row));
+          const prev = byCriterion.get(id);
+          byCriterion.set(
+            id,
+            prev
+              ? deriveMetricRates({
+                  impressions: prev.impressions + cur.impressions,
+                  clicks: prev.clicks + cur.clicks,
+                  cost_micros: prev.cost_micros + cur.cost_micros,
+                  conversions: prev.conversions + cur.conversions,
+                  conversions_value: prev.conversions_value + cur.conversions_value,
+                })
+              : cur,
+          );
+        }
       }
     }
   }
@@ -365,7 +373,7 @@ export async function fetchGoogleAdsKeywordMetrics(
   const keywords = local.flatMap((c) =>
     c.adGroups.flatMap((ag) =>
       ag.keywords.map((kw) => {
-        const ext = kw.externalCriterionId?.replace(/\D/g, "") ?? null;
+        const ext = normalizeGoogleCriterionId(kw.externalCriterionId);
         return {
           id: kw.id,
           text: kw.text,
@@ -385,7 +393,7 @@ export async function fetchGoogleAdsKeywordMetrics(
   return {
     ok: true as const,
     connected: ctx.ok,
-    connection_error: ctx.ok ? null : ctx.error,
+    connection_error: ctx.ok ? metricsError : ctx.error,
     range,
     keywords,
     /** Só «google_ads_api» depois de GAQL real — lista local sem critério ≠ inventário Google. */

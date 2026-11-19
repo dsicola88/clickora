@@ -1689,8 +1689,10 @@ export function DpilotGoogleKeywordsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await paidAdsService.getGoogleAdsKeywordMetrics(projectId, { preset });
-    if (error) toast.error(error);
-    else {
+    if (error) {
+      toast.error(toastGoogleAdsError(error));
+      setConnErr(toastGoogleAdsError(error));
+    } else {
       setRows(data?.keywords ?? []);
       setConnErr(data?.connection_error ?? null);
       setKwSource(data?.source ?? "");
@@ -1761,7 +1763,19 @@ export function DpilotGoogleKeywordsPage() {
           {loading ? (
             <Skeleton className="h-32 w-full" />
           ) : filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem palavras-chave neste projecto.</p>
+            <div className="space-y-2 py-1">
+              <p className="text-sm text-muted-foreground">
+                {q.trim()
+                  ? "Nenhuma keyword corresponde ao filtro."
+                  : "Sem palavras-chave locais neste projecto."}
+              </p>
+              {!q.trim() ? (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Em Campanhas use «Re-sincronizar e importar» para trazer keywords das campanhas Google, ou abra o
+                  estúdio da campanha para as editar.
+                </p>
+              ) : null}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>

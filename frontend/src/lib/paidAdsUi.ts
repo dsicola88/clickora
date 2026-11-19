@@ -233,6 +233,13 @@ export function friendlyGoogleAdsNetworkError(message: string | null | undefined
   if (/page size is not supported|PAGE_SIZE_NOT_SUPPORTED/i.test(m)) {
     return "A Google Ads API já não aceita pageSize nas pesquisas (v17+). Actualize o servidor e volte a «Re-sincronizar e importar».";
   }
+  if (/Invalid number|criterion_id IN\s*\(/i.test(m)) {
+    return "Métricas de keywords falharam (ID de critério inválido). A lista local mantém-se — re-sincronize a campanha em Campanhas para corrigir os IDs.";
+  }
+  /** Toasts não devem despejar queries GAQL com centenas de IDs. */
+  if (m.length > 220 && (/requestId=|WHERE |FROM keyword_view|ad_group_criterion/i.test(m) || m.includes(","))) {
+    return "Erro da Google Ads API (resposta longa). Veja o alerta na página ou re-sincronize em Campanhas.";
+  }
   if (/invalid\s+argument/i.test(m)) {
     if (/login-customer|login customer|mcc|manager/i.test(m)) {
       return "A Google rejeitou o pedido (MCC/login). Conta solo → gestor em branco em Integrações; conta sob gestor → MCC correcto. Depois «Re-sincronizar e importar».";

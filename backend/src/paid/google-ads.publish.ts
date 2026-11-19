@@ -45,6 +45,13 @@ function lastId(resourceName: string): string {
   return parts[parts.length - 1]! ?? resourceName;
 }
 
+/** adGroupCriteria/{adGroupId}~{criterionId} → só criterion_id (GAQL / métricas). */
+function lastCriterionId(resourceName: string): string {
+  const last = lastId(resourceName);
+  if (last.includes("~")) return last.split("~").pop() ?? last;
+  return last;
+}
+
 function ensureUrl(u: string): string {
   const t = u.trim();
   if (!t) return "https://example.com";
@@ -570,7 +577,7 @@ export async function publishGoogleSearchCampaignFromLocal(
         if (critRn) {
           await prisma.paidAdsCampaignNegativeKeyword.update({
             where: { id: nk.id },
-            data: { externalCriterionId: lastId(critRn) },
+            data: { externalCriterionId: lastCriterionId(critRn) },
           });
         }
       } catch (ne) {
@@ -685,7 +692,7 @@ export async function publishGoogleSearchCampaignFromLocal(
             keywordsLinkedByAg.set(ag.id, (keywordsLinkedByAg.get(ag.id) ?? 0) + 1);
             await prisma.paidAdsKeyword.update({
               where: { id: kw.id },
-              data: { externalCriterionId: lastId(critRn), status: "live" as EntityStatus },
+              data: { externalCriterionId: lastCriterionId(critRn), status: "live" as EntityStatus },
             });
           }
         } catch (ke) {
@@ -728,7 +735,7 @@ export async function publishGoogleSearchCampaignFromLocal(
           if (critRn) {
             await prisma.paidAdsAdGroupNegativeKeyword.update({
               where: { id: nn.id },
-              data: { externalCriterionId: lastId(critRn) },
+              data: { externalCriterionId: lastCriterionId(critRn) },
             });
           }
         } catch (ne) {
