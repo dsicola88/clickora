@@ -75,7 +75,7 @@ export function DpilotGoogleSearchTermsPanel({
     if (list.length === 0) return;
     if (
       !window.confirm(
-        `Adicionar ${list.length} termo(s) como negativa de frase nesta campanha?\n\nA alteração segue Copilot (Aprovações) ou Autopilot.`,
+        `Bloquear ${list.length} termo(s) nesta campanha (modo frase)?\n\nVai para Aprovações — ou aplica sozinho se o Autopilot estiver ligado.`,
       )
     ) {
       return;
@@ -93,8 +93,8 @@ export function DpilotGoogleSearchTermsPanel({
     }
     toast.success(
       data?.added
-        ? `${data.added} negativa(s) enfileirada(s) · total ${data.total}`
-        : "Termos já estavam como negativas",
+        ? `${data.added} termo(s) enviados para bloquear · total ${data.total}`
+        : "Estes termos já estavam bloqueados",
     );
     void load();
   };
@@ -105,10 +105,10 @@ export function DpilotGoogleSearchTermsPanel({
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-sm font-medium">Termos de pesquisa</p>
+          <p className="text-sm font-medium">O que as pessoas pesquisaram</p>
           <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
             {campaignName ? `Campanha «${campaignName}» · ` : ""}
-            Dados reais da Google Ads API. Negue desperdício aqui — sem abrir ads.google.com.
+            Marque o que gasta e não vende e bloqueie aqui — sem abrir o Google Ads.
           </p>
           {range ? (
             <p className="mt-1 text-[10px] text-muted-foreground">
@@ -134,23 +134,25 @@ export function DpilotGoogleSearchTermsPanel({
           </Button>
           <Button type="button" size="sm" disabled={busy || selected.size === 0} onClick={() => void negateSelected()}>
             {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Ban className="mr-1.5 h-4 w-4" />}
-            Negar seleccionados ({selected.size})
+            Bloquear seleccionados ({selected.size})
           </Button>
         </div>
       </div>
 
       {waste.length > 0 ? (
         <Alert>
-          <AlertTitle className="text-sm">{waste.length} termo(s) com gasto e poucas/nenhumas conversões</AlertTitle>
+          <AlertTitle className="text-sm">
+            {waste.length} termo(s) com gasto e poucas ou nenhumas vendas
+          </AlertTitle>
           <AlertDescription className="text-xs">
-            Candidatos a negativa. Revise antes de aplicar — pode cortar volume em testes novos.
+            Vale a pena bloquear. Em testes novos, espere um pouco — a venda pode chegar atrasada.
             <Button
               type="button"
               variant="link"
               className="h-auto px-1 text-xs"
               onClick={() => setSelected(new Set(waste.map((w) => w.search_term)))}
             >
-              Seleccionar candidatos
+              Marcar estes
             </Button>
           </AlertDescription>
         </Alert>
@@ -166,18 +168,20 @@ export function DpilotGoogleSearchTermsPanel({
       {loading ? (
         <Skeleton className="h-40 w-full" />
       ) : terms.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Sem termos neste período (ou campanha sem impressões).</p>
+        <p className="text-sm text-muted-foreground">
+          Sem pesquisas neste período (ou a campanha ainda não teve visualizações).
+        </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10" />
-                <TableHead>Termo</TableHead>
-                <TableHead>Impr.</TableHead>
+                <TableHead>O que pesquisaram</TableHead>
+                <TableHead>Vezes visto</TableHead>
                 <TableHead>Cliques</TableHead>
-                <TableHead>Custo</TableHead>
-                <TableHead>Conv.</TableHead>
+                <TableHead>Gasto</TableHead>
+                <TableHead>Vendas</TableHead>
                 <TableHead>Estado</TableHead>
               </TableRow>
             </TableHeader>
@@ -202,11 +206,14 @@ export function DpilotGoogleSearchTermsPanel({
                   <TableCell>
                     {t.already_negative ? (
                       <Badge variant="secondary" className="font-normal">
-                        Já negativa
+                        Já bloqueado
                       </Badge>
                     ) : t.waste_candidate ? (
-                      <Badge variant="outline" className="border-amber-500/50 font-normal text-amber-800 dark:text-amber-200">
-                        Desperdício?
+                      <Badge
+                        variant="outline"
+                        className="border-amber-500/50 font-normal text-amber-800 dark:text-amber-200"
+                      >
+                        Gasta mal?
                       </Badge>
                     ) : (
                       <span className="text-xs text-muted-foreground">{t.status || "—"}</span>

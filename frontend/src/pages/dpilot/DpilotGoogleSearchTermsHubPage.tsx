@@ -110,9 +110,11 @@ export function DpilotGoogleSearchTermsHubPage() {
     }));
     if (items.length === 0) return;
     const termCount = items.reduce((s, i) => s + i.terms.length, 0);
+    const matchLabel =
+      matchType === "exact" ? "igual ao termo" : matchType === "broad" ? "qualquer pesquisa semelhante" : "frase com o termo";
     if (
       !window.confirm(
-        `Negar ${termCount} termo(s) em ${items.length} campanha(s) como «${matchType}»?\n\nSegue Copilot (Aprovações) ou Autopilot — sem cloaking da landing.`,
+        `Bloquear ${termCount} termo(s) em ${items.length} campanha(s)?\n\nModo: ${matchLabel}.\nA alteração vai para Aprovações (ou aplica sozinha se o Autopilot estiver ligado).`,
       )
     ) {
       return;
@@ -129,13 +131,13 @@ export function DpilotGoogleSearchTermsHubPage() {
     }
     if (data?.failed) {
       toast.message(
-        `${data.added} negativa(s) enfileirada(s); ${data.failed} campanha(s) falharam`,
+        `${data.added} termo(s) a bloquear; ${data.failed} campanha(s) falharam — veja Aprovações.`,
       );
     } else {
       toast.success(
         data?.added
-          ? `${data.added} negativa(s) enfileirada(s) em ${items.length} campanha(s)`
-          : "Termos já estavam como negativas",
+          ? `${data.added} termo(s) enviados para bloquear em ${items.length} campanha(s)`
+          : "Estes termos já estavam bloqueados",
       );
     }
     void load();
@@ -159,8 +161,8 @@ export function DpilotGoogleSearchTermsHubPage() {
           }
           description={
             <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Vista unificada do que a Google está a mostrar. Seleccione desperdício e negue em lote —
-              as mudanças passam por Copilot/Autopilot, com a Final URL intacta.
+              O que as pessoas pesquisaram antes de clicar no anúncio. Marque o que gasta e não vende e
+              bloqueie em lote — sem abrir o Google Ads. A lander (Final URL) não muda.
             </p>
           }
           actions={
@@ -183,7 +185,7 @@ export function DpilotGoogleSearchTermsHubPage() {
                 size="sm"
                 onClick={() => setWasteOnly((v) => !v)}
               >
-                Só desperdício
+                Só o que gasta mal
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -204,7 +206,7 @@ export function DpilotGoogleSearchTermsHubPage() {
         </Card>
         <Card className="border-amber-500/25 bg-amber-500/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Candidatos a negativa</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Gastam e quase não vendem</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold tracking-tight text-amber-800 dark:text-amber-200">
@@ -222,7 +224,7 @@ export function DpilotGoogleSearchTermsHubPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Search publicadas</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Campanhas no ar</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold tracking-tight">{totals?.published_campaigns ?? "—"}</p>
@@ -239,10 +241,10 @@ export function DpilotGoogleSearchTermsHubPage() {
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <CardTitle className="text-base">Negar em lote</CardTitle>
+              <CardTitle className="text-base">Bloquear termos seleccionados</CardTitle>
               <CardDescription>
-                Match type aplicado a todos os seleccionados. Revise candidatos — testes novos podem ter
-                conversões atrasadas.
+                Escolha o modo de bloqueio e confirme. Em campanhas novas, espere um pouco — a venda pode
+                chegar atrasada.
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -250,13 +252,13 @@ export function DpilotGoogleSearchTermsHubPage() {
                 value={matchType}
                 onValueChange={(v) => setMatchType(v as "exact" | "phrase" | "broad")}
               >
-                <SelectTrigger className="w-[140px]" aria-label="Tipo de correspondência">
+                <SelectTrigger className="w-[200px]" aria-label="Modo de bloqueio">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="phrase">Frase</SelectItem>
-                  <SelectItem value="exact">Exacta</SelectItem>
-                  <SelectItem value="broad">Amplia</SelectItem>
+                  <SelectItem value="phrase">Frase (recomendado)</SelectItem>
+                  <SelectItem value="exact">Só este termo exacto</SelectItem>
+                  <SelectItem value="broad">Parecido (mais largo)</SelectItem>
                 </SelectContent>
               </Select>
               {waste.length > 0 ? (
@@ -266,12 +268,12 @@ export function DpilotGoogleSearchTermsHubPage() {
                   size="sm"
                   onClick={() => setSelected(new Set(waste.map(rowKey)))}
                 >
-                  Seleccionar desperdício ({waste.length})
+                  Marcar os que gastam mal ({waste.length})
                 </Button>
               ) : null}
               <Button type="button" size="sm" disabled={busy || selected.size === 0} onClick={() => void negateSelected()}>
                 {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Ban className="mr-1.5 h-4 w-4" />}
-                Negar ({selected.size})
+                Bloquear ({selected.size})
               </Button>
             </div>
           </div>
@@ -279,11 +281,11 @@ export function DpilotGoogleSearchTermsHubPage() {
         <CardContent className="space-y-3">
           {note ? (
             <Alert>
-              <AlertTitle className="text-sm">Sem dados de rede ainda</AlertTitle>
+              <AlertTitle className="text-sm">Ainda sem termos da Google</AlertTitle>
               <AlertDescription className="text-xs space-y-2">
                 <p>{note}</p>
                 <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                  <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Ir a Campanhas & importar</Link>
+                  <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Ir a Campanhas e importar</Link>
                 </Button>
               </AlertDescription>
             </Alert>
@@ -300,8 +302,8 @@ export function DpilotGoogleSearchTermsHubPage() {
             <Skeleton className="h-48 w-full" />
           ) : terms.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Sem termos neste período
-              {wasteOnly ? " com o filtro de desperdício" : ""}.
+              Sem pesquisas neste período
+              {wasteOnly ? " no filtro «só o que gasta mal»" : ""}.
             </p>
           ) : (
             <div className="overflow-x-auto rounded-lg border">
@@ -309,12 +311,12 @@ export function DpilotGoogleSearchTermsHubPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10" />
-                    <TableHead>Termo</TableHead>
+                    <TableHead>O que pesquisaram</TableHead>
                     <TableHead>Campanha</TableHead>
-                    <TableHead>Impr.</TableHead>
+                    <TableHead>Vezes visto</TableHead>
                     <TableHead>Cliques</TableHead>
-                    <TableHead>Custo</TableHead>
-                    <TableHead>Conv.</TableHead>
+                    <TableHead>Gasto</TableHead>
+                    <TableHead>Vendas</TableHead>
                     <TableHead>Estado</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -349,14 +351,14 @@ export function DpilotGoogleSearchTermsHubPage() {
                         <TableCell>
                           {t.already_negative ? (
                             <Badge variant="secondary" className="font-normal">
-                              Já negativa
+                              Já bloqueado
                             </Badge>
                           ) : t.waste_candidate ? (
                             <Badge
                               variant="outline"
                               className="border-amber-500/50 font-normal text-amber-800 dark:text-amber-200"
                             >
-                              Desperdício?
+                              Gasta mal?
                             </Badge>
                           ) : (
                             <span className="text-xs text-muted-foreground">{t.status || "—"}</span>

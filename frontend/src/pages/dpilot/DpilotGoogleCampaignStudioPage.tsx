@@ -948,9 +948,9 @@ export function DpilotGoogleCampaignStudioPage() {
         <Alert variant="default" className="border-neutral-200 bg-neutral-50/80 dark:border-border dark:bg-muted/25">
           <AlertTitle className="text-sm">{t("pages.dpilot.google.studio.studioTitle")}</AlertTitle>
           <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
-            Operação Search do afiliado neste ecrã: pausar/ativar, orçamento, RSA, keywords, negativas e termos de
-            pesquisa (separador Insights). Públicos avançados e leilões por dispositivo raros no dia a dia afiliado —
-            use a consola Google só nesses casos pontuais.
+            Aqui gere o dia a dia da Search: pausar/ativar, orçamento, anúncios, palavras-chave, bloquear termos e
+            ver o que as pessoas pesquisaram. Só precisa do Google Ads para casos raros (orçamento partilhado,
+            ajuste fino de dispositivo ou localização depois de publicar).
           </AlertDescription>
         </Alert>
 
@@ -2441,8 +2441,8 @@ export function DpilotGoogleCampaignStudioPage() {
                 <CardHeader>
                   <CardTitle className="text-base">Termos de pesquisa</CardTitle>
                   <CardDescription>
-                    Desperdício e negativas sem sair da Dclickora. Auction insights avançados e horários raros no fluxo
-                    afiliado ficam na consola Google quando necessário.
+                    Corte o que gasta mal sem sair da Dclickora. Relatórios avançados de leilão ou horários raros
+                    ficam no Google Ads só se precisar.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

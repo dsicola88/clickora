@@ -65,9 +65,8 @@ export function DpilotGoogleNetworkBanner({ projectId }: { projectId: string }) 
       <AlertDescription className="space-y-3 text-amber-950/90">
         <p className="text-sm leading-relaxed">{detail}</p>
         <p className="text-xs text-amber-900/70">
-          «Na Google» lista só campanhas importadas (com ID da rede). TonicGreens e similares sem ID são «Só neste
-          projecto». Confirme em Integrações o mesmo customer ID de ads.google.com (ex. 160-828-0409) e use
-          «Re-sincronizar e importar».
+          «Na Google» = campanhas já trazidas da conta. «Só neste projecto» = rascunhos locais, ainda não na rede.
+          Em Integrações confirme o mesmo número de conta dos anúncios e use «Re-sincronizar e importar».
         </p>
         <div className="flex flex-wrap gap-2">
           {needsReauth ? (

@@ -4,12 +4,12 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useParams } from "react-router-dom";
 import {
+  Ban,
   Bot,
   Crosshair,
   FileText,
   LayoutDashboard,
   LayoutGrid,
-  MapPin,
   Megaphone,
   Search,
   Settings2,
@@ -87,7 +87,7 @@ export function DpilotGoogleCampaignManagerLayout() {
     { to: googlePath(base, "grupos"), label: "Grupos de anúncios", icon: LayoutGrid, end: false },
     { to: googlePath(base, "anuncios"), label: "Anúncios", icon: Type, end: false },
     { to: googlePath(base, "palavras-chave"), label: "Palavras-chave", icon: Search, end: false },
-    { to: googlePath(base, "termos-pesquisa"), label: "Localizações / termos", icon: MapPin, end: false },
+    { to: googlePath(base, "termos-pesquisa"), label: "Termos de pesquisa", icon: Ban, end: false },
     { to: googlePath(base, "relatorios"), label: "Relatórios", icon: FileText, end: false },
     { to: googlePath(base, ""), label: "Configurações", icon: Settings2, end: true },
   ] as const;

@@ -243,10 +243,10 @@ export function DpilotGoogleOverviewPage() {
                 "Cliques Google → Clickora OK",
                 `${funnelRiskCamps} campanha(s) com fuga de cliques`,
               )}
-              {check(
+                {check(
                 rsaCritical === 0,
-                "RSA sem reprovações",
-                `${rsaCritical} campanha(s) com RSA DISAPPROVED`,
+                "Anúncios sem reprovações",
+                `${rsaCritical} campanha(s) com anúncio reprovado na Google`,
               )}
               {check(pendingCr === 0, "Sem aprovações pendentes", `${pendingCr} aprovação(ões) à espera`)}
             </ul>
@@ -461,9 +461,9 @@ export function DpilotGoogleCampaignsManagerPage() {
   const { projectId, reload, overview, isConnConnected } = useDpilotPaid();
   const [preset, setPreset] = useState("last_7");
   const [q, setQ] = useState("");
-  const [st, setSt] = useState<"on_google" | "local_drafts" | "excluding_archived" | "live" | "paused">(
-    "on_google",
-  );
+  const [st, setSt] = useState<
+    "on_google" | "local_drafts" | "excluding_archived" | "live" | "paused" | "funnel_risk"
+  >("on_google");
   const [linking, setLinking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<
@@ -527,7 +527,10 @@ export function DpilotGoogleCampaignsManagerPage() {
 
   /** Rede falhou: abrir «Só neste projecto» em vez de «Na Google» com IDs não verificados. */
   useEffect(() => {
-    if (localOnlyInventory && (st === "on_google" || st === "live" || st === "paused")) {
+    if (
+      localOnlyInventory &&
+      (st === "on_google" || st === "live" || st === "paused" || st === "funnel_risk")
+    ) {
       setSt("local_drafts");
     }
   }, [localOnlyInventory, st]);
@@ -535,7 +538,10 @@ export function DpilotGoogleCampaignsManagerPage() {
   const filtered = useMemo(() => {
     let xs = rows;
     /** Rede falhou: não listar IDs locais como inventário Google verificado. */
-    if (localOnlyInventory && (st === "on_google" || st === "live" || st === "paused")) {
+    if (
+      localOnlyInventory &&
+      (st === "on_google" || st === "live" || st === "paused" || st === "funnel_risk")
+    ) {
       xs = [];
     } else if (st === "on_google") {
       xs = xs.filter((c) => Boolean(c.external_campaign_id) && c.local_status !== "archived");
@@ -546,6 +552,10 @@ export function DpilotGoogleCampaignsManagerPage() {
       xs = xs.filter((c) => c.local_status === "live" && Boolean(c.external_campaign_id));
     } else if (st === "paused") {
       xs = xs.filter((c) => c.local_status === "paused" && Boolean(c.external_campaign_id));
+    } else if (st === "funnel_risk") {
+      xs = xs.filter(
+        (c) => Boolean(c.external_campaign_id) && c.local_status !== "archived" && c.funnel_risk,
+      );
     }
     const needle = q.trim().toLowerCase();
     if (needle) {
@@ -740,7 +750,8 @@ export function DpilotGoogleCampaignsManagerPage() {
         title="Campanhas"
         description={
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Clique no nome para configurar. Pause, orçamento e duplicar sem abrir o Google Ads.
+            Grelha estilo Ads: impr., cliques, CTR, CPC, custo, conv. e captura Clickora/Google por campanha.
+            Pause, orçamento e duplicar sem abrir a consola.
           </p>
         }
         actions={
@@ -811,8 +822,8 @@ export function DpilotGoogleCampaignsManagerPage() {
           <AlertTitle>Ainda sem campanhas importadas da Google</AlertTitle>
           <AlertDescription className="space-y-3">
             <p className="text-xs leading-relaxed">
-              A vista «Na Google» está vazia. Os rascunhos do projecto estão em «Só neste projecto» — não confundir com
-              ads.google.com.
+              A vista «Na Google» está vazia. Os rascunhos ficam em «Só neste projecto» — ainda não estão na conta
+              de anúncios.
             </p>
             <Button size="sm" disabled={linking} onClick={() => void syncAccount()}>
               {linking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -832,43 +843,71 @@ export function DpilotGoogleCampaignsManagerPage() {
       {(() => {
         const work = rows.filter((c) => c.local_status !== "archived" && Boolean(c.external_campaign_id));
         let clicks = 0;
+        let impressions = 0;
         let cost = 0;
         let conv = 0;
         let value = 0;
         let withM = 0;
+        let gClicks = 0;
+        let tClicks = 0;
+        let withCapture = 0;
         for (const c of work) {
-          if (!c.metrics) continue;
-          withM += 1;
-          clicks += c.metrics.clicks;
-          cost += c.metrics.cost_micros;
-          conv += c.metrics.conversions;
-          value += c.metrics.conversions_value;
+          if (c.metrics) {
+            withM += 1;
+            clicks += c.metrics.clicks;
+            impressions += c.metrics.impressions;
+            cost += c.metrics.cost_micros;
+            conv += c.metrics.conversions;
+            value += c.metrics.conversions_value;
+          }
+          if (c.google_clicks != null && c.google_clicks > 0) {
+            withCapture += 1;
+            gClicks += c.google_clicks;
+            tClicks += c.tracking_clicks ?? 0;
+          }
         }
         const costUsd = cost / 1e6;
         const roas = costUsd > 0 ? value / costUsd : null;
-        const tile = (label: string, val: string) => (
+        const capturePct = withCapture > 0 && gClicks > 0 ? tClicks / gClicks : null;
+        const tile = (label: string, val: string, hint?: string) => (
           <Card key={label} className="border-border/70 shadow-none">
             <CardContent className="px-3 py-2.5">
               <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
               <p className="mt-0.5 text-lg font-semibold tabular-nums">{val}</p>
+              {hint ? <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{hint}</p> : null}
             </CardContent>
           </Card>
         );
         return (
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-            {tile("Na Google", fmtNum(chipCounts.on_google))}
-            {tile("Rascunhos", fmtNum(chipCounts.local_drafts))}
-            {tile("Ativas", fmtNum(chipCounts.live))}
-            {tile("Pausadas", fmtNum(chipCounts.paused))}
-            {tile("Investimento", withM ? formatUsdFromMicros(cost) : "—")}
-            {tile("Cliques", withM ? fmtNum(clicks) : "—")}
-            {tile("Conversões", withM ? fmtNum(conv, 1) : "—")}
-            {tile(
-              "Receita · ROAS",
-              withM && (value > 0 || roas != null)
-                ? `${value > 0 ? value.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }) : "—"} · ${roas != null ? roas.toFixed(2) : "—"}`
-                : "—",
-            )}
+          <div className="mt-4 space-y-1.5">
+            <p className="text-[11px] text-muted-foreground">
+              KPIs = soma das campanhas <span className="font-medium text-foreground/80">importadas</span> no período
+              (não o total da conta se faltar importação).
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9">
+              {tile("Na Google", fmtNum(chipCounts.on_google))}
+              {tile("Rascunhos", fmtNum(chipCounts.local_drafts))}
+              {tile("Ativas", fmtNum(chipCounts.live))}
+              {tile("Impr.", withM ? fmtNum(impressions) : "—")}
+              {tile("Investimento", withM ? formatUsdFromMicros(cost) : "—")}
+              {tile("Cliques", withM ? fmtNum(clicks) : "—")}
+              {tile("Conversões", withM ? fmtNum(conv, 1) : "—")}
+              {tile(
+                "Receita · ROAS",
+                withM && (value > 0 || roas != null)
+                  ? `${value > 0 ? value.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }) : "—"} · ${roas != null ? roas.toFixed(2) : "—"}`
+                  : "—",
+              )}
+              {tile(
+                "Captura",
+                capturePct != null ? `${(capturePct * 100).toFixed(0)}%` : "—",
+                capturePct != null
+                  ? `Clickora ${fmtNum(tClicks)} / Google ${fmtNum(gClicks)}`
+                  : funnelRiskCount > 0
+                    ? `${funnelRiskCount} com risco`
+                    : undefined,
+              )}
+            </div>
           </div>
         );
       })()}
@@ -906,7 +945,7 @@ export function DpilotGoogleCampaignsManagerPage() {
                         toast.message("Nenhuma Final URL precisava de limpeza automática.");
                       } else {
                         toast.success(
-                          `Final URLs limpas: ${data.repaired_count} RSA(s). ValueTrack deve ficar no sufixo em ads.google.com.`,
+                          `Final URLs limpas: ${data.repaired_count} anúncio(s). Se usar parâmetros dinâmicos, ponha-os no sufixo da URL no Google Ads.`,
                         );
                       }
                       await load();
@@ -945,6 +984,9 @@ export function DpilotGoogleCampaignsManagerPage() {
                 { id: "local_drafts" as const, label: `Só neste projecto ${chipCounts.local_drafts}` },
                 { id: "live" as const, label: `Ativas ${chipCounts.live}` },
                 { id: "paused" as const, label: `Pausadas ${chipCounts.paused}` },
+                ...(funnelRiskCount > 0
+                  ? [{ id: "funnel_risk" as const, label: `Risco funil ${funnelRiskCount}` }]
+                  : []),
               ] as const
             ).map((chip) => (
               <button
@@ -954,8 +996,12 @@ export function DpilotGoogleCampaignsManagerPage() {
                 className={cn(
                   "rounded-full px-3 py-1 text-xs font-medium transition",
                   st === chip.id
-                    ? "bg-[#1a73e8] text-white"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+                    ? chip.id === "funnel_risk"
+                      ? "bg-destructive text-destructive-foreground"
+                      : "bg-[#1a73e8] text-white"
+                    : chip.id === "funnel_risk"
+                      ? "bg-destructive/10 text-destructive hover:bg-destructive/15"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
                 )}
               >
                 {chip.label}
@@ -982,11 +1028,13 @@ export function DpilotGoogleCampaignsManagerPage() {
               <p className="text-sm text-muted-foreground">
                 {!paidConnected
                   ? "Sincronize a conta para listar campanhas."
-                  : st === "on_google" || st === "live" || st === "paused"
-                    ? "Nenhuma campanha da conta Google neste filtro. Importe com «Re-sincronizar e importar» — os rascunhos locais estão em «Só neste projecto»."
-                    : st === "local_drafts"
-                      ? "Sem rascunhos locais neste projecto."
-                      : "Nenhuma campanha neste filtro."}
+                  : st === "funnel_risk"
+                    ? "Nenhuma campanha com risco de captura neste período."
+                    : st === "on_google" || st === "live" || st === "paused"
+                      ? "Nenhuma campanha da conta Google neste filtro. Importe com «Re-sincronizar e importar» — os rascunhos locais estão em «Só neste projecto»."
+                      : st === "local_drafts"
+                        ? "Sem rascunhos locais neste projecto."
+                        : "Nenhuma campanha neste filtro."}
               </p>
               {paidConnected && (st === "on_google" || st === "live") && chipCounts.on_google === 0 ? (
                 <Button size="sm" disabled={linking} onClick={() => void syncAccount()}>
@@ -1002,12 +1050,15 @@ export function DpilotGoogleCampaignsManagerPage() {
                   <TableRow>
                     <TableHead className="w-14">Ativo</TableHead>
                     <TableHead>Campanha</TableHead>
-                    <TableHead>Estratégia</TableHead>
-                    <TableHead>Orçamento/dia</TableHead>
-                    <TableHead>CPA</TableHead>
-                    <TableHead>Custo</TableHead>
-                    <TableHead>Conv.</TableHead>
+                    <TableHead className="text-right">Impr.</TableHead>
+                    <TableHead className="text-right">Cliques</TableHead>
+                    <TableHead className="text-right">CTR</TableHead>
+                    <TableHead className="text-right">CPC</TableHead>
+                    <TableHead className="text-right">Custo</TableHead>
+                    <TableHead className="text-right">Conv.</TableHead>
+                    <TableHead className="text-right">CPA</TableHead>
                     <TableHead>Captura</TableHead>
+                    <TableHead className="text-right">Orç./dia</TableHead>
                     <TableHead className="text-right">Acções</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1016,9 +1067,17 @@ export function DpilotGoogleCampaignsManagerPage() {
                     const m = c.metrics;
                     const busy = busyId === c.id;
                     const urlAudit = urlAuditById.get(c.id);
-                    const canToggle = Boolean(c.external_campaign_id) && (c.local_status === "live" || c.local_status === "paused");
+                    const canToggle =
+                      Boolean(c.external_campaign_id) &&
+                      (c.local_status === "live" || c.local_status === "paused");
+                    const captureTitle =
+                      c.google_clicks != null
+                        ? `Clickora ${fmtNum(c.tracking_clicks)} / Google ${fmtNum(c.google_clicks)}${
+                            c.click_delta != null ? ` · Δ ${c.click_delta}` : ""
+                          }`
+                        : "Sem cliques Google no período";
                     return (
-                      <TableRow key={c.id}>
+                      <TableRow key={c.id} className={c.funnel_risk ? "bg-destructive/[0.03]" : undefined}>
                         <TableCell>
                           {canToggle ? (
                             <Switch
@@ -1035,7 +1094,7 @@ export function DpilotGoogleCampaignsManagerPage() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="max-w-[18rem]">
+                        <TableCell className="max-w-[16rem]">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <Link
                               to={`/tracking/dpilot/p/${projectId}/campanhas/${c.id}/google`}
@@ -1049,19 +1108,77 @@ export function DpilotGoogleCampaignsManagerPage() {
                               </Badge>
                             ) : null}
                           </div>
+                          {c.bidding_strategy ? (
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">{c.bidding_strategy}</p>
+                          ) : null}
                           {urlAudit && urlAudit.severity !== "ok" ? (
-                            <p className="mt-0.5 text-[10px] text-amber-800 dark:text-amber-200">
-                              Final URL: {urlAudit.severity === "critical" ? "crítica" : "aviso"}
+                            <p
+                              className="mt-0.5 line-clamp-2 text-[10px] text-amber-800 dark:text-amber-200"
+                              title={[
+                                ...(urlAudit.issue_labels ?? []),
+                                urlAudit.sample_url ? `URL: ${urlAudit.sample_url}` : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            >
+                              Final URL {urlAudit.severity === "critical" ? "crítica" : "aviso"}
+                              {urlAudit.issue_labels?.[0] ? ` · ${urlAudit.issue_labels[0]}` : ""}
                             </p>
                           ) : null}
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {c.bidding_strategy || "—"}
+                        <TableCell className="text-right tabular-nums">
+                          {m ? fmtNum(m.impressions) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {m ? fmtNum(m.clicks) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {m ? fmtPct(m.ctr) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {m ? formatUsdFromMicros(m.average_cpc_micros) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {m ? formatUsdFromMicros(m.cost_micros) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {m ? fmtNum(m.conversions, 1) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {m ? formatUsdFromMicros(m.cost_per_conversion_micros) : "—"}
                         </TableCell>
                         <TableCell>
+                          {c.funnel_risk ? (
+                            <div title={captureTitle}>
+                              <Badge
+                                variant="outline"
+                                className="border-destructive/50 font-normal text-destructive"
+                              >
+                                {c.click_capture_ratio != null
+                                  ? `${(c.click_capture_ratio * 100).toFixed(0)}%`
+                                  : "Risco"}
+                              </Badge>
+                              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                                {fmtNum(c.tracking_clicks)}/{fmtNum(c.google_clicks)}
+                              </p>
+                            </div>
+                          ) : c.click_capture_ratio != null ? (
+                            <div title={captureTitle}>
+                              <span className="text-xs tabular-nums text-muted-foreground">
+                                {(c.click_capture_ratio * 100).toFixed(0)}%
+                              </span>
+                              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                                {fmtNum(c.tracking_clicks)}/{fmtNum(c.google_clicks)}
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
                           <button
                             type="button"
-                            className="text-left hover:underline disabled:no-underline"
+                            className="text-right hover:underline disabled:no-underline"
                             disabled={busy || !c.external_campaign_id || c.budget_editable === false}
                             title={
                               c.budget_editable === false
@@ -1075,39 +1192,17 @@ export function DpilotGoogleCampaignsManagerPage() {
                               })
                             }
                           >
-                            {c.daily_budget_micros != null ? formatUsdFromMicros(c.daily_budget_micros) : "—"}
+                            <span className="tabular-nums">
+                              {c.daily_budget_micros != null
+                                ? formatUsdFromMicros(c.daily_budget_micros)
+                                : "—"}
+                            </span>
                             {c.budget_shared ? (
                               <span className="mt-0.5 block text-[10px] text-muted-foreground">
                                 Partilhado ({c.budget_reference_count})
                               </span>
                             ) : null}
                           </button>
-                        </TableCell>
-                        <TableCell>{m ? formatUsdFromMicros(m.cost_per_conversion_micros) : "—"}</TableCell>
-                        <TableCell>{m ? formatUsdFromMicros(m.cost_micros) : "—"}</TableCell>
-                        <TableCell>{m ? fmtNum(m.conversions, 1) : "—"}</TableCell>
-                        <TableCell>
-                          {c.funnel_risk ? (
-                            <Badge
-                              variant="outline"
-                              className="border-destructive/50 font-normal text-destructive"
-                              title={
-                                c.click_delta != null
-                                  ? `Δ ${c.click_delta} cliques · captura ${((c.click_capture_ratio ?? 0) * 100).toFixed(0)}%`
-                                  : "Captura baixa"
-                              }
-                            >
-                              {c.click_capture_ratio != null
-                                ? `${(c.click_capture_ratio * 100).toFixed(0)}%`
-                                : "Risco"}
-                            </Badge>
-                          ) : c.click_capture_ratio != null ? (
-                            <span className="text-xs text-muted-foreground">
-                              {(c.click_capture_ratio * 100).toFixed(0)}%
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap justify-end gap-1">
@@ -2255,8 +2350,8 @@ export function DpilotGoogleReportsPage() {
         title="Google Ads · Relatórios"
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            Dispositivo na conta e por campanha Search importada — para decidir bids mobile vs desktop sem a consola
-            Google.
+            Colectivo por dispositivo e breakdown por campanha Search importada — mesmo período que Visão /
+            Campanhas. Use o filtro para isolar uma campanha.
           </p>
         }
         actions={
@@ -2267,7 +2362,7 @@ export function DpilotGoogleReportsPage() {
                 <SelectValue placeholder="Campanha" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas (conta / importadas)</SelectItem>
+                <SelectItem value="all">Todas as importadas</SelectItem>
                 {campaignOptions.map(([id, name]) => (
                   <SelectItem key={id} value={id}>
                     {name}
@@ -2305,9 +2400,9 @@ export function DpilotGoogleReportsPage() {
           <CardTitle className="text-base">Por dispositivo</CardTitle>
           <CardDescription>
             {campaignFilter === "all"
-              ? "Rollup da conta Google no período."
-              : "Rollup da campanha seleccionada."}
-            {scoped ? ` · ${scoped} Search importada(s) no breakdown.` : ""}
+              ? "Colectivo: rollup da conta / campanhas no período."
+              : "Só a campanha seleccionada."}
+            {scoped ? ` · ${scoped} Search importada(s) no breakdown abaixo.` : ""}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -2367,11 +2462,13 @@ export function DpilotGoogleReportsPage() {
                   <TableRow>
                     <TableHead>Campanha</TableHead>
                     <TableHead>Dispositivo</TableHead>
-                    <TableHead>Cliques</TableHead>
-                    <TableHead>Custo</TableHead>
-                    <TableHead>Conv.</TableHead>
-                    <TableHead>CPA</TableHead>
-                    <TableHead>ROAS</TableHead>
+                    <TableHead className="text-right">Impr.</TableHead>
+                    <TableHead className="text-right">Cliques</TableHead>
+                    <TableHead className="text-right">CTR</TableHead>
+                    <TableHead className="text-right">Custo</TableHead>
+                    <TableHead className="text-right">Conv.</TableHead>
+                    <TableHead className="text-right">CPA</TableHead>
+                    <TableHead className="text-right">ROAS</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -2386,11 +2483,19 @@ export function DpilotGoogleReportsPage() {
                         </Link>
                       </TableCell>
                       <TableCell className="text-xs">{r.device.replace(/_/g, " ")}</TableCell>
-                      <TableCell>{fmtNum(r.metrics.clicks)}</TableCell>
-                      <TableCell>{formatUsdFromMicros(r.metrics.cost_micros)}</TableCell>
-                      <TableCell>{fmtNum(r.metrics.conversions, 1)}</TableCell>
-                      <TableCell>{formatUsdFromMicros(r.metrics.cost_per_conversion_micros)}</TableCell>
-                      <TableCell>{fmtNum(r.metrics.roas, 2)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtNum(r.metrics.impressions)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtNum(r.metrics.clicks)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtPct(r.metrics.ctr)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatUsdFromMicros(r.metrics.cost_micros)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {fmtNum(r.metrics.conversions, 1)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatUsdFromMicros(r.metrics.cost_per_conversion_micros)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtNum(r.metrics.roas, 2)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

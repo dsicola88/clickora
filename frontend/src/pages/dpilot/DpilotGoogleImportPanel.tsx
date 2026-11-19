@@ -79,7 +79,7 @@ export function DpilotGoogleImportPanel({
       !window.confirm(
         refresh
           ? `Re-sincronizar estrutura de ${ids.length} campanha(s)? Substitui grupos/keywords/anúncios locais pelos da Google.`
-          : `Importar ${ids.length} campanha(s) Search para a Dclickora?\n\nPoderá gerir, pausar, orçamento e termos sem abrir ads.google.com.`,
+          : `Trazer ${ids.length} campanha(s) de pesquisa para a Dclickora?\n\nDepois gere pausas, orçamento e termos aqui — sem abrir o Google Ads.`,
       )
     ) {
       return;

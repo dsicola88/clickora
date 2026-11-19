@@ -186,7 +186,7 @@ export async function fetchGoogleAdsProjectSearchTerms(
       }>,
       totals: { rows: 0, waste: 0, campaigns_with_terms: 0, published_campaigns: 0 },
       source: "local_only" as const,
-      note: "Nenhuma campanha Google publicada neste projecto. Publique ou importe Search primeiro.",
+      note: "Ainda não há campanhas Google no ar neste projecto. Publique ou importe uma campanha de pesquisa primeiro.",
     };
   }
 
