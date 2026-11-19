@@ -94,7 +94,8 @@ async function earlyTrackRateLimit(
   const ip = extractClientIp(req);
   if (await consumeTrackRateLimitAsync(ip)) return false;
   if (opts?.softForOfferHop) {
-    console.warn("[track] rate_limit soft — a continuar hop de oferta", { ip });
+    /** info: CGNAT Ads pode disparar isto com frequência — não floodar warn. */
+    console.info("[track] rate_limit soft — a continuar hop de oferta", { ip });
     return false;
   }
   res.setHeader("Retry-After", "60");
@@ -661,8 +662,6 @@ export const trackController = {
       msclkid: adIds.msclkid,
       fbclid: adIds.fbclid,
       ttclid: adIds.ttclid,
-      gad_source: typeof gad_source === "string" ? gad_source : undefined,
-      gad_campaignid: typeof gad_campaignid === "string" ? gad_campaignid : undefined,
       utm_source: utm_source ?? source,
       utm_medium: medium,
       utm_campaign: campaign,
@@ -930,8 +929,6 @@ export const trackController = {
       msclkid,
       fbclid,
       ttclid,
-      gad_source: typeof rotGadSource === "string" ? rotGadSource : undefined,
-      gad_campaignid: typeof rotGadCampaignId === "string" ? rotGadCampaignId : undefined,
       utm_source,
       utm_medium: medium,
       utm_campaign: campaign,
@@ -1676,6 +1673,8 @@ export const trackController = {
    * Ex.: GET /track/debug/ads-flow/:presellId?gad_source=1&gclid=teste_google_123&dry_run=1
    */
   async debugAdsFlow(req: Request, res: Response) {
+    if (!req.user?.userId) return res.status(401).json({ error: "Não autenticado" });
+    const userId = billingUserId(req);
     const presellId = req.params.presellId;
     if (!z.string().uuid().safeParse(presellId).success) {
       return res.status(400).json({ error: "presellId inválido (UUID)" });
@@ -1689,8 +1688,8 @@ export const trackController = {
       });
     }
     const q = parsed.data;
-    const page = await systemPrisma.presellPage.findUnique({
-      where: { id: presellId },
+    const page = await systemPrisma.presellPage.findFirst({
+      where: { id: presellId, userId },
       select: {
         id: true,
         title: true,
@@ -1733,8 +1732,6 @@ export const trackController = {
     const landed = toCandidate
       ? forwardAdQueryToUrl(toCandidate, {
           ...adIds,
-          gad_source: gadSource,
-          gad_campaignid: gadCampaignId,
           utm_source: q.utm_source ?? q.source,
           utm_medium: q.utm_medium ?? q.medium,
           utm_campaign: q.utm_campaign ?? q.campaign,

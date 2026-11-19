@@ -11,8 +11,16 @@ trackRouter.get("/rot/:rotatorId", trackController.rotatorRedirect);
 trackRouter.get("/rot/:rotatorId/*", trackController.rotatorRedirect);
 trackRouter.get("/r/:presellId", trackController.redirect);
 trackRouter.get("/r/:presellId/*", trackController.redirect);
-/** Debug Google Ads → hop afiliado (dry-run; não grava clique). */
-trackRouter.get("/debug/ads-flow/:presellId", trackController.debugAdsFlow);
+/**
+ * Debug Google Ads → hop afiliado (dry-run; não grava clique).
+ * Autenticado: evita vazar hoplink / URL live a anónimos.
+ */
+trackRouter.get(
+  "/debug/ads-flow/:presellId",
+  authenticate,
+  tenantIsolation,
+  trackController.debugAdsFlow,
+);
 /** Destino cacheado para Cloudflare Worker (edge path). */
 trackRouter.get("/edge/dest/:presellId", trackController.getEdgeDest);
 trackRouter.get("/pixel/:presellId.gif", trackController.pixel);

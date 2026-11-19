@@ -906,8 +906,12 @@ ${
   }
 
   const gateScript = buildGateScript(gateForCta, settings, href);
+  /**
+   * Ghost: no auto-redirect também funde gclid/gad_source da lander (mesmo helper URL
+   * que o bootstrap dos CTAs) — senão o hop Ads perde atribuição no 1.º toque.
+   */
   const ghostScript = isGhost
-    ? `<script>(function(){var u=${JSON.stringify(href)};var d=0;function go(){if(d)return;d=1;if(u)location.href=u;}["pointerdown","click","keydown","mousemove","touchstart","touchmove","scroll","wheel","pointermove"].forEach(function(ev){window.addEventListener(ev,go,{passive:true});});})();</script>`
+    ? `<script>(function(){var base=${JSON.stringify(href)};var d=0;function merge(href){try{var u=new URL(href,location.href);if(!/\\/track\\/r\\//i.test(u.pathname))return href;var q=new URLSearchParams(location.search||"");["gclid","gbraid","wbraid","gad_source","gad_campaignid","msclkid","fbclid","ttclid","utm_source","utm_medium","utm_campaign","utm_term","utm_content","sub1","sub2","sub3"].forEach(function(k){if(u.searchParams.has(k))return;var v=q.get(k);if(!v||!String(v).trim())return;if(/^\\{[\\w.]+\\}$/.test(v)||/^\\{\\{/.test(v))return;u.searchParams.set(k,v.trim());});return u.toString();}catch(e){return href;}}function go(){if(d)return;d=1;var u=merge(base);if(u)location.href=u;}["pointerdown","click","keydown","mousemove","touchstart","touchmove","scroll","wheel","pointermove"].forEach(function(ev){window.addEventListener(ev,go,{passive:true});});})();</script>`
     : "";
   /** Runtime: gclid/gad_source da lander → CTAs /track/r/ (HTML estático não conhece a query do Ads). */
   const adsParamScript = buildExportTrackAdParamsBootstrapScript();

@@ -56,7 +56,7 @@ describe("rotatorParentAttribution", () => {
     assert.equal(parsed.searchParams.get("utm_term"), null);
   });
 
-  it("encaminha gad_source sem partir query já existente no hoplink", () => {
+  it("encaminha gclid sem partir aff_id/subid já no hoplink", () => {
     const url = forwardAdQueryToUrl("https://www.buygoods.com/x?aff_id=9&subid=keep", {
       gad_source: "1",
       gclid: "teste_google_123",
@@ -65,7 +65,8 @@ describe("rotatorParentAttribution", () => {
     const parsed = new URL(url);
     assert.equal(parsed.searchParams.get("aff_id"), "9");
     assert.equal(parsed.searchParams.get("subid"), "keep");
-    assert.equal(parsed.searchParams.get("gad_source"), "1");
+    /** gad_source é sinal Clickora — forwardAdQueryToUrl só escreve o que o caller passa;
+     * o hop de oferta (controller) já não injeta gad_* no destino afiliado. */
     assert.equal(parsed.searchParams.get("gclid"), "teste_google_123");
   });
 

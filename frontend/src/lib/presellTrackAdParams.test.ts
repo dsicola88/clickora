@@ -40,6 +40,20 @@ describe("mergeLandingAdParamsIntoTrackHref", () => {
     expect(u.searchParams.get("gclid")).toBeNull();
     expect(u.searchParams.get("gad_source")).toBe("1");
   });
+
+  it("não altera hrefs que não são /track/r/", () => {
+    const offer = "https://www.buygoods.com/x?aff_id=1";
+    expect(mergeLandingAdParamsIntoTrackHref(offer, "gclid=abc")).toBe(offer);
+  });
+
+  it("preserva to= com query de afiliado intacta", () => {
+    const to = encodeURIComponent("https://www.digistore24.com/redir/1/2/?cid=keep");
+    const track = `https://api.example/track/r/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee?to=${to}`;
+    const out = mergeLandingAdParamsIntoTrackHref(track, "gclid=Cj0&gad_source=1");
+    const u = new URL(out);
+    expect(u.searchParams.get("to")).toBe("https://www.digistore24.com/redir/1/2/?cid=keep");
+    expect(u.searchParams.get("gclid")).toBe("Cj0");
+  });
 });
 
 describe("buildExportTrackAdParamsBootstrapScript", () => {

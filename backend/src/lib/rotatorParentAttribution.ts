@@ -8,11 +8,14 @@ import { isUnreplacedAdMacro } from "./adUrlMacros";
 /** Identificadores que a API de conversões do Google / Bing / Meta / TikTok exige no clique da venda. */
 export const AD_CLICK_QUERY_KEYS = ["gclid", "gbraid", "wbraid", "msclkid", "fbclid", "ttclid"] as const;
 
-/** Sinais Google Ads (auto-tag + Privacy Sandbox) + UTMs a encaminhar ao hoplink. */
+/**
+ * Params a copiar para o hoplink da rede.
+ * gclid/wbraid/… + UTMs — úteis a atribuição.
+ * gad_source/gad_campaignid ficam só no evento Clickora (/track/r/ metadata),
+ * não no destino BuyGoods/Digistore/MaxWeb (evita query estranha em redes picky).
+ */
 export const FORWARD_AD_QUERY_KEYS = [
   ...AD_CLICK_QUERY_KEYS,
-  "gad_source",
-  "gad_campaignid",
   "utm_source",
   "utm_medium",
   "utm_campaign",

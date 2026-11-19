@@ -103,6 +103,17 @@ export async function enforceTrackingRules(args: {
 
   const ipKey = ipKeyForLog;
 
+  /**
+   * AdsBot / Googlebot / Inspection Tool: ANTES de blacklist/whitelist/bot/proxy.
+   * Se o IP do crawler estiver na blacklist (auto ou manual), o Google ainda tem de
+   * ver a mesma Final URL / hop que o comprador — senão é cloaking e reprovação.
+   */
+  const adsReviewChannel =
+    channel === "public_page" || channel === "redirect" || channel === "rotator_redirect";
+  if (adsReviewChannel && isProtectedGoogleCrawlerUserAgent(userAgent)) {
+    return { ok: true, ipKey };
+  }
+
   const blacklisted = await systemPrisma.blacklistedIp.findUnique({
     where: { userId_ipAddress: { userId: ownerUserId, ipAddress: ipKey } },
   });
@@ -131,17 +142,6 @@ export async function enforceTrackingRules(args: {
 
   if (!owner) {
     return { ok: false, status: 403, error: "Tracking indisponível", reason: "blacklist" };
-  }
-
-  /**
-   * AdsBot / Googlebot / Inspection Tool: mesma landing e hop que o anúncio.
-   * Whitelist/blacklist/bot/proxy NÃO podem devolver página segura a estes UAs —
-   * senão o Google vê HTML diferente do comprador (reprovação / cloaking).
-   */
-  const adsReviewChannel =
-    channel === "public_page" || channel === "redirect" || channel === "rotator_redirect";
-  if (adsReviewChannel && isProtectedGoogleCrawlerUserAgent(userAgent)) {
-    return { ok: true, ipKey };
   }
 
   const wlCount = owner._count.whitelistedIps;

@@ -38,4 +38,11 @@ describe("trackGuard / Ads crawlers", () => {
     assert.equal(isIntentionalPublicPageCloakReason("whitelist"), true);
     assert.equal(isIntentionalPublicPageCloakReason("bot_blocked"), false);
   });
+
+  it("ordem documentada: crawler protegido deve saltar blacklist (ver enforceTrackingRules)", () => {
+    /** Regressão: se AdsBot cair na blacklist ANTES do bypass, Google vê página segura ≠ Final URL. */
+    const adsBot = "Mozilla/5.0 (compatible; AdsBot-Google; +http://www.google.com/adsbot.html)";
+    assert.equal(isProtectedGoogleCrawlerUserAgent(adsBot), true);
+    assert.equal(isIntentionalPublicPageCloakReason("blacklist"), true);
+  });
 });

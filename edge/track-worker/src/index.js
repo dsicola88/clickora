@@ -49,13 +49,14 @@ const REPLACEABLE_NON_UUID_KEYS = new Set([
   "s1",
 ]);
 
-/** Mesmas chaves que origin `forwardAdQueryToUrl` no hop `/track/r/`. */
+/**
+ * Mesmas chaves que origin `FORWARD_AD_QUERY_KEYS` no hop `/track/r/`.
+ * gad_source fica no POST /track/click (metadata), não no destino afiliado.
+ */
 const FORWARD_AD_KEYS = [
   "gclid",
   "gbraid",
   "wbraid",
-  "gad_source",
-  "gad_campaignid",
   "msclkid",
   "fbclid",
   "ttclid",
