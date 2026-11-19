@@ -334,9 +334,17 @@ export async function resolveReadableGoogleAdsCustomer(
   }
 
   const detail = errors.slice(0, 3).join(" · ") || "sem detalhe da API";
+  const accessibleHint =
+    accessible.length > 0
+      ? ` Contas visíveis neste OAuth: ${accessible.slice(0, 8).join(", ")}${accessible.length > 8 ? "…" : ""}.`
+      : " Este OAuth não vê nenhuma conta Google Ads (autorizou a conta Google errada?).";
+  const targetInAccessible = accessible.includes(clean);
+  const accessHint = targetInAccessible
+    ? " A conta está na lista OAuth mas a leitura GAQL falhou — confira MCC (solo = vazio) e developer token."
+    : ` A conta ${clean} NÃO está nas contas deste OAuth — em Integrações use «Mudar de conta» com o Google que tem acesso a ads.google.com (${clean}), ou altere o customer ID para uma conta visível.`;
   return {
     ok: false,
-    error: `Não foi possível ler a conta ${clean} (solo nem via MCC). ${detail}`,
+    error: `Não foi possível ler a conta ${clean} (solo nem via MCC). ${detail}.${accessibleHint}${accessHint}`,
   };
 }
 

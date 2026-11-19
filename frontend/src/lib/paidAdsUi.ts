@@ -219,7 +219,13 @@ export function friendlyGoogleAdsNetworkError(message: string | null | undefined
     return "Falta o número da conta dos anúncios em Integrações → Google (o ID de ads.google.com). Conta solo: deixe o campo MCC vazio. Conta sob gestor: preencha o MCC.";
   }
   if (/customer_unreadable|não foi possível ler a conta|solo nem via mcc/i.test(m)) {
-    return "Não foi possível ler esta conta na Google Ads API. Conta particular: deixe MCC vazio em Integrações e volte a «Re-sincronizar». Conta sob MCC: indique o login-customer-id do gestor. Confirme também o OAuth («Mudar de conta»).";
+    if (/NÃO está nas contas deste OAuth|não está nas contas deste oauth/i.test(m)) {
+      return "O Google ligado em Integrações não tem acesso a este customer ID. Em «Mudar de conta», autorize a mesma conta Google de ads.google.com (a que vê 160-828-0409), ou troque o número da conta para uma que esse OAuth consiga ler.";
+    }
+    if (/não vê nenhuma conta Google Ads/i.test(m)) {
+      return "O OAuth Google não vê nenhuma conta Ads. Em Integrações → «Mudar de conta», aceite Ads + Data Manager com a conta correcta.";
+    }
+    return "Não foi possível ler esta conta na Google Ads API. Conta particular: MCC vazio. Conta sob gestor: MCC do gestor. Se o OAuth for outra pessoa/Gmail, use «Mudar de conta» com quem gere ads.google.com.";
   }
   if (/invalid\s+argument/i.test(m)) {
     return "A Google rejeitou a leitura (argumento inválido). Conta solo → MCC em branco; conta sob gestor → MCC correcto. Depois «Re-sincronizar e importar». A lista local pode ser só rascunhos do projecto.";
