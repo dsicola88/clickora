@@ -339,6 +339,21 @@ export const paidAdsService = {
     return apiClient.post<{ url: string }>("/paid/oauth/google/start", { projectId });
   },
 
+  /** Reutiliza OAuth de Integrações → Google no projecto Ads Studio (sem 2.º consentimento). */
+  googleLinkFromIntegrations(projectId: string, opts?: { import_campaigns?: boolean }) {
+    return apiClient.post<{
+      ok: true;
+      linked_from: "integrations";
+      customer_id: string;
+      account_name: string | null;
+      login_customer_id: string | null;
+      import: { imported: number; errors: number; remote: number } | null;
+    }>("/paid/oauth/google/from-integrations", {
+      projectId,
+      import_campaigns: opts?.import_campaigns ?? true,
+    });
+  },
+
   metaOAuthStart(projectId: string) {
     return apiClient.post<{ url: string }>("/paid/oauth/meta/start", { projectId });
   },
@@ -429,6 +444,30 @@ export const paidAdsService = {
     }>(`/paid/projects/${projectId}/google-ads/overview${qs}`);
   },
 
+  getGoogleAdsFinalUrlAudit(projectId: string) {
+    return apiClient.get<{
+      ok: true;
+      expected_host: string | null;
+      website_url: string | null;
+      source: string;
+      note: string;
+      totals: { campaigns: number; ok: number; warn: number; critical: number };
+      campaigns: Array<{
+        campaign_id: string;
+        campaign_name: string;
+        local_status: string;
+        external_campaign_id: string | null;
+        ads_checked: number;
+        sample_url: string | null;
+        hosts: string[];
+        multiple_distinct_hosts: boolean;
+        issues: string[];
+        issue_labels: string[];
+        severity: "ok" | "warn" | "critical";
+      }>;
+    }>(`/paid/projects/${projectId}/google-ads/final-url-audit`);
+  },
+
   getGoogleAdsCampaignsMetrics(
     projectId: string,
     opts?: { preset?: string; from?: string; to?: string },
@@ -464,7 +503,16 @@ export const paidAdsService = {
           roas: number;
         } | null;
         metrics_available: boolean;
+        budget_shared: boolean;
+        budget_reference_count: number;
+        budget_editable: boolean;
+        tracking_clicks: number;
+        google_clicks: number | null;
+        click_delta: number | null;
+        click_capture_ratio: number | null;
+        funnel_risk: boolean;
       }>;
+      totals?: { funnel_risk: number; with_google_clicks: number };
     }>(`/paid/projects/${projectId}/google-ads/campaigns-metrics${qs}`);
   },
 
@@ -512,29 +560,37 @@ export const paidAdsService = {
 
   getGoogleAdsDevicePerformance(
     projectId: string,
-    opts?: { preset?: string; from?: string; to?: string },
+    opts?: { preset?: string; from?: string; to?: string; campaign_id?: string },
   ) {
     const q = new URLSearchParams();
     if (opts?.preset) q.set("preset", opts.preset);
     if (opts?.from) q.set("from", opts.from);
     if (opts?.to) q.set("to", opts.to);
+    if (opts?.campaign_id) q.set("campaign_id", opts.campaign_id);
     const qs = q.toString() ? `?${q}` : "";
+    type DeviceMetrics = {
+      impressions: number;
+      clicks: number;
+      cost_micros: number;
+      conversions: number;
+      ctr: number;
+      average_cpc_micros: number;
+      cost_per_conversion_micros: number;
+      roas: number;
+    };
     return apiClient.get<{
       ok: true;
       range: { from: string; to: string };
       source: string;
-      devices: Array<{
+      filter_campaign_id: string | null;
+      campaigns_scoped: number;
+      devices: Array<{ device: string; metrics: DeviceMetrics }>;
+      by_campaign: Array<{
+        campaign_id: string;
+        campaign_name: string;
+        external_campaign_id: string;
         device: string;
-        metrics: {
-          impressions: number;
-          clicks: number;
-          cost_micros: number;
-          conversions: number;
-          ctr: number;
-          average_cpc_micros: number;
-          cost_per_conversion_micros: number;
-          roas: number;
-        };
+        metrics: DeviceMetrics;
       }>;
     }>(`/paid/projects/${projectId}/google-ads/device-performance${qs}`);
   },
@@ -573,6 +629,74 @@ export const paidAdsService = {
       published_request_id?: string;
       warnings: string[];
     }>(`/paid/projects/${projectId}/campaigns/${campaignId}/duplicate-google`, body ?? {});
+  },
+
+  getGoogleAdsProjectSearchTerms(
+    projectId: string,
+    opts?: { preset?: string; from?: string; to?: string; waste_only?: boolean; limit?: number },
+  ) {
+    const q = new URLSearchParams();
+    if (opts?.preset) q.set("preset", opts.preset);
+    if (opts?.from) q.set("from", opts.from);
+    if (opts?.to) q.set("to", opts.to);
+    if (opts?.waste_only) q.set("waste_only", "1");
+    if (opts?.limit) q.set("limit", String(opts.limit));
+    const qs = q.toString() ? `?${q}` : "";
+    return apiClient.get<{
+      ok: true;
+      connected: boolean;
+      connection_error: string | null;
+      range: { from: string; to: string };
+      terms: Array<{
+        campaign_id: string;
+        campaign_name: string;
+        external_campaign_id: string;
+        search_term: string;
+        status: string | null;
+        metrics: {
+          impressions: number;
+          clicks: number;
+          cost_micros: number;
+          conversions: number;
+          ctr: number;
+          average_cpc_micros: number;
+          cost_per_conversion_micros: number;
+          roas: number;
+        };
+        already_negative: boolean;
+        waste_candidate: boolean;
+      }>;
+      totals: {
+        rows: number;
+        waste: number;
+        campaigns_with_terms: number;
+        published_campaigns: number;
+      };
+      source: string;
+      note: string | null;
+    }>(`/paid/projects/${projectId}/google-ads/search-terms${qs}`);
+  },
+
+  negateGoogleAdsSearchTermsBatch(
+    projectId: string,
+    body: {
+      match_type?: "exact" | "phrase" | "broad";
+      items: Array<{ campaign_id: string; terms: string[] }>;
+    },
+  ) {
+    return apiClient.post<{
+      ok: boolean;
+      added: number;
+      failed: number;
+      results: Array<{
+        campaign_id: string;
+        ok: boolean;
+        added?: number;
+        total?: number;
+        error?: string;
+        change_request_id?: string;
+      }>;
+    }>(`/paid/projects/${projectId}/google-ads/search-terms/negate-batch`, body);
   },
 
   getGoogleAdsSearchTerms(
@@ -632,6 +756,9 @@ export const paidAdsService = {
         status: string;
         channel_type: string;
         daily_budget_micros: number | null;
+        budget_shared: boolean;
+        budget_reference_count: number;
+        budget_editable: boolean;
         already_imported: boolean;
         local_campaign_id: string | null;
       }>;
@@ -672,6 +799,32 @@ export const paidAdsService = {
       }>;
       disapproved_count: number;
     }>(`/paid/projects/${projectId}/campaigns/${campaignId}/google-ads/rsa-policy`);
+  },
+
+  getGoogleAdsRsaPolicyAudit(projectId: string) {
+    return apiClient.get<{
+      ok: true;
+      connected: boolean;
+      source: string;
+      note: string | null;
+      totals: {
+        campaigns: number;
+        disapproved_ads: number;
+        limited_ads: number;
+        critical_campaigns: number;
+      };
+      campaigns: Array<{
+        campaign_id: string;
+        campaign_name: string;
+        local_status: string;
+        external_campaign_id: string;
+        ads_checked: number;
+        disapproved_count: number;
+        limited_count: number;
+        topics: string[];
+        severity: "ok" | "warn" | "critical";
+      }>;
+    }>(`/paid/projects/${projectId}/google-ads/rsa-policy-audit`);
   },
 
   getGoogleAdsKeywordMetrics(

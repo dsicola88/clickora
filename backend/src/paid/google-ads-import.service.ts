@@ -4,6 +4,7 @@
  */
 import type { PaidAdsCampaignStatus, PaidAdsEntityStatus, PaidAdsMatchType, Prisma } from "@prisma/client";
 import { runGoogleAdsSearch } from "./google-ads.api";
+import { parseGoogleBudgetShareFromRow } from "./google-ads-budget";
 import {
   GOOGLE_ADS_LOGIN_CUSTOMER_ID,
   resolveGoogleAdsAccess,
@@ -47,6 +48,9 @@ export type RemoteGoogleCampaignSummary = {
   status: string;
   channel_type: string;
   daily_budget_micros: number | null;
+  budget_shared: boolean;
+  budget_reference_count: number;
+  budget_editable: boolean;
   already_imported: boolean;
   local_campaign_id: string | null;
 };
@@ -72,7 +76,9 @@ export async function listRemoteGoogleSearchCampaigns(projectId: string) {
       campaign.name,
       campaign.status,
       campaign.advertising_channel_type,
-      campaign_budget.amount_micros
+      campaign_budget.amount_micros,
+      campaign_budget.explicitly_shared,
+      campaign_budget.reference_count
     FROM campaign
     WHERE campaign.status != 'REMOVED'
       AND campaign.advertising_channel_type = 'SEARCH'
@@ -93,7 +99,7 @@ export async function listRemoteGoogleSearchCampaigns(projectId: string) {
       status?: string;
       advertisingChannelType?: string;
     };
-    const budget = (row.campaignBudget ?? row.campaign_budget ?? {}) as { amountMicros?: string | number };
+    const share = parseGoogleBudgetShareFromRow(row);
     const ext = numId(camp.id);
     if (!ext) continue;
     const localId = byExt.get(ext) ?? null;
@@ -102,7 +108,10 @@ export async function listRemoteGoogleSearchCampaigns(projectId: string) {
       name: String(camp.name ?? `Campaign ${ext}`),
       status: String(camp.status ?? ""),
       channel_type: String(camp.advertisingChannelType ?? "SEARCH"),
-      daily_budget_micros: budget.amountMicros != null ? Number(budget.amountMicros) : null,
+      daily_budget_micros: share.amount_micros,
+      budget_shared: share.explicitly_shared,
+      budget_reference_count: share.reference_count,
+      budget_editable: share.budget_editable,
       already_imported: Boolean(localId),
       local_campaign_id: localId,
     });
@@ -478,6 +487,50 @@ async function pullStructureIntoLocalCampaign(
     }
   }
 
+  // Ad-group negatives (keyword_view com negative = TRUE)
+  const agNegQ = `
+    SELECT
+      ad_group.id,
+      ad_group_criterion.criterion_id,
+      ad_group_criterion.keyword.text,
+      ad_group_criterion.keyword.match_type
+    FROM keyword_view
+    WHERE campaign.id = ${ext}
+      AND ad_group_criterion.negative = TRUE
+      AND ad_group_criterion.status != 'REMOVED'
+    LIMIT 2000
+  `;
+  const agNegS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, agNegQ, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  if (!agNegS.error) {
+    for (const raw of Array.isArray(agNegS.results) ? agNegS.results : []) {
+      const row = raw as Record<string, unknown>;
+      const ag = (row.adGroup ?? row.ad_group ?? {}) as { id?: string };
+      const crit = (row.adGroupCriterion ?? row.ad_group_criterion ?? {}) as {
+        criterionId?: string;
+        keyword?: { text?: string; matchType?: string };
+      };
+      const localAg = adGroupLocalByExt.get(numId(ag.id));
+      if (!localAg) continue;
+      const critId = numId(crit.criterionId);
+      const text = String(crit.keyword?.text ?? "").trim().slice(0, 80);
+      if (!text || !critId) continue;
+      const existing = await prisma.paidAdsAdGroupNegativeKeyword.findFirst({
+        where: { adGroupId: localAg, externalCriterionId: critId },
+      });
+      if (!existing) {
+        await prisma.paidAdsAdGroupNegativeKeyword.create({
+          data: {
+            adGroupId: localAg,
+            text,
+            matchType: mapMatchType(crit.keyword?.matchType),
+            externalCriterionId: critId,
+          },
+        });
+        counts.ad_group_negatives += 1;
+      }
+    }
+  }
+
   return {
     ok: true,
     campaign_id: localId,
@@ -599,5 +652,182 @@ export async function fetchGoogleRsaPolicyStatus(projectId: string, localCampaig
     campaign_name: camp.name,
     ads,
     disapproved_count: ads.filter((a) => a.disapproved).length,
+  };
+}
+
+/**
+ * Política RSA em todas as Search publicadas do projecto (uma GAQL).
+ * Só leitura — não altera anúncios nem a Final URL.
+ */
+export async function fetchGoogleRsaPolicyProjectAudit(projectId: string) {
+  const camps = await prisma.paidAdsCampaign.findMany({
+    where: {
+      projectId,
+      platform: "google_ads",
+      status: { not: "archived" },
+      externalCampaignId: { not: null },
+    },
+    select: { id: true, name: true, externalCampaignId: true, status: true },
+    orderBy: { updatedAt: "desc" },
+    take: 40,
+  });
+
+  const byExt = new Map(
+    camps
+      .map((c) => {
+        const ext = (c.externalCampaignId ?? "").replace(/\D/g, "");
+        return ext ? ([ext, c] as const) : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => Boolean(x)),
+  );
+
+  if (byExt.size === 0) {
+    return {
+      ok: true as const,
+      connected: false,
+      campaigns: [] as Array<{
+        campaign_id: string;
+        campaign_name: string;
+        local_status: string;
+        external_campaign_id: string;
+        ads_checked: number;
+        disapproved_count: number;
+        limited_count: number;
+        topics: string[];
+        severity: "ok" | "warn" | "critical";
+      }>,
+      totals: { campaigns: 0, disapproved_ads: 0, limited_ads: 0, critical_campaigns: 0 },
+      source: "local_only" as const,
+      note: "Nenhuma campanha Google publicada. Publique ou importe Search para auditar RSA.",
+    };
+  }
+
+  const ctx = await resolveGoogleAdsAccess(projectId);
+  if (!ctx.ok) return { ok: false as const, error: ctx.error, code: ctx.code };
+
+  const ids = [...byExt.keys()];
+  const q = `
+    SELECT
+      campaign.id,
+      campaign.name,
+      ad_group_ad.ad.id,
+      ad_group_ad.status,
+      ad_group_ad.policy_summary.approval_status,
+      ad_group_ad.policy_summary.review_status,
+      ad_group_ad.policy_summary.policy_topic_entries
+    FROM ad_group_ad
+    WHERE campaign.id IN (${ids.join(",")})
+      AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'
+      AND ad_group_ad.status != 'REMOVED'
+    LIMIT 500
+  `;
+  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  if (s.error) {
+    return {
+      ok: false as const,
+      error: s.error.message ?? "Falha ao ler política RSA na Google Ads API.",
+      code: "gaql_error",
+    };
+  }
+
+  type Acc = {
+    campaign_id: string;
+    campaign_name: string;
+    local_status: string;
+    external_campaign_id: string;
+    ads_checked: number;
+    disapproved_count: number;
+    limited_count: number;
+    topics: Set<string>;
+  };
+  const acc = new Map<string, Acc>();
+
+  for (const raw of Array.isArray(s.results) ? s.results : []) {
+    const row = raw as Record<string, unknown>;
+    const camp = (row.campaign ?? {}) as { id?: string; name?: string };
+    const ext = numId(camp.id);
+    const local = byExt.get(ext);
+    if (!local) continue;
+    const aga = (row.adGroupAd ?? row.ad_group_ad ?? {}) as {
+      status?: string;
+      policySummary?: {
+        approvalStatus?: string;
+        reviewStatus?: string;
+        policyTopicEntries?: Array<{ topic?: string; type?: string }>;
+      };
+    };
+    const approval = String(aga.policySummary?.approvalStatus ?? "").toUpperCase();
+    const cur =
+      acc.get(local.id) ??
+      ({
+        campaign_id: local.id,
+        campaign_name: local.name || String(camp.name ?? ""),
+        local_status: local.status,
+        external_campaign_id: ext,
+        ads_checked: 0,
+        disapproved_count: 0,
+        limited_count: 0,
+        topics: new Set<string>(),
+      } satisfies Acc);
+    cur.ads_checked += 1;
+    if (approval === "DISAPPROVED") cur.disapproved_count += 1;
+    if (approval === "APPROVED_LIMITED") cur.limited_count += 1;
+    for (const t of aga.policySummary?.policyTopicEntries ?? []) {
+      const label = String(t.topic ?? t.type ?? "").trim();
+      if (label) cur.topics.add(label);
+    }
+    acc.set(local.id, cur);
+  }
+
+  // Campanhas publicadas sem RSA na resposta → aviso
+  for (const [ext, local] of byExt) {
+    if (acc.has(local.id)) continue;
+    acc.set(local.id, {
+      campaign_id: local.id,
+      campaign_name: local.name,
+      local_status: local.status,
+      external_campaign_id: ext,
+      ads_checked: 0,
+      disapproved_count: 0,
+      limited_count: 0,
+      topics: new Set(),
+    });
+  }
+
+  const campaigns = [...acc.values()]
+    .map((c) => {
+      const severity: "ok" | "warn" | "critical" =
+        c.disapproved_count > 0 ? "critical" : c.limited_count > 0 || c.ads_checked === 0 ? "warn" : "ok";
+      return {
+        campaign_id: c.campaign_id,
+        campaign_name: c.campaign_name,
+        local_status: c.local_status,
+        external_campaign_id: c.external_campaign_id,
+        ads_checked: c.ads_checked,
+        disapproved_count: c.disapproved_count,
+        limited_count: c.limited_count,
+        topics: [...c.topics].slice(0, 8),
+        severity,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.disapproved_count - a.disapproved_count ||
+        b.limited_count - a.limited_count ||
+        a.campaign_name.localeCompare(b.campaign_name),
+    );
+
+  return {
+    ok: true as const,
+    connected: true,
+    campaigns,
+    totals: {
+      campaigns: campaigns.length,
+      disapproved_ads: campaigns.reduce((s, c) => s + c.disapproved_count, 0),
+      limited_ads: campaigns.reduce((s, c) => s + c.limited_count, 0),
+      critical_campaigns: campaigns.filter((c) => c.severity === "critical").length,
+    },
+    source: "google_ads_api" as const,
+    note: null as string | null,
   };
 }

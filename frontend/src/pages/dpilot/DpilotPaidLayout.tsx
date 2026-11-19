@@ -1,55 +1,29 @@
-import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useParams } from "react-router-dom";
 import {
   BarChart3,
-  ChevronDown,
   Facebook,
   FileText,
-  LayoutDashboard,
   Megaphone,
   Music2,
   ClipboardList,
-  Link2,
   Shield,
   Users,
   Sparkles,
-  Workflow,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { cn } from "@/lib/utils";
-import { useViewportMinWidth, VIEWPORT_LG_MIN_PX } from "@/hooks/useViewportMinWidth";
 import { useDpilotPaid } from "./DpilotPaidContext";
+import { DpilotGoogleCampaignManagerLayout } from "./DpilotGoogleCampaignManagerLayout";
 
 const navItem =
   "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted/80 hover:text-foreground";
 const navActive = "bg-primary/10 text-foreground font-medium";
-const navSub = "flex items-center gap-2.5 rounded-md py-2 pl-3 pr-2 text-sm text-muted-foreground transition hover:bg-muted/80 hover:text-foreground border-l-2 border-border/70 ml-1.5";
-const navSubActive = "bg-primary/10 text-foreground font-medium";
 
-type PlatKey = "g" | "m" | "t";
-
-function deriveSectionOpen(base: string, pathname: string) {
-  return {
-    g:
-      pathname.startsWith(`${base}/google`) ||
-      pathname.startsWith(`${base}/campanhas`) ||
-      pathname.startsWith(`${base}/campanhas/nova`),
-    m: pathname.startsWith(`${base}/meta`),
-    t: pathname.startsWith(`${base}/tiktok`),
-  };
-}
-
-function googleNavActive(base: string, pathname: string, segment: string) {
-  const path = `${base}/google/${segment}`;
-  if (segment === "campanhas") {
-    return pathname === path || pathname === `${base}/campanhas`;
-  }
-  return pathname === path || pathname.startsWith(`${path}/`);
-}
-
+/**
+ * Ads Studio shell.
+ * Rotas Google (`/google/*` e detalhe de campanha) usam o Campaign Manager.
+ */
 export function DpilotPaidLayout() {
   const location = useLocation();
   const { projectId, changeRequests } = useDpilotPaid();
@@ -57,195 +31,52 @@ export function DpilotPaidLayout() {
   const base = `/tracking/dpilot/p/${projectId || pid}`;
   const pending = changeRequests.filter((c) => c.status === "pending").length;
 
-  const d = deriveSectionOpen(base, location.pathname);
+  const onGoogleManager =
+    location.pathname.startsWith(`${base}/google`) ||
+    /\/campanhas\/[^/]+\/google\/?$/.test(location.pathname);
 
-  /** Quando navega entre rotas, o estado volta ao derivado; o utilizador pode abrir/fechar até mudar de página. */
-  const [manual, setManual] = useState<Partial<Record<PlatKey, boolean>>>({});
+  if (onGoogleManager) {
+    return (
+      <div className="px-2 py-4 lg:px-4">
+        <DpilotGoogleCampaignManagerLayout />
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    setManual({});
-  }, [location.pathname]);
-
-  const og = manual.g ?? d.g;
-  const om = manual.m ?? d.m;
-  const ot = manual.t ?? d.t;
-
-  const persistId = String(projectId || pid || "anon");
-  const lgLayout = useViewportMinWidth(VIEWPORT_LG_MIN_PX);
-
-  const sidebarInner = (
-    <>
-        <div className="mb-4 space-y-1">
-          <p className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Studio de anúncios</p>
-          <p className="px-1 text-[11px] leading-snug text-muted-foreground">
-            Piloto dentro dos seus limites: criação guiada nas três redes. Em modo automático pode publicar sozinho; em modo
-            com confirmação, sempre passa primeiro por «Aprovações».
+  return (
+    <div className="flex flex-col gap-6 px-2 py-4 lg:flex-row lg:px-4">
+      <aside className="w-full shrink-0 lg:w-56">
+        <div className="mb-4 space-y-2 rounded-lg border border-[#1a73e8]/20 bg-gradient-to-br from-[#1a73e8]/10 to-transparent px-3 py-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-[#1a73e8]" aria-hidden />
+            <p className="text-xs font-semibold tracking-wide text-foreground">Ads Studio</p>
+          </div>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            Escolha a rede. Google Ads abre o Campaign Manager.
           </p>
         </div>
         <nav className="flex flex-col gap-1">
-          <NavLink to={`${base}/visao`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>
-            <LayoutDashboard className="h-4 w-4 shrink-0" />
-            Visão geral
+          <NavLink
+            to={`${base}/google/visao`}
+            className={({ isActive }) =>
+              cn(
+                navItem,
+                "font-medium",
+                (isActive || location.pathname.startsWith(`${base}/google`)) && navActive,
+              )
+            }
+          >
+            <BarChart3 className="h-4 w-4 shrink-0 text-[#1a73e8]" />
+            Google Ads
           </NavLink>
-          <NavLink to={`${base}/ligacoes`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>
-            <Link2 className="h-4 w-4 shrink-0" />
-            Ligações (OAuth)
+          <NavLink to={`${base}/meta`} className={({ isActive }) => cn(navItem, isActive && navActive)}>
+            <Facebook className="h-4 w-4 shrink-0 text-indigo-600" />
+            Meta Ads
           </NavLink>
-
-          <Separator className="my-2 opacity-70" />
-
-          <Collapsible open={og} onOpenChange={(next) => setManual((prev) => ({ ...prev, g: next }))}>
-            <CollapsibleTrigger
-              type="button"
-              className={cn(
-                navItem,
-                "w-full justify-between font-medium text-foreground/90",
-                og && "bg-muted/40 text-foreground",
-              )}
-              aria-expanded={og}
-            >
-              <span className="flex items-center gap-2.5">
-                <BarChart3 className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden />
-                Google Ads
-              </span>
-              <ChevronDown
-                className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200", og && "-rotate-180")}
-              />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="data-[state=closed]:animate-none pb-1">
-              <div className="flex flex-col gap-0.5 pt-1">
-                <NavLink
-                  to={`${base}/google/visao`}
-                  className={() => cn(navSub, googleNavActive(base, location.pathname, "visao") && navSubActive)}
-                >
-                  Centro de operações
-                </NavLink>
-                <NavLink to={`${base}/google`} className={({ isActive }) => cn(navSub, isActive && navSubActive)} end>
-                  Conta e ligações
-                </NavLink>
-                <NavLink
-                  to={`${base}/google/campanhas`}
-                  className={() => cn(navSub, googleNavActive(base, location.pathname, "campanhas") && navSubActive)}
-                >
-                  <Workflow className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                  Campanhas & termos
-                </NavLink>
-                <NavLink to={`${base}/campanhas/nova`} className={({ isActive }) => cn(navSub, isActive && navSubActive)} end>
-                  <Sparkles className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                  Nova campanha
-                </NavLink>
-                <NavLink
-                  to={`${base}/google/palavras-chave`}
-                  className={() => cn(navSub, googleNavActive(base, location.pathname, "palavras-chave") && navSubActive)}
-                >
-                  Palavras-chave
-                </NavLink>
-                <NavLink
-                  to={`${base}/google/conversoes`}
-                  className={() => cn(navSub, googleNavActive(base, location.pathname, "conversoes") && navSubActive)}
-                >
-                  Conversões (tracking)
-                </NavLink>
-                <NavLink
-                  to={`${base}/google/recomendacoes`}
-                  className={() => cn(navSub, googleNavActive(base, location.pathname, "recomendacoes") && navSubActive)}
-                >
-                  Recomendações
-                </NavLink>
-                <NavLink
-                  to={`${base}/google/relatorios`}
-                  className={() => cn(navSub, googleNavActive(base, location.pathname, "relatorios") && navSubActive)}
-                >
-                  Relatórios
-                </NavLink>
-                <NavLink
-                  to={`${base}/google/assistente`}
-                  className={() => cn(navSub, googleNavActive(base, location.pathname, "assistente") && navSubActive)}
-                >
-                  Assistente IA
-                </NavLink>
-                <NavLink
-                  to={`${base}/google/historico`}
-                  className={() => cn(navSub, googleNavActive(base, location.pathname, "historico") && navSubActive)}
-                >
-                  Histórico
-                </NavLink>
-                <p className="px-3 pt-1 text-[10px] leading-snug text-muted-foreground">
-                  Grupos/anúncios: estúdio. Motor automático: Auditoria.
-                </p>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-
-          <Collapsible open={om} onOpenChange={(next) => setManual((prev) => ({ ...prev, m: next }))}>
-            <CollapsibleTrigger
-              type="button"
-              className={cn(
-                navItem,
-                "w-full justify-between font-medium text-foreground/90",
-                om && "bg-muted/40 text-foreground",
-              )}
-              aria-expanded={om}
-            >
-              <span className="flex items-center gap-2.5">
-                <Facebook className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" aria-hidden />
-                Meta (FB + IG)
-              </span>
-              <ChevronDown
-                className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200", om && "-rotate-180")}
-              />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="data-[state=closed]:animate-none pb-1">
-              <div className="flex flex-col gap-0.5 pt-1">
-                <NavLink to={`${base}/meta`} className={({ isActive }) => cn(navSub, isActive && navSubActive)} end>
-                  Conta e ligações
-                </NavLink>
-                <NavLink to={`${base}/meta/campanhas`} className={({ isActive }) => cn(navSub, isActive && navSubActive)} end>
-                  <Workflow className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                  Campanhas
-                </NavLink>
-                <NavLink to={`${base}/meta/nova`} className={({ isActive }) => cn(navSub, isActive && navSubActive)} end>
-                  <Sparkles className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                  Nova campanha (assistente)
-                </NavLink>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-
-          <Collapsible open={ot} onOpenChange={(next) => setManual((prev) => ({ ...prev, t: next }))}>
-            <CollapsibleTrigger
-              type="button"
-              className={cn(
-                navItem,
-                "w-full justify-between font-medium text-foreground/90",
-                ot && "bg-muted/40 text-foreground",
-              )}
-              aria-expanded={ot}
-            >
-              <span className="flex items-center gap-2.5">
-                <Music2 className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden />
-                TikTok Ads
-              </span>
-              <ChevronDown
-                className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200", ot && "-rotate-180")}
-              />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="data-[state=closed]:animate-none pb-1">
-              <div className="flex flex-col gap-0.5 pt-1">
-                <NavLink to={`${base}/tiktok`} className={({ isActive }) => cn(navSub, isActive && navSubActive)} end>
-                  Conta e ligações
-                </NavLink>
-                <NavLink to={`${base}/tiktok/campanhas`} className={({ isActive }) => cn(navSub, isActive && navSubActive)} end>
-                  <Workflow className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                  Campanhas
-                </NavLink>
-                <NavLink to={`${base}/tiktok/nova`} className={({ isActive }) => cn(navSub, isActive && navSubActive)} end>
-                  <Sparkles className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                  Nova campanha (assistente)
-                </NavLink>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+          <NavLink to={`${base}/tiktok`} className={({ isActive }) => cn(navItem, isActive && navActive)}>
+            <Music2 className="h-4 w-4 shrink-0 text-rose-600" />
+            TikTok Ads
+          </NavLink>
 
           <Separator className="my-2 opacity-70" />
 
@@ -253,10 +84,10 @@ export function DpilotPaidLayout() {
             <Megaphone className="h-4 w-4 shrink-0" />
             Todas as campanhas
           </NavLink>
-          <p className="px-3 pb-1 text-[10px] leading-snug text-muted-foreground">
-            Consolida rascunhos e campanhas activas; filtre por rede nos menus Google, Meta ou TikTok acima.
-          </p>
-
+          <NavLink to={`${base}/campanhas/nova`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>
+            <Sparkles className="h-4 w-4 shrink-0" />
+            Nova campanha
+          </NavLink>
           <NavLink to={`${base}/aprovacoes`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>
             <ClipboardList className="h-4 w-4 shrink-0" />
             Aprovações
@@ -268,7 +99,7 @@ export function DpilotPaidLayout() {
           </NavLink>
           <NavLink to={`${base}/auditoria`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>
             <Shield className="h-4 w-4 shrink-0" />
-            Auditoria & motor
+            Auditoria
           </NavLink>
           <NavLink to={`${base}/landings`} className={({ isActive }) => cn(navItem, isActive && navActive)} end>
             <FileText className="h-4 w-4 shrink-0" />
@@ -279,39 +110,7 @@ export function DpilotPaidLayout() {
             Equipa
           </NavLink>
         </nav>
-    </>
-  );
-
-  return lgLayout ? (
-    <div className="mx-auto flex min-h-[min(880px,calc(100vh-140px))] w-full flex-1 flex-col px-4 py-4">
-      <div className="flex min-h-[min(720px,calc(100vh-180px))] flex-1 flex-col rounded-xl border border-border/70 bg-muted/20 p-1">
-        <p className="border-b border-border/50 px-3 py-2 text-[10px] leading-snug text-muted-foreground">
-          Ponteiro sobre a barra entre menu e página para redimensionar. Guardado só neste navegador por projecto.
-        </p>
-        <ResizablePanelGroup
-          direction="horizontal"
-          autoSaveId={`dpilot-paid-layout-${persistId}`}
-          className="min-h-0 flex-1 rounded-b-lg bg-background"
-        >
-          <ResizablePanel defaultSize={22} minSize={16} maxSize={42} className="min-w-0">
-            <aside className="h-full overflow-y-auto border-r border-border/60 p-3 pr-2">{sidebarInner}</aside>
-          </ResizablePanel>
-          <ResizableHandle
-            withHandle
-            title="Redimensionar menu e conteúdo"
-            className="w-3 shrink-0 bg-border/70 transition-colors hover:bg-primary/20 data-[resize-handle-active]:bg-primary/30"
-          />
-          <ResizablePanel defaultSize={78} minSize={48} className="min-w-0">
-            <main className="h-full min-h-0 overflow-y-auto overflow-x-hidden p-4 pl-3">
-              <Outlet />
-            </main>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </div>
-    </div>
-  ) : (
-    <div className="flex flex-col gap-6 px-2 py-4 lg:px-4">
-      <aside className="w-full shrink-0">{sidebarInner}</aside>
+      </aside>
       <main className="min-w-0 flex-1">
         <Outlet />
       </main>

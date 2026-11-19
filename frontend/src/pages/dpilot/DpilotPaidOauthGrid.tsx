@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,10 +41,10 @@ export function DpilotPaidOauthGrid({ only }: { only?: "google" | "meta" | "tikt
       {show(only, "google") ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Google Ads</CardTitle>
+            <CardTitle className="text-base">Gestão de campanhas</CardTitle>
             <CardDescription>
               {googleAvailable
-                ? "Servidor com credenciais Google Ads (OAuth + developer token)."
+                ? "Preferível: Conta → sincronizar a ligação de Integrações (sem 2.º login Google). Isto é só se precisar de outra conta."
                 : "Configure credenciais na API (GOOGLE_ADS_* + token de programador)."}
             </CardDescription>
           </CardHeader>
@@ -56,7 +57,7 @@ export function DpilotPaidOauthGrid({ only }: { only?: "google" | "meta" | "tikt
                       Ligado{googleConn?.account_name ? ` — ${googleConn.account_name}` : ""}
                     </span>
                   ) : (
-                    <span className="text-muted-foreground">Não ligado (OAuth ainda não concluído)</span>
+                    <span className="text-muted-foreground">Ainda não ligado neste projecto</span>
                   )}
                   {googleConn?.error_message && googleConn.status === "error" ? (
                     <span className="mt-1 block text-xs text-destructive">{googleConn.error_message}</span>
@@ -77,9 +78,9 @@ export function DpilotPaidOauthGrid({ only }: { only?: "google" | "meta" | "tikt
                   A redirecionar…
                 </>
               ) : isConnConnected(googleConn) ? (
-                "Reautenticar"
+                "Reautenticar gestão"
               ) : (
-                "Ligar Google"
+                "Ligar para gerir campanhas"
               )}
             </Button>
             <Button
@@ -95,9 +96,16 @@ export function DpilotPaidOauthGrid({ only }: { only?: "google" | "meta" | "tikt
                   A desligar…
                 </>
               ) : (
-                "Desligar"
+                "Desligar gestão"
               )}
             </Button>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Envio de vendas offline:{" "}
+              <Link className="text-[#1a73e8] hover:underline" to="/integracoes/google-ads">
+                Integrações → Google
+              </Link>
+              .
+            </p>
           </CardContent>
         </Card>
       ) : null}

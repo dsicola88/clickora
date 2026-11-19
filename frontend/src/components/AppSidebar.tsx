@@ -31,6 +31,7 @@ import {
   sidebarNavItems,
   type AppNavItem,
 } from "@/lib/appNav";
+import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 const itemClass =
@@ -46,20 +47,45 @@ const SIDEBAR_GROUPS: AppNavItem["group"][] = [
   "conta",
 ];
 
-function NavRows({ items, path, collapsed }: { items: AppNavItem[]; path: string; collapsed: boolean }) {
+function NavRows({
+  items,
+  path,
+  collapsed,
+  dpilotAdsEnabled,
+}: {
+  items: AppNavItem[];
+  path: string;
+  collapsed: boolean;
+  dpilotAdsEnabled: boolean;
+}) {
   const { t } = useAppLocale();
   return (
     <>
       {items.map((item) => {
         const title = t(navTitleKeyPath(item.titleKey));
+        const isAdsStudio = item.url === "/tracking/dpilot";
+        const lockedAds = isAdsStudio && !dpilotAdsEnabled;
+        const badge = lockedAds ? "Pro" : item.sidebarBadge;
         return (
           <SidebarMenuItem key={item.url}>
             <SidebarMenuButton asChild isActive={isAppNavActive(item.url, path, item.end)} tooltip={title}>
               <NavLink to={item.url} end={item.end} className={itemClass} activeClassName={itemActive}>
-                <item.icon className="h-4 w-4 flex-shrink-0" />
+                <item.icon className={`h-4 w-4 flex-shrink-0 ${item.iconClassName ?? ""}`} />
                 {!collapsed && (
                   <span className="flex flex-1 items-center justify-between gap-2 truncate">
                     <span className="truncate">{title}</span>
+                    {badge ? (
+                      <Badge
+                        variant="secondary"
+                        className={
+                          lockedAds
+                            ? "shrink-0 px-1.5 py-0 text-[10px] font-medium"
+                            : "shrink-0 border border-[#1a73e8]/25 bg-[#1a73e8]/10 px-1.5 py-0 text-[10px] font-medium text-[#1a73e8]"
+                        }
+                      >
+                        {badge}
+                      </Badge>
+                    ) : null}
                     {item.staffOnly ? (
                       <Badge variant="secondary" className="text-[10px]">
                         {t("common.staff")}
@@ -92,6 +118,7 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
   const { toggleSidebar, isMobile, setOpenMobile } = useSidebar();
   const { t } = useAppLocale();
   const staff = isAdmin || isSuperAdmin;
+  const dpilotAdsEnabled = userCanAccessDpilotAds(user, isSuperAdmin);
 
   const pathRef = useRef(path);
   useEffect(() => {
@@ -103,13 +130,13 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
   const byGroup = useMemo(() => {
     const map = new Map<AppNavItem["group"], AppNavItem[]>();
     for (const g of SIDEBAR_GROUPS) map.set(g, []);
-    for (const item of sidebarNavItems(staff)) {
+    for (const item of sidebarNavItems(staff, { dpilotAdsEnabled })) {
       map.get(item.group)?.push(item);
     }
     return SIDEBAR_GROUPS.map((g) => ({ group: g, items: map.get(g) ?? [] })).filter(
       (g) => g.items.length > 0,
     );
-  }, [staff]);
+  }, [staff, dpilotAdsEnabled]);
 
   return (
     <>
@@ -151,7 +178,12 @@ function AppSidebarInner({ collapsed }: { collapsed: boolean }) {
             )}
             <SidebarGroupContent>
               <SidebarMenu>
-                <NavRows items={items} path={path} collapsed={collapsed} />
+                <NavRows
+                  items={items}
+                  path={path}
+                  collapsed={collapsed}
+                  dpilotAdsEnabled={dpilotAdsEnabled}
+                />
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

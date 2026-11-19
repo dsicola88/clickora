@@ -1814,7 +1814,7 @@ export const ptBR = {
       "connectDesc": "Autoriza o dclickora a ler o custo e a enviar vendas aprovadas. Não cria nem gere campanhas — isso é no Ads Studio.",
       "step1": "Clique em «Conectar Google Ads», escolha a conta dos anúncios e aceite o acesso.",
       "step2": "O dclickora guarda a conta e envia as vendas aprovadas automaticamente.",
-      "step3": "Depois: Ads Studio → Conta (só se quiser gerir campanhas neste projecto).",
+      "step3": "Depois: Ads Studio → Conta → sincronizar (mesma conta + campanhas).",
       "studioNext": "Vendas OK. No Ads Studio → Conta, um clique sincroniza a mesma conta e importa as campanhas Search.",
       "linked": "Conta conectada",
       "connect": "Conectar Google Ads",

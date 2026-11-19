@@ -1,0 +1,33 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import { hostFromUrl, inspectFinalUrl, inspectFinalUrlList } from "./googleAdsFinalUrl";
+
+describe("googleAdsFinalUrl", () => {
+  it("hostFromUrl normaliza www", () => {
+    assert.equal(hostFromUrl("https://www.Example.com/x"), "example.com");
+  });
+
+  it("detecta gclid e ValueTrack na Final URL", () => {
+    const a = inspectFinalUrl("https://land.example/p?gclid={gclid}");
+    assert.ok(a.includes("final_url_has_click_id"));
+    assert.ok(a.includes("final_url_has_valuetrack"));
+  });
+
+  it("exige https e host do projecto", () => {
+    assert.ok(inspectFinalUrl("http://land.example/x").includes("not_https"));
+    assert.ok(inspectFinalUrl("https://other.example/x", "land.example").includes("host_mismatch"));
+    assert.deepEqual(inspectFinalUrl("https://land.example/x", "land.example"), []);
+  });
+
+  it("lista: múltiplos hosts e URL vazia", () => {
+    const empty = inspectFinalUrlList([]);
+    assert.deepEqual(empty.issues, ["empty_final_url"]);
+    const multi = inspectFinalUrlList(
+      ["https://a.example/1", "https://b.example/2"],
+      "a.example",
+    );
+    assert.equal(multi.multiple_distinct_hosts, true);
+    assert.ok(multi.issues.includes("host_mismatch"));
+  });
+});

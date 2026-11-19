@@ -100,8 +100,8 @@ export function DpilotGoogleImportPanel({
         <div>
           <p className="text-sm font-medium">Importar da conta Google</p>
           <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
-            Campanhas Search que existem na conta mas ainda não na Dclickora. Após importar, use Gestão / termos /
-            orçamento como nas criadas aqui.
+            Campanhas Search da conta Google. A importação traz grupos, RSA, keywords e negativas (campanha + grupo)
+            — depois opere termos e orçamento aqui.
           </p>
           {totals ? (
             <p className="mt-1 text-[10px] text-muted-foreground">
@@ -174,7 +174,26 @@ export function DpilotGoogleImportPanel({
                   <TableCell className="font-mono text-xs">{r.external_campaign_id}</TableCell>
                   <TableCell className="text-xs">{r.status}</TableCell>
                   <TableCell>
-                    {r.daily_budget_micros != null ? formatUsdFromMicros(r.daily_budget_micros) : "—"}
+                    <div className="space-y-1">
+                      <span>
+                        {r.daily_budget_micros != null ? formatUsdFromMicros(r.daily_budget_micros) : "—"}
+                      </span>
+                      {r.budget_shared ? (
+                        <Badge
+                          variant="outline"
+                          className={
+                            r.budget_editable
+                              ? "block w-fit font-normal text-[10px]"
+                              : "block w-fit border-amber-500/50 font-normal text-[10px] text-amber-800 dark:text-amber-200"
+                          }
+                        >
+                          Partilhado ({r.budget_reference_count})
+                          {!r.budget_editable ? " · só leitura" : ""}
+                        </Badge>
+                      ) : (
+                        <span className="block text-[10px] text-muted-foreground">Exclusivo</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {r.already_imported && r.local_campaign_id ? (

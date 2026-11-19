@@ -45,7 +45,12 @@ export function DpilotCampaignReadinessCard({ platform }: { platform: "google" |
   }
 
   const label = PLATFORM_LABEL[platform];
-  const ligacoesPath = `/tracking/dpilot/p/${projectId}/ligacoes`;
+  const contaPath =
+    platform === "google"
+      ? `/tracking/dpilot/p/${projectId}/google`
+      : platform === "meta"
+        ? `/tracking/dpilot/p/${projectId}/meta`
+        : `/tracking/dpilot/p/${projectId}/tiktok`;
   const oauthBusy = connecting !== null;
 
   const guardrails = overview?.guardrails as { allowed_countries?: string[] } | undefined;
@@ -99,7 +104,7 @@ export function DpilotCampaignReadinessCard({ platform }: { platform: "google" |
                     )}
                   </Button>
                   <Button variant="outline" size="sm" asChild>
-                    <Link to={ligacoesPath}>Ligações</Link>
+                    <Link to={contaPath}>Conta</Link>
                   </Button>
                 </div>
               </div>

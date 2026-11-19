@@ -288,6 +288,16 @@ function mapConversionForApi(
     tiktok_events_sync_error: syncErrorFromDetail(c.tiktokEventsSyncDetail),
     has_gclid: hasClickId,
     gclid: gclid || null,
+    /** Ligação ao Ads Studio quando o clique foi atribuído a uma campanha Paid. */
+    paid_ads_campaign_id:
+      typeof clickMeta.paid_ads_campaign_id === "string" && clickMeta.paid_ads_campaign_id.trim()
+        ? clickMeta.paid_ads_campaign_id.trim()
+        : typeof clickCampaign === "string" &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+              clickCampaign.trim(),
+            )
+          ? clickCampaign.trim()
+          : null,
   };
 }
 

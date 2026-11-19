@@ -154,9 +154,14 @@ export default function GoogleAdsConnectPage() {
           </>
         }
         actions={
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/integracoes">{t("pages.googleAds.back")}</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" asChild>
+              <Link to="/tracking/dpilot">Abrir Ads Studio</Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/integracoes">{t("pages.googleAds.back")}</Link>
+            </Button>
+          </div>
         }
       />
 
@@ -224,7 +229,13 @@ export default function GoogleAdsConnectPage() {
                         : t("pages.googleAds.managerMissing"),
                     })}
                   </p>
-                  <p className="text-muted-foreground mt-1.5">{t("pages.googleAds.autoTagging")}</p>
+                  <p className="text-muted-foreground mt-1.5">{t("pages.googleAds.studioNext")}</p>
+                  <div className="mt-2">
+                    <Button size="sm" asChild>
+                      <Link to="/tracking/dpilot">Continuar no Ads Studio</Link>
+                    </Button>
+                  </div>
+                  <p className="text-muted-foreground mt-2">{t("pages.googleAds.autoTagging")}</p>
                   <p className="text-muted-foreground mt-1.5">{t("pages.googleAds.apiErrorHint")}</p>
                 </div>
               </div>

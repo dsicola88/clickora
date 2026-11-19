@@ -3,12 +3,15 @@
  * Não inventa números: sem OAuth / sem developer token → erro explícito.
  */
 import { runGoogleAdsCustomerAction, runGoogleAdsSearch } from "./google-ads.api";
+import { parseGoogleBudgetShareFromRow } from "./google-ads-budget";
+import { computeClickCapture } from "./google-ads-click-capture";
 import {
   deriveMetricRates,
   GOOGLE_ADS_LOGIN_CUSTOMER_ID,
   resolveGoogleAdsAccess,
   resolveGoogleAdsDateRange,
 } from "./google-ads-connection";
+import { aggregateTrackingMetricsForCampaign } from "./optimizer/tracking-metrics";
 import { prisma } from "./paidPrisma";
 
 /** Tipos em que `recommendations:apply` sem parâmetros extra costuma funcionar. */
@@ -164,6 +167,10 @@ export async function fetchGoogleAdsCampaignsMetrics(
 
   const ctx = await resolveGoogleAdsAccess(projectId);
   const byExternal = new Map<string, ReturnType<typeof deriveMetricRates>>();
+  const budgetByExternal = new Map<
+    string,
+    { explicitly_shared: boolean; reference_count: number; budget_editable: boolean; amount_micros: number | null }
+  >();
 
   if (ctx.ok) {
     const ids = local
@@ -207,25 +214,90 @@ export async function fetchGoogleAdsCampaignsMetrics(
           }),
         );
       }
+
+      // Pré-voo de orçamento partilhado (sem segmentos de data — uma linha por campanha).
+      const bq = `
+        SELECT
+          campaign.id,
+          campaign_budget.amount_micros,
+          campaign_budget.explicitly_shared,
+          campaign_budget.reference_count
+        FROM campaign
+        WHERE campaign.id IN (${ids.join(",")})
+      `;
+      const bs = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, bq, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+      if (!bs.error) {
+        for (const raw of Array.isArray(bs.results) ? bs.results : []) {
+          const row = raw as Record<string, unknown>;
+          const camp = row.campaign as { id?: string } | undefined;
+          const id = String(camp?.id ?? "").replace(/\D/g, "");
+          if (!id) continue;
+          const share = parseGoogleBudgetShareFromRow(row);
+          budgetByExternal.set(id, {
+            explicitly_shared: share.explicitly_shared,
+            reference_count: share.reference_count,
+            budget_editable: share.budget_editable,
+            amount_micros: share.amount_micros,
+          });
+        }
+      }
     }
+  }
+
+  const project = await prisma.paidAdsProject.findUnique({
+    where: { id: projectId },
+    select: { userId: true },
+  });
+  const since = new Date(`${range.from}T00:00:00.000Z`);
+  const trackingByCampaign = new Map<string, number>();
+  if (project?.userId && Number.isFinite(since.getTime())) {
+    const targets = local.slice(0, 60);
+    const settled = await Promise.all(
+      targets.map(async (c) => {
+        try {
+          const t = await aggregateTrackingMetricsForCampaign({
+            userId: project.userId,
+            campaignId: c.id,
+            since,
+          });
+          return [c.id, t.clicks] as const;
+        } catch {
+          return [c.id, 0] as const;
+        }
+      }),
+    );
+    for (const [id, clicks] of settled) trackingByCampaign.set(id, clicks);
   }
 
   const campaigns = local.map((c) => {
     const ext = c.externalCampaignId?.replace(/\D/g, "") ?? null;
     const metrics = ext ? byExternal.get(ext) ?? null : null;
+    const budgetMeta = ext ? budgetByExternal.get(ext) : undefined;
     const bidding = (c.biddingConfig ?? {}) as { google?: { strategy?: string } };
+    const localBudget = c.dailyBudgetMicros != null ? Number(c.dailyBudgetMicros) : null;
+    const capture = computeClickCapture(metrics?.clicks ?? null, trackingByCampaign.get(c.id) ?? 0);
     return {
       id: c.id,
       name: c.name,
       local_status: c.status,
       external_campaign_id: ext,
-      daily_budget_micros: c.dailyBudgetMicros != null ? Number(c.dailyBudgetMicros) : null,
+      daily_budget_micros: budgetMeta?.amount_micros ?? localBudget,
       bidding_strategy: bidding.google?.strategy ?? null,
       created_at: c.createdAt.toISOString(),
       metrics,
       metrics_available: Boolean(ext && ctx.ok),
+      budget_shared: budgetMeta?.explicitly_shared ?? false,
+      budget_reference_count: budgetMeta?.reference_count ?? 1,
+      budget_editable: budgetMeta ? budgetMeta.budget_editable : true,
+      tracking_clicks: capture.tracking_clicks,
+      google_clicks: capture.google_clicks,
+      click_delta: capture.click_delta,
+      click_capture_ratio: capture.click_capture_ratio,
+      funnel_risk: capture.funnel_risk,
     };
   });
+
+  const funnelRiskCount = campaigns.filter((c) => c.funnel_risk).length;
 
   return {
     ok: true as const,
@@ -233,6 +305,10 @@ export async function fetchGoogleAdsCampaignsMetrics(
     connection_error: ctx.ok ? null : ctx.error,
     range,
     campaigns,
+    totals: {
+      funnel_risk: funnelRiskCount,
+      with_google_clicks: campaigns.filter((c) => (c.google_clicks ?? 0) > 0).length,
+    },
     source: ctx.ok ? ("google_ads_api" as const) : ("local_only" as const),
   };
 }
@@ -444,11 +520,32 @@ export async function applyOrDismissGoogleRecommendation(
   return { ok: true as const, action: "apply" as const };
 }
 
+function accumulateDeviceMetrics(
+  map: Map<string, ReturnType<typeof deriveMetricRates>>,
+  device: string,
+  cur: ReturnType<typeof deriveMetricRates>,
+) {
+  const prev = map.get(device);
+  map.set(
+    device,
+    prev
+      ? deriveMetricRates({
+          impressions: prev.impressions + cur.impressions,
+          clicks: prev.clicks + cur.clicks,
+          cost_micros: prev.cost_micros + cur.cost_micros,
+          conversions: prev.conversions + cur.conversions,
+          conversions_value: prev.conversions_value + cur.conversions_value,
+        })
+      : cur,
+  );
+}
+
 export async function fetchGoogleAdsDevicePerformance(
   projectId: string,
   preset: string,
   customFrom?: string,
   customTo?: string,
+  opts?: { campaign_id?: string },
 ) {
   const range = resolveGoogleAdsDateRange(preset, customFrom, customTo);
   if ("error" in range) return { ok: false as const, error: range.error, code: "invalid_range" };
@@ -456,51 +553,170 @@ export async function fetchGoogleAdsDevicePerformance(
   const ctx = await resolveGoogleAdsAccess(projectId);
   if (!ctx.ok) return { ok: false as const, error: ctx.error, code: ctx.code };
 
-  const q = `
-    SELECT
-      segments.device,
-      metrics.impressions,
-      metrics.clicks,
-      metrics.cost_micros,
-      metrics.conversions,
-      metrics.conversions_value
-    FROM customer
-    WHERE segments.date BETWEEN '${range.from}' AND '${range.to}'
-  `;
-  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
-  if (s.error) {
-    return { ok: false as const, error: s.error.message ?? "Falha ao ler desempenho por dispositivo.", code: "gaql_error" };
+  const local = await prisma.paidAdsCampaign.findMany({
+    where: {
+      projectId,
+      platform: "google_ads",
+      status: { not: "archived" },
+      externalCampaignId: { not: null },
+      ...(opts?.campaign_id ? { id: opts.campaign_id } : {}),
+    },
+    select: { id: true, name: true, externalCampaignId: true },
+    take: 80,
+  });
+  const byExt = new Map(
+    local
+      .map((c) => {
+        const ext = (c.externalCampaignId ?? "").replace(/\D/g, "");
+        return ext ? ([ext, c] as const) : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => Boolean(x)),
+  );
+
+  // Conta (rollup) — útil para vista rápida; se filtrar campanha, o rollup vem do breakdown.
+  const byDevice = new Map<string, ReturnType<typeof deriveMetricRates>>();
+  if (!opts?.campaign_id) {
+    const q = `
+      SELECT
+        segments.device,
+        metrics.impressions,
+        metrics.clicks,
+        metrics.cost_micros,
+        metrics.conversions,
+        metrics.conversions_value
+      FROM customer
+      WHERE segments.date BETWEEN '${range.from}' AND '${range.to}'
+    `;
+    const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+    if (s.error) {
+      return {
+        ok: false as const,
+        error: s.error.message ?? "Falha ao ler desempenho por dispositivo.",
+        code: "gaql_error",
+      };
+    }
+    for (const raw of Array.isArray(s.results) ? s.results : []) {
+      const row = raw as Record<string, unknown>;
+      const device = String((row.segments as { device?: string } | undefined)?.device ?? "UNKNOWN");
+      const met = (row.metrics ?? {}) as Record<string, unknown>;
+      accumulateDeviceMetrics(
+        byDevice,
+        device,
+        deriveMetricRates({
+          impressions: num(met.impressions),
+          clicks: num(met.clicks),
+          cost_micros: num(met.cost_micros),
+          conversions: num(met.conversions),
+          conversions_value: num(met.conversions_value),
+        }),
+      );
+    }
   }
 
-  const byDevice = new Map<string, ReturnType<typeof deriveMetricRates>>();
-  for (const raw of Array.isArray(s.results) ? s.results : []) {
-    const row = raw as Record<string, unknown>;
-    const device = String((row.segments as { device?: string } | undefined)?.device ?? "UNKNOWN");
-    const met = (row.metrics ?? {}) as Record<string, unknown>;
-    const cur = deriveMetricRates({
-      impressions: num(met.impressions),
-      clicks: num(met.clicks),
-      cost_micros: num(met.cost_micros),
-      conversions: num(met.conversions),
-      conversions_value: num(met.conversions_value),
-    });
-    const prev = byDevice.get(device);
-    byDevice.set(
-      device,
-      prev
-        ? deriveMetricRates({
-            impressions: prev.impressions + cur.impressions,
-            clicks: prev.clicks + cur.clicks,
-            cost_micros: prev.cost_micros + cur.cost_micros,
-            conversions: prev.conversions + cur.conversions,
-            conversions_value: prev.conversions_value + cur.conversions_value,
-          })
-        : cur,
+  const byCampaign: Array<{
+    campaign_id: string;
+    campaign_name: string;
+    external_campaign_id: string;
+    device: string;
+    metrics: ReturnType<typeof deriveMetricRates>;
+  }> = [];
+
+  if (byExt.size > 0) {
+    const ids = [...byExt.keys()];
+    const cq = `
+      SELECT
+        campaign.id,
+        campaign.name,
+        segments.device,
+        metrics.impressions,
+        metrics.clicks,
+        metrics.cost_micros,
+        metrics.conversions,
+        metrics.conversions_value
+      FROM campaign
+      WHERE campaign.id IN (${ids.join(",")})
+        AND segments.date BETWEEN '${range.from}' AND '${range.to}'
+    `;
+    const cs = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, cq, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+    if (cs.error) {
+      return {
+        ok: false as const,
+        error: cs.error.message ?? "Falha ao ler dispositivo por campanha.",
+        code: "gaql_error",
+      };
+    }
+
+    type AggKey = string;
+    const agg = new Map<
+      AggKey,
+      {
+        campaign_id: string;
+        campaign_name: string;
+        external_campaign_id: string;
+        device: string;
+        metrics: ReturnType<typeof deriveMetricRates>;
+      }
+    >();
+
+    for (const raw of Array.isArray(cs.results) ? cs.results : []) {
+      const row = raw as Record<string, unknown>;
+      const camp = (row.campaign ?? {}) as { id?: string; name?: string };
+      const ext = String(camp.id ?? "").replace(/\D/g, "");
+      const localCamp = byExt.get(ext);
+      if (!localCamp) continue;
+      const device = String((row.segments as { device?: string } | undefined)?.device ?? "UNKNOWN");
+      const met = (row.metrics ?? {}) as Record<string, unknown>;
+      const cur = deriveMetricRates({
+        impressions: num(met.impressions),
+        clicks: num(met.clicks),
+        cost_micros: num(met.cost_micros),
+        conversions: num(met.conversions),
+        conversions_value: num(met.conversions_value),
+      });
+      const key = `${localCamp.id}::${device}`;
+      const prev = agg.get(key);
+      if (prev) {
+        prev.metrics = deriveMetricRates({
+          impressions: prev.metrics.impressions + cur.impressions,
+          clicks: prev.metrics.clicks + cur.clicks,
+          cost_micros: prev.metrics.cost_micros + cur.cost_micros,
+          conversions: prev.metrics.conversions + cur.conversions,
+          conversions_value: prev.metrics.conversions_value + cur.conversions_value,
+        });
+      } else {
+        agg.set(key, {
+          campaign_id: localCamp.id,
+          campaign_name: localCamp.name || String(camp.name ?? ""),
+          external_campaign_id: ext,
+          device,
+          metrics: cur,
+        });
+      }
+      if (opts?.campaign_id) {
+        accumulateDeviceMetrics(byDevice, device, cur);
+      }
+    }
+
+    byCampaign.push(
+      ...[...agg.values()].sort(
+        (a, b) => b.metrics.cost_micros - a.metrics.cost_micros || a.campaign_name.localeCompare(b.campaign_name),
+      ),
     );
   }
 
-  const devices = [...byDevice.entries()].map(([device, metrics]) => ({ device, metrics }));
-  return { ok: true as const, range, devices, source: "google_ads_api" as const };
+  const devices = [...byDevice.entries()]
+    .map(([device, metrics]) => ({ device, metrics }))
+    .sort((a, b) => b.metrics.cost_micros - a.metrics.cost_micros);
+
+  return {
+    ok: true as const,
+    range,
+    devices,
+    by_campaign: byCampaign,
+    filter_campaign_id: opts?.campaign_id ?? null,
+    campaigns_scoped: byExt.size,
+    source: "google_ads_api" as const,
+  };
 }
 
 export async function buildGoogleAdsAiInsights(

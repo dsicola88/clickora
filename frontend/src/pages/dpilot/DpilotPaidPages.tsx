@@ -1,7 +1,7 @@
 import { fill } from "@/i18n";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useCallback, useEffect, useMemo, useState, memo, startTransition } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Activity, Info, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -32,8 +32,10 @@ import {
 import { approvalQueueTransparencyBullets, explainOptimizerDecision } from "@/lib/paidAdsTransparency";
 import type { CampaignRow, ChangeRequestRow, OptimizerDecisionRow, PaidOverviewDto } from "@/services/paidAdsService";
 import { cn } from "@/lib/utils";
+import { integrationsService } from "@/services/integrationsService";
 import { paidAdsService } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
+import { DpilotCampaignsHub } from "./DpilotCampaignsHub";
 import { DpilotPaidOauthGrid } from "./DpilotPaidOauthGrid";
 import { DpilotCampaignOptimizerDialog } from "./DpilotCampaignOptimizerDialog";
 import { DpilotCampaignArchiveButton } from "./DpilotCampaignArchiveButton";
@@ -99,7 +101,31 @@ export function DpilotVisaoPage() {
       <PageHeader
         title={t("pages.dpilot.title")}
         description={t("pages.dpilot.subtitle")}
+        actions={
+          <Button asChild>
+            <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas`}>Abrir Campanhas</Link>
+          </Button>
+        }
       />
+      <Card className="mt-4 border-[#1a73e8]/25 bg-gradient-to-br from-[#1a73e8]/10 to-transparent">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Ads Studio · Campanhas</CardTitle>
+          <CardDescription>
+            KPIs, pausar/ativar, orçamento, duplicar e gestão — sem abrir a consola Google.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button size="sm" asChild>
+            <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas`}>Painel de campanhas</Link>
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas/nova`}>Nova campanha</Link>
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <Link to={`/tracking/dpilot/p/${p.projectId}/google/termos-pesquisa`}>Termos de pesquisa</Link>
+          </Button>
+        </CardContent>
+      </Card>
       <div className="mt-4">
         <DpilotAutopilotSimpleBanner />
       </div>
@@ -123,7 +149,7 @@ export function DpilotVisaoPage() {
             <div className="min-w-0 space-y-1">
               <p className="text-sm font-medium">{t("pages.dpilot.hub.connectAccount")}</p>
               <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                <Link to={`/tracking/dpilot/p/${p.projectId}/ligacoes`}>{t("pages.dpilot.hub.openConnections")}</Link>
+                <Link to={`/tracking/dpilot/p/${p.projectId}/google`}>{t("pages.dpilot.hub.openConnections")}</Link>
               </Button>
             </div>
           </div>
@@ -239,32 +265,154 @@ export function DpilotVisaoPage() {
 }
 
 export function DpilotLigacoesPage() {
-  const { t } = useAppLocale();
-  return (
-    <Gate>
-      <PageHeader title={t("pages.dpilot.hub.connectionsTitle")} />
-      <div className="mt-4">
-        <DpilotPaidOauthGrid only="all" />
-      </div>
-    </Gate>
-  );
+  const { projectId } = useDpilotPaid();
+  return <Navigate to={`/tracking/dpilot/p/${projectId}/google`} replace />;
 }
 
 export function DpilotGooglePage() {
-  const { t } = useAppLocale();
-  const { projectId } = useDpilotPaid();
+  const { projectId, overview, isConnConnected, reload, connecting, disconnecting, startOAuth, disconnect } =
+    useDpilotPaid();
+  const [convReady, setConvReady] = useState<boolean | null>(null);
+  const [customerLabel, setCustomerLabel] = useState<string | null>(null);
+  const [linking, setLinking] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void integrationsService.getGoogleAdsSettings().then((res) => {
+      if (cancelled) return;
+      if (res.error || !res.data) {
+        setConvReady(null);
+        setCustomerLabel(null);
+        return;
+      }
+      const ready = Boolean(res.data.has_refresh_token && res.data.google_ads_customer_id);
+      setConvReady(ready);
+      setCustomerLabel(res.data.google_ads_customer_id ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const paidOk = isConnConnected(overview?.connection);
+  const oauthBusy = connecting !== null || disconnecting !== null || linking;
+
+  const syncFromIntegrations = async () => {
+    setLinking(true);
+    try {
+      const { data, error } = await paidAdsService.googleLinkFromIntegrations(projectId, {
+        import_campaigns: true,
+      });
+      if (error || !data) {
+        toast.error(error || "Não foi possível sincronizar a conta.");
+        return;
+      }
+      const imp = data.import;
+      toast.success(
+        imp
+          ? `Conta ${data.customer_id} sincronizada · ${imp.imported} campanha(s) importada(s)`
+          : `Conta ${data.customer_id} sincronizada`,
+      );
+      reload();
+    } finally {
+      setLinking(false);
+    }
+  };
+
   return (
     <Gate>
       <PageHeader
-        title="Google Ads"
+        title="Conta Google"
+        description="Uma ligação: Integrações → Google. O Studio sincroniza a mesma conta e as campanhas Search."
         actions={
-          <Button asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>{t("pages.dpilot.hub.newGoogle")}</Link>
-          </Button>
+          paidOk ? (
+            <Button asChild>
+              <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Ver campanhas</Link>
+            </Button>
+          ) : null
         }
       />
-      <div className="mt-4">
-        <DpilotPaidOauthGrid only="google" />
+      <div className="mt-4 space-y-4 max-w-xl">
+        {!convReady ? (
+          <Card className="border-amber-500/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Ligar a conta Google</CardTitle>
+              <CardDescription>
+                Faça isto uma vez em Integrações. Depois o Ads Studio usa a mesma conta — sem segundo «Ligar Google».
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild>
+                <Link to="/integracoes/google-ads">Conectar a conta</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : !paidOk ? (
+          <Card className="border-[#1a73e8]/25">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Sincronizar no Ads Studio</CardTitle>
+              <CardDescription>
+                Conta {customerLabel} já ligada em Integrações. Um clique traz campanhas Search para trabalhar aqui.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              <Button type="button" disabled={oauthBusy} onClick={() => void syncFromIntegrations()}>
+                {linking ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                    A sincronizar…
+                  </>
+                ) : (
+                  "Usar esta conta e importar campanhas"
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={oauthBusy}
+                onClick={() => void startOAuth("google")}
+              >
+                Autorizar outra conta Google…
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-emerald-500/25">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Conta pronta</CardTitle>
+              <CardDescription>
+                {(overview?.connection as { account_name?: string | null } | undefined)?.account_name ||
+                  customerLabel ||
+                  "Google Ads"}{" "}
+                · vendas e gestão na mesma conta.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              <Button asChild>
+                <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Abrir campanhas</Link>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={oauthBusy}
+                onClick={() => void syncFromIntegrations()}
+              >
+                {linking ? <Loader2 className="h-4 w-4 animate-spin" /> : "Re-sincronizar / importar"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={oauthBusy}
+                onClick={() => void disconnect("google")}
+              >
+                Desligar do Studio
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </Gate>
   );
@@ -562,97 +710,21 @@ function campaignsTable(
 }
 
 export function DpilotCampanhasPage() {
-  const { t } = useAppLocale();
-  const { campaigns, projectId, reload } = useDpilotPaid();
   return (
     <Gate>
-      <PageHeader
-        title={t("pages.dpilot.hub.campaignsTitle")}
-        description={
-          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">{t("pages.dpilot.hub.campaignsDesc")}</p>
-        }
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Gestor Google Ads</Link>
-            </Button>
-            <Button asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>{t("pages.dpilot.hub.newGoogle")}</Link>
-            </Button>
-          </div>
-        }
-      />
-      <Card className="mt-4">
-        <CardContent className="pt-6">
-          <CampaignListWithFilters
-            list={campaigns}
-            projectId={projectId}
-            reload={reload}
-            showPlatformFilter
-            empty={t("pages.dpilot.hub.campaignsEmpty")}
-          />
-        </CardContent>
-      </Card>
+      <DpilotCampaignsHub />
     </Gate>
   );
 }
 
 export function DpilotMetaCampanhasPage() {
-  const { t } = useAppLocale();
-  const { campaigns, projectId, reload } = useDpilotPaid();
-  const list = useMemo(() => campaigns.filter((c) => c.platform === "meta_ads"), [campaigns]);
-  return (
-    <Gate>
-      <PageHeader
-        title={t("pages.dpilot.hub.metaCampaigns")}
-        actions={
-          <Button asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/meta/nova`}>{t("pages.dpilot.hub.newMeta")}</Link>
-          </Button>
-        }
-      />
-      <Card className="mt-4">
-        <CardContent className="pt-6">
-          <CampaignListWithFilters
-            list={list}
-            projectId={projectId}
-            reload={reload}
-            showPlatformFilter={false}
-            empty={t("pages.dpilot.hub.metaEmpty")}
-          />
-        </CardContent>
-      </Card>
-    </Gate>
-  );
+  const { projectId } = useDpilotPaid();
+  return <Navigate to={`/tracking/dpilot/p/${projectId}/campanhas?plat=meta_ads`} replace />;
 }
 
 export function DpilotTiktokCampanhasPage() {
-  const { t } = useAppLocale();
-  const { campaigns, projectId, reload } = useDpilotPaid();
-  const list = useMemo(() => campaigns.filter((c) => c.platform === "tiktok_ads"), [campaigns]);
-  return (
-    <Gate>
-      <PageHeader
-        title={t("pages.dpilot.hub.tiktokCampaigns")}
-        actions={
-          <Button asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/tiktok/nova`}>{t("pages.dpilot.hub.newTiktok")}</Link>
-          </Button>
-        }
-      />
-      <Card className="mt-4">
-        <CardContent className="pt-6">
-          <CampaignListWithFilters
-            list={list}
-            projectId={projectId}
-            reload={reload}
-            showPlatformFilter={false}
-            empty={t("pages.dpilot.hub.tiktokEmpty")}
-          />
-        </CardContent>
-      </Card>
-    </Gate>
-  );
+  const { projectId } = useDpilotPaid();
+  return <Navigate to={`/tracking/dpilot/p/${projectId}/campanhas?plat=tiktok_ads`} replace />;
 }
 
 /** Detecta campanha com orçamento acima do teto dos guardrails — para sugestão opcional («snap» ao limite). */
@@ -1035,9 +1107,9 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
                   Sugestão: confirme em{" "}
                   <Link
                     className="font-medium underline underline-offset-2"
-                    to={`/tracking/dpilot/p/${projectId}/ligacoes`}
+                    to={`/tracking/dpilot/p/${projectId}/google`}
                   >
-                    Ligações às redes
+                    Conta Google
                   </Link>
                   , orçamentos mínimos da rede e conta de faturação. Inclua a referência técnica abaixo ao contactar suporte.
                 </p>

@@ -10,11 +10,20 @@ import {
 } from "./appNav";
 
 describe("appNav", () => {
-  it("commandNavItems esconde Dpilot sem plano", () => {
-    const without = commandNavItems(false, { dpilotAdsEnabled: false });
-    const withDpilot = commandNavItems(false, { dpilotAdsEnabled: true });
-    expect(without.some((i) => i.url === "/tracking/dpilot")).toBe(false);
-    expect(withDpilot.some((i) => i.url === "/tracking/dpilot")).toBe(true);
+  it("commandNavItems inclui Ads Studio (PlanGate na página)", () => {
+    const withoutPlan = commandNavItems(false, { dpilotAdsEnabled: false });
+    const withPlan = commandNavItems(false, { dpilotAdsEnabled: true });
+    expect(withoutPlan.some((i) => i.url === "/tracking/dpilot")).toBe(true);
+    expect(withPlan.some((i) => i.url === "/tracking/dpilot")).toBe(true);
+  });
+
+  it("sidebar mostra Ads Studio sempre (upgrade no PlanGate)", () => {
+    const withoutPlan = sidebarNavItems(false, { dpilotAdsEnabled: false });
+    const withPlan = sidebarNavItems(false, { dpilotAdsEnabled: true });
+    expect(withoutPlan.some((i) => i.url === "/tracking/dpilot")).toBe(true);
+    const item = withPlan.find((i) => i.url === "/tracking/dpilot");
+    expect(item?.group).toBe("trabalho");
+    expect(item?.sidebarBadge).toBe("Google");
   });
 
   it("normalizeNavSearchText remove acentos", () => {

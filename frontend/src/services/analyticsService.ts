@@ -330,6 +330,8 @@ export const analyticsService = {
         gclid: string | null;
         attribution?: "attributed" | "unattributed" | string | null;
         external_order_id?: string | null;
+        /** UUID da campanha Paid quando o clique carrega metadata / campaign UUID. */
+        paid_ads_campaign_id?: string | null;
       }>
     >(`/analytics/conversions${qs ? `?${qs}` : ""}`);
   },

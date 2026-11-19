@@ -33,14 +33,17 @@ import {
 } from "./google-ads-duplicate-campaign.service";
 import {
   fetchGoogleAdsKeywordMetrics,
+  fetchGoogleAdsProjectSearchTerms,
   fetchGoogleAdsSearchTerms,
   mergeCampaignNegativesWithNewTerms,
 } from "./google-ads-search-terms.service";
 import {
+  fetchGoogleRsaPolicyProjectAudit,
   fetchGoogleRsaPolicyStatus,
   importGoogleSearchCampaigns,
   listRemoteGoogleSearchCampaigns,
 } from "./google-ads-import.service";
+import { auditGoogleFinalUrls } from "./google-ads-final-url-audit.service";
 import {
   googleKeywordInsightInputSchema,
   googleKeywordSuggestInputSchema,
@@ -1318,6 +1321,19 @@ export const paidController = {
     return res.json(out);
   },
 
+  async googleAdsFinalUrlAudit(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projecto." });
+    }
+    const out = await auditGoogleFinalUrls(parsed.data.projectId);
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
   async googleAdsManagerCampaignsMetrics(req: Request, res: Response) {
     const parsed = projectIdParam.safeParse(req.params);
     if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
@@ -1398,7 +1414,7 @@ export const paidController = {
     const a = getPaidActor(req);
     if (!a) return res.status(401).json({ error: "Não autenticado." });
     if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
-      return res.status(403).json({ error: "Sem acesso ao projeto." });
+      return res.status(403).json({ error: "Sem acesso ao projecto." });
     }
     const q = z
       .object({
@@ -1408,6 +1424,7 @@ export const paidController = {
           .default("last_7"),
         from: z.string().optional(),
         to: z.string().optional(),
+        campaign_id: z.string().uuid().optional(),
       })
       .safeParse(req.query);
     if (!q.success) return res.status(400).json({ error: "Período inválido." });
@@ -1416,6 +1433,7 @@ export const paidController = {
       q.data.preset,
       q.data.from,
       q.data.to,
+      { campaign_id: q.data.campaign_id },
     );
     if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
     return res.json(out);
@@ -1494,6 +1512,127 @@ export const paidController = {
     );
     if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
     return res.json(out);
+  },
+
+  async googleAdsProjectSearchTerms(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projecto." });
+    }
+    const q = z
+      .object({
+        preset: z
+          .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
+          .optional()
+          .default("last_7"),
+        from: z.string().optional(),
+        to: z.string().optional(),
+        waste_only: z
+          .union([z.literal("1"), z.literal("true"), z.literal("0"), z.literal("false")])
+          .optional(),
+        limit: z.coerce.number().int().min(50).max(500).optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success) return res.status(400).json({ error: "Período inválido." });
+    const wasteOnly = q.data.waste_only === "1" || q.data.waste_only === "true";
+    const out = await fetchGoogleAdsProjectSearchTerms(
+      parsed.data.projectId,
+      q.data.preset,
+      q.data.from,
+      q.data.to,
+      { waste_only: wasteOnly, limit: q.data.limit },
+    );
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async googleAdsProjectSearchTermsNegateBatch(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para alterar negativas." });
+    }
+    const body = z
+      .object({
+        match_type: z.enum(["exact", "phrase", "broad"]).optional().default("phrase"),
+        items: z
+          .array(
+            z.object({
+              campaign_id: z.string().uuid(),
+              terms: z.array(z.string().trim().min(1).max(80)).min(1).max(40),
+            }),
+          )
+          .min(1)
+          .max(12),
+      })
+      .safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Pedido inválido (máx. 12 campanhas)." });
+
+    const results: Array<{
+      campaign_id: string;
+      ok: boolean;
+      added?: number;
+      total?: number;
+      error?: string;
+      change_request_id?: string;
+    }> = [];
+
+    for (const item of body.data.items) {
+      const merged = await mergeCampaignNegativesWithNewTerms(
+        parsed.data.projectId,
+        item.campaign_id,
+        item.terms.map((text) => ({ text, match_type: body.data.match_type })),
+      );
+      if (!merged.ok) {
+        results.push({ campaign_id: item.campaign_id, ok: false, error: merged.error });
+        continue;
+      }
+      if (merged.added === 0) {
+        results.push({
+          campaign_id: item.campaign_id,
+          ok: true,
+          added: 0,
+          total: merged.keywords.length,
+        });
+        continue;
+      }
+      const out = await executeGoogleStudioAction(
+        parsed.data.projectId,
+        item.campaign_id,
+        { action: "sync_campaign_negative_keywords", keywords: merged.keywords },
+        a.userId,
+      );
+      if (!out.ok) {
+        results.push({
+          campaign_id: item.campaign_id,
+          ok: false,
+          error: out.error,
+          ...(out.change_request_id ? { change_request_id: out.change_request_id } : {}),
+        });
+        continue;
+      }
+      results.push({
+        campaign_id: item.campaign_id,
+        ok: true,
+        added: merged.added,
+        total: merged.keywords.length,
+        change_request_id: out.change_request?.id,
+      });
+    }
+
+    const added = results.reduce((s, r) => s + (r.added ?? 0), 0);
+    const failed = results.filter((r) => !r.ok).length;
+    return res.json({
+      ok: failed === 0,
+      added,
+      failed,
+      results,
+    });
   },
 
   async googleAdsAppendSearchTermNegatives(req: Request, res: Response) {
@@ -1631,9 +1770,22 @@ export const paidController = {
     const a = getPaidActor(req);
     if (!a) return res.status(401).json({ error: "Não autenticado." });
     if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
-      return res.status(403).json({ error: "Sem acesso ao projeto." });
+      return res.status(403).json({ error: "Sem acesso ao projecto." });
     }
     const out = await fetchGoogleRsaPolicyStatus(parsed.data.projectId, parsed.data.campaignId);
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async googleAdsRsaPolicyAudit(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projecto." });
+    }
+    const out = await fetchGoogleRsaPolicyProjectAudit(parsed.data.projectId);
     if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
     return res.json(out);
   },

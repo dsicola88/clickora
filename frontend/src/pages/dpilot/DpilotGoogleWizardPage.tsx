@@ -955,7 +955,7 @@ export function DpilotGoogleWizardPage() {
                 onCommitKeyword={setCampaignSeedKeyword}
                 requireGoogleAdsConnection
                 googleAdsConnected={googleAdsLinked}
-                connectionsPageHref={`${base}/ligacoes`}
+                connectionsPageHref={`${base}/google`}
               />
             ) : (
               <div className="rounded-lg border border-dashed border-border/80 bg-muted/25 px-4 py-3 text-sm leading-relaxed text-muted-foreground">

@@ -34,6 +34,7 @@ export async function fetchGoogleAdsSearchTerms(
       name: true,
       externalCampaignId: true,
       campaignNegativeKeywords: { select: { text: true, matchType: true } },
+      adGroups: { select: { negativeKeywords: { select: { text: true } } } },
     },
   });
   if (!camp) return { ok: false as const, error: "Campanha não encontrada.", code: "not_found" };
@@ -73,9 +74,10 @@ export async function fetchGoogleAdsSearchTerms(
     };
   }
 
-  const existingNeg = new Set(
-    camp.campaignNegativeKeywords.map((n) => n.text.trim().toLowerCase()).filter(Boolean),
-  );
+  const existingNeg = collectNegativeKeywordTexts({
+    campaignNegatives: camp.campaignNegativeKeywords,
+    adGroupNegatives: camp.adGroups.flatMap((ag) => ag.negativeKeywords),
+  });
 
   const terms = (Array.isArray(s.results) ? s.results : []).map((raw) => {
     const row = raw as Record<string, unknown>;
@@ -97,7 +99,7 @@ export async function fetchGoogleAdsSearchTerms(
       status: st.status ?? null,
       metrics,
       already_negative: existingNeg.has(text.toLowerCase()),
-      waste_candidate: metrics.cost_micros >= 5_000_000 && metrics.conversions < 0.5,
+      waste_candidate: isSearchTermWasteCandidate(metrics.cost_micros, metrics.conversions),
     };
   }).filter((t) => t.search_term.length > 0);
 
@@ -109,6 +111,200 @@ export async function fetchGoogleAdsSearchTerms(
     range,
     terms,
     source: "google_ads_api" as const,
+  };
+}
+
+/** Candidato a desperdício: gasto ≥ $5 e < 0.5 conversões no período. */
+export function isSearchTermWasteCandidate(costMicros: number, conversions: number): boolean {
+  return costMicros >= 5_000_000 && conversions < 0.5;
+}
+
+/** Textos de negativas (campanha + grupos) para marcar `already_negative`. */
+export function collectNegativeKeywordTexts(input: {
+  campaignNegatives: Array<{ text: string }>;
+  adGroupNegatives?: Array<{ text: string }>;
+}): Set<string> {
+  const out = new Set<string>();
+  for (const n of input.campaignNegatives) {
+    const t = n.text.trim().toLowerCase();
+    if (t) out.add(t);
+  }
+  for (const n of input.adGroupNegatives ?? []) {
+    const t = n.text.trim().toLowerCase();
+    if (t) out.add(t);
+  }
+  return out;
+}
+
+/**
+ * Termos de pesquisa em todas as campanhas Google publicadas do projecto (uma GAQL).
+ * Ordenado por custo; útil para o afiliado cortar desperdício sem abrir cada campanha.
+ */
+export async function fetchGoogleAdsProjectSearchTerms(
+  projectId: string,
+  preset: string,
+  customFrom?: string,
+  customTo?: string,
+  opts?: { waste_only?: boolean; limit?: number },
+) {
+  const range = resolveGoogleAdsDateRange(preset, customFrom, customTo);
+  if ("error" in range) return { ok: false as const, error: range.error, code: "invalid_range" };
+
+  const camps = await prisma.paidAdsCampaign.findMany({
+    where: {
+      projectId,
+      platform: "google_ads",
+      status: { not: "archived" },
+      externalCampaignId: { not: null },
+    },
+    select: {
+      id: true,
+      name: true,
+      externalCampaignId: true,
+      status: true,
+      campaignNegativeKeywords: { select: { text: true, matchType: true } },
+      adGroups: { select: { negativeKeywords: { select: { text: true } } } },
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 80,
+  });
+
+  if (camps.length === 0) {
+    return {
+      ok: true as const,
+      connected: false,
+      connection_error: null as string | null,
+      range,
+      terms: [] as Array<{
+        campaign_id: string;
+        campaign_name: string;
+        external_campaign_id: string;
+        search_term: string;
+        status: string | null;
+        metrics: ReturnType<typeof deriveMetricRates>;
+        already_negative: boolean;
+        waste_candidate: boolean;
+      }>,
+      totals: { rows: 0, waste: 0, campaigns_with_terms: 0, published_campaigns: 0 },
+      source: "local_only" as const,
+      note: "Nenhuma campanha Google publicada neste projecto. Publique ou importe Search primeiro.",
+    };
+  }
+
+  const byExt = new Map<
+    string,
+    {
+      id: string;
+      name: string;
+      externalCampaignId: string;
+      negatives: Set<string>;
+    }
+  >();
+  for (const c of camps) {
+    const ext = (c.externalCampaignId ?? "").replace(/\D/g, "");
+    if (!ext) continue;
+    byExt.set(ext, {
+      id: c.id,
+      name: c.name,
+      externalCampaignId: ext,
+      negatives: collectNegativeKeywordTexts({
+        campaignNegatives: c.campaignNegativeKeywords,
+        adGroupNegatives: c.adGroups.flatMap((ag) => ag.negativeKeywords),
+      }),
+    });
+  }
+
+  const ctx = await resolveGoogleAdsAccess(projectId);
+  if (!ctx.ok) {
+    return {
+      ok: false as const,
+      error: ctx.error,
+      code: ctx.code,
+    };
+  }
+
+  const limit = Math.min(Math.max(opts?.limit ?? 400, 50), 500);
+  const q = `
+    SELECT
+      campaign.id,
+      campaign.name,
+      search_term_view.search_term,
+      search_term_view.status,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.cost_micros,
+      metrics.conversions,
+      metrics.conversions_value
+    FROM search_term_view
+    WHERE segments.date BETWEEN '${range.from}' AND '${range.to}'
+    ORDER BY metrics.cost_micros DESC
+    LIMIT ${limit}
+  `;
+  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  if (s.error) {
+    return {
+      ok: false as const,
+      error: s.error.message ?? "Falha ao ler termos de pesquisa na Google Ads API.",
+      code: "gaql_error",
+    };
+  }
+
+  const campaignsTouched = new Set<string>();
+  let terms = (Array.isArray(s.results) ? s.results : [])
+    .map((raw) => {
+      const row = raw as Record<string, unknown>;
+      const camp = (row.campaign ?? {}) as { id?: string; name?: string };
+      const st = (row.searchTermView ?? row.search_term_view ?? {}) as {
+        searchTerm?: string;
+        status?: string;
+      };
+      const met = (row.metrics ?? {}) as Record<string, unknown>;
+      const extId = String(camp.id ?? "").replace(/\D/g, "");
+      const local = byExt.get(extId);
+      if (!local) return null;
+      const text = String(st.searchTerm ?? "").trim();
+      if (!text) return null;
+      const metrics = deriveMetricRates({
+        impressions: num(met.impressions),
+        clicks: num(met.clicks),
+        cost_micros: num(met.cost_micros),
+        conversions: num(met.conversions),
+        conversions_value: num(met.conversions_value),
+      });
+      campaignsTouched.add(local.id);
+      return {
+        campaign_id: local.id,
+        campaign_name: local.name || String(camp.name ?? ""),
+        external_campaign_id: extId,
+        search_term: text,
+        status: st.status ?? null,
+        metrics,
+        already_negative: local.negatives.has(text.toLowerCase()),
+        waste_candidate: isSearchTermWasteCandidate(metrics.cost_micros, metrics.conversions),
+      };
+    })
+    .filter((t): t is NonNullable<typeof t> => t != null);
+
+  if (opts?.waste_only) {
+    terms = terms.filter((t) => t.waste_candidate && !t.already_negative);
+  }
+
+  const wasteCount = terms.filter((t) => t.waste_candidate && !t.already_negative).length;
+
+  return {
+    ok: true as const,
+    connected: true,
+    connection_error: null as string | null,
+    range,
+    terms,
+    totals: {
+      rows: terms.length,
+      waste: wasteCount,
+      campaigns_with_terms: campaignsTouched.size,
+      published_campaigns: byExt.size,
+    },
+    source: "google_ads_api" as const,
+    note: null as string | null,
   };
 }
 
@@ -238,10 +434,18 @@ export async function mergeCampaignNegativesWithNewTerms(
 > {
   const camp = await prisma.paidAdsCampaign.findFirst({
     where: { id: campaignId, projectId, platform: "google_ads" },
-    include: { campaignNegativeKeywords: true },
+    include: {
+      campaignNegativeKeywords: true,
+      adGroups: { select: { negativeKeywords: { select: { text: true } } } },
+    },
   });
   if (!camp) return { ok: false, error: "Campanha não encontrada." };
   if (!camp.externalCampaignId) return { ok: false, error: "Campanha não publicada na Google." };
+
+  const alreadyBlocked = collectNegativeKeywordTexts({
+    campaignNegatives: camp.campaignNegativeKeywords,
+    adGroupNegatives: camp.adGroups.flatMap((ag) => ag.negativeKeywords),
+  });
 
   const merged = new Map<string, { text: string; match_type: PaidAdsMatchType }>();
   for (const n of camp.campaignNegativeKeywords) {
@@ -254,7 +458,7 @@ export async function mergeCampaignNegativesWithNewTerms(
     const text = String(t.text ?? "").trim().slice(0, 80);
     if (!text) continue;
     const key = text.toLowerCase();
-    if (merged.has(key)) continue;
+    if (merged.has(key) || alreadyBlocked.has(key)) continue;
     merged.set(key, { text, match_type: t.match_type ?? "phrase" });
     added += 1;
   }

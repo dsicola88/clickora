@@ -62,8 +62,8 @@ const DpilotEquipaPage = lazy(() =>
   import("./DpilotPaidPages").then((m) => ({ default: m.DpilotEquipaPage })),
 );
 
-const DpilotGoogleOverviewPage = lazy(() =>
-  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleOverviewPage })),
+const DpilotGoogleVisaoDashboard = lazy(() =>
+  import("./DpilotGoogleVisaoDashboard").then((m) => ({ default: m.DpilotGoogleVisaoDashboard })),
 );
 const DpilotGoogleCampaignsManagerPage = lazy(() =>
   import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleCampaignsManagerPage })),
@@ -76,6 +76,9 @@ const DpilotGoogleAdsCreativesPage = lazy(() =>
 );
 const DpilotGoogleKeywordsPage = lazy(() =>
   import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleKeywordsPage })),
+);
+const DpilotGoogleSearchTermsHubPage = lazy(() =>
+  import("./DpilotGoogleSearchTermsHubPage").then((m) => ({ default: m.DpilotGoogleSearchTermsHubPage })),
 );
 const DpilotGoogleBudgetsPage = lazy(() =>
   import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleBudgetsPage })),
@@ -108,6 +111,13 @@ function LazyPage({ children }: { children: ReactNode }) {
   return <Suspense fallback={<PageFallback />}>{children}</Suspense>;
 }
 
+/** Redirecciona rotas legadas Google para o hub único de Campanhas. */
+function RedirectToCampaignsHub({ plat }: { plat?: "google_ads" | "meta_ads" | "tiktok_ads" }) {
+  const { projectId } = useParams();
+  const q = plat ? `?plat=${plat}` : "";
+  return <Navigate to={`/tracking/dpilot/p/${projectId}/campanhas${q}`} replace />;
+}
+
 function DpilotIndexRedirect() {
   const { t } = useAppLocale();
   const [searchParams] = useSearchParams();
@@ -133,7 +143,7 @@ function DpilotIndexRedirect() {
         setTo(`/tracking/dpilot/p/${project}/campanhas/nova?${q.toString()}`);
         return;
       }
-      setTo(`/tracking/dpilot/p/${project}/visao`);
+      setTo(`/tracking/dpilot/p/${project}/google/visao`);
     })();
   }, [qp, landing]);
   if (to === "wait") {
@@ -255,14 +265,22 @@ export function DpilotPaidApp() {
       <Routes>
         <Route index element={<DpilotIndexRedirect />} />
         <Route path="p/:projectId" element={<DpilotProjectShell />}>
-          <Route index element={<Navigate to="visao" replace />} />
+          <Route index element={<Navigate to="google/visao" replace />} />
           <Route path="visao" element={<LazyPage><DpilotVisaoPage /></LazyPage>} />
           <Route path="ligacoes" element={<LazyPage><DpilotLigacoesPage /></LazyPage>} />
-          <Route path="google/visao" element={<LazyPage><DpilotGoogleOverviewPage /></LazyPage>} />
+          <Route path="google/visao" element={<LazyPage><DpilotGoogleVisaoDashboard /></LazyPage>} />
           <Route path="google/campanhas" element={<LazyPage><DpilotGoogleCampaignsManagerPage /></LazyPage>} />
           <Route path="google/grupos" element={<LazyPage><DpilotGoogleAdGroupsPage /></LazyPage>} />
           <Route path="google/anuncios" element={<LazyPage><DpilotGoogleAdsCreativesPage /></LazyPage>} />
           <Route path="google/palavras-chave" element={<LazyPage><DpilotGoogleKeywordsPage /></LazyPage>} />
+          <Route
+            path="google/termos-pesquisa"
+            element={
+              <LazyPage>
+                <DpilotGoogleSearchTermsHubPage />
+              </LazyPage>
+            }
+          />
           <Route path="google/orcamentos" element={<LazyPage><DpilotGoogleBudgetsPage /></LazyPage>} />
           <Route path="google/conversoes" element={<LazyPage><DpilotGoogleConversionsPage /></LazyPage>} />
           <Route path="google/relatorios" element={<LazyPage><DpilotGoogleReportsPage /></LazyPage>} />

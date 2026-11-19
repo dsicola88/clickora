@@ -52,6 +52,10 @@ export type AppNavItem = {
    * Páginas avançadas ligadas a partir de Configurações.
    */
   sidebar?: boolean;
+  /** Selo curto na sidebar (ex.: «Google») — texto fixo, não i18n */
+  sidebarBadge?: string;
+  /** Classe extra no ícone (cor de marca) */
+  iconClassName?: string;
 };
 
 export const APP_NAV_ITEMS: AppNavItem[] = [
@@ -90,6 +94,32 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     icon: Megaphone,
     group: "trabalho",
     keywords: ["campaign", "campanha", "tráfego", "trafego"],
+  },
+  {
+    titleKey: "dpilot",
+    url: "/tracking/dpilot",
+    icon: BarChart3,
+    iconClassName: "text-[#1a73e8]",
+    sidebarBadge: "Google",
+    /** Visível na sidebar quando o plano tem anúncios; filtrado em `sidebarNavItems`. */
+    group: "trabalho",
+    keywords: [
+      "dpilot",
+      "ads studio",
+      "studio ads",
+      "google wizard",
+      "campanha google",
+      "gestor google ads",
+      "google ads manager",
+      "search ads",
+      "meta ads",
+      "tiktok ads",
+      "orçamento",
+      "orcamento",
+      "palavras-chave",
+      "termos de pesquisa",
+      "centro de operações",
+    ],
   },
   {
     titleKey: "keywords",
@@ -185,7 +215,19 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     url: "/integracoes/google-ads",
     icon: LineChart,
     group: "configuracao",
-    keywords: ["ads", "gclid", "conversões offline", "conversoes offline", "roas", "google"],
+    /** Só em Integrações + command palette — evita «dois Google» na sidebar com Ads Studio. */
+    sidebar: false,
+    keywords: [
+      "ads",
+      "gclid",
+      "conversões offline",
+      "conversoes offline",
+      "roas",
+      "google",
+      "upload conversões",
+      "tracking google",
+      "vendas google",
+    ],
   },
   {
     titleKey: "automizer",
@@ -272,14 +314,6 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     sidebar: false,
     keywords: ["builder", "editor", "manual", "templates"],
   },
-  {
-    titleKey: "dpilot",
-    url: "/tracking/dpilot",
-    icon: Rocket,
-    group: "avancado",
-    sidebar: false,
-    keywords: ["dpilot", "google wizard", "campanha google"],
-  },
 ];
 
 /** @deprecated Preferir `t(\`navGroups.${group}\`)` — mantido para testes estáticos PT. */
@@ -340,7 +374,11 @@ export function appNavMatchesQuery(item: AppNavItem, query: string): boolean {
   return normalizeNavSearchText(appNavSearchValue(item)).includes(q);
 }
 
-export function sidebarNavItems(staff: boolean): AppNavItem[] {
+export function sidebarNavItems(
+  staff: boolean,
+  _opts?: { dpilotAdsEnabled?: boolean },
+): AppNavItem[] {
+  // Ads Studio fica sempre visível: o PlanGate em `/tracking/dpilot` trata o upgrade.
   return APP_NAV_ITEMS.filter((item) => {
     if (item.sidebar === false) return false;
     if (item.staffOnly && !staff) return false;
@@ -350,12 +388,10 @@ export function sidebarNavItems(staff: boolean): AppNavItem[] {
 
 export function commandNavItems(
   staff: boolean,
-  opts?: { dpilotAdsEnabled?: boolean },
+  _opts?: { dpilotAdsEnabled?: boolean },
 ): AppNavItem[] {
-  const dpilotOk = opts?.dpilotAdsEnabled === true;
   return APP_NAV_ITEMS.filter((item) => {
     if (item.staffOnly && !staff) return false;
-    if (item.url === "/tracking/dpilot" && !dpilotOk) return false;
     return true;
   });
 }

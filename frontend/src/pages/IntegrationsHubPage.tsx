@@ -331,23 +331,28 @@ export default function IntegrationsHubPage() {
             <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
           </Link>
 
-          {dpilot ? (
-            <Link
-              to="/tracking/dpilot"
-              className="group flex items-start gap-3 rounded-lg border border-border/70 bg-card p-4 transition-colors hover:border-primary/40"
-            >
-              <div className="rounded-md bg-primary/10 p-2">
-                <Megaphone className="h-4 w-4 text-primary" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">{t("pages.integrations.dpilotCard")}</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                  {t("pages.integrations.dpilotCardDesc")}
-                </p>
-              </div>
-              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
-            </Link>
-          ) : null}
+          <Link
+            to="/tracking/dpilot"
+            className="group flex items-start gap-3 rounded-lg border border-border/70 bg-card p-4 transition-colors hover:border-primary/40"
+          >
+            <div className="rounded-md bg-primary/10 p-2">
+              <Megaphone className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                {t("pages.integrations.dpilotCard")}
+                {!dpilot ? (
+                  <Badge variant="secondary" className="text-[10px]">
+                    Pro
+                  </Badge>
+                ) : null}
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
+                {t("pages.integrations.dpilotCardDesc")}
+              </p>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
+          </Link>
         </div>
       </div>
     </div>

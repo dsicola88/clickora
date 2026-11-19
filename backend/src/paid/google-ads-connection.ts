@@ -24,7 +24,11 @@ export type GoogleAdsAccessCtx = GoogleAdsAccessOk | GoogleAdsAccessErr;
 export async function resolveGoogleAdsAccess(projectId: string): Promise<GoogleAdsAccessCtx> {
   const conn = await prisma.paidAdsGoogleAdsConnection.findUnique({ where: { projectId } });
   if (!conn || conn.status !== "connected" || !conn.tokenRef || !conn.googleCustomerId) {
-    return { ok: false, error: "Ligue a conta Google Ads (OAuth) neste projecto.", code: "oauth_required" };
+    return {
+      ok: false,
+      error: "Conta Google por sincronizar. Em Conta, use a ligação de Integrações (um clique).",
+      code: "oauth_required",
+    };
   }
   const refresh = loadPaidToken(conn.tokenRef);
   if (!refresh) {

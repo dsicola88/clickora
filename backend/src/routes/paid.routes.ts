@@ -42,6 +42,10 @@ function handleTiktokAssetUpload(req: Request, res: Response, next: NextFunction
 
 paidRouter.get("/oauth/config", asyncRoute((req, res) => oauthController.oauthConfig(req, res)));
 paidRouter.post("/oauth/google/start", asyncRoute((req, res) => oauthController.googleStart(req, res)));
+paidRouter.post(
+  "/oauth/google/from-integrations",
+  asyncRoute((req, res) => oauthController.googleFromIntegrations(req, res)),
+);
 paidRouter.post("/oauth/meta/start", asyncRoute((req, res) => oauthController.metaStart(req, res)));
 paidRouter.post("/oauth/tiktok/start", asyncRoute((req, res) => oauthController.tiktokStart(req, res)));
 paidRouter.post("/oauth/google/disconnect", asyncRoute((req, res) => oauthController.disconnectGoogle(req, res)));
@@ -158,6 +162,10 @@ paidRouter.get(
   asyncRoute((req, res) => paidController.googleAdsManagerOverview(req, res)),
 );
 paidRouter.get(
+  "/projects/:projectId/google-ads/final-url-audit",
+  asyncRoute((req, res) => paidController.googleAdsFinalUrlAudit(req, res)),
+);
+paidRouter.get(
   "/projects/:projectId/google-ads/campaigns-metrics",
   asyncRoute((req, res) => paidController.googleAdsManagerCampaignsMetrics(req, res)),
 );
@@ -186,6 +194,14 @@ paidRouter.post(
   asyncRoute((req, res) => paidController.duplicateGoogleCampaign(req, res)),
 );
 paidRouter.get(
+  "/projects/:projectId/google-ads/search-terms",
+  asyncRoute((req, res) => paidController.googleAdsProjectSearchTerms(req, res)),
+);
+paidRouter.post(
+  "/projects/:projectId/google-ads/search-terms/negate-batch",
+  asyncRoute((req, res) => paidController.googleAdsProjectSearchTermsNegateBatch(req, res)),
+);
+paidRouter.get(
   "/projects/:projectId/campaigns/:campaignId/google-ads/search-terms",
   asyncRoute((req, res) => paidController.googleAdsSearchTerms(req, res)),
 );
@@ -204,6 +220,10 @@ paidRouter.get(
 paidRouter.post(
   "/projects/:projectId/google-ads/import-campaigns",
   asyncRoute((req, res) => paidController.googleAdsImportCampaigns(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/google-ads/rsa-policy-audit",
+  asyncRoute((req, res) => paidController.googleAdsRsaPolicyAudit(req, res)),
 );
 paidRouter.get(
   "/projects/:projectId/campaigns/:campaignId/google-ads/rsa-policy",

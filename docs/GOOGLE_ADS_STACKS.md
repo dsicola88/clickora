@@ -41,4 +41,13 @@ Operações afiliado (evitar ads.google.com no dia a dia):
 - `GET …/campaigns/:id/google-ads/rsa-policy` (approval_status real)
 - `POST …/google-ads/recommendations/action` (apply/dismiss com confirmação)
 - `GET …/google-ads/device-performance`
-- Orçamento partilhado: `update_budget` bloqueia se `explicitly_shared` e `reference_count > 1`
+- Orçamento partilhado: pré-voo em `campaigns-metrics` + `remote-campaigns` (`budget_editable`); `update_budget` continua a bloquear se `explicitly_shared` e `reference_count > 1`
+- Conversões no Ads Studio: checklist compara Paid customer vs upload (`/integracoes/google-ads`) + ledger `google_ads_sync` (analytics) — stacks OAuth continuam separados
+- **UX (uma ligação):** Integrações → Google = OAuth do utilizador (vendas/custos). Ads Studio → Conta chama `POST /api/paid/oauth/google/from-integrations` (copia token + customer para `paid_ads_*` e importa Search) — o afiliado não faz 2.º consentimento. OAuth Paid directo fica só como «outra conta». `/ligacoes` → Conta Google.
+- Final URL audit: `GET …/google-ads/final-url-audit` (RSAs locais) — gclid/ValueTrack/host; coluna em `google/campanhas`
+- Sidebar: Ads Studio sempre visível; PlanGate em `/tracking/dpilot` se o plano não tiver `dpilot_ads_enabled`
+- Import Search: negativas de **ad-group** + campanha; hub de termos marca `already_negative` em ambos os níveis
+- Relatórios: `device-performance` com rollup de conta + `by_campaign` (filtro `campaign_id`)
+- Campanhas: reconciliação `google_clicks` vs `tracking_clicks` (`funnel_risk` se captura < 50% com ≥10 cliques)
+- RSA policy project-wide: `GET …/google-ads/rsa-policy-audit` (DISAPPROVED / APPROVED_LIMITED); nav `google/anuncios`
+- Conversões: `paid_ads_campaign_id` no ledger analytics para filtrar ao projecto Ads Studio

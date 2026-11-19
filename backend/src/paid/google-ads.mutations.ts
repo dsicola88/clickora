@@ -21,6 +21,7 @@ import {
 import { publishGoogleCampaignAssetExtensions } from "./google-ads-asset-extensions-publish";
 import { removeGoogleCampaignExtensionAssetLinks } from "./google-ads-campaign-assets-sync";
 import type { GoogleCampaignAssetExtensionsStored } from "./google-campaign-asset-extensions";
+import { parseGoogleBudgetShareFromRow, sharedBudgetBlockMessage } from "./google-ads-budget";
 import { prisma } from "./paidPrisma";
 import { isOAuthPendingToken, loadPaidToken } from "./tokenSecrets";
 
@@ -100,21 +101,21 @@ export async function applyGoogleUpdateBudget(
   `;
   const s = await runGoogleAdsSearch(access, customerId, dev, q, LOGIN);
   if (s.error) return { ok: false, error: s.error.message ?? "Falha na consulta" };
-  const row = s.results?.[0] as {
-    campaign?: { campaignBudget?: string };
-    campaignBudget?: { explicitlyShared?: boolean; referenceCount?: number | string; amountMicros?: string };
-  } | undefined;
+  const row = s.results?.[0] as
+    | {
+        campaign?: { campaignBudget?: string };
+        campaignBudget?: Record<string, unknown>;
+      }
+    | undefined;
   const brn = row?.campaign?.campaignBudget;
   if (!brn) {
     return { ok: false, error: "Orçamento da campanha não encontrado no Google." };
   }
-  const budgetMeta = row?.campaignBudget;
-  const shared = Boolean(budgetMeta?.explicitlyShared);
-  const refCount = Number(budgetMeta?.referenceCount ?? 1);
-  if (shared && refCount > 1) {
+  const share = parseGoogleBudgetShareFromRow(row as Record<string, unknown>);
+  if (!share.budget_editable) {
     return {
       ok: false,
-      error: `Orçamento partilhado por ${refCount} campanhas na Google. Alterar aqui afectaria outras campanhas. Separe o orçamento na consola Google ou escolha um orçamento exclusivo antes de ajustar na Dclickora.`,
+      error: sharedBudgetBlockMessage(share.reference_count),
     };
   }
   const m = await runGoogleAdsMutate(
