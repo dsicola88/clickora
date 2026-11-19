@@ -148,8 +148,11 @@ export function DpilotGoogleSearchTermsHubPage() {
           title={
             <span className="flex flex-wrap items-center gap-2.5">
               <Search className="h-7 w-7 text-[#1a73e8]" aria-hidden />
-              Termos de pesquisa
-              <Badge className="border border-[#1a73e8]/30 bg-[#1a73e8]/15 font-normal text-[#1a73e8] hover:bg-[#1a73e8]/15">
+              <span>Termos de pesquisa</span>
+              <Badge
+                aria-hidden
+                className="border border-[#1a73e8]/30 bg-[#1a73e8]/15 font-normal text-[#1a73e8] hover:bg-[#1a73e8]/15"
+              >
                 Projecto
               </Badge>
             </span>

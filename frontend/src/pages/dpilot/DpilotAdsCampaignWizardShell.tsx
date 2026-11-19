@@ -148,6 +148,7 @@ export function DpilotAdsCampaignWizardShell({
                 key={s.id}
                 type="button"
                 onClick={() => scrollToSection(s.id)}
+                aria-label={`Passo ${i + 1}: ${s.label}`}
                 className={cn(
                   "shrink-0 rounded-lg border px-3 py-2 text-left transition-colors",
                   "border-border/80 bg-muted/30 text-[11px] font-medium text-muted-foreground",
@@ -157,7 +158,10 @@ export function DpilotAdsCampaignWizardShell({
                   "active:border-primary/40",
                 )}
               >
-                <span className="mr-1.5 inline-flex h-[1.375rem] min-w-[1.375rem] items-center justify-center rounded-md border border-border/70 bg-background/95 text-[10px] font-semibold tabular-nums text-muted-foreground shadow-sm">
+                <span
+                  aria-hidden
+                  className="mr-1.5 inline-flex h-[1.375rem] min-w-[1.375rem] items-center justify-center rounded-md border border-border/70 bg-background/95 text-[10px] font-semibold tabular-nums text-muted-foreground shadow-sm"
+                >
                   {i + 1}
                 </span>
                 <span>{s.label}</span>
