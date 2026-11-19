@@ -212,8 +212,11 @@ export function friendlyGoogleAdsNetworkError(message: string | null | undefined
   if (/not compatible with the campaign type|setting type is not compatible/i.test(m)) {
     return "O Google recusou opções de segmentação incompatíveis com campanhas Search (foi aplicada uma correcção no servidor — volte a «Aplicar na rede»).";
   }
+  if (/manager_account|conta gestor|é mcc/i.test(m)) {
+    return "A conta ligada é MCC (gestor). Em Integrações escolha a conta cliente onde estão os anúncios reais.";
+  }
   if (/invalid\s+argument/i.test(m)) {
-    return "O Google Ads rejeitou o pedido (argumento inválido). Se a conta acabou de mudar, sincronize em Conta; senão confirme orçamento e critérios e tente de novo.";
+    return "A Google rejeitou a leitura desta conta (argumento inválido). Confirme em Integrações o número da conta cliente (não MCC) e volte a sincronizar — a lista local pode não ser a da Google.";
   }
   if (/ACTION_NOT_PERMITTED_FOR_SUSPENDED_ACCOUNT|account is suspended|suspended account/i.test(m)) {
     return (

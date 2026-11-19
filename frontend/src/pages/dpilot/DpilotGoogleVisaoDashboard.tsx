@@ -62,7 +62,10 @@ export function DpilotGoogleVisaoDashboard() {
     void load();
   }, [load]);
 
-  const connected = Boolean(ov?.connected) || isConnConnected(overview?.connection);
+  const networkOk = Boolean(ov?.connected) && !ov?.connection_error && ov?.source === "google_ads_api";
+  const paidLinked = Boolean(ov?.connected) || isConnConnected(overview?.connection);
+  const localOnly = Boolean(ov?.connection_error) || ov?.source === "local_only" || !networkOk;
+  const connected = paidLinked;
   const metrics = ov?.metrics;
 
   const chartData = useMemo(() => {
@@ -103,16 +106,22 @@ export function DpilotGoogleVisaoDashboard() {
             <h1 className="text-xl font-semibold tracking-tight text-slate-900">Visão geral</h1>
             <Badge
               className={
-                connected
+                networkOk
                   ? "border-emerald-200 bg-emerald-50 font-normal text-emerald-700 hover:bg-emerald-50"
-                  : "border-amber-200 bg-amber-50 font-normal text-amber-800 hover:bg-amber-50"
+                  : connected
+                    ? "border-amber-200 bg-amber-50 font-normal text-amber-800 hover:bg-amber-50"
+                    : "border-amber-200 bg-amber-50 font-normal text-amber-800 hover:bg-amber-50"
               }
               variant="outline"
             >
-              {connected ? "Conectado" : "Por sincronizar"}
+              {networkOk ? "Rede OK" : connected ? "Só rascunhos locais" : "Por sincronizar"}
             </Badge>
           </div>
-          <p className="mt-1 text-sm text-slate-500">Últimos 30 dias · métricas da conta Google Ads</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {networkOk
+              ? "Últimos 30 dias · métricas da conta Google Ads"
+              : "Últimos 30 dias · contagens locais neste projecto (ainda sem inventário Google)"}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -230,9 +239,20 @@ export function DpilotGoogleVisaoDashboard() {
 
       <Card className="border-slate-200/90 shadow-none">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-base font-semibold text-slate-900">Campanhas</CardTitle>
+          <div>
+            <CardTitle className="text-base font-semibold text-slate-900">
+              {localOnly ? "Campanhas neste projecto" : "Campanhas"}
+            </CardTitle>
+            {localOnly ? (
+              <p className="mt-1 text-xs text-amber-800/90">
+                Rascunhos Clickora — podem não existir na conta Google. Importe Search em Campanhas para alinhar.
+              </p>
+            ) : null}
+          </div>
           <Button variant="link" className="h-auto p-0 text-[#1a73e8]" asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Ver todas</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>
+              {localOnly ? "Importar da Google" : "Ver todas"}
+            </Link>
           </Button>
         </CardHeader>
         <CardContent className="space-y-0 divide-y divide-slate-100 px-0">

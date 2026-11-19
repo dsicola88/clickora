@@ -190,30 +190,40 @@ export async function fetchCustomerName(
   customerId: string,
   loginCustomerId?: string,
 ): Promise<string | null> {
+  const meta = await fetchCustomerMeta(accessToken, customerId, loginCustomerId);
+  return meta?.name ?? null;
+}
+
+/** Metadados mínimos da conta (nome + se é MCC). */
+export async function fetchCustomerMeta(
+  accessToken: string,
+  customerId: string,
+  loginCustomerId?: string,
+): Promise<{ id: string; name: string | null; manager: boolean } | null> {
   const dev = resolveDeveloperTokenHeader();
   assertDeveloperToken(dev);
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${accessToken}`,
-    "developer-token": dev,
-    "Content-Type": "application/json",
-  };
-  if (loginCustomerId) {
-    headers["login-customer-id"] = loginCustomerId;
-  }
-
-  const res = await fetch(`${API_BASE}/customers/${customerId}/googleAds:search`, {
+  const clean = customerId.replace(/\D/g, "");
+  const login = normalizeLoginCustomerId(clean, loginCustomerId);
+  const res = await fetch(`${API_BASE}/customers/${clean}/googleAds:search`, {
     method: "POST",
-    headers,
+    headers: headersForGoogleAds(accessToken, dev, login),
     body: JSON.stringify({
-      query: "SELECT customer.descriptive_name, customer.id FROM customer LIMIT 1",
+      query: "SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1",
     }),
   });
   if (!res.ok) return null;
   const j = (await res.json()) as {
-    results?: Array<{ customer?: { descriptiveName?: string } }>;
+    results?: Array<{
+      customer?: { id?: string | number; descriptiveName?: string; manager?: boolean };
+    }>;
   };
-  const n = j.results?.[0]?.customer?.descriptiveName;
-  return n ? String(n) : null;
+  const c = j.results?.[0]?.customer;
+  if (!c) return null;
+  return {
+    id: String(c.id ?? clean).replace(/\D/g, ""),
+    name: c.descriptiveName ? String(c.descriptiveName) : null,
+    manager: c.manager === true,
+  };
 }
 
 function microsFromMetric(m: string | number | undefined | null): bigint {

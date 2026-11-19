@@ -67,24 +67,51 @@ export async function listRemoteGoogleSearchCampaigns(projectId: string) {
       .filter(([id]) => Boolean(id)),
   );
 
-  /** Sem ORDER BY — em algumas contas o sort dispara «invalid argument». */
-  const q = `
+  /** Query mínima primeiro — campos de orçamento partilhado falham em algumas contas. */
+  const qMinimal = `
     SELECT
       campaign.id,
       campaign.name,
       campaign.status,
-      campaign.advertising_channel_type,
+      campaign.advertising_channel_type
+    FROM campaign
+    WHERE campaign.status != 'REMOVED'
+    LIMIT 200
+  `;
+  let s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, qMinimal, ctx.loginCustomerId);
+  if (s.error) {
+    return { ok: false as const, error: s.error.message ?? "Falha ao listar campanhas remotas.", code: "gaql_error" };
+  }
+
+  const qBudget = `
+    SELECT
+      campaign.id,
       campaign_budget.amount_micros,
       campaign_budget.explicitly_shared,
       campaign_budget.reference_count
     FROM campaign
     WHERE campaign.status != 'REMOVED'
-      AND campaign.advertising_channel_type = 'SEARCH'
     LIMIT 200
   `;
-  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
-  if (s.error) {
-    return { ok: false as const, error: s.error.message ?? "Falha ao listar campanhas remotas.", code: "gaql_error" };
+  const budgetS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, qBudget, ctx.loginCustomerId);
+  const budgetById = new Map<
+    string,
+    { amount_micros: number | null; explicitly_shared: boolean; reference_count: number; budget_editable: boolean }
+  >();
+  if (!budgetS.error) {
+    for (const raw of Array.isArray(budgetS.results) ? budgetS.results : []) {
+      const row = raw as Record<string, unknown>;
+      const camp = (row.campaign ?? {}) as { id?: string };
+      const ext = numId(camp.id);
+      if (!ext) continue;
+      const share = parseGoogleBudgetShareFromRow(row);
+      budgetById.set(ext, {
+        amount_micros: share.amount_micros,
+        explicitly_shared: share.explicitly_shared,
+        reference_count: share.reference_count,
+        budget_editable: share.budget_editable,
+      });
+    }
   }
 
   const campaigns: RemoteGoogleCampaignSummary[] = [];
@@ -96,19 +123,21 @@ export async function listRemoteGoogleSearchCampaigns(projectId: string) {
       status?: string;
       advertisingChannelType?: string;
     };
-    const share = parseGoogleBudgetShareFromRow(row);
     const ext = numId(camp.id);
     if (!ext) continue;
+    /** Listamos todos os tipos — o afiliado vê a conta real; import Search só aplica SEARCH. */
+    const channel = String(camp.advertisingChannelType ?? "").toUpperCase() || "UNKNOWN";
+    const share = budgetById.get(ext);
     const localId = byExt.get(ext) ?? null;
     campaigns.push({
       external_campaign_id: ext,
       name: String(camp.name ?? `Campaign ${ext}`),
       status: String(camp.status ?? ""),
-      channel_type: String(camp.advertisingChannelType ?? "SEARCH"),
-      daily_budget_micros: share.amount_micros,
-      budget_shared: share.explicitly_shared,
-      budget_reference_count: share.reference_count,
-      budget_editable: share.budget_editable,
+      channel_type: channel === "UNKNOWN" ? "SEARCH" : channel,
+      daily_budget_micros: share?.amount_micros ?? null,
+      budget_shared: share?.explicitly_shared ?? false,
+      budget_reference_count: share?.reference_count ?? 1,
+      budget_editable: share?.budget_editable ?? true,
       already_imported: Boolean(localId),
       local_campaign_id: localId,
     });

@@ -46,21 +46,27 @@ export function DpilotGoogleNetworkBanner({ projectId }: { projectId: string }) 
       toast.error(toastGoogleAdsError(err));
       return;
     }
-    toast.success(`Conta ${data.customer_id} sincronizada`);
+    const imp = data.import;
+    toast.success(
+      imp
+        ? `Conta ${data.customer_id} · ${imp.imported} campanha(s) importada(s) da Google`
+        : `Conta ${data.customer_id} sincronizada`,
+    );
     void load();
+    window.location.reload();
   };
 
   return (
     <Alert className="mb-4 border-amber-300/80 bg-amber-50/90 text-amber-950 shadow-none">
       <AlertTriangle className="h-4 w-4 text-amber-700" />
       <AlertTitle className="text-amber-950">
-        {needsReauth ? "Ligar de novo a conta Google" : "Rede Google temporariamente indisponível"}
+        {needsReauth ? "Ligar de novo a conta Google" : "Lista local ≠ conta Google"}
       </AlertTitle>
       <AlertDescription className="space-y-3 text-amber-950/90">
         <p className="text-sm leading-relaxed">{detail}</p>
         <p className="text-xs text-amber-900/70">
-          Pode continuar a criar e editar rascunhos aqui. Pause, orçamento e métricas de rede voltam assim que a
-          ligação estiver válida.
+          As campanhas abaixo podem ser só rascunhos deste projecto (ex. Neotonics / TonicGreens) — não o inventário
+          real da conta. Quando a rede responder, use Campanhas → Importar Search ou «Re-sincronizar».
         </p>
         <div className="flex flex-wrap gap-2">
           {needsReauth ? (
@@ -70,9 +76,12 @@ export function DpilotGoogleNetworkBanner({ projectId }: { projectId: string }) 
           ) : (
             <Button size="sm" disabled={syncing} onClick={() => void sync()}>
               {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Re-sincronizar conta
+              Re-sincronizar e importar
             </Button>
           )}
+          <Button size="sm" variant="outline" className="border-amber-300 bg-white/70" asChild>
+            <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Abrir Campanhas / importar</Link>
+          </Button>
           <Button size="sm" variant="outline" className="border-amber-300 bg-white/70" asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/google`}>Configurações</Link>
           </Button>

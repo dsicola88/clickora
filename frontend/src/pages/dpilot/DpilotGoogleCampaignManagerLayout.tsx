@@ -77,7 +77,7 @@ export function DpilotGoogleCampaignManagerLayout() {
               connected ? "bg-emerald-500/20 text-emerald-200" : "bg-amber-500/20 text-amber-100",
             )}
           >
-            {connected ? "Google Ads conectado" : "Google Ads por sincronizar"}
+            {connected ? "Conta Google ligada" : "Google Ads por sincronizar"}
           </span>
           {accountLabel ? (
             <p className="mt-1 font-mono text-[11px] text-slate-300">Conta: {accountLabel}</p>

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatUsdFromMicros } from "@/lib/paidAdsUi";
+import { formatUsdFromMicros, toastGoogleAdsError } from "@/lib/paidAdsUi";
 import { paidAdsService } from "@/services/paidAdsService";
 
 type RemoteRow = NonNullable<
@@ -60,8 +60,16 @@ export function DpilotGoogleImportPanel({
     });
   };
 
+  const isSearch = (r: RemoteRow) => String(r.channel_type || "SEARCH").toUpperCase() === "SEARCH";
+
   const selectNew = () => {
-    setSelected(new Set(rows.filter((r) => !r.already_imported).map((r) => r.external_campaign_id)));
+    setSelected(
+      new Set(
+        rows
+          .filter((r) => isSearch(r) && !r.already_imported)
+          .map((r) => r.external_campaign_id),
+      ),
+    );
   };
 
   const runImport = async (refresh: boolean) => {
@@ -134,24 +142,36 @@ export function DpilotGoogleImportPanel({
 
       {err ? (
         <Alert variant="destructive">
-          <AlertTitle>Conta / API</AlertTitle>
-          <AlertDescription>{err}</AlertDescription>
+          <AlertTitle>Não foi possível ler a conta Google</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>{toastGoogleAdsError(err)}</p>
+            <p className="text-xs opacity-90">
+              Enquanto isto falhar, a lista «Campanhas» acima continua a ser só rascunhos deste projecto — não o
+              inventário de ads.google.com.
+            </p>
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/integracoes/google-ads">Verificar Integrações → Google</Link>
+            </Button>
+          </AlertDescription>
         </Alert>
       ) : null}
 
       {loading ? (
         <p className="text-sm text-muted-foreground flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" /> A ler campanhas Search na Google…
+          <Loader2 className="h-4 w-4 animate-spin" /> A ler campanhas na Google…
         </p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nenhuma campanha Search na conta (ou OAuth em falta).</p>
-      ) : (
+      ) : rows.length === 0 && !err ? (
+        <p className="text-sm text-muted-foreground">
+          A Google não devolveu campanhas nesta conta. Confirme o customer ID em Integrações (conta cliente, não MCC).
+        </p>
+      ) : rows.length === 0 ? null : (
         <div className="overflow-x-auto rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10" />
                 <TableHead>Nome</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>ID Google</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Orçamento/dia</TableHead>
@@ -164,13 +184,16 @@ export function DpilotGoogleImportPanel({
                   <TableCell>
                     <Checkbox
                       checked={selected.has(r.external_campaign_id)}
+                      disabled={!isSearch(r)}
                       onCheckedChange={(v) => toggle(r.external_campaign_id, v === true)}
                       aria-label={`Seleccionar ${r.name}`}
+                      title={isSearch(r) ? undefined : "Só Search pode ser importada neste fluxo"}
                     />
                   </TableCell>
                   <TableCell className="font-medium max-w-[16rem]">
                     <span className="line-clamp-2">{r.name}</span>
                   </TableCell>
+                  <TableCell className="text-xs">{r.channel_type || "SEARCH"}</TableCell>
                   <TableCell className="font-mono text-xs">{r.external_campaign_id}</TableCell>
                   <TableCell className="text-xs">{r.status}</TableCell>
                   <TableCell>

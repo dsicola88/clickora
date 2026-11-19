@@ -2,7 +2,7 @@
  * Centro de operações Google Ads (Paid) — métricas de conta, inventário e recomendações via API oficial.
  * Não inventa números: sem OAuth / sem developer token → erro explícito.
  */
-import { runGoogleAdsCustomerAction, runGoogleAdsSearch } from "./google-ads.api";
+import { fetchCustomerMeta, runGoogleAdsCustomerAction, runGoogleAdsSearch } from "./google-ads.api";
 import { parseGoogleBudgetShareFromRow } from "./google-ads-budget";
 import { computeClickCapture } from "./google-ads-click-capture";
 import {
@@ -86,7 +86,27 @@ export async function fetchGoogleAdsAccountOverview(
   }
   counts.connected_accounts = 1;
 
-  const q = `
+  const meta = await fetchCustomerMeta(ctx.access, ctx.customerId, ctx.loginCustomerId);
+  if (meta?.manager) {
+    return {
+      ok: true as const,
+      connected: true,
+      range,
+      counts,
+      metrics: null,
+      source: "local_only" as const,
+      inventory_scope: "local_drafts" as const,
+      connection_error:
+        "A conta ligada é MCC (gestor). Em Integrações → Google escolha a conta cliente onde estão os anúncios — não a conta gestor.",
+      connection_error_code: "manager_account",
+      account: {
+        customer_id: ctx.customerId,
+        account_name: meta.name ?? ctx.accountName,
+      },
+    };
+  }
+
+  const qCustomer = `
     SELECT
       metrics.impressions,
       metrics.clicks,
@@ -96,7 +116,31 @@ export async function fetchGoogleAdsAccountOverview(
     FROM customer
     WHERE segments.date BETWEEN '${range.from}' AND '${range.to}'
   `;
-  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
+  let s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, qCustomer, ctx.loginCustomerId);
+
+  /** Fallback: algumas contas rejeitam métricas ao nível customer — agregar por campanha. */
+  if (s.error) {
+    const qCampaign = `
+      SELECT
+        metrics.impressions,
+        metrics.clicks,
+        metrics.cost_micros,
+        metrics.conversions,
+        metrics.conversions_value
+      FROM campaign
+      WHERE segments.date BETWEEN '${range.from}' AND '${range.to}'
+        AND campaign.status != 'REMOVED'
+    `;
+    const retry = await runGoogleAdsSearch(
+      ctx.access,
+      ctx.customerId,
+      ctx.dev,
+      qCampaign,
+      ctx.loginCustomerId,
+    );
+    if (!retry.error) s = retry;
+  }
+
   if (s.error) {
     return {
       ok: true as const,
@@ -105,10 +149,11 @@ export async function fetchGoogleAdsAccountOverview(
       counts,
       metrics: null,
       source: "local_only" as const,
+      inventory_scope: "local_drafts" as const,
       connection_error: s.error.message ?? "Falha ao ler métricas da conta Google Ads.",
       account: {
         customer_id: ctx.customerId,
-        account_name: ctx.accountName,
+        account_name: meta?.name ?? ctx.accountName,
       },
     };
   }
@@ -141,9 +186,10 @@ export async function fetchGoogleAdsAccountOverview(
     counts,
     metrics,
     source: "google_ads_api" as const,
+    inventory_scope: "google_network" as const,
     account: {
       customer_id: ctx.customerId,
-      account_name: ctx.accountName,
+      account_name: meta?.name ?? ctx.accountName,
     },
   };
 }
