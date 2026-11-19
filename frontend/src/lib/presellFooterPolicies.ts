@@ -93,7 +93,7 @@ export function migrateLegacyOperatorUrls(settings: Record<string, unknown>): Re
     if (!trimUrl(next.merchantPrivacyUrl)) next.merchantPrivacyUrl = privacyRaw;
   }
   const termsRaw = trimUrl(next.termsUrl);
-  if (isExternalHttpUrl(termsRaw)) {
+  if (isExternalHttpUrl(termsRaw) && !isClickoraSaasLegalUrl(termsRaw)) {
     if (!trimUrl(next.merchantTermsUrl)) next.merchantTermsUrl = termsRaw;
   }
   const cookieRaw = trimUrl(next.cookiePolicyUrl);
@@ -119,10 +119,10 @@ export function resolvePresellFooterPolicies(
   const fromContent = contentPolicyUrls ?? {};
 
   const merchant = {
-    privacy: trimUrl(s.merchantPrivacyUrl) || trimUrl(fromContent.privacy) || undefined,
-    terms: trimUrl(s.merchantTermsUrl) || trimUrl(fromContent.terms) || undefined,
-    refund: trimUrl(s.merchantRefundUrl) || trimUrl(fromContent.refund) || undefined,
-    shipping: trimUrl(s.merchantShippingUrl) || trimUrl(fromContent.shipping) || undefined,
+    privacy: sanitizeMerchantUrl(trimUrl(s.merchantPrivacyUrl) || trimUrl(fromContent.privacy)),
+    terms: sanitizeMerchantUrl(trimUrl(s.merchantTermsUrl) || trimUrl(fromContent.terms)),
+    refund: sanitizeMerchantUrl(trimUrl(s.merchantRefundUrl) || trimUrl(fromContent.refund)),
+    shipping: sanitizeMerchantUrl(trimUrl(s.merchantShippingUrl) || trimUrl(fromContent.shipping)),
   };
 
   return {
@@ -215,12 +215,19 @@ function withCookieLang(pathOrUrl: string, language?: string): string {
   return `${pathOrUrl}${sep}lang=${encodeURIComponent(loc)}`;
 }
 
+/** Hosts do SaaS — nunca no rodapé «merchant» de uma white/presell de afiliado. */
+export function isClickoraSaasMarketingHost(hostname: string): boolean {
+  const h = hostname.replace(/^www\./i, "").toLowerCase();
+  return h === "dclickora.com" || h === "clickora.com";
+}
+
 /** /privacidade e equivalentes de conta — não servem como Cookie-Richtlinie da oferta. */
 function isClickoraAccountPrivacyUrl(raw: string): boolean {
   const t = raw.trim().toLowerCase();
   if (t === OPERATOR_POLICY_PATHS.privacy || t === "/privacy" || t === "/privacy-policy") return true;
   try {
     const u = new URL(t);
+    if (isClickoraSaasMarketingHost(u.hostname)) return true;
     const path = u.pathname.replace(/\/$/, "") || "/";
     return path === "/privacidade";
   } catch {
@@ -228,12 +235,47 @@ function isClickoraAccountPrivacyUrl(raw: string): boolean {
   }
 }
 
+/** URLs do site SaaS (privacy/terms da app) — não são política do produtor. */
+export function isClickoraSaasLegalUrl(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return false;
+  if (isClickoraOperatorPolicyUrl(t) && !isExternalHttpUrl(t)) return true;
+  try {
+    const u = new URL(t);
+    if (!isClickoraSaasMarketingHost(u.hostname)) return false;
+    const path = u.pathname.replace(/\/$/, "") || "/";
+    return (
+      path === "/privacy" ||
+      path === "/privacy-policy" ||
+      path === "/terms" ||
+      path === "/terms-of-service" ||
+      path === "/privacidade" ||
+      path === "/termos" ||
+      path === "/aviso-cookies" ||
+      path === "/aviso-medico"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeMerchantUrl(raw: string | undefined): string | undefined {
+  const t = trimUrl(raw);
+  if (!t) return undefined;
+  if (isClickoraSaasLegalUrl(t) || isClickoraAccountPrivacyUrl(t)) return undefined;
+  return t;
+}
+
 export function merchantPolicyLinks(bundle: PresellFooterPolicyBundle): { id: string; href: string }[] {
   const m = bundle.merchant;
   const out: { id: string; href: string }[] = [];
-  if (m.privacy) out.push({ id: "merchantPrivacy", href: m.privacy });
-  if (m.terms) out.push({ id: "merchantTerms", href: m.terms });
-  if (m.refund) out.push({ id: "merchantRefund", href: m.refund });
-  if (m.shipping) out.push({ id: "merchantShipping", href: m.shipping });
+  const privacy = sanitizeMerchantUrl(m.privacy);
+  const terms = sanitizeMerchantUrl(m.terms);
+  const refund = sanitizeMerchantUrl(m.refund);
+  const shipping = sanitizeMerchantUrl(m.shipping);
+  if (privacy) out.push({ id: "merchantPrivacy", href: privacy });
+  if (terms) out.push({ id: "merchantTerms", href: terms });
+  if (refund) out.push({ id: "merchantRefund", href: refund });
+  if (shipping) out.push({ id: "merchantShipping", href: shipping });
   return out;
 }

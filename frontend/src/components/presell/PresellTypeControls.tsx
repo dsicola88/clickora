@@ -122,18 +122,30 @@ export function CookieConsentModal({
   const closeClass =
     "inline-flex h-11 min-h-[44px] flex-1 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50";
 
+  /**
+   * Backdrop a bloquear a lander (white/espelho incluído) até Aceitar/Fechar.
+   * Compra continua possível depois do Fechar (essential) — sem esconder CTAs.
+   */
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
     <>
       <div
-        className="fixed inset-x-0 bottom-0 z-[520] flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none"
+        className="fixed inset-0 z-[520] flex items-end justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-auto"
         role="dialog"
-        aria-modal="false"
+        aria-modal="true"
         aria-labelledby="cookie-policy-title"
         data-testid="presell-cookie-sheet"
       >
         <div
           data-testid="presell-cookie-backdrop"
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-auto absolute inset-0 bg-slate-950/45 backdrop-blur-[1px]"
           aria-hidden="true"
         />
         <div

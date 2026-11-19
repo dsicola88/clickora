@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyImportedPolicyToSettings,
   isClickoraOperatorPolicyUrl,
+  merchantPolicyLinks,
   migrateLegacyOperatorUrls,
   resolvePresellFooterPolicies,
   resolveVisitorCookiePolicyUrl,
@@ -46,6 +47,25 @@ describe("presellFooterPolicies", () => {
     expect(bundle.operator.cookies).toBe("/aviso-cookies");
     expect(bundle.merchant.privacy).toBe("https://v.example/p");
     expect(bundle.merchant.terms).toBe("https://v.example/t");
+  });
+
+  it("rejeita dclickora.com/privacy|terms no rodapé merchant (fuga SaaS)", () => {
+    const bundle = resolvePresellFooterPolicies({
+      merchantPrivacyUrl: "https://www.dclickora.com/privacy",
+      merchantTermsUrl: "https://www.dclickora.com/terms",
+    });
+    expect(bundle.merchant.privacy).toBeUndefined();
+    expect(bundle.merchant.terms).toBeUndefined();
+    expect(merchantPolicyLinks(bundle)).toEqual([]);
+  });
+
+  it("mantém política real do produtor no merchant", () => {
+    const bundle = resolvePresellFooterPolicies({
+      merchantPrivacyUrl: "https://melarapro.com/privacy",
+      merchantTermsUrl: "https://melarapro.com/terms",
+    });
+    expect(bundle.merchant.privacy).toBe("https://melarapro.com/privacy");
+    expect(merchantPolicyLinks(bundle).map((l) => l.href)).toContain("https://melarapro.com/privacy");
   });
 
   it("Cookie-Richtlinie não usa merchantPrivacy; fallback /aviso-cookies", () => {

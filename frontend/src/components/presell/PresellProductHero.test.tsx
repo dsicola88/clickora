@@ -63,7 +63,10 @@ describe("CookieConsentModal", () => {
       />,
     );
     const sheet = screen.getByTestId("presell-cookie-sheet");
-    expect(sheet.className).toContain("bottom-0");
+    expect(sheet.className).toContain("inset-0");
+    expect(sheet.getAttribute("aria-modal")).toBe("true");
+    const backdrop = screen.getByTestId("presell-cookie-backdrop");
+    expect(backdrop.className).toContain("pointer-events-auto");
     expect(screen.getByTestId("presell-cookie-card")).toBeTruthy();
     expect(screen.getByRole("heading", { name: /privacy matters/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Accept" })).toBeTruthy();

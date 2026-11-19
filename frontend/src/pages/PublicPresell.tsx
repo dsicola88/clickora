@@ -1389,7 +1389,7 @@ export default function PublicPresell() {
             doc={visualDoc}
             trackOfferHref={href || undefined}
             offerUrl={offerUrl}
-            interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
+            interactionLocked={Boolean(showCookieModal || (interactiveKind && !ctaEnabled))}
           />
         </Suspense>
         {showTrustFooter ? (
@@ -1560,7 +1560,7 @@ export default function PublicPresell() {
           srcDoc={mirrorSrcDoc}
           title={primarySeoLabel}
           onMirrorProbablyEmpty={() => setMirrorUseTemplateFallback(true)}
-          interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
+          interactionLocked={Boolean(showCookieModal || (interactiveKind && !ctaEnabled))}
           offerHref={href}
           affiliateHref={affiliateLink.trim()}
         />
