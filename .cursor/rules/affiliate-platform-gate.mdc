@@ -18,9 +18,13 @@ Nenhuma funcionalidade nova ou mudança de funil deve ser implementada sem verif
 
 ## Três pilares (avançar em paralelo)
 
-- **Presells** — tipos, mercados, CMP sem matar a medição
-- **Tracking** — `gclid` / `wbraid` / `gbraid` / UTMs preservados ponta a ponta
+- **Presells** — tipos, mercados, CMP sem matar a medição; CTA sempre → `/track/r/` → hoplink
+- **Tracking** — `gclid` / `wbraid` / `gbraid` / `gad_source` / UTMs preservados ponta a ponta; URL final **sem** `gclid=` manual (auto-tagging)
 - **Antifraude** — listas manuais, bot/proxy no hop, KPI limpo — sem cloaking da landing
+
+## Fluxo que o media buyer espera
+
+1. Oferta (rede) → 2. Presell publicada → 3. URL final no Ads → 4. Clique pago → 5. Clique/impressão na Clickora → 6. Hop na rede → 7. Postback/venda → 8. Relatórios (Real vs Cloud)
 
 ## Sintoma clássico a evitar
 

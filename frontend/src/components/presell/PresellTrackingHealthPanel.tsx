@@ -3,13 +3,16 @@ import { AlertCircle, CheckCircle2, Info, Link2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
+  buildMediaBuyerQaPresellUrl,
   computePresellTrackingHealth,
-  PRESELL_QA_UTM,
   type TrackingHealthItem,
 } from "@/lib/presellTrackingHealth";
 import { MEDIA_BUYER_E2E_CHECKLIST } from "@/lib/mediaBuyerE2eChecklist";
+import { buildTrackedPresellUrl } from "@/services/campaignsService";
 import type { PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 type Props = {
   configSettings: PresellConfigSettings;
@@ -40,6 +43,7 @@ export function PresellTrackingHealthPanel({
   isEditor,
   onRequestHide,
 }: Props) {
+  const { t } = useAppLocale();
   const { items, readyScore } = useMemo(
     () =>
       computePresellTrackingHealth({
@@ -51,19 +55,27 @@ export function PresellTrackingHealthPanel({
     [configSettings, trackingEmbedScript, affiliateLink, publishedPageId],
   );
 
-  const testUrl = useMemo(() => {
+  /** Lander com gad_source+gclid de QA — clique no CTA = mesmo hop que Ads pago. */
+  const testUrl = useMemo(
+    () => (publicPageUrl?.trim() ? buildMediaBuyerQaPresellUrl(publicPageUrl) : null),
+    [publicPageUrl],
+  );
+
+  /** URL final limpa para colar no anúncio (sem gclid manual — auto-tagging). */
+  const adsFinalUrl = useMemo(() => {
     if (!publicPageUrl?.trim()) return null;
     try {
-      const u = new URL(publicPageUrl.trim());
-      const qa = new URLSearchParams(PRESELL_QA_UTM.startsWith("?") ? PRESELL_QA_UTM.slice(1) : PRESELL_QA_UTM);
-      qa.forEach((v, k) => {
-        if (!u.searchParams.has(k)) u.searchParams.set(k, v);
-      });
-      return u.toString();
+      return buildTrackedPresellUrl(publicPageUrl.trim(), "campanha", "Google Ads");
     } catch {
       return null;
     }
   }, [publicPageUrl]);
+
+  const copyAdsFinalUrl = () => {
+    if (!adsFinalUrl) return;
+    void navigator.clipboard.writeText(adsFinalUrl);
+    toast.success(t("pages.presells.toastAdsUrlCopied"));
+  };
 
   return (
     <div
@@ -149,26 +161,50 @@ export function PresellTrackingHealthPanel({
         ))}
       </ul>
 
-      {testUrl ? (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-1 border-t border-dashed border-border/50">
+      {testUrl || adsFinalUrl ? (
+        <div
+          className={cn(
+            "flex flex-col gap-2 pt-1 border-t border-dashed",
+            isEditor ? "border-editor-border/60" : "border-border/50",
+          )}
+        >
           <span className={cn("text-[11px]", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-            Pré-visualização de teste (não substitui um clique real no anúncio).
+            Media buyer: copia a URL final para o anúncio; usa o teste Ads para validar CTA → rede (não substitui 1 clique pago real).
           </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className={cn(
-              "gap-1.5 shrink-0",
-              isEditor && "border-editor-border bg-editor-panel text-editor-fg hover:bg-editor-border/80",
-            )}
-            asChild
-          >
-            <a href={testUrl} target="_blank" rel="noopener noreferrer">
-              <Link2 className="h-3.5 w-3.5" />
-              Abrir página de teste
-            </a>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {adsFinalUrl ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "gap-1.5 shrink-0",
+                  isEditor && "border-editor-border bg-editor-panel text-editor-fg hover:bg-editor-border/80",
+                )}
+                onClick={copyAdsFinalUrl}
+              >
+                <Link2 className="h-3.5 w-3.5" />
+                {t("pages.presells.copyFullUrl")}
+              </Button>
+            ) : null}
+            {testUrl ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "gap-1.5 shrink-0",
+                  isEditor && "border-editor-border bg-editor-panel text-editor-fg hover:bg-editor-border/80",
+                )}
+                asChild
+              >
+                <a href={testUrl} target="_blank" rel="noopener noreferrer">
+                  <Link2 className="h-3.5 w-3.5" />
+                  Testar hop Ads (QA)
+                </a>
+              </Button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

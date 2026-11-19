@@ -133,11 +133,18 @@ export function computePresellTrackingHealth(input: {
       "Antes de escalar: cola o URL de aviso de venda no painel da rede. Sem isto a venda não aparece na Clickora.",
   });
   items.push({
+    id: "e2e-final-url",
+    label: "URL final do Google Ads",
+    status: "info",
+    detail:
+      "Cola a URL gerada pela Clickora (UTMs + ValueTrack). Não ponhas gclid=… à mão — a Google injecta o ID no clique (auto-tagging).",
+  });
+  items.push({
     id: "e2e-smoke",
     label: "Teste com anúncio pequeno",
     status: "info",
     detail:
-      "Orçamento baixo → 1 clique real → Relatórios (Situação Real) → confirmar a venda. Só depois aumenta o budget.",
+      "Orçamento baixo → 1 clique real no anúncio → Relatórios (Situação Real) → hop na rede → venda. Só depois aumenta o budget.",
   });
   items.push({
     id: "e2e-funnel",
@@ -162,5 +169,26 @@ export function computePresellTrackingHealth(input: {
   return { items, readyScore };
 }
 
-/** Query string sugerida para testes sem poluir atribuição real. */
-export const PRESELL_QA_UTM = "utm_source=clickora_qa&utm_medium=presell_preview&utm_campaign=tag_check";
+/**
+ * Query de QA para media buyers: UTMs Clickora + sinais Google Ads.
+ * `gad_source=1` + gclid de teste exercitam o mesmo caminho que um clique pago
+ * (CTA → /track/r/ → hoplink) sem macros `{gclid}` literais.
+ */
+export const PRESELL_QA_UTM =
+  "utm_source=clickora_qa&utm_medium=presell_preview&utm_campaign=tag_check&gad_source=1&gclid=clickora_qa_test_click";
+
+/** Monta a URL pública de teste (lander com params Ads) para abrir no browser. */
+export function buildMediaBuyerQaPresellUrl(publicPageUrl: string): string | null {
+  const raw = publicPageUrl.trim();
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    const qa = new URLSearchParams(PRESELL_QA_UTM);
+    qa.forEach((v, k) => {
+      if (!u.searchParams.has(k)) u.searchParams.set(k, v);
+    });
+    return u.toString();
+  } catch {
+    return null;
+  }
+}

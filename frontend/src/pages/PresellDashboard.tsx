@@ -545,7 +545,7 @@ export default function PresellDashboard() {
     resetForm();
   };
 
-  /** URL final para colar no Ads: domínio/p/id + UTMs + gclid. */
+  /** URL final para colar no Ads: domínio/p/id + UTMs/ValueTrack (sem gclid manual). */
   const adsFinalUrlForPage = (page: Presell) => {
     const base = getPublicPresellFullUrl(customDomains, page.custom_domain_id, page);
     return buildTrackedPresellUrl(base, page.title || page.slug || "campanha", "Google Ads");
