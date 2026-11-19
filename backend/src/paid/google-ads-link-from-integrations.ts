@@ -4,9 +4,9 @@
  */
 import { resolveUserGoogleAdsRefreshToken } from "../modules/googleAds/googleAds.service";
 import {
-  fetchCustomerMeta,
   getAccessFromRefreshToken,
   isGoogleAdsOAuthConfigured,
+  resolveReadableGoogleAdsCustomer,
 } from "./google-ads.api";
 import { detachStaleGoogleCampaignLinks } from "./google-ads-detach-stale";
 import {
@@ -78,28 +78,39 @@ export async function linkGoogleAdsProjectFromIntegrations(
     };
   }
 
-  const loginCustomerId = (user.googleAdsLoginCustomerId ?? "").replace(/\D/g, "") || undefined;
+  const hintLogin = (user.googleAdsLoginCustomerId ?? "").replace(/\D/g, "") || undefined;
 
   let accountName: string | null = `Conta ${customerId}`;
+  let resolvedLogin: string | undefined;
   try {
     const { access_token: access } = await getAccessFromRefreshToken(refresh);
-    const meta = await fetchCustomerMeta(access, customerId, loginCustomerId);
-    if (!meta) {
+    const resolved = await resolveReadableGoogleAdsCustomer(access, customerId, hintLogin);
+    if (!resolved.ok) {
       return {
         ok: false,
-        error: `Não foi possível ler a conta ${customerId} na Google Ads API. Confirme o customer ID (cliente, não MCC) e o MCC em Integrações.`,
+        error: resolved.error,
         code: "customer_unreadable",
       };
     }
-    if (meta.manager) {
+    if (resolved.meta.manager) {
       return {
         ok: false,
         error:
-          "A conta indicada é MCC (gestor). Em Integrações escolha a conta cliente onde estão os anúncios reais.",
+          "A conta indicada é MCC (gestor). Em Integrações escolha a conta cliente onde estão os anúncios reais — ou deixe o MCC só no campo «login customer».",
         code: "manager_account",
       };
     }
-    if (meta.name) accountName = meta.name;
+    if (resolved.meta.name) accountName = resolved.meta.name;
+    resolvedLogin = resolved.loginCustomerId;
+    /** Persistir modo solo (null) ou MCC descoberta — ambos válidos. */
+    const nextLogin = resolvedLogin ?? null;
+    const prevLogin = hintLogin ?? null;
+    if (nextLogin !== prevLogin) {
+      await prisma.user.update({
+        where: { id: ownerUserId },
+        data: { googleAdsLoginCustomerId: nextLogin },
+      });
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Token Google inválido.";
     return { ok: false, error: message, code: "token_refresh_failed" };

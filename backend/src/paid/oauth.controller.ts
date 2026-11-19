@@ -5,8 +5,8 @@ import { z } from "zod";
 import {
   buildGoogleOAuthAuthUrl,
   exchangeGoogleAuthorizationCode,
-  fetchCustomerMeta,
   isGoogleAdsOAuthConfigured,
+  resolveReadableGoogleAdsCustomer,
 } from "./google-ads.api";
 import { detachStaleGoogleCampaignLinks } from "./google-ads-detach-stale";
 import { linkGoogleAdsProjectFromIntegrations } from "./google-ads-link-from-integrations";
@@ -145,23 +145,30 @@ export const oauthController = {
         });
         return redirectToFrontend(res, projectId, { google: "error" }, "google");
       }
-      const login = (owner?.googleAdsLoginCustomerId ?? "").replace(/\D/g, "") || undefined;
-      const meta = await fetchCustomerMeta(access, customerId, login);
-      if (!meta || meta.manager) {
+      const hintLogin = (owner?.googleAdsLoginCustomerId ?? "").replace(/\D/g, "") || undefined;
+      const resolved = await resolveReadableGoogleAdsCustomer(access, customerId, hintLogin);
+      if (!resolved.ok || resolved.meta.manager) {
         await prisma.paidAdsGoogleAdsConnection.update({
           where: { id: conn.id },
           data: {
             status: "error",
-            errorMessage: meta?.manager
+            errorMessage: resolved.ok
               ? "A conta em Integrações é MCC — escolha a conta cliente dos anúncios."
-              : `Não foi possível ler a conta ${customerId} na Google Ads API.`,
+              : resolved.error,
             tokenRef: null,
           },
         });
         return redirectToFrontend(res, projectId, { google: "error" }, "google");
       }
+      const nextLogin = resolved.loginCustomerId ?? null;
+      if (nextLogin !== (hintLogin ?? null)) {
+        await prisma.user.update({
+          where: { id: conn.userId },
+          data: { googleAdsLoginCustomerId: nextLogin },
+        });
+      }
       const prevCid = (conn.googleCustomerId ?? "").replace(/\D/g, "");
-      const name = meta.name ?? `Conta ${customerId}`;
+      const name = resolved.meta.name ?? `Conta ${customerId}`;
 
       await prisma.paidAdsGoogleAdsConnection.update({
         where: { id: conn.id },

@@ -300,6 +300,9 @@ export default function GoogleAdsConnectPage() {
                 onChange={(e) => setMccDraft(e.target.value)}
                 placeholder={t("pages.googleAds.managerPlaceholder")}
               />
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Conta particular / solo: deixe vazio. Conta sob MCC: número do gestor (login-customer-id).
+              </p>
             </div>
             <div className="sm:col-span-2">
               <Button size="sm" disabled={locked || saveIds.isPending} onClick={() => saveIds.mutate()}>

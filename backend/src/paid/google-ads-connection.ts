@@ -70,7 +70,11 @@ export async function resolveGoogleAdsAccess(projectId: string): Promise<GoogleA
     }
   }
 
-  /** Só MCC do utilizador — o env global partilhado entre contas causa «invalid argument». */
+  /**
+   * MCC só se o utilizador tiver login-customer-id distinto (conta sob gestor).
+   * Conta solo: sem header — GAQL faz retry sem MCC se o hint estiver errado.
+   * A descoberta solo↔MCC corre em «Re-sincronizar» (link-from-integrations).
+   */
   const rawLogin = owner?.googleAdsLoginCustomerId?.replace(/\D/g, "") || undefined;
   const loginCustomerId =
     rawLogin && rawLogin !== customerDigits ? rawLogin : undefined;
@@ -128,7 +132,7 @@ export async function resolveGoogleAdsAccess(projectId: string): Promise<GoogleA
     return {
       ok: false,
       error:
-        "Defina o número da conta cliente Google em Integrações → Google (não use a conta MCC) e volte a sincronizar.",
+        "Defina o número da conta cliente Google em Integrações → Google (conta dos anúncios) e volte a sincronizar.",
       code: "customer_id_required",
     };
   }

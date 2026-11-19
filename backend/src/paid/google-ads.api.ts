@@ -198,6 +198,26 @@ export async function fetchCustomerName(
   return meta?.name ?? null;
 }
 
+const CUSTOMER_META_QUERY =
+  "SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1";
+
+function parseCustomerMetaRow(
+  results: unknown[] | undefined,
+  fallbackId: string,
+): { id: string; name: string | null; manager: boolean } | null {
+  if (!Array.isArray(results) || results.length === 0) return null;
+  const row = results[0] as {
+    customer?: { id?: string | number; descriptiveName?: string; manager?: boolean };
+  };
+  const c = row.customer;
+  if (!c) return null;
+  return {
+    id: String(c.id ?? fallbackId).replace(/\D/g, ""),
+    name: c.descriptiveName ? String(c.descriptiveName) : null,
+    manager: c.manager === true,
+  };
+}
+
 /** Metadados mínimos da conta (nome + se é MCC). */
 export async function fetchCustomerMeta(
   accessToken: string,
@@ -207,23 +227,116 @@ export async function fetchCustomerMeta(
   const dev = resolveDeveloperTokenHeader();
   assertDeveloperToken(dev);
   const clean = customerId.replace(/\D/g, "");
-  const s = await runGoogleAdsSearch(
-    accessToken,
-    clean,
-    dev,
-    "SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1",
-    loginCustomerId,
-  );
-  if (s.error || !Array.isArray(s.results) || s.results.length === 0) return null;
-  const row = s.results[0] as {
-    customer?: { id?: string | number; descriptiveName?: string; manager?: boolean };
+  const s = await runGoogleAdsSearch(accessToken, clean, dev, CUSTOMER_META_QUERY, loginCustomerId);
+  if (s.error) return null;
+  return parseCustomerMetaRow(s.results, clean);
+}
+
+export type ResolvedGoogleAdsCustomer =
+  | {
+      ok: true;
+      meta: { id: string; name: string | null; manager: boolean };
+      /** undefined = conta solo / directa (sem header login-customer-id). */
+      loginCustomerId: string | undefined;
+      access_mode: "solo" | "mcc";
+    }
+  | { ok: false; error: string };
+
+async function listAccessibleCustomerIds(accessToken: string, devToken: string): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/customers:listAccessibleCustomers`, {
+    method: "GET",
+    headers: headersForGoogleAds(accessToken, devToken),
+  });
+  const j = (await res.json().catch(() => ({}))) as { resourceNames?: string[] };
+  if (!res.ok) return [];
+  return (j.resourceNames ?? [])
+    .map((r) => {
+      const m = /^customers\/(\d+)$/.exec(r);
+      return m ? m[1]! : r.replace(/\D/g, "");
+    })
+    .filter(Boolean);
+}
+
+/**
+ * Lê a conta cliente em modo solo OU via MCC.
+ * Ordem: sem MCC → MCC guardado → cada gestor acessível como login-customer-id.
+ * Persistir o `loginCustomerId` devolvido (null/undefined = solo).
+ */
+export async function resolveReadableGoogleAdsCustomer(
+  accessToken: string,
+  customerId: string,
+  hintLoginCustomerId?: string | null,
+): Promise<ResolvedGoogleAdsCustomer> {
+  const dev = resolveDeveloperTokenHeader();
+  assertDeveloperToken(dev);
+  const clean = customerId.replace(/\D/g, "");
+  if (!clean) {
+    return { ok: false, error: "Customer ID em falta." };
+  }
+
+  const hint = normalizeLoginCustomerId(clean, hintLoginCustomerId);
+  const tried = new Set<string>();
+  const errors: string[] = [];
+
+  const tryLogin = async (
+    login: string | undefined,
+    mode: "solo" | "mcc",
+  ): Promise<ResolvedGoogleAdsCustomer | null> => {
+    const key = login ?? "__solo__";
+    if (tried.has(key)) return null;
+    tried.add(key);
+    const s = await runGoogleAdsSearch(accessToken, clean, dev, CUSTOMER_META_QUERY, login);
+    if (s.error) {
+      errors.push(s.error.message ?? "erro");
+      return null;
+    }
+    const meta = parseCustomerMetaRow(s.results, clean);
+    if (!meta) {
+      errors.push(login ? `MCC ${login}: resposta vazia` : "solo: resposta vazia");
+      return null;
+    }
+    return { ok: true, meta, loginCustomerId: login, access_mode: mode };
   };
-  const c = row.customer;
-  if (!c) return null;
+
+  /** 1) Conta particular / solo — sem login-customer-id. */
+  const solo = await tryLogin(undefined, "solo");
+  if (solo?.ok) return solo;
+
+  /** 2) MCC explícito em Integrações (se diferente da conta). */
+  if (hint) {
+    const withHint = await tryLogin(hint, "mcc");
+    if (withHint?.ok) return withHint;
+  }
+
+  /** 3) Descobrir MCC: gestores acessíveis com o mesmo OAuth. */
+  const accessible = await listAccessibleCustomerIds(accessToken, dev);
+  const candidates: string[] = [];
+  for (const id of accessible) {
+    if (id === clean) continue;
+    let probe = await runGoogleAdsSearch(accessToken, id, dev, CUSTOMER_META_QUERY, undefined, {
+      skipSoloRetry: true,
+    });
+    if (probe.error) {
+      /** Gestor muitas vezes só responde com login = próprio id. */
+      probe = await runGoogleAdsSearch(accessToken, id, dev, CUSTOMER_META_QUERY, id, {
+        allowSameLoginAsCustomer: true,
+        skipSoloRetry: true,
+      });
+    }
+    if (probe.error) continue;
+    const m = parseCustomerMetaRow(probe.results, id);
+    if (m?.manager) candidates.push(id);
+  }
+
+  for (const mcc of candidates) {
+    const viaMcc = await tryLogin(mcc, "mcc");
+    if (viaMcc?.ok) return viaMcc;
+  }
+
+  const detail = errors.slice(0, 3).join(" · ") || "sem detalhe da API";
   return {
-    id: String(c.id ?? clean).replace(/\D/g, ""),
-    name: c.descriptiveName ? String(c.descriptiveName) : null,
-    manager: c.manager === true,
+    ok: false,
+    error: `Não foi possível ler a conta ${clean} (solo nem via MCC). ${detail}`,
   };
 }
 
@@ -373,14 +486,19 @@ export async function fetchLast14DaysSpend(
   return buildSeriesAndToday(byDate);
 }
 
-/** Normaliza MCC: vazio / igual ao customer → sem header (conta directa). */
+/**
+ * Normaliza MCC para contas cliente: vazio / igual ao customer → sem header (solo).
+ * Para ler a própria MCC, use `allowSameAsCustomer` (login = customer id do gestor).
+ */
 export function normalizeLoginCustomerId(
   customerId: string,
   loginCustomerId?: string | null,
+  opts?: { allowSameAsCustomer?: boolean },
 ): string | undefined {
   const customer = customerId.replace(/\D/g, "");
   const login = (loginCustomerId ?? "").replace(/\D/g, "");
-  if (!login || !customer || login === customer) return undefined;
+  if (!login || !customer) return undefined;
+  if (login === customer && !opts?.allowSameAsCustomer) return undefined;
   return login;
 }
 
@@ -391,9 +509,11 @@ function headersForGoogleAds(
 ): Record<string, string> {
   const h: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
-    "developer-token": devToken,
     "Content-Type": "application/json",
   };
+  /** Header vazio causa «invalid argument» em algumas contas — só envia se houver token. */
+  const dev = (devToken ?? "").trim();
+  if (dev) h["developer-token"] = dev;
   if (loginCustomerId) {
     h["login-customer-id"] = loginCustomerId.replace(/\D/g, "");
   }
@@ -443,17 +563,20 @@ function withCustomerContext(
   return `Conta ${customerId}${login}: ${message}`;
 }
 
-/** Consulta genérica (GAQL). Se o MCC no header for errado, tenta de novo sem login-customer-id. */
+/** Consulta genérica (GAQL). Se o MCC no header for errado, tenta de novo sem login-customer-id (conta solo). */
 export async function runGoogleAdsSearch(
   accessToken: string,
   customerId: string,
   devToken: string,
   query: string,
   loginCustomerId?: string,
+  opts?: { allowSameLoginAsCustomer?: boolean; skipSoloRetry?: boolean },
 ): Promise<{ results?: unknown[]; error?: { message?: string } }> {
   assertDeveloperToken(devToken);
   const clean = customerId.replace(/\D/g, "");
-  const login = normalizeLoginCustomerId(clean, loginCustomerId);
+  const login = normalizeLoginCustomerId(clean, loginCustomerId, {
+    allowSameAsCustomer: opts?.allowSameLoginAsCustomer,
+  });
 
   const once = async (loginHeader?: string) => {
     const res = await fetch(`${API_BASE}/customers/${clean}/googleAds:search`, {
@@ -481,7 +604,8 @@ export async function runGoogleAdsSearch(
 
   const first = await once(login);
   if (!first.error) return first;
-  if (login && looksLikeBadLoginCustomer(first.error.message)) {
+  /** MCC errado / conta solo: retry sem header. */
+  if (!opts?.skipSoloRetry && login && looksLikeBadLoginCustomer(first.error.message)) {
     const retry = await once(undefined);
     if (!retry.error) return retry;
     return {
