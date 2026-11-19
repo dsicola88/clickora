@@ -44,6 +44,7 @@ import {
   listRemoteGoogleSearchCampaigns,
 } from "./google-ads-import.service";
 import { auditGoogleFinalUrls } from "./google-ads-final-url-audit.service";
+import { repairGoogleFinalUrls } from "./google-ads-final-url-repair.service";
 import {
   googleKeywordInsightInputSchema,
   googleKeywordSuggestInputSchema,
@@ -1331,6 +1332,18 @@ export const paidController = {
     }
     const out = await auditGoogleFinalUrls(parsed.data.projectId);
     if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async googleAdsFinalUrlRepair(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projecto." });
+    }
+    const out = await repairGoogleFinalUrls(parsed.data.projectId);
     return res.json(out);
   },
 

@@ -165,6 +165,10 @@ paidRouter.get(
   "/projects/:projectId/google-ads/final-url-audit",
   asyncRoute((req, res) => paidController.googleAdsFinalUrlAudit(req, res)),
 );
+paidRouter.post(
+  "/projects/:projectId/google-ads/final-url-repair",
+  asyncRoute((req, res) => paidController.googleAdsFinalUrlRepair(req, res)),
+);
 paidRouter.get(
   "/projects/:projectId/google-ads/campaigns-metrics",
   asyncRoute((req, res) => paidController.googleAdsManagerCampaignsMetrics(req, res)),

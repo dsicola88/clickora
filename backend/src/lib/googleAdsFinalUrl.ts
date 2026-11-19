@@ -13,6 +13,29 @@ export type FinalUrlIssueCode =
 
 const CLICK_ID_KEYS = new Set(["gclid", "gbraid", "wbraid", "msclkid", "fbclid", "ttclid"]);
 
+/**
+ * Final URL limpa para Ads: remove click IDs e ValueTrack `{…}`.
+ * Mantém UTMs estáticas. Não aponta para `/track/r/` — a lander `/p/` fica na Final URL.
+ */
+export function sanitizeFinalUrlForAds(raw: string): string {
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed) return "";
+  try {
+    const u = new URL(trimmed);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+    for (const key of [...u.searchParams.keys()]) {
+      const lk = key.toLowerCase();
+      const v = u.searchParams.get(key) ?? "";
+      if (CLICK_ID_KEYS.has(lk) || /\{[a-z0-9_.]+\}/i.test(v) || /\{[a-z0-9_.]+\}/i.test(key)) {
+        u.searchParams.delete(key);
+      }
+    }
+    return u.toString();
+  } catch {
+    return "";
+  }
+}
+
 export function hostFromUrl(raw: string | null | undefined): string | null {
   const t = String(raw ?? "").trim();
   if (!t) return null;

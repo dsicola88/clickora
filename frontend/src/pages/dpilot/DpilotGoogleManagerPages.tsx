@@ -488,6 +488,7 @@ export function DpilotGoogleCampaignsManagerPage() {
     critical: number;
   } | null>(null);
   const [funnelRiskCount, setFunnelRiskCount] = useState(0);
+  const [repairingUrls, setRepairingUrls] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -875,10 +876,50 @@ export function DpilotGoogleCampaignsManagerPage() {
       {urlAuditTotals && urlAuditTotals.critical + urlAuditTotals.warn > 0 ? (
         <Alert variant={urlAuditTotals.critical > 0 ? "destructive" : "default"} className="mt-4">
           <AlertTitle className="text-sm">Final URL — atenção no funil</AlertTitle>
-          <AlertDescription className="text-xs leading-relaxed">
-            {urlAuditTotals.critical} crítica(s) · {urlAuditTotals.warn} aviso(s) · {urlAuditTotals.ok} OK. gclid
-            manual ou ValueTrack na Final URL fazem cliques Ads não baterem na Clickora — use auto-tagging e lander
-            limpa.
+          <AlertDescription className="flex flex-col gap-2 text-xs leading-relaxed sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              {urlAuditTotals.critical} crítica(s) · {urlAuditTotals.warn} aviso(s) · {urlAuditTotals.ok} OK. gclid
+              manual ou ValueTrack na Final URL fazem cliques Ads não baterem na Clickora — use auto-tagging e lander
+              limpa.
+            </span>
+            {urlAuditTotals.critical > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="shrink-0"
+                disabled={repairingUrls}
+                onClick={() => {
+                  void (async () => {
+                    setRepairingUrls(true);
+                    try {
+                      const { data, error } = await paidAdsService.repairGoogleAdsFinalUrls(projectId);
+                      if (error || !data) {
+                        toast.error(toastGoogleAdsError(error || "Falha ao reparar Final URLs."));
+                        return;
+                      }
+                      if (data.error_count > 0) {
+                        toast.error(
+                          `Reparadas ${data.repaired_count}; ${data.error_count} falhou(aram). Veja o detalhe e tente de novo.`,
+                        );
+                      } else if (data.repaired_count === 0) {
+                        toast.message("Nenhuma Final URL precisava de limpeza automática.");
+                      } else {
+                        toast.success(
+                          `Final URLs limpas: ${data.repaired_count} RSA(s). ValueTrack deve ficar no sufixo em ads.google.com.`,
+                        );
+                      }
+                      await load();
+                    } finally {
+                      setRepairingUrls(false);
+                    }
+                  })();
+                }}
+              >
+                {repairingUrls ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
+                Reparar Final URLs
+              </Button>
+            ) : null}
           </AlertDescription>
         </Alert>
       ) : null}

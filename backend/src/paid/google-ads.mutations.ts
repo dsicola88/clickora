@@ -4,6 +4,7 @@
  */
 import type { PaidAdsEntityStatus as EntityStatus, PaidAdsMatchType as MatchType, Prisma } from "@prisma/client";
 
+import { sanitizeFinalUrlForAds } from "../lib/googleAdsFinalUrl";
 import { runGoogleAdsMutate, runGoogleAdsSearch } from "./google-ads.api";
 import {
   googleAdGroupCpcBidMicros,
@@ -596,9 +597,13 @@ export async function applyGoogleUpdateRsaCopy(
 
   let finalUrls: string[];
   if (p.final_urls && p.final_urls.length > 0) {
-    finalUrls = p.final_urls.map((u) => String(u).trim()).filter(Boolean);
+    finalUrls = p.final_urls
+      .map((u) => sanitizeFinalUrlForAds(String(u).trim()) || String(u).trim())
+      .filter(Boolean);
   } else {
-    finalUrls = parseJsonStringArray(rsa.finalUrls);
+    finalUrls = parseJsonStringArray(rsa.finalUrls)
+      .map((u) => sanitizeFinalUrlForAds(u) || u)
+      .filter(Boolean);
   }
 
   const nextPath1 =

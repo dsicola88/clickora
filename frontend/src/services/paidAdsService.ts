@@ -469,6 +469,25 @@ export const paidAdsService = {
     }>(`/paid/projects/${projectId}/google-ads/final-url-audit`);
   },
 
+  repairGoogleAdsFinalUrls(projectId: string) {
+    return apiClient.post<{
+      ok: true;
+      repaired_count: number;
+      skipped_count: number;
+      error_count: number;
+      repaired: Array<{
+        rsa_id: string;
+        campaign_name: string;
+        before: string | null;
+        after: string | null;
+        applied_to_google: boolean;
+      }>;
+      skipped: Array<{ rsa_id: string; campaign_name: string; reason: string }>;
+      errors: Array<{ rsa_id: string; campaign_name: string; error: string }>;
+      note: string;
+    }>(`/paid/projects/${projectId}/google-ads/final-url-repair`, {});
+  },
+
   getGoogleAdsCampaignsMetrics(
     projectId: string,
     opts?: { preset?: string; from?: string; to?: string },

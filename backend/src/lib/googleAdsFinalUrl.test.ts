@@ -1,11 +1,24 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { hostFromUrl, inspectFinalUrl, inspectFinalUrlList } from "./googleAdsFinalUrl";
+import {
+  hostFromUrl,
+  inspectFinalUrl,
+  inspectFinalUrlList,
+  sanitizeFinalUrlForAds,
+} from "./googleAdsFinalUrl";
 
 describe("googleAdsFinalUrl", () => {
   it("hostFromUrl normaliza www", () => {
     assert.equal(hostFromUrl("https://www.Example.com/x"), "example.com");
+  });
+
+  it("sanitize remove gclid e ValueTrack e mantém UTM estático", () => {
+    const cleaned = sanitizeFinalUrlForAds(
+      "https://land.example/p/x?utm_source=google&gclid={gclid}&utm_term={keyword}",
+    );
+    assert.equal(cleaned, "https://land.example/p/x?utm_source=google");
+    assert.deepEqual(inspectFinalUrl(cleaned), []);
   });
 
   it("detecta gclid e ValueTrack na Final URL", () => {
