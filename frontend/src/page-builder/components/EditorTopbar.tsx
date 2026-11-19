@@ -1,8 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { usePresellBuilderEmbedOptional } from "@/contexts/PresellBuilderEmbedContext";
 import { useBuilder } from "../store";
 import { downloadHtml } from "../export-html";
+import {
+  extractPageDocumentFromExportedHtml,
+  parsePageDocumentFromJson,
+} from "../document-import";
 import { slugify } from "../published";
 import {
   Monitor,
@@ -14,6 +19,7 @@ import {
   Globe,
   Trash2,
   Download,
+  Upload,
   LayoutTemplate,
   Search,
   BarChart3,
@@ -70,6 +76,7 @@ export function EditorTopbar() {
   const undo = useBuilder((s) => s.undo);
   const redo = useBuilder((s) => s.redo);
   const reset = useBuilder((s) => s.reset);
+  const hydrateDocument = useBuilder((s) => s.hydrateDocument);
   const doc = useBuilder((s) => s.doc);
   const updateName = useBuilder((s) => s.updateName);
   const canUndo = useBuilder((s) => s.history.length > 0);
@@ -118,6 +125,7 @@ export function EditorTopbar() {
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
   const [popupsOpen, setPopupsOpen] = useState(false);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setNameDraft(doc.name);
@@ -149,6 +157,33 @@ export function EditorTopbar() {
 
   const handleExportHtml = () => {
     downloadHtml(doc, slugify(doc.name));
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const lower = file.name.toLowerCase();
+      let parsed =
+        lower.endsWith(".html") || lower.endsWith(".htm")
+          ? extractPageDocumentFromExportedHtml(text)
+          : parsePageDocumentFromJson(text);
+      if (!parsed && (lower.endsWith(".html") || lower.endsWith(".htm"))) {
+        parsed = parsePageDocumentFromJson(text);
+      }
+      if (!parsed) {
+        toast.error(t("pages.pageBuilder.topbar.importInvalid"));
+        return;
+      }
+      hydrateDocument(parsed, {});
+      toast.success(t("pages.pageBuilder.topbar.imported"));
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : t("pages.pageBuilder.topbar.importInvalid"),
+      );
+    }
   };
 
   return (
@@ -331,6 +366,13 @@ export function EditorTopbar() {
               {t("pages.pageBuilder.topbar.pageTracking")}
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-editor-border" />
+            <DropdownMenuItem
+              className={menuItem}
+              onClick={() => importInputRef.current?.click()}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              {t("pages.pageBuilder.topbar.importFile")}
+            </DropdownMenuItem>
             <DropdownMenuItem className={menuItem} onClick={handleExportHtml}>
               <Download className="mr-2 h-4 w-4" />
               {t("pages.pageBuilder.topbar.exportHtml")}
@@ -346,6 +388,14 @@ export function EditorTopbar() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".json,.html,.htm,application/json,text/html"
+          className="hidden"
+          aria-hidden
+          onChange={handleImportFile}
+        />
       </div>
 
       <BlocksModal open={blocksOpen} onClose={() => setBlocksOpen(false)} />
