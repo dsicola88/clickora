@@ -99,9 +99,17 @@ export async function fetchGoogleAdsAccountOverview(
   const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
   if (s.error) {
     return {
-      ok: false as const,
-      error: s.error.message ?? "Falha ao ler métricas da conta Google Ads.",
-      code: "gaql_error",
+      ok: true as const,
+      connected: true,
+      range,
+      counts,
+      metrics: null,
+      source: "local_only" as const,
+      connection_error: s.error.message ?? "Falha ao ler métricas da conta Google Ads.",
+      account: {
+        customer_id: ctx.customerId,
+        account_name: ctx.accountName,
+      },
     };
   }
   const list = Array.isArray(s.results) ? s.results : [];
@@ -170,6 +178,7 @@ export async function fetchGoogleAdsCampaignsMetrics(
     string,
     { explicitly_shared: boolean; reference_count: number; budget_editable: boolean; amount_micros: number | null }
   >();
+  let networkError: string | null = null;
 
   if (ctx.ok) {
     const ids = local
@@ -193,9 +202,9 @@ export async function fetchGoogleAdsCampaignsMetrics(
       `;
       const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
       if (s.error) {
-        return { ok: false as const, error: s.error.message ?? "Falha ao ler métricas das campanhas.", code: "gaql_error" };
+        networkError = s.error.message ?? "Falha ao ler métricas das campanhas.";
       }
-      for (const raw of Array.isArray(s.results) ? s.results : []) {
+      for (const raw of !s.error && Array.isArray(s.results) ? s.results : []) {
         const row = raw as Record<string, unknown>;
         const camp = row.campaign as { id?: string } | undefined;
         const id = String(camp?.id ?? "").replace(/\D/g, "");
@@ -301,14 +310,14 @@ export async function fetchGoogleAdsCampaignsMetrics(
   return {
     ok: true as const,
     connected: ctx.ok,
-    connection_error: ctx.ok ? null : ctx.error,
+    connection_error: ctx.ok ? networkError : ctx.error,
     range,
     campaigns,
     totals: {
       funnel_risk: funnelRiskCount,
       with_google_clicks: campaigns.filter((c) => (c.google_clicks ?? 0) > 0).length,
     },
-    source: ctx.ok ? ("google_ads_api" as const) : ("local_only" as const),
+    source: ctx.ok && !networkError ? ("google_ads_api" as const) : ("local_only" as const),
   };
 }
 

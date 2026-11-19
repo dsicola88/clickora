@@ -42,8 +42,11 @@ export async function resolveGoogleAdsAccess(projectId: string): Promise<GoogleA
       googleAdsLoginCustomerId: true,
     },
   });
+  /** Só MCC do utilizador — o env global partilhado entre contas causa «invalid argument». */
+  const rawLogin = owner?.googleAdsLoginCustomerId?.replace(/\D/g, "") || undefined;
+  const customerDigits = conn.googleCustomerId.replace(/\D/g, "");
   const loginCustomerId =
-    owner?.googleAdsLoginCustomerId?.replace(/\D/g, "") || GOOGLE_ADS_LOGIN_CUSTOMER_ID || undefined;
+    rawLogin && rawLogin !== customerDigits ? rawLogin : undefined;
 
   /** Pós-sunset a API aceita header vazio; preferimos env quando existir. */
   const dev = getGoogleDeveloperToken() ?? "";

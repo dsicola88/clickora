@@ -67,6 +67,7 @@ export async function listRemoteGoogleSearchCampaigns(projectId: string) {
       .filter(([id]) => Boolean(id)),
   );
 
+  /** Sem ORDER BY — em algumas contas o sort dispara «invalid argument». */
   const q = `
     SELECT
       campaign.id,
@@ -79,7 +80,6 @@ export async function listRemoteGoogleSearchCampaigns(projectId: string) {
     FROM campaign
     WHERE campaign.status != 'REMOVED'
       AND campaign.advertising_channel_type = 'SEARCH'
-    ORDER BY campaign.name
     LIMIT 200
   `;
   const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
@@ -113,6 +113,8 @@ export async function listRemoteGoogleSearchCampaigns(projectId: string) {
       local_campaign_id: localId,
     });
   }
+
+  campaigns.sort((a, b) => a.name.localeCompare(b.name));
 
   return {
     ok: true as const,

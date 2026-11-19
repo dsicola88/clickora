@@ -362,6 +362,17 @@ export async function fetchLast14DaysSpend(
   return buildSeriesAndToday(byDate);
 }
 
+/** Normaliza MCC: vazio / igual ao customer → sem header (conta directa). */
+export function normalizeLoginCustomerId(
+  customerId: string,
+  loginCustomerId?: string | null,
+): string | undefined {
+  const customer = customerId.replace(/\D/g, "");
+  const login = (loginCustomerId ?? "").replace(/\D/g, "");
+  if (!login || !customer || login === customer) return undefined;
+  return login;
+}
+
 function headersForGoogleAds(
   accessToken: string,
   devToken: string,
@@ -378,7 +389,17 @@ function headersForGoogleAds(
   return h;
 }
 
-/** Consulta genérica (GAQL). */
+function looksLikeBadLoginCustomer(message: string | undefined): boolean {
+  const t = (message ?? "").toLowerCase();
+  return (
+    t.includes("invalid argument") ||
+    t.includes("login-customer-id") ||
+    t.includes("login customer") ||
+    t.includes("cannot be the same")
+  );
+}
+
+/** Consulta genérica (GAQL). Se o MCC no header for errado, tenta de novo sem login-customer-id. */
 export async function runGoogleAdsSearch(
   accessToken: string,
   customerId: string,
@@ -388,19 +409,32 @@ export async function runGoogleAdsSearch(
 ): Promise<{ results?: unknown[]; error?: { message?: string } }> {
   assertDeveloperToken(devToken);
   const clean = customerId.replace(/\D/g, "");
-  const res = await fetch(`${API_BASE}/customers/${clean}/googleAds:search`, {
-    method: "POST",
-    headers: headersForGoogleAds(accessToken, devToken, loginCustomerId),
-    body: JSON.stringify({ query, pageSize: 500 }),
-  });
-  const j = (await res.json().catch(() => ({}))) as {
-    results?: unknown[];
-    error?: { message?: string };
+  const login = normalizeLoginCustomerId(clean, loginCustomerId);
+
+  const once = async (loginHeader?: string) => {
+    const res = await fetch(`${API_BASE}/customers/${clean}/googleAds:search`, {
+      method: "POST",
+      headers: headersForGoogleAds(accessToken, devToken, loginHeader),
+      body: JSON.stringify({ query, pageSize: 500 }),
+    });
+    const j = (await res.json().catch(() => ({}))) as {
+      results?: unknown[];
+      error?: { message?: string };
+    };
+    if (!res.ok) {
+      return { error: { message: j.error?.message ?? `googleAds:search ${res.status}` } };
+    }
+    return { results: j.results };
   };
-  if (!res.ok) {
-    return { error: { message: j.error?.message ?? `googleAds:search ${res.status}` } };
+
+  const first = await once(login);
+  if (!first.error) return first;
+  if (login && looksLikeBadLoginCustomer(first.error.message)) {
+    const retry = await once(undefined);
+    if (!retry.error) return retry;
+    return first;
   }
-  return { results: j.results };
+  return first;
 }
 
 export async function runGoogleAdsMutate(
@@ -413,25 +447,38 @@ export async function runGoogleAdsMutate(
 ): Promise<{ results?: { resourceName?: string }[]; error?: { message?: string } }> {
   assertDeveloperToken(devToken);
   const clean = customerId.replace(/\D/g, "");
-  const res = await fetch(
-    `${API_BASE}/customers/${clean}/${servicePath.replace(/^\//, "")}:mutate`,
-    {
-      method: "POST",
-      headers: headersForGoogleAds(accessToken, devToken, loginCustomerId),
-      body: JSON.stringify(body),
-    },
-  );
-  const j = (await res.json().catch(() => ({}))) as {
-    results?: { resourceName?: string }[];
-    error?: { message?: string };
+  const login = normalizeLoginCustomerId(clean, loginCustomerId);
+
+  const once = async (loginHeader?: string) => {
+    const res = await fetch(
+      `${API_BASE}/customers/${clean}/${servicePath.replace(/^\//, "")}:mutate`,
+      {
+        method: "POST",
+        headers: headersForGoogleAds(accessToken, devToken, loginHeader),
+        body: JSON.stringify(body),
+      },
+    );
+    const j = (await res.json().catch(() => ({}))) as {
+      results?: { resourceName?: string }[];
+      error?: { message?: string };
+    };
+    if (!res.ok) {
+      return { error: { message: j.error?.message ?? `mutate ${servicePath} (${res.status})` } };
+    }
+    if (j.error) {
+      return { error: j.error };
+    }
+    return { results: j.results };
   };
-  if (!res.ok) {
-    return { error: { message: j.error?.message ?? `mutate ${servicePath} (${res.status})` } };
+
+  const first = await once(login);
+  if (!first.error) return first;
+  if (login && looksLikeBadLoginCustomer(first.error.message)) {
+    const retry = await once(undefined);
+    if (!retry.error) return retry;
+    return first;
   }
-  if (j.error) {
-    return { error: j.error };
-  }
-  return { results: j.results };
+  return first;
 }
 
 /**
@@ -447,15 +494,27 @@ export async function runGoogleAdsCustomerAction(
 ): Promise<{ ok: true; raw: unknown } | { ok: false; error: string }> {
   assertDeveloperToken(devToken);
   const clean = customerId.replace(/\D/g, "");
+  const login = normalizeLoginCustomerId(clean, loginCustomerId);
   const path = actionPath.replace(/^\//, "");
-  const res = await fetch(`${API_BASE}/customers/${clean}/${path}`, {
-    method: "POST",
-    headers: headersForGoogleAds(accessToken, devToken, loginCustomerId),
-    body: JSON.stringify(body ?? {}),
-  });
-  const j = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-  if (!res.ok || j.error) {
-    return { ok: false, error: j.error?.message ?? `${path} (${res.status})` };
+
+  const once = async (loginHeader?: string) => {
+    const res = await fetch(`${API_BASE}/customers/${clean}/${path}`, {
+      method: "POST",
+      headers: headersForGoogleAds(accessToken, devToken, loginHeader),
+      body: JSON.stringify(body ?? {}),
+    });
+    const j = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    if (!res.ok || j.error) {
+      return { ok: false as const, error: j.error?.message ?? `${path} (${res.status})` };
+    }
+    return { ok: true as const, raw: j as unknown };
+  };
+
+  const first = await once(login);
+  if (first.ok) return first;
+  if (login && looksLikeBadLoginCustomer(first.error)) {
+    const retry = await once(undefined);
+    if (retry.ok) return retry;
   }
-  return { ok: true, raw: j };
+  return first;
 }
