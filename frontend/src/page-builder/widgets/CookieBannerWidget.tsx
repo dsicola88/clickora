@@ -410,12 +410,13 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
                   e.preventDefault();
                   return;
                 }
-                dismiss("all");
-                const dest = mergeLandingAdParamsIntoTrackHref(offerNav.url, window.location.search);
-                if (dest && dest !== offerNav.url) {
-                  e.preventDefault();
-                  window.location.assign(dest);
-                }
+                // Gravar consentimento desmonta o banner — assign explícito evita cancelar a navegação.
+                e.preventDefault();
+                const dest =
+                  mergeLandingAdParamsIntoTrackHref(offerNav.url, window.location.search) ||
+                  offerNav.url;
+                writeCookieConsentChoice(storageKey, "all");
+                window.location.assign(dest);
               }}
             >
               {allowLabel}

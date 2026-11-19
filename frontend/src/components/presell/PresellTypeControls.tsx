@@ -160,7 +160,13 @@ export function CookieConsentModal({
                 href={offerNav.url}
                 className={allowClass}
                 data-testid="presell-cookie-allow-offer"
-                onClick={acceptStay}
+                onClick={(e) => {
+                  // Consent unmounts the bar; assign so navigation is not cancelled.
+                  e.preventDefault();
+                  writeCookieConsentChoice("clickora-cookie-banner", "all");
+                  onAccept?.();
+                  window.location.assign(offerNav.url);
+                }}
               >
                 {L.cookieAllow}
               </a>
