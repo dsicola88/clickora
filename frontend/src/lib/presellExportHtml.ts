@@ -33,6 +33,7 @@ import {
   readMarketCountryHint,
   resolveConsentRuntimePolicy,
 } from "@/lib/consentMarketPolicy";
+import { presellHasConfiguredGoogleTags } from "@/lib/presellHasGoogleTags";
 import { exportPageToHtml } from "@/page-builder/export-html";
 import { bakePublicOfferHrefs, resolvePresellPageDocument } from "@/lib/presellVisualEdit";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
@@ -530,16 +531,27 @@ function injectPresellSettingsIntoFullHtml(
     marketCountry: readMarketCountryHint(settings, (page.content || {}) as Record<string, unknown>),
   });
   const cookieGate = consentPolicy.cookieGate;
+  const marketingHead = [conversionTrackingScript, optionalMarketing.headHtml, headerCode]
+    .filter(Boolean)
+    .join("\n");
+  const marketingBody = [optionalMarketing.bodyHtml.trim(), bodyCode].filter(Boolean).join("");
   const consentSnips = buildExportConsentAwareSnippets({
     cookieGate,
     clickoraHead,
     applyConsentModeDefaults: consentPolicy.applyConsentModeDefaults,
     consentModeDefaultDenied: consentPolicy.consentModeDefaultDenied,
+    hasGoogleTags: presellHasConfiguredGoogleTags({
+      settings,
+      conversionTrackingScript,
+      headerCode,
+      bodyCode,
+      footerCode,
+      optionalMarketingHeadHtml: optionalMarketing.headHtml,
+      optionalMarketingBodyHtml: optionalMarketing.bodyHtml,
+    }),
     marketing: {
-      headHtml: [conversionTrackingScript, optionalMarketing.headHtml, headerCode]
-        .filter(Boolean)
-        .join("\n"),
-      bodyHtml: [optionalMarketing.bodyHtml.trim(), bodyCode].filter(Boolean).join(""),
+      headHtml: marketingHead,
+      bodyHtml: marketingBody,
       footerHtml: footerCode,
     },
   });
@@ -684,6 +696,15 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
     clickoraHead: clickoraHeadExport,
     applyConsentModeDefaults: exportConsentPolicy.applyConsentModeDefaults,
     consentModeDefaultDenied: exportConsentPolicy.consentModeDefaultDenied,
+    hasGoogleTags: presellHasConfiguredGoogleTags({
+      settings,
+      conversionTrackingScript,
+      headerCode,
+      bodyCode,
+      footerCode,
+      optionalMarketingHeadHtml: optionalMarketing.headHtml,
+      optionalMarketingBodyHtml: optionalMarketing.bodyHtml,
+    }),
     marketing: {
       headHtml: [conversionTrackingScript, optionalMarketing.headHtml, headerCode]
         .filter(Boolean)

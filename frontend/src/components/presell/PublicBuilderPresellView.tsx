@@ -29,6 +29,12 @@ type Props = {
    * bloqueia qualquer navegação para a oferta no documento.
    */
   interactionLocked?: boolean;
+  /**
+   * Tipo cookies: GTM/GA4/Meta do documento só após Aceitar.
+   * Sem gate, marketingAllowed=true (comportamento histórico).
+   */
+  marketingAllowed?: boolean;
+  gateMarketingUntilAccept?: boolean;
 };
 
 /**
@@ -40,6 +46,8 @@ export function PublicBuilderPresellView({
   trackOfferHref,
   offerUrl,
   interactionLocked = false,
+  marketingAllowed = true,
+  gateMarketingUntilAccept = false,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const device = useViewportBuilderDevice();
@@ -47,9 +55,10 @@ export function PublicBuilderPresellView({
   useEffect(() => {
     const t = doc.tracking;
     if (!t) return () => {};
+    if (gateMarketingUntilAccept && !marketingAllowed) return () => {};
     const cleanup = applyTrackingToDocument(t);
     return () => cleanup();
-  }, [doc]);
+  }, [doc, gateMarketingUntilAccept, marketingAllowed]);
 
   useEffect(() => {
     const track = (trackOfferHref ?? "").trim();

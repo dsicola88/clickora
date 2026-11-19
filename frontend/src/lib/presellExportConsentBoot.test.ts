@@ -56,8 +56,40 @@ describe("presellExportConsentBoot", () => {
     expect(out.cookieBootInline).toBe(true);
     // Marketing só no PAYLOAD do boot — não como tag solta a executar no parse.
     expect(out.earlyHead).toMatch(/PAYLOAD[\s\S]*fbq/);
-    expect(out.earlyHead).toContain('unlockMarketing');
+    expect(out.earlyHead).toContain("unlockMarketing");
+    expect(out.earlyHead).toContain("teardownMarketing");
+    expect(out.earlyHead).toContain("data-clickora-mkt");
     expect(buildGoogleConsentModeDefaultScript()).toContain("consent");
     expect(buildExportCookieModalBindingsScript()).toContain("pe-cookie-allow");
+  });
+
+  it("com gate sem Google: marketing diferido sem stub GCM", () => {
+    const out = buildExportConsentAwareSnippets({
+      cookieGate: true,
+      hasGoogleTags: false,
+      clickoraHead: "<script>/*clickora*/</script>",
+      marketing: {
+        headHtml: "<script>fbq('init')</script>",
+        bodyHtml: "",
+        footerHtml: "",
+      },
+    });
+    expect(out.earlyHead).toContain("__clickoraCookieConsent");
+    expect(out.earlyHead).toContain("USE_GCM=0");
+    expect(out.earlyHead).not.toContain("__clickoraGcmDefaultsApplied");
+    expect(out.cookieBootInline).toBe(true);
+  });
+
+  it("strict sem Google: sem GCM mesmo com applyConsentModeDefaults", () => {
+    const out = buildExportConsentAwareSnippets({
+      cookieGate: false,
+      applyConsentModeDefaults: true,
+      consentModeDefaultDenied: true,
+      hasGoogleTags: false,
+      clickoraHead: "<script>/*clickora*/</script>",
+      marketing: { headHtml: "<script>fbq('init')</script>", bodyHtml: "", footerHtml: "" },
+    });
+    expect(out.earlyHead).not.toContain("ad_storage");
+    expect(out.earlyHead).toContain("fbq");
   });
 });

@@ -30,6 +30,8 @@ type Props = {
   portalMode?: boolean;
   operatorDocument?: string;
   supportEmail?: string;
+  /** Reabre o banner de cookies (Aceitar ↔ essenciais) — Fase 3 CMP. */
+  onReopenCookieSettings?: () => void;
 };
 
 function resolveBundle(props: Props): PresellFooterPolicyBundle {
@@ -94,6 +96,7 @@ export function PresellTrustFooter({
   portalMode = false,
   operatorDocument,
   supportEmail,
+  onReopenCookieSettings,
 }: Props) {
   const locale = presellComplianceLanguage(language);
   const s = getPresellUiStrings(locale);
@@ -186,6 +189,16 @@ export function PresellTrustFooter({
                 {s.cookiePolicy}
               </a>
             ) : null}
+            {onReopenCookieSettings ? (
+              <button
+                type="button"
+                onClick={onReopenCookieSettings}
+                className="hover:text-white underline-offset-2 hover:underline bg-transparent border-0 p-0 cursor-pointer font-medium text-inherit"
+                data-testid="presell-footer-cookie-settings"
+              >
+                {s.cookieReopen}
+              </button>
+            ) : null}
           </nav>
           <MerchantPolicyNav
             bundle={bundle}
@@ -245,6 +258,16 @@ export function PresellTrustFooter({
             <a href={visitorCookiePolicy} target="_blank" rel="noopener noreferrer" className={link}>
               {s.cookiePolicy}
             </a>
+          ) : null}
+          {onReopenCookieSettings ? (
+            <button
+              type="button"
+              onClick={onReopenCookieSettings}
+              className={cn(link, "bg-transparent border-0 p-0 cursor-pointer font-medium")}
+              data-testid="presell-footer-cookie-settings"
+            >
+              {s.cookieReopen}
+            </button>
           ) : null}
           <a href={medicalHref} target="_blank" rel="noopener noreferrer" className={link}>
             {portal.medical}

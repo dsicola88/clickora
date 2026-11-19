@@ -56,6 +56,7 @@ import {
   resolveConsentRuntimePolicy,
   resolveGcmGranted,
 } from "@/lib/consentMarketPolicy";
+import { presellHasConfiguredGoogleTags } from "@/lib/presellHasGoogleTags";
 import { stripHtmlMarketingExecutors } from "@/lib/stripHtmlMarketingExecutors";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
 import {
@@ -889,7 +890,19 @@ export default function PublicPresell() {
       ),
     });
     const allowAds = !consentPolicy.gateMarketingUntilAccept || marketingAllowed;
-    if (consentPolicy.applyConsentModeDefaults) {
+    /** GCM só com Google configurado — não inventar gtag/dataLayer sem Ads/GA/GTM. */
+    const builderTracking = parsePresellBuilderPageDocument(page.content)?.tracking ?? null;
+    const hasGoogleTags = presellHasConfiguredGoogleTags({
+      settings: s,
+      conversionTrackingScript,
+      headerCode,
+      bodyCode,
+      footerCode,
+      optionalMarketingHeadHtml: optionalMarketing.headHtml,
+      optionalMarketingBodyHtml: optionalMarketing.bodyHtml,
+      builderTracking,
+    });
+    if (consentPolicy.applyConsentModeDefaults && hasGoogleTags) {
       ensureGoogleConsentModeDefaults({
         defaultDenied: consentPolicy.consentModeDefaultDenied,
       });
@@ -1315,11 +1328,17 @@ export default function PublicPresell() {
                 ? affiliateLink.trim()
                 : undefined
             }
+            marketingAllowed={marketingAllowed}
+            gateMarketingUntilAccept={gateKind === "cookies"}
           />
         </Suspense>
         {showTrustFooter ? (
           <div style={lightArticleLayout ? { contentVisibility: "auto", containIntrinsicSize: "120px" } : undefined}>
-            <PresellTrustFooter language={complianceLang} {...footerSettingsProps} />
+            <PresellTrustFooter
+              language={complianceLang}
+              {...footerSettingsProps}
+              onReopenCookieSettings={gateKind === "cookies" ? reopenCookieSettings : undefined}
+            />
           </div>
         ) : null}
         {showTenantBrandChrome && tenantBranding ? (
@@ -1390,6 +1409,8 @@ export default function PublicPresell() {
             trackOfferHref={href || undefined}
             offerUrl={offerUrl}
             interactionLocked={Boolean(showCookieModal || (interactiveKind && !ctaEnabled))}
+            marketingAllowed={marketingAllowed}
+            gateMarketingUntilAccept={gateKind === "cookies"}
           />
         </Suspense>
         {showTrustFooter ? (
@@ -1412,6 +1433,7 @@ export default function PublicPresell() {
                   ? settings.contactEmail
                   : undefined
             }
+            onReopenCookieSettings={gateKind === "cookies" ? reopenCookieSettings : undefined}
           />
         ) : null}
         {showTenantBrandChrome && tenantBranding ? (
@@ -2164,6 +2186,7 @@ export default function PublicPresell() {
                 : undefined
           }
           tone={useDarkMirrorStorefront ? "dark" : useHealthArticleBody ? "portal" : "light"}
+          onReopenCookieSettings={gateKind === "cookies" ? reopenCookieSettings : undefined}
         />
       ) : null}
       {showTenantBrandChrome && tenantBranding ? (
