@@ -76,13 +76,27 @@ import {
   visitorIpFromTrustedTrackEdge,
 } from "../lib/trackEdgeAuth";
 
-/** Rate limit por IP antes do lookup da página (protege DB sob flood). */
-async function earlyTrackRateLimit(req: Request, res: Response): Promise<boolean> {
+/**
+ * Rate limit por IP antes do lookup da página (protege DB sob flood).
+ * Em hops de oferta (`/track/r/`, `/track/rot/`) NÃO devolver JSON 429 —
+ * carriers CGNAT (tráfego Google Ads móvel) partilham IP e o visitante
+ * ficaria sem 302 para a rede de afiliados (Ads cobra, BuyGoods/Digistore=0).
+ * Devolve `true` = pedido limitado (caller deve hop degradado / fail-open).
+ */
+async function earlyTrackRateLimit(
+  req: Request,
+  res: Response,
+  opts?: { softForOfferHop?: boolean },
+): Promise<boolean> {
   const ua = String(req.headers["user-agent"] || "");
   /** Crawlers Google Ads/Search não devem levar 429 (aprovação / SEO). */
   if (isProtectedGoogleCrawlerUserAgent(ua)) return false;
   const ip = extractClientIp(req);
   if (await consumeTrackRateLimitAsync(ip)) return false;
+  if (opts?.softForOfferHop) {
+    console.warn("[track] rate_limit soft — a continuar hop de oferta", { ip });
+    return false;
+  }
   res.setHeader("Retry-After", "60");
   res.setHeader("X-RateLimit-Scope", "track-ip");
   res.status(429).json({ error: "Demasiados pedidos. Tente mais tarde." });
@@ -99,6 +113,8 @@ const clickSchema = z.object({
   gclid: z.string().optional(),
   gbraid: z.string().optional(),
   wbraid: z.string().optional(),
+  gad_source: z.string().max(32).optional(),
+  gad_campaignid: z.string().max(64).optional(),
   fbclid: z.string().optional(),
   fbp: z.string().optional(),
   ttclid: z.string().optional(),
@@ -158,6 +174,9 @@ const redirectSchema = z
     gclid: z.string().optional(),
     gbraid: z.string().optional(),
     wbraid: z.string().optional(),
+    /** Google Ads auto-tag / Performance Max (`gad_source=1`). */
+    gad_source: z.string().max(32).optional(),
+    gad_campaignid: z.string().max(64).optional(),
     fbclid: z.string().optional(),
     ttclid: z.string().optional(),
     utm_term: z.string().optional(),
@@ -370,7 +389,8 @@ const CLICKORA_EMBED_JS = `(function(){function findSc(){var s=document.currentS
 export const trackController = {
   async redirect(req: Request, res: Response) {
     const t0 = performance.now();
-    if (await earlyTrackRateLimit(req, res)) return;
+    /** Soft: CGNAT Ads nunca recebe JSON 429 no hop de oferta. */
+    if (await earlyTrackRateLimit(req, res, { softForOfferHop: true })) return;
     const presellId = req.params.presellId;
     const parsed = redirectSchema.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos", details: parsed.error.flatten() });
@@ -383,6 +403,8 @@ export const trackController = {
       gclid,
       gbraid,
       wbraid,
+      gad_source,
+      gad_campaignid,
       fbclid,
       fbp: fbpRaw,
       ttp: ttpRaw,
@@ -494,6 +516,7 @@ export const trackController = {
         msclkid,
         fbclid,
         ttclid,
+        gad_source,
       });
       if (!paidProxyBypass) {
         console.warn("[track.redirect] bloqueado sem oferta", { presellId, reason: guard.reason, ip });
@@ -505,7 +528,10 @@ export const trackController = {
         ip,
       });
     }
-    if (countryOnCloakDenyList(page.settings, seen.routeCountry)) {
+    if (
+      countryOnCloakDenyList(page.settings, seen.routeCountry) &&
+      !isProtectedGoogleCrawlerUserAgent(userAgent)
+    ) {
       console.warn("[track.redirect] país sem oferta", { presellId, ip });
       return sendSafeVisitorPage(res, page.settings);
     }
@@ -575,6 +601,11 @@ export const trackController = {
             gclid: adIds.gclid,
             gbraid: adIds.gbraid,
             wbraid: adIds.wbraid,
+            gad_source: typeof gad_source === "string" && gad_source.trim() ? gad_source.trim() : undefined,
+            gad_campaignid:
+              typeof gad_campaignid === "string" && gad_campaignid.trim()
+                ? gad_campaignid.trim()
+                : undefined,
             fbclid: adIds.fbclid,
             fbp,
             ttclid: adIds.ttclid,
@@ -630,6 +661,8 @@ export const trackController = {
       msclkid: adIds.msclkid,
       fbclid: adIds.fbclid,
       ttclid: adIds.ttclid,
+      gad_source: typeof gad_source === "string" ? gad_source : undefined,
+      gad_campaignid: typeof gad_campaignid === "string" ? gad_campaignid : undefined,
       utm_source: utm_source ?? source,
       utm_medium: medium,
       utm_campaign: campaign,
@@ -643,7 +676,7 @@ export const trackController = {
 
   async rotatorRedirect(req: Request, res: Response) {
     const t0 = performance.now();
-    if (await earlyTrackRateLimit(req, res)) return;
+    if (await earlyTrackRateLimit(req, res, { softForOfferHop: true })) return;
     const rotatorId = req.params.rotatorId;
     if (!z.string().uuid().safeParse(rotatorId).success) {
       return res.status(404).json({ error: "Rotador não encontrado" });
@@ -662,6 +695,8 @@ export const trackController = {
       gclid,
       gbraid,
       wbraid,
+      gad_source: rotGadSource,
+      gad_campaignid: rotGadCampaignId,
       fbclid,
       fbp: rotFbpRaw,
       ttp: rotTtpRaw,
@@ -763,6 +798,7 @@ export const trackController = {
         msclkid,
         fbclid,
         ttclid,
+        gad_source: rotGadSource,
       });
       if (!paidProxyBypass) {
         console.warn("[track.rotator] bloqueado sem oferta", { rotatorId, reason: guard.reason });
@@ -773,7 +809,10 @@ export const trackController = {
         reason: guard.reason,
       });
     }
-    if (countryOnCloakDenyList(rot.contextPresell.settings, country)) {
+    if (
+      countryOnCloakDenyList(rot.contextPresell.settings, country) &&
+      !isProtectedGoogleCrawlerUserAgent(userAgent)
+    ) {
       console.warn("[track.rotator] país sem oferta", { rotatorId, country });
       return sendSafeVisitorPage(res, rot.contextPresell.settings);
     }
@@ -835,6 +874,12 @@ export const trackController = {
           gclid,
           gbraid,
           wbraid,
+          gad_source:
+            typeof rotGadSource === "string" && rotGadSource.trim() ? rotGadSource.trim() : undefined,
+          gad_campaignid:
+            typeof rotGadCampaignId === "string" && rotGadCampaignId.trim()
+              ? rotGadCampaignId.trim()
+              : undefined,
           fbclid,
           fbp,
           ttclid,
@@ -885,6 +930,8 @@ export const trackController = {
       msclkid,
       fbclid,
       ttclid,
+      gad_source: typeof rotGadSource === "string" ? rotGadSource : undefined,
+      gad_campaignid: typeof rotGadCampaignId === "string" ? rotGadCampaignId : undefined,
       utm_source,
       utm_medium: medium,
       utm_campaign: campaign,
@@ -980,7 +1027,8 @@ export const trackController = {
   },
 
   async trackClick(req: Request, res: Response) {
-    if (await earlyTrackRateLimit(req, res)) return;
+    /** Soft: edge hop Ads não deve falhar por CGNAT rate-limit. */
+    if (await earlyTrackRateLimit(req, res, { softForOfferHop: true })) return;
     const parsed = clickSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Payload inválido", details: parsed.error.flatten() });
     const {
@@ -992,6 +1040,8 @@ export const trackController = {
       gclid,
       gbraid,
       wbraid,
+      gad_source: bodyGadSource,
+      gad_campaignid: bodyGadCampaignId,
       fbclid,
       fbp,
       ttclid,
@@ -1040,7 +1090,24 @@ export const trackController = {
       skipRateLimit: true,
     });
     if (!guard.ok) {
-      return res.status(guard.status).json({ error: guard.error });
+      const paidProxyBypass = shouldBypassProxyBlockForPaidClick({
+        guardReason: guard.reason,
+        gclid,
+        gbraid,
+        wbraid,
+        msclkid,
+        fbclid,
+        ttclid,
+        gad_source: bodyGadSource,
+      });
+      if (!paidProxyBypass) {
+        return res.status(guard.status).json({ error: guard.error });
+      }
+      console.info("[track.click] proxy bypass com click-id pago", {
+        presellId: presell_id,
+        reason: guard.reason,
+        ip,
+      });
     }
 
     const seen = visitorClickPlace(req, ip);
@@ -1111,6 +1178,14 @@ export const trackController = {
             gclid: adIds.gclid,
             gbraid: adIds.gbraid,
             wbraid: adIds.wbraid,
+            gad_source:
+              typeof bodyGadSource === "string" && bodyGadSource.trim()
+                ? bodyGadSource.trim()
+                : undefined,
+            gad_campaignid:
+              typeof bodyGadCampaignId === "string" && bodyGadCampaignId.trim()
+                ? bodyGadCampaignId.trim()
+                : undefined,
             fbclid: adIds.fbclid,
             fbp,
             ttclid: adIds.ttclid,
@@ -1593,6 +1668,159 @@ export const trackController = {
       tracked: true,
       conversion_id: ledger.conversionId,
       conversion_created: ledger.created,
+    });
+  },
+
+  /**
+   * Debug do fluxo Google Ads → `/track/r/` → hoplink (sem gravar clique).
+   * Ex.: GET /track/debug/ads-flow/:presellId?gad_source=1&gclid=teste_google_123&dry_run=1
+   */
+  async debugAdsFlow(req: Request, res: Response) {
+    const presellId = req.params.presellId;
+    if (!z.string().uuid().safeParse(presellId).success) {
+      return res.status(400).json({ error: "presellId inválido (UUID)" });
+    }
+    const parsed = redirectSchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: "Parâmetros inválidos",
+        details: parsed.error.flatten(),
+        hint: "Use ?gad_source=1&gclid=teste_google_123 (e opcionalmente &to=https://…)",
+      });
+    }
+    const q = parsed.data;
+    const page = await systemPrisma.presellPage.findUnique({
+      where: { id: presellId },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        userId: true,
+        content: true,
+        tracking: true,
+        settings: true,
+      },
+    });
+    if (!page) return res.status(404).json({ error: "Presell não encontrada" });
+
+    const configuredOffer = affiliateLinkFromPresellPage(page.content, page.tracking);
+    const toCandidate =
+      (typeof q.to === "string" && q.to.trim() && q.to !== "#" ? q.to.trim() : "") || configuredOffer;
+    const toAllowed = toCandidate
+      ? isRedirectToAllowedOffer(toCandidate, configuredOffer)
+      : false;
+    const adIds = {
+      gclid: cleanAdClickId(q.gclid),
+      gbraid: cleanAdClickId(q.gbraid),
+      wbraid: cleanAdClickId(q.wbraid),
+      msclkid: cleanAdClickId(q.msclkid),
+      fbclid: cleanAdClickId(q.fbclid),
+      ttclid: cleanAdClickId(q.ttclid),
+    };
+    const gadSource =
+      typeof q.gad_source === "string" && q.gad_source.trim() ? q.gad_source.trim() : undefined;
+    const gadCampaignId =
+      typeof q.gad_campaignid === "string" && q.gad_campaignid.trim()
+        ? q.gad_campaignid.trim()
+        : undefined;
+
+    const sampleClickId = "00000000-0000-4000-8000-000000000001";
+    const offerNetwork = await affiliateNetworkForRedirect({
+      queryNetwork: q.network,
+      userId: page.userId,
+      presellId: page.id,
+    });
+    const landed = toCandidate
+      ? forwardAdQueryToUrl(toCandidate, {
+          ...adIds,
+          gad_source: gadSource,
+          gad_campaignid: gadCampaignId,
+          utm_source: q.utm_source ?? q.source,
+          utm_medium: q.utm_medium ?? q.medium,
+          utm_campaign: q.utm_campaign ?? q.campaign,
+          utm_term: realUtmDimensionBody(q.utm_term),
+          utm_content: realUtmDimensionBody(q.utm_content),
+        })
+      : "";
+    const finalOfferPreview = landed
+      ? appendClickIdToAffiliateUrl(landed, sampleClickId, offerNetwork)
+      : "";
+
+    const proxyBypass = shouldBypassProxyBlockForPaidClick({
+      guardReason: "proxy_blocked",
+      ...adIds,
+      gad_source: gadSource,
+    });
+
+    const dryRun = String(req.query.dry_run ?? "1") !== "0";
+    const liveTrackUrl = (() => {
+      try {
+        const base = publicApiBaseFromRequest(req).replace(/\/+$/, "");
+        const u = new URL(`${base}/track/r/${page.id}`);
+        if (toCandidate) u.searchParams.set("to", toCandidate);
+        for (const [k, v] of Object.entries({
+          gad_source: gadSource,
+          gad_campaignid: gadCampaignId,
+          gclid: adIds.gclid,
+          gbraid: adIds.gbraid,
+          wbraid: adIds.wbraid,
+          msclkid: adIds.msclkid,
+          fbclid: adIds.fbclid,
+          ttclid: adIds.ttclid,
+          utm_source: q.utm_source ?? q.source,
+          utm_medium: q.utm_medium ?? q.medium,
+          utm_campaign: q.utm_campaign ?? q.campaign,
+        })) {
+          if (v) u.searchParams.set(k, v);
+        }
+        return u.toString();
+      } catch {
+        return null;
+      }
+    })();
+
+    return res.json({
+      ok: Boolean(configuredOffer && toAllowed && finalOfferPreview),
+      dry_run: dryRun,
+      presell: {
+        id: page.id,
+        title: page.title,
+        status: page.status,
+      },
+      google_ads_params: {
+        gad_source: gadSource ?? null,
+        gad_campaignid: gadCampaignId ?? null,
+        gclid: adIds.gclid ?? null,
+        gbraid: adIds.gbraid ?? null,
+        wbraid: adIds.wbraid ?? null,
+        cleaned_macros_dropped: {
+          gclid: Boolean(q.gclid && !adIds.gclid),
+          gbraid: Boolean(q.gbraid && !adIds.gbraid),
+          wbraid: Boolean(q.wbraid && !adIds.wbraid),
+        },
+      },
+      offer: {
+        configured: configuredOffer || null,
+        requested_to: typeof q.to === "string" ? q.to : null,
+        to_used: toCandidate || null,
+        to_allowed: toAllowed,
+        network: offerNetwork,
+      },
+      guards: {
+        proxy_bypass_if_blockProxyClicks: proxyBypass,
+        note:
+          "Se blockProxyClicks estiver activo e o IP for marcado como proxy/VPN, o hop só continua com gclid/wbraid/gbraid reais ou gad_source.",
+      },
+      preview: {
+        landed_with_ads_params: landed || null,
+        final_affiliate_url_with_click_id: finalOfferPreview || null,
+        sample_click_id: sampleClickId,
+      },
+      test: {
+        live_redirect_url: liveTrackUrl,
+        how_to:
+          "Abra live_redirect_url no browser (grava clique real). Ou simule a lander: /p/{id}?gad_source=1&gclid=teste_google_123 e clique num CTA.",
+      },
     });
   },
 

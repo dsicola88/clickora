@@ -29,6 +29,7 @@ import {
   shouldServeCloakSafePage,
 } from "../lib/presellEnterpriseCloak";
 import { resolvePublicFooterBranding } from "../lib/publicFooterBranding";
+import { isProtectedGoogleCrawlerUserAgent } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { isIntentionalPublicPageCloakReason } from "../lib/trackingGuardPolicy";
 import {
@@ -264,8 +265,9 @@ export const presellController = {
       return res.redirect(302, spaUrl);
     }
 
+    const liteUa = req.headers["user-agent"] || "";
     const geo = shouldServeCloakSafePage(req, page.settings);
-    if (geo.cloak) {
+    if (geo.cloak && !isProtectedGoogleCrawlerUserAgent(liteUa)) {
       res.setHeader("Cache-Control", "private, no-store");
       return res.redirect(302, spaUrl);
     }
@@ -274,7 +276,7 @@ export const presellController = {
       ownerUserId: page.userId,
       presellPageId: page.id,
       ip,
-      userAgent: req.headers["user-agent"] || "",
+      userAgent: liteUa,
       headers: req.headers as Record<string, string | string[] | undefined>,
       channel: "public_page",
       recordedEventType: "other",
@@ -1051,8 +1053,13 @@ async function sendPublicPresell(
   page: { id: string; userId: string; settings: unknown },
   mapped: Record<string, unknown>,
 ) {
+  const ua = req.headers["user-agent"] || "";
+  /**
+   * AdsBot/Googlebot devem ver a Final URL real — cloak geográfico a crawlers
+   * oficiais = risco de cloaking / reprovação. Visitantes humanos seguem a lista.
+   */
   const geo = shouldServeCloakSafePage(req, page.settings);
-  if (geo.cloak) {
+  if (geo.cloak && !isProtectedGoogleCrawlerUserAgent(ua)) {
     console.info("[presell.public] página segura", { id: page.id, reason: geo.reason });
     res.setHeader("Cache-Control", "private, no-store");
     return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: geo.reason }));

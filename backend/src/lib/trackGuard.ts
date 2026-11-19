@@ -133,6 +133,17 @@ export async function enforceTrackingRules(args: {
     return { ok: false, status: 403, error: "Tracking indisponível", reason: "blacklist" };
   }
 
+  /**
+   * AdsBot / Googlebot / Inspection Tool: mesma landing e hop que o anúncio.
+   * Whitelist/blacklist/bot/proxy NÃO podem devolver página segura a estes UAs —
+   * senão o Google vê HTML diferente do comprador (reprovação / cloaking).
+   */
+  const adsReviewChannel =
+    channel === "public_page" || channel === "redirect" || channel === "rotator_redirect";
+  if (adsReviewChannel && isProtectedGoogleCrawlerUserAgent(userAgent)) {
+    return { ok: true, ipKey };
+  }
+
   const wlCount = owner._count.whitelistedIps;
   if (wlCount > 0) {
     const allowed = await systemPrisma.whitelistedIp.findUnique({
@@ -176,25 +187,20 @@ export async function enforceTrackingRules(args: {
   if (owner.blockBotClicks) {
     const b = detectBot(userAgent);
     if (b.isBot) {
-      const adsReviewChannel =
-        channel === "public_page" || channel === "redirect" || channel === "rotator_redirect";
-      const adsCrawler = adsReviewChannel && isProtectedGoogleCrawlerUserAgent(userAgent);
-      if (!adsCrawler) {
-        void logGuardBlock({
-          ownerUserId,
-          presellPageId,
-          channel,
-          reason: "bot_blocked",
-          detail: `Bot: ${b.label}`,
-          ip: ipKey,
-        });
-        return {
-          ok: false,
-          status: 403,
-          error: "Pedido identificado como bot",
-          reason: "bot_blocked",
-        };
-      }
+      void logGuardBlock({
+        ownerUserId,
+        presellPageId,
+        channel,
+        reason: "bot_blocked",
+        detail: `Bot: ${b.label}`,
+        ip: ipKey,
+      });
+      return {
+        ok: false,
+        status: 403,
+        error: "Pedido identificado como bot",
+        reason: "bot_blocked",
+      };
     }
   }
 

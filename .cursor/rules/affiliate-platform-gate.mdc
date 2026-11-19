@@ -14,7 +14,7 @@ Nenhuma funcionalidade nova ou mudança de funil deve ser implementada sem verif
    Medição essencial (pixel/impressão, `/track/r/`) não pode depender de consentimento de marketing. Comportamento previsível; sem “magia” que só funciona no browser local do dono da conta.
 
 3. **Pode criar risco de conformidade com Google Ads / Meta / outras redes?**  
-   Não servir conteúdo diferente da landing por IP/UA/bot heurístico (cloaking). AdsBot e o visitante pago devem ver a mesma página. Antifraude age no hop da oferta e nos relatórios — não troca o HTML da Final URL.
+   Não servir conteúdo diferente da landing por IP/UA/bot heurístico (cloaking). AdsBot / Googlebot / Inspection Tool devem ver a Final URL real (incluindo bypass de whitelist/blacklist/cloak geo na landing). Antifraude age no hop da oferta e nos relatórios — não troca o HTML da Final URL.
 
 ## Três pilares (avançar em paralelo)
 
