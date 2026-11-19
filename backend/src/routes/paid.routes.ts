@@ -165,8 +165,22 @@ paidRouter.get(
   "/projects/:projectId/google-ads/final-url-audit",
   asyncRoute((req, res) => paidController.googleAdsFinalUrlAudit(req, res)),
 );
-paidRouter.post(
+/** POST repara; GET/barra final devolvem 405 claro (evita toast opaco «Erro 404»). */
+function finalUrlRepairMethodGuard(req: Request, res: Response, next: NextFunction) {
+  if (req.method === "POST") return next();
+  return res.status(405).json({
+    error: "Use POST para reparar Final URLs (o botão «Reparar Final URLs» na página Campanhas).",
+    code: "method_not_allowed",
+  });
+}
+paidRouter.all(
   "/projects/:projectId/google-ads/final-url-repair",
+  finalUrlRepairMethodGuard,
+  asyncRoute((req, res) => paidController.googleAdsFinalUrlRepair(req, res)),
+);
+paidRouter.all(
+  "/projects/:projectId/google-ads/final-url-repair/",
+  finalUrlRepairMethodGuard,
   asyncRoute((req, res) => paidController.googleAdsFinalUrlRepair(req, res)),
 );
 paidRouter.get(

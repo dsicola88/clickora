@@ -1343,8 +1343,19 @@ export const paidController = {
     if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
       return res.status(403).json({ error: "Sem acesso ao projecto." });
     }
-    const out = await repairGoogleFinalUrls(parsed.data.projectId);
-    return res.json(out);
+    try {
+      const out = await repairGoogleFinalUrls(parsed.data.projectId);
+      return res.json(out);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha ao reparar Final URLs.";
+      console.error("[googleAdsFinalUrlRepair]", parsed.data.projectId, msg);
+      return res.status(400).json({
+        error:
+          "Não foi possível reparar as Final URLs automaticamente. Em ads.google.com, edite o anúncio: Final URL = só a presell https://…/p/… (sem gclid nem {ValueTrack}); parâmetros dinâmicos vão no sufixo da URL.",
+        code: "final_url_repair_failed",
+        detail: process.env.NODE_ENV === "production" ? undefined : msg,
+      });
+    }
   },
 
   async googleAdsManagerCampaignsMetrics(req: Request, res: Response) {

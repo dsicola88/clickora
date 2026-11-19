@@ -934,7 +934,19 @@ export function DpilotGoogleCampaignsManagerPage() {
                     try {
                       const { data, error } = await paidAdsService.repairGoogleAdsFinalUrls(projectId);
                       if (error || !data) {
-                        toast.error(toastGoogleAdsError(error || "Falha ao reparar Final URLs."));
+                        const raw = (error || "").trim();
+                        const looks404 =
+                          /\b404\b/i.test(raw) ||
+                          /não encontrad/i.test(raw) ||
+                          /not found/i.test(raw) ||
+                          /method_not_allowed/i.test(raw);
+                        toast.error(
+                          toastGoogleAdsError(
+                            looks404
+                              ? "Reparação automática indisponível neste momento. Em ads.google.com → anúncio → Final URL: deixe só a presell https://…/p/… (sem gclid nem {lpurl}/{keyword}). ValueTrack e UTMs vão no «Sufixo da URL final». Depois sincronize de novo."
+                              : raw || "Falha ao reparar Final URLs.",
+                          ),
+                        );
                         return;
                       }
                       if (data.error_count > 0) {

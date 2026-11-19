@@ -64,7 +64,9 @@ class ApiClient {
         (endpoint.startsWith("/public/presells/") ||
           endpoint === "/public/custom-domain/root-presell");
 
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      /** Evita `/path/` → 404 em proxies/Express quando a rota está registada sem barra final. */
+      const path = endpoint.length > 1 ? endpoint.replace(/\/+$/, "") : endpoint;
+      const response = await fetch(`${this.baseUrl}${path}`, {
         method,
         headers: isFormData ? this.getFormDataHeaders(headers) : this.getHeaders(headers),
         body: isFormData ? (body as FormData) : body ? JSON.stringify(body) : undefined,
