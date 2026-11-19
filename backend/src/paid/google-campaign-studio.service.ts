@@ -13,6 +13,7 @@ import {
 } from "./google-campaign-bidding";
 import { finalizeGoogleCampaignAssetExtensions } from "./google-campaign-asset-extensions";
 import { readGoogleAssetExtensionsFromBidding } from "./google-ads-asset-extensions-publish";
+import { mergeBiddingConfigTargeting } from "./google-ads-targeting-store";
 import { prisma } from "./paidPrisma";
 
 const matchEnum = z.enum(["exact", "phrase", "broad"]);
@@ -106,6 +107,35 @@ export const googleStudioActionSchema = z.discriminatedUnion("action", [
         .optional(),
     }),
   }),
+  z.object({
+    action: z.literal("sync_campaign_geo_targets"),
+    include: z.array(z.string().min(2).max(8)).min(1).max(40),
+    exclude: z.array(z.string().min(2).max(8)).max(40).default([]),
+  }),
+  z.object({
+    action: z.literal("sync_campaign_device_bids"),
+    device_bids: z.object({
+      MOBILE: z.number().min(-100).max(900).optional(),
+      DESKTOP: z.number().min(-100).max(900).optional(),
+      TABLET: z.number().min(-100).max(900).optional(),
+    }),
+  }),
+  z.object({
+    action: z.literal("sync_campaign_age_exclusions"),
+    age_exclude: z
+      .array(
+        z.enum([
+          "AGE_RANGE_18_24",
+          "AGE_RANGE_25_34",
+          "AGE_RANGE_35_44",
+          "AGE_RANGE_45_54",
+          "AGE_RANGE_55_64",
+          "AGE_RANGE_65_UP",
+          "AGE_RANGE_UNDETERMINED",
+        ]),
+      )
+      .max(7),
+  }),
 ]);
 
 export const googleCampaignDraftPatchSchema = z
@@ -177,6 +207,29 @@ export const googleCampaignDraftPatchSchema = z
           ])
           .optional(),
       })
+      .optional(),
+    geo_targets: z.array(z.string().min(2).max(8)).min(1).max(40).optional(),
+    geo_exclude: z.array(z.string().min(2).max(8)).max(40).optional(),
+    device_bids: z
+      .object({
+        MOBILE: z.number().min(-100).max(900).optional(),
+        DESKTOP: z.number().min(-100).max(900).optional(),
+        TABLET: z.number().min(-100).max(900).optional(),
+      })
+      .optional(),
+    age_exclude: z
+      .array(
+        z.enum([
+          "AGE_RANGE_18_24",
+          "AGE_RANGE_25_34",
+          "AGE_RANGE_35_44",
+          "AGE_RANGE_45_54",
+          "AGE_RANGE_55_64",
+          "AGE_RANGE_65_UP",
+          "AGE_RANGE_UNDETERMINED",
+        ]),
+      )
+      .max(7)
       .optional(),
   })
   .superRefine((val, ctx) => {
@@ -548,6 +601,25 @@ export async function executeGoogleStudioAction(
         extensions: finalized as unknown as Record<string, unknown>,
       });
     }
+    case "sync_campaign_geo_targets": {
+      return submit("sync_campaign_geo_targets", {
+        campaign_id: campaignId,
+        include: a.include,
+        exclude: a.exclude ?? [],
+      });
+    }
+    case "sync_campaign_device_bids": {
+      return submit("sync_campaign_device_bids", {
+        campaign_id: campaignId,
+        device_bids: a.device_bids,
+      });
+    }
+    case "sync_campaign_age_exclusions": {
+      return submit("sync_campaign_age_exclusions", {
+        campaign_id: campaignId,
+        age_exclude: a.age_exclude,
+      });
+    }
     default:
       return { ok: false, error: "Acção não suportada." };
   }
@@ -737,6 +809,29 @@ export async function patchGoogleCampaignDraft(
             });
           }
         }
+      }
+      if (
+        d.geo_targets != null ||
+        d.geo_exclude != null ||
+        d.device_bids != null ||
+        d.age_exclude != null
+      ) {
+        const fresh = await tx.paidAdsCampaign.findUnique({
+          where: { id: camp.id },
+          select: { biddingConfig: true },
+        });
+        const merged = mergeBiddingConfigTargeting(fresh?.biddingConfig ?? camp.biddingConfig, {
+          ...(d.geo_exclude != null ? { geo_exclude: d.geo_exclude.map((x) => x.toUpperCase()) } : {}),
+          ...(d.device_bids != null ? { device_bids: d.device_bids } : {}),
+          ...(d.age_exclude != null ? { age_exclude: d.age_exclude } : {}),
+        });
+        await tx.paidAdsCampaign.update({
+          where: { id: camp.id },
+          data: {
+            ...(d.geo_targets != null ? { geoTargets: d.geo_targets.map((x) => x.toUpperCase()) } : {}),
+            biddingConfig: merged as Prisma.InputJsonValue,
+          },
+        });
       }
     });
   } catch (e) {

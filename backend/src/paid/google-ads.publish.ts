@@ -13,6 +13,10 @@ import { resolveGoogleAdsAccess } from "./google-ads-connection";
 import { humanizeGoogleAdsPublishError } from "./google-ads-errors";
 import { GOOGLE_GEO_CRITERION_IDS, normalizeGoogleCountryCode } from "./geo-google";
 import { googleAdGroupCpcBidMicros, googleCampaignCreateBiddingOneof } from "./google-campaign-bidding";
+import {
+  percentToGoogleBidModifier,
+  readGoogleCampaignTargeting,
+} from "./google-ads-targeting-store";
 import { normalizeGoogleLanguageCode, GOOGLE_ADS_LANGUAGE_NUMERIC_ID } from "./language-google";
 import {
   publishGoogleCampaignAssetExtensions,
@@ -467,6 +471,56 @@ export async function publishGoogleSearchCampaignFromLocal(
       );
     }
 
+    /** Exclusões de país / dispositivos gravadas no rascunho (Segmentação). */
+    {
+      const targeting = readGoogleCampaignTargeting(campaign.biddingConfig);
+      for (const iso of targeting.geo_exclude ?? []) {
+        const code = normalizeGoogleCountryCode(iso);
+        const id = code ? GOOGLE_GEO_CRITERION_IDS[code] : undefined;
+        if (!id) continue;
+        await mutate(
+          access,
+          dev,
+          customerId,
+          "campaignCriteria",
+          {
+            operations: [
+              {
+                create: {
+                  campaign: campaignRn,
+                  negative: true,
+                  location: { geoTargetConstant: `geoTargetConstants/${id}` },
+                },
+              },
+            ],
+          },
+          loginCustomerId,
+        );
+      }
+      for (const key of ["MOBILE", "DESKTOP", "TABLET"] as const) {
+        const pct = targeting.device_bids?.[key];
+        if (pct == null || !Number.isFinite(pct) || pct === 0) continue;
+        await mutate(
+          access,
+          dev,
+          customerId,
+          "campaignBidModifiers",
+          {
+            operations: [
+              {
+                create: {
+                  campaign: campaignRn,
+                  device: { type: key },
+                  bidModifier: percentToGoogleBidModifier(pct),
+                },
+              },
+            ],
+          },
+          loginCustomerId,
+        );
+      }
+    }
+
     currentStep = "idiomas";
     for (const lang of languageConstants) {
       await mutate(
@@ -752,6 +806,33 @@ export async function publishGoogleSearchCampaignFromLocal(
     }
 
     const extCamp = lastId(campaignRn);
+
+    currentStep = "exclusões de idade";
+    {
+      const ages = readGoogleCampaignTargeting(campaign.biddingConfig).age_exclude ?? [];
+      for (const agRn of agResourceByLocalId.values()) {
+        for (const age of ages) {
+          await mutate(
+            access,
+            dev,
+            customerId,
+            "adGroupCriteria",
+            {
+              operations: [
+                {
+                  create: {
+                    adGroup: agRn,
+                    negative: true,
+                    ageRange: { type: age },
+                  },
+                },
+              ],
+            },
+            loginCustomerId,
+          );
+        }
+      }
+    }
 
     for (const ag of campaign.adGroups) {
       const rsaCount = rsaLinkedByAg.get(ag.id) ?? 0;

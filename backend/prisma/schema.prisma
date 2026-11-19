@@ -1015,6 +1015,9 @@ enum PaidAdsChangeRequestType {
   sync_campaign_negative_keywords
   sync_ad_group_negative_keywords
   replace_google_asset_extensions
+  sync_campaign_geo_targets
+  sync_campaign_device_bids
+  sync_campaign_age_exclusions
   meta_create_campaign
   meta_update_budget
   meta_publish_creative

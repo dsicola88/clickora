@@ -43,6 +43,7 @@ import { UUID_RE, useDpilotPaid } from "./DpilotPaidContext";
 import { StudioSettingsPanel, StudioSettingsRow } from "./dpilotGoogleStudioSettingsUi";
 import { GoogleAdsRsaDraftPreview } from "./DpilotGoogleSearchAdPreview";
 import { DpilotGoogleSearchTermsPanel } from "./DpilotGoogleSearchTermsPanel";
+import { DpilotGoogleStudioSegmentacaoPanel } from "./DpilotGoogleStudioSegmentacaoPanel";
 
 type MatchSel = "exact" | "phrase" | "broad";
 
@@ -56,7 +57,15 @@ const STUDIO_SNIPPET_HEADERS: StudioSnippetHeader[] = [
   "Destinations",
 ];
 
-type StudioSection = "visao" | "conteudos" | "negativas_extensoes" | "leiloes" | "controlo" | "insights";
+type StudioSection =
+  | "visao"
+  | "conteudos"
+  | "segmentacao"
+  | "termos"
+  | "negativas_extensoes"
+  | "leiloes"
+  | "controlo"
+  | "insights";
 
 function isoRangeDefaultLast14(): { from: string; to: string } {
   const to = new Date();
@@ -948,9 +957,9 @@ export function DpilotGoogleCampaignStudioPage() {
         <Alert variant="default" className="border-neutral-200 bg-neutral-50/80 dark:border-border dark:bg-muted/25">
           <AlertTitle className="text-sm">{t("pages.dpilot.google.studio.studioTitle")}</AlertTitle>
           <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
-            Aqui gere o dia a dia da Search: pausar/ativar, orçamento, anúncios, palavras-chave, bloquear termos e
-            ver o que as pessoas pesquisaram. Só precisa do Google Ads para casos raros (orçamento partilhado,
-            ajuste fino de dispositivo ou localização depois de publicar).
+            Aqui gere o dia a dia da Search: pausar/ativar, orçamento e CPC, anúncios, palavras-chave, segmentação
+            (locais, dispositivos, idades) e termos de pesquisa — cada um no seu sítio. Orçamento partilhado raro
+            continua a exigir a consola Google.
           </AlertDescription>
         </Alert>
 
@@ -1013,13 +1022,27 @@ export function DpilotGoogleCampaignStudioPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => setStudioSection("segmentacao")}
+                    className={studioNavItemClass("segmentacao")}
+                  >
+                    Segmentação
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStudioSection("termos")}
+                    className={studioNavItemClass("termos")}
+                  >
+                    Termos de pesquisa
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setStudioSection("negativas_extensoes")}
                     className={studioNavItemClass("negativas_extensoes")}
                   >
-                    {t("pages.dpilot.google.studio.navNegatives")}
+                    Negativas e extensões
                   </button>
                   <button type="button" onClick={() => setStudioSection("leiloes")} className={studioNavItemClass("leiloes")}>
-                    {t("pages.dpilot.google.studio.navBudget")}
+                    Orçamento e CPC
                   </button>
                   <button type="button" onClick={() => setStudioSection("controlo")} className={studioNavItemClass("controlo")}>
                     {published ? t("pages.dpilot.google.studio.navLiveStatus") : t("pages.dpilot.google.studio.navDraftStatus")}
@@ -1032,7 +1055,7 @@ export function DpilotGoogleCampaignStudioPage() {
                 </p>
                 <div className="space-y-0.5">
                   <button type="button" onClick={() => setStudioSection("insights")} className={studioNavItemClass("insights")}>
-                    {t("pages.dpilot.google.studio.navInsights")}
+                    Planner / insights
                   </button>
                 </div>
               </div>
@@ -1147,7 +1170,22 @@ export function DpilotGoogleCampaignStudioPage() {
                     />
                     <StudioSettingsRow label="Estado" value={campaignStatusLabel(campaign.status)} />
                     <StudioSettingsRow label="Rede" value="Pesquisa Google" />
-                    <StudioSettingsRow label="Localização · idioma" value={geoLangSummaryLine(campaign)} subdued />
+                    <StudioSettingsRow
+                      label="Localização · idioma"
+                      value={geoLangSummaryLine(campaign)}
+                      subdued
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Para excluir países, dispositivos ou idades use o menu{" "}
+                      <button
+                        type="button"
+                        className="text-[#1a73e8] hover:underline"
+                        onClick={() => setStudioSection("segmentacao")}
+                      >
+                        Segmentação
+                      </button>
+                      .
+                    </p>
                     <StudioSettingsRow
                       label="Id na Google"
                       value={
@@ -1578,16 +1616,55 @@ export function DpilotGoogleCampaignStudioPage() {
             </div>
             )}
 
+            {studioSection === "segmentacao" && campaign && projectId && campaignId ? (
+              <DpilotGoogleStudioSegmentacaoPanel
+                projectId={projectId}
+                campaignId={campaignId}
+                published={published}
+                campaign={campaign as { geo_targets?: unknown; bidding_config?: unknown }}
+                onSaved={() => {
+                  void loadStudio();
+                  void reloadPaid();
+                }}
+              />
+            ) : null}
+
+            {studioSection === "termos" && (
+              <div className="space-y-6">
+                <Card className="border-[#1a73e8]/25 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base">Termos de pesquisa</CardTitle>
+                    <CardDescription>
+                      O que as pessoas pesquisaram antes de clicar. Bloqueie o que gasta mal — separado das
+                      negativas manuais e da segmentação.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {ok && projectId && campaignId ? (
+                      <DpilotGoogleSearchTermsPanel
+                        projectId={projectId}
+                        campaignId={campaignId}
+                        campaignName={campaign?.name}
+                      />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Campanha indisponível.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
             {studioSection === "negativas_extensoes" && (
               <div className="space-y-6">
                 <Card className="border-muted-foreground/15 shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">{t("pages.dpilot.google.studio.negativesTitle")}</CardTitle>
+                    <CardTitle className="text-base">Palavras-chave negativas e extensões</CardTitle>
                     <CardDescription>
+                      Negativas = lista que você escreve (grátis, emprego…). Termos de pesquisa ficam no menu
+                      «Termos de pesquisa».{" "}
                       {published
-                        ? "Substitui as negativas na conta Google (remove critérios antigos e cria esta lista). Em Copilot, segue a fila de aprovações."
-                        : "Grava no rascunho local (este botão ou «Gravar rascunho completo» em Palavras-chave e anúncios); serão enviadas na primeira publicação da campanha."}{" "}
-                      Use uma linha por termo; o tipo de correspondência aplica-se a todas as linhas deste bloco.
+                        ? "Na Google, esta lista substitui as negativas actuais (passa por Aprovações)."
+                        : "Grava no rascunho; vai na primeira publicação."}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-8">
@@ -1946,11 +2023,10 @@ export function DpilotGoogleCampaignStudioPage() {
             <div className="space-y-6">
               <Card className="border-muted-foreground/15 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{t("pages.dpilot.google.studio.budgetTitle")}</CardTitle>
+                  <CardTitle className="text-base">Orçamento e CPC</CardTitle>
                   <CardDescription>
-                    URL final e textos dos anúncios ficam em «Palavras-chave e anúncios». Aqui ajusta orçamento diário, estratégia de
-                    licitação (CPC, CPA, ROAS, maximizar conversões) e consulta métricas da rede quando a campanha já
-                    existe na conta Google.
+                    Só dinheiro e lances: orçamento diário, estratégia (CPC manual, CPA, ROAS…) e CPC por grupo.
+                    Localizações, dispositivos e idades ficam em «Segmentação».
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6 text-sm">
@@ -2383,7 +2459,7 @@ export function DpilotGoogleCampaignStudioPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">{t("pages.dpilot.google.studio.plannerTitle")}</CardTitle>
                   <CardDescription>
-                    Ligação rápida ao Planner (quando disponível). Parâmetros usados pelo pedido de análise:
+                    Volume e CPC de referência do Planner. Termos reais da campanha ficam em «Termos de pesquisa».
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 max-w-xl">
@@ -2434,27 +2510,6 @@ export function DpilotGoogleCampaignStudioPage() {
                       ) : null}
                     </div>
                   ) : null}
-                </CardContent>
-              </Card>
-
-              <Card className="border-[#1a73e8]/25 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-base">Termos de pesquisa</CardTitle>
-                  <CardDescription>
-                    Corte o que gasta mal sem sair da Dclickora. Relatórios avançados de leilão ou horários raros
-                    ficam no Google Ads só se precisar.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {ok && projectId && campaignId ? (
-                    <DpilotGoogleSearchTermsPanel
-                      projectId={projectId}
-                      campaignId={campaignId}
-                      campaignName={campaign?.name}
-                    />
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Campanha indisponível.</p>
-                  )}
                 </CardContent>
               </Card>
             </div>

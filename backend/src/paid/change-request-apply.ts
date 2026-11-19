@@ -33,6 +33,11 @@ import {
   applyGoogleUpdateCampaignBidding,
   applyGoogleUpdateRsaCopy,
 } from "./google-ads.mutations";
+import {
+  applyGoogleSyncCampaignAgeExclusions,
+  applyGoogleSyncCampaignDeviceBids,
+  applyGoogleSyncCampaignGeoTargets,
+} from "./google-ads-targeting.mutations";
 import { publishGoogleSearchCampaignFromLocal as publishGoogleCampaign } from "./google-ads.publish";
 import { publishMetaCreateCampaignFromLocal } from "./meta-ads.publish";
 import {
@@ -225,6 +230,45 @@ export async function applyChangeRequestRemote(
         return await applyGoogleReplaceAssetExtensions(projectId, {
           campaign_id: cid,
           extensions: ext as import("./google-campaign-asset-extensions").GoogleCampaignAssetExtensionsStored,
+        });
+      }
+      case "sync_campaign_geo_targets": {
+        const cid = getStr(p, "campaign_id");
+        const include = getStrList(p, "include") ?? [];
+        const exclude = Array.isArray(p.exclude)
+          ? (p.exclude as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+          : [];
+        if (!cid || include.length === 0) {
+          return { ok: false, error: "Payload: campaign_id e include[] (países)." };
+        }
+        return await applyGoogleSyncCampaignGeoTargets(projectId, {
+          campaign_id: cid,
+          include,
+          exclude,
+        });
+      }
+      case "sync_campaign_device_bids": {
+        const cid = getStr(p, "campaign_id");
+        const bids = p.device_bids;
+        if (!cid || !bids || typeof bids !== "object" || Array.isArray(bids)) {
+          return { ok: false, error: "Payload: campaign_id e device_bids." };
+        }
+        const device_bids: Partial<Record<"MOBILE" | "DESKTOP" | "TABLET", number>> = {};
+        for (const key of ["MOBILE", "DESKTOP", "TABLET"] as const) {
+          const n = Number((bids as Record<string, unknown>)[key]);
+          if (Number.isFinite(n)) device_bids[key] = n;
+        }
+        return await applyGoogleSyncCampaignDeviceBids(projectId, { campaign_id: cid, device_bids });
+      }
+      case "sync_campaign_age_exclusions": {
+        const cid = getStr(p, "campaign_id");
+        const ages = Array.isArray(p.age_exclude)
+          ? (p.age_exclude as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+          : [];
+        if (!cid) return { ok: false, error: "Payload: campaign_id." };
+        return await applyGoogleSyncCampaignAgeExclusions(projectId, {
+          campaign_id: cid,
+          age_exclude: ages,
         });
       }
       case "meta_create_campaign": {
