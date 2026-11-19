@@ -521,9 +521,22 @@ export function DpilotGoogleCampaignsManagerPage() {
     void load();
   }, [load]);
 
+  const localOnlyInventory =
+    source === "local_only" || inventoryScope === "local_drafts" || Boolean(connErr);
+
+  /** Rede falhou: abrir «Só neste projecto» em vez de «Na Google» com IDs não verificados. */
+  useEffect(() => {
+    if (localOnlyInventory && (st === "on_google" || st === "live" || st === "paused")) {
+      setSt("local_drafts");
+    }
+  }, [localOnlyInventory, st]);
+
   const filtered = useMemo(() => {
     let xs = rows;
-    if (st === "on_google") {
+    /** Rede falhou: não listar IDs locais como inventário Google verificado. */
+    if (localOnlyInventory && (st === "on_google" || st === "live" || st === "paused")) {
+      xs = [];
+    } else if (st === "on_google") {
       xs = xs.filter((c) => Boolean(c.external_campaign_id) && c.local_status !== "archived");
     } else if (st === "local_drafts") {
       xs = xs.filter((c) => !c.external_campaign_id && c.local_status !== "archived");
@@ -540,21 +553,20 @@ export function DpilotGoogleCampaignsManagerPage() {
       );
     }
     return xs;
-  }, [rows, q, st]);
+  }, [rows, q, st, localOnlyInventory]);
 
   const chipCounts = useMemo(() => {
     const work = rows.filter((c) => c.local_status !== "archived");
-    const onGoogle = work.filter((c) => Boolean(c.external_campaign_id));
+    const onGoogle = localOnlyInventory
+      ? []
+      : work.filter((c) => Boolean(c.external_campaign_id));
     return {
       on_google: onGoogle.length,
       local_drafts: work.filter((c) => !c.external_campaign_id).length,
       live: onGoogle.filter((c) => c.local_status === "live").length,
       paused: onGoogle.filter((c) => c.local_status === "paused").length,
     };
-  }, [rows]);
-
-  const localOnlyInventory =
-    source === "local_only" || inventoryScope === "local_drafts" || Boolean(connErr);
+  }, [rows, localOnlyInventory]);
 
   const paidConnected = isConnConnected(overview?.connection);
   const connMeta = overview?.connection as

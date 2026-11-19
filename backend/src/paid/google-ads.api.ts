@@ -520,13 +520,17 @@ function headersForGoogleAds(
   return h;
 }
 
+/** Alinhado com Funil (`managerLoginRequired`) — MCC errado ou conta solo com header. */
 function looksLikeBadLoginCustomer(message: string | undefined): boolean {
   const t = (message ?? "").toLowerCase();
   return (
     t.includes("invalid argument") ||
     t.includes("login-customer-id") ||
     t.includes("login customer") ||
-    t.includes("cannot be the same")
+    t.includes("cannot be the same") ||
+    t.includes("permission to access customer") ||
+    t.includes("user doesn't have permission") ||
+    t.includes("permission_denied")
   );
 }
 

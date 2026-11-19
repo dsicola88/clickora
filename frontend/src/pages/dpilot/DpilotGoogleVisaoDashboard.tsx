@@ -49,11 +49,10 @@ export function DpilotGoogleVisaoDashboard() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [o, m] = await Promise.all([
-      paidAdsService.getGoogleAdsManagerOverview(projectId, { preset: "last_30" }),
-      paidAdsService.getGoogleAdsCampaignsMetrics(projectId, { preset: "last_30" }),
-    ]);
+    /** Overview primeiro — pode curar solo/MCC; métricas usam o login já persistido. */
+    const o = await paidAdsService.getGoogleAdsManagerOverview(projectId, { preset: "last_30" });
     setOv(o.data ?? null);
+    const m = await paidAdsService.getGoogleAdsCampaignsMetrics(projectId, { preset: "last_30" });
     setRows(m.data?.campaigns ?? []);
     setLoading(false);
   }, [projectId]);

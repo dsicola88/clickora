@@ -1,26 +1,70 @@
 /**
  * Contexto OAuth Google Ads do projecto Paid — partilhado por overview, métricas e mutações.
  * Preferência: token Paid; se falhar, cura com o refresh de Integrações (mesma conta).
+ * MCC: só `User.googleAdsLoginCustomerId` (Integrações) — nunca env GOOGLE_ADS_LOGIN_CUSTOMER_ID.
  */
 import { resolveUserGoogleAdsRefreshToken } from "../modules/googleAds/googleAds.service";
-import { getAccessFromRefreshToken, getGoogleDeveloperToken } from "./google-ads.api";
+import {
+  getAccessFromRefreshToken,
+  getGoogleDeveloperToken,
+  resolveReadableGoogleAdsCustomer,
+} from "./google-ads.api";
 import { detachStaleGoogleCampaignLinks } from "./google-ads-detach-stale";
 import { prisma } from "./paidPrisma";
 import { loadPaidToken, storePaidToken } from "./tokenSecrets";
-
-export const GOOGLE_ADS_LOGIN_CUSTOMER_ID =
-  process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "") || undefined;
 
 export type GoogleAdsAccessOk = {
   ok: true;
   access: string;
   customerId: string;
-  /** MCC / login-customer-id do utilizador (Integrações) ou env. */
+  /** MCC / login-customer-id do utilizador (Integrações). Undefined = solo. */
   loginCustomerId: string | undefined;
   dev: string;
   accountName: string | null;
   connectionId: string;
+  userId: string;
 };
+
+/**
+ * Descobre solo↔MCC e persiste em Integrações.
+ * Solo → `googleAdsLoginCustomerId = null`; MCC → login do gestor.
+ * Usar após INVALID_ARGUMENT / permission em overview, métricas ou import.
+ */
+export async function healAndPersistGoogleAdsLogin(opts: {
+  access: string;
+  userId: string;
+  customerId: string;
+  hintLoginCustomerId?: string | null;
+}): Promise<
+  | { ok: true; loginCustomerId: string | undefined; accountName: string | null }
+  | { ok: false; error: string }
+> {
+  const customerId = opts.customerId.replace(/\D/g, "");
+  if (!customerId) return { ok: false, error: "Customer ID em falta." };
+  const hint = opts.hintLoginCustomerId?.replace(/\D/g, "") || undefined;
+  const resolved = await resolveReadableGoogleAdsCustomer(opts.access, customerId, hint);
+  if (!resolved.ok) return { ok: false, error: resolved.error };
+  if (resolved.meta.manager) {
+    return {
+      ok: false,
+      error:
+        "A conta ligada é MCC (gestor). Em Integrações → Google escolha a conta cliente onde estão os anúncios.",
+    };
+  }
+  const nextLogin = resolved.loginCustomerId ?? null;
+  const prevLogin = hint ?? null;
+  if (nextLogin !== prevLogin) {
+    await prisma.user.update({
+      where: { id: opts.userId },
+      data: { googleAdsLoginCustomerId: nextLogin },
+    });
+  }
+  return {
+    ok: true,
+    loginCustomerId: resolved.loginCustomerId,
+    accountName: resolved.meta.name ?? null,
+  };
+}
 
 export type GoogleAdsAccessErr = { ok: false; error: string; code: string };
 
@@ -145,6 +189,7 @@ export async function resolveGoogleAdsAccess(projectId: string): Promise<GoogleA
     dev,
     accountName,
     connectionId: conn.id,
+    userId: conn.userId,
   };
 }
 

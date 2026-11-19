@@ -57,9 +57,9 @@ export function getGoogleAdsApiClientConfigFromEnv(): GoogleAdsClientEnv | null 
     process.env.GOOGLE_ADS_CLIENT_ID?.trim() || process.env.CLIENT_ID?.trim();
   const clientSecret =
     process.env.GOOGLE_ADS_CLIENT_SECRET?.trim() || process.env.CLIENT_SECRET?.trim();
-  const loginCustomerId = onlyDigits(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.trim());
   if (!clientId || !clientSecret) return null;
-  return { developerToken, clientId, clientSecret, loginCustomerId: loginCustomerId ?? undefined };
+  /** MCC nunca vem do env — só `User.googleAdsLoginCustomerId` (solo = omitir). */
+  return { developerToken, clientId, clientSecret, loginCustomerId: undefined };
 }
 
 export function buildGoogleAdsCredentialsForUser(user: Pick<User, "googleAdsRefreshToken">): GoogleAdsApiCredentials | null {
@@ -71,7 +71,7 @@ export function buildGoogleAdsCredentialsForUser(user: Pick<User, "googleAdsRefr
     clientId: base.clientId,
     clientSecret: base.clientSecret,
     refreshToken: refresh,
-    loginCustomerId: base.loginCustomerId,
+    loginCustomerId: undefined,
   };
 }
 

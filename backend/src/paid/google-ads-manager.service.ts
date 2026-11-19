@@ -2,16 +2,12 @@
  * Centro de operações Google Ads (Paid) — métricas de conta, inventário e recomendações via API oficial.
  * Não inventa números: sem OAuth / sem developer token → erro explícito.
  */
-import {
-  fetchCustomerMeta,
-  resolveReadableGoogleAdsCustomer,
-  runGoogleAdsCustomerAction,
-  runGoogleAdsSearch,
-} from "./google-ads.api";
+import { fetchCustomerMeta, runGoogleAdsCustomerAction, runGoogleAdsSearch } from "./google-ads.api";
 import { parseGoogleBudgetShareFromRow } from "./google-ads-budget";
 import { computeClickCapture } from "./google-ads-click-capture";
 import {
   deriveMetricRates,
+  healAndPersistGoogleAdsLogin,
   resolveGoogleAdsAccess,
   resolveGoogleAdsDateRange,
 } from "./google-ads-connection";
@@ -154,30 +150,16 @@ export async function fetchGoogleAdsAccountOverview(
   }
 
   /**
-   * Overview falhou: descobrir solo↔MCC (como no «Re-sincronizar») e persistir.
-   * Evita ficar preso em INVALID_ARGUMENT com MCC errado / em falta.
+   * Overview falhou: descobrir solo↔MCC (mesmo helper que métricas / Re-sincronizar).
    */
   if (s.error) {
-    const healed = await resolveReadableGoogleAdsCustomer(
-      ctx.access,
-      ctx.customerId,
-      loginCustomerId,
-    );
+    const healed = await healAndPersistGoogleAdsLogin({
+      access: ctx.access,
+      userId: ctx.userId,
+      customerId: ctx.customerId,
+      hintLoginCustomerId: loginCustomerId,
+    });
     if (healed.ok) {
-      const nextLogin = healed.loginCustomerId ?? null;
-      const prevLogin = loginCustomerId ?? null;
-      if (nextLogin !== prevLogin) {
-        const connRow = await prisma.paidAdsGoogleAdsConnection.findUnique({
-          where: { id: ctx.connectionId },
-          select: { userId: true },
-        });
-        if (connRow) {
-          await prisma.user.update({
-            where: { id: connRow.userId },
-            data: { googleAdsLoginCustomerId: nextLogin },
-          });
-        }
-      }
       loginCustomerId = healed.loginCustomerId;
       s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, qCustomer, loginCustomerId);
       if (s.error) {
@@ -202,7 +184,6 @@ export async function fetchGoogleAdsAccountOverview(
         if (!retry2.error) s = retry2;
       }
     } else if (!meta) {
-      /** Conta ilegível com este OAuth — UI não deve listar rascunhos como inventário Google. */
       return {
         ok: true as const,
         connected: true,
@@ -307,7 +288,8 @@ export async function fetchGoogleAdsCampaignsMetrics(
   >();
   let networkError: string | null = null;
 
-  if (ctx.ok) {
+  const pullCampaignNetwork = async (loginCustomerId: string | undefined): Promise<string | null> => {
+    if (!ctx.ok) return null;
     const ids = local
       .map((c) => c.externalCampaignId?.replace(/\D/g, ""))
       .filter((id): id is string => Boolean(id));
@@ -319,108 +301,116 @@ export async function fetchGoogleAdsCampaignsMetrics(
         ctx.customerId,
         ctx.dev,
         "SELECT campaign.id FROM campaign WHERE campaign.status != 'REMOVED' LIMIT 1",
-        ctx.loginCustomerId,
+        loginCustomerId,
       );
-      if (probe.error) {
-        networkError = probe.error.message ?? "Falha ao ler a conta Google Ads.";
-      }
-    } else {
-      /** Confirma quais IDs ainda existem nesta conta — órfãos voltam a rascunho local. */
-      const existQ = `
-        SELECT campaign.id
-        FROM campaign
-        WHERE campaign.id IN (${ids.join(",")})
-          AND campaign.status != 'REMOVED'
-      `;
-      const existS = await runGoogleAdsSearch(
-        ctx.access,
-        ctx.customerId,
-        ctx.dev,
-        existQ,
-        ctx.loginCustomerId,
-      );
-      if (existS.error) {
-        networkError = existS.error.message ?? "Falha ao validar campanhas na Google.";
-      } else {
-        const alive = new Set<string>();
-        for (const raw of Array.isArray(existS.results) ? existS.results : []) {
-          const row = raw as { campaign?: { id?: string } };
-          const id = String(row.campaign?.id ?? "").replace(/\D/g, "");
-          if (id) alive.add(id);
-        }
-        if (alive.size < ids.length) {
-          await detachStaleGoogleCampaignLinks(projectId, { keepExternalIds: alive });
-        }
-        const liveIds = ids.filter((id) => alive.has(id));
-        if (liveIds.length === 0) {
-          /* só rascunhos após detach — já tratado pelo probe no próximo load */
-        } else {
-          const q = `
-            SELECT
-              campaign.id,
-              campaign.status,
-              campaign.advertising_channel_type,
-              campaign_budget.amount_micros,
-              metrics.impressions,
-              metrics.clicks,
-              metrics.cost_micros,
-              metrics.conversions,
-              metrics.conversions_value
-            FROM campaign
-            WHERE campaign.id IN (${liveIds.join(",")})
-              AND segments.date BETWEEN '${range.from}' AND '${range.to}'
-          `;
-          const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
-          if (s.error) {
-            networkError = s.error.message ?? "Falha ao ler métricas das campanhas.";
-          }
-          for (const raw of !s.error && Array.isArray(s.results) ? s.results : []) {
-            const row = raw as Record<string, unknown>;
-            const camp = row.campaign as { id?: string } | undefined;
-            const id = String(camp?.id ?? "").replace(/\D/g, "");
-            if (!id) continue;
-            const prev =
-              byExternal.get(id) ??
-              deriveMetricRates({ impressions: 0, clicks: 0, cost_micros: 0, conversions: 0 });
-            const cur = parseMetrics(row);
-            byExternal.set(
-              id,
-              deriveMetricRates({
-                impressions: prev.impressions + cur.impressions,
-                clicks: prev.clicks + cur.clicks,
-                cost_micros: prev.cost_micros + cur.cost_micros,
-                conversions: prev.conversions + cur.conversions,
-                conversions_value: prev.conversions_value + cur.conversions_value,
-              }),
-            );
-          }
+      return probe.error ? probe.error.message ?? "Falha ao ler a conta Google Ads." : null;
+    }
 
-          const bq = `
-            SELECT
-              campaign.id,
-              campaign_budget.amount_micros,
-              campaign_budget.explicitly_shared,
-              campaign_budget.reference_count
-            FROM campaign
-            WHERE campaign.id IN (${liveIds.join(",")})
-          `;
-          const bs = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, bq, ctx.loginCustomerId);
-          if (!bs.error) {
-            for (const raw of Array.isArray(bs.results) ? bs.results : []) {
-              const row = raw as Record<string, unknown>;
-              const camp = row.campaign as { id?: string } | undefined;
-              const id = String(camp?.id ?? "").replace(/\D/g, "");
-              if (!id) continue;
-              const share = parseGoogleBudgetShareFromRow(row);
-              budgetByExternal.set(id, {
-                explicitly_shared: share.explicitly_shared,
-                reference_count: share.reference_count,
-                budget_editable: share.budget_editable,
-                amount_micros: share.amount_micros,
-              });
-            }
-          }
-        }
+    /** Confirma quais IDs ainda existem nesta conta — órfãos voltam a rascunho local. */
+    const existQ = `
+      SELECT campaign.id
+      FROM campaign
+      WHERE campaign.id IN (${ids.join(",")})
+        AND campaign.status != 'REMOVED'
+    `;
+    const existS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, existQ, loginCustomerId);
+    if (existS.error) {
+      return existS.error.message ?? "Falha ao validar campanhas na Google.";
+    }
+    const alive = new Set<string>();
+    for (const raw of Array.isArray(existS.results) ? existS.results : []) {
+      const row = raw as { campaign?: { id?: string } };
+      const id = String(row.campaign?.id ?? "").replace(/\D/g, "");
+      if (id) alive.add(id);
+    }
+    if (alive.size < ids.length) {
+      await detachStaleGoogleCampaignLinks(projectId, { keepExternalIds: alive });
+    }
+    const liveIds = ids.filter((id) => alive.has(id));
+    if (liveIds.length === 0) return null;
+
+    const q = `
+      SELECT
+        campaign.id,
+        campaign.status,
+        campaign.advertising_channel_type,
+        campaign_budget.amount_micros,
+        metrics.impressions,
+        metrics.clicks,
+        metrics.cost_micros,
+        metrics.conversions,
+        metrics.conversions_value
+      FROM campaign
+      WHERE campaign.id IN (${liveIds.join(",")})
+        AND segments.date BETWEEN '${range.from}' AND '${range.to}'
+    `;
+    const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, loginCustomerId);
+    if (s.error) {
+      return s.error.message ?? "Falha ao ler métricas das campanhas.";
+    }
+    for (const raw of Array.isArray(s.results) ? s.results : []) {
+      const row = raw as Record<string, unknown>;
+      const camp = row.campaign as { id?: string } | undefined;
+      const id = String(camp?.id ?? "").replace(/\D/g, "");
+      if (!id) continue;
+      const prev =
+        byExternal.get(id) ??
+        deriveMetricRates({ impressions: 0, clicks: 0, cost_micros: 0, conversions: 0 });
+      const cur = parseMetrics(row);
+      byExternal.set(
+        id,
+        deriveMetricRates({
+          impressions: prev.impressions + cur.impressions,
+          clicks: prev.clicks + cur.clicks,
+          cost_micros: prev.cost_micros + cur.cost_micros,
+          conversions: prev.conversions + cur.conversions,
+          conversions_value: prev.conversions_value + cur.conversions_value,
+        }),
+      );
+    }
+
+    const bq = `
+      SELECT
+        campaign.id,
+        campaign_budget.amount_micros,
+        campaign_budget.explicitly_shared,
+        campaign_budget.reference_count
+      FROM campaign
+      WHERE campaign.id IN (${liveIds.join(",")})
+    `;
+    const bs = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, bq, loginCustomerId);
+    if (!bs.error) {
+      for (const raw of Array.isArray(bs.results) ? bs.results : []) {
+        const row = raw as Record<string, unknown>;
+        const camp = row.campaign as { id?: string } | undefined;
+        const id = String(camp?.id ?? "").replace(/\D/g, "");
+        if (!id) continue;
+        const share = parseGoogleBudgetShareFromRow(row);
+        budgetByExternal.set(id, {
+          explicitly_shared: share.explicitly_shared,
+          reference_count: share.reference_count,
+          budget_editable: share.budget_editable,
+          amount_micros: share.amount_micros,
+        });
+      }
+    }
+    return null;
+  };
+
+  if (ctx.ok) {
+    networkError = await pullCampaignNetwork(ctx.loginCustomerId);
+    /** Mesmo heal solo↔MCC que o overview — Campanhas não fica preso se a Visão não correu antes. */
+    if (networkError) {
+      const healed = await healAndPersistGoogleAdsLogin({
+        access: ctx.access,
+        userId: ctx.userId,
+        customerId: ctx.customerId,
+        hintLoginCustomerId: ctx.loginCustomerId,
+      });
+      if (healed.ok) {
+        byExternal.clear();
+        budgetByExternal.clear();
+        networkError = await pullCampaignNetwork(healed.loginCustomerId);
       }
     }
   }
