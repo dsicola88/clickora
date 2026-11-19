@@ -6,45 +6,45 @@ type Props = {
   language: string;
   open: boolean;
   onClose: () => void;
-  /** URL externa opcional — só para referência; o texto in-page evita sair da presell. */
+  /**
+   * @deprecated Ignorado na pública: nunca abrir merchant/SaaS noutra aba (fuga do funil).
+   * O aviso fica 100% in-page.
+   */
   policyUrl?: string;
 };
 
 const COPY: Record<
   string,
-  { title: string; close: string; openExternal: string; paragraphs: string[] }
+  { title: string; close: string; paragraphs: string[] }
 > = {
   en: {
     title: "Cookie notice",
     close: "Back",
-    openExternal: "Open full notice in a new tab",
     paragraphs: [
       `This page may use essential storage so the notice can remember your choice, plus ${SITE_LEGAL_NAME} visit/click measurement (impression pixel and tracked redirects) for the page operator.`,
       "Advertising pixels (Meta, TikTok, Google, Bing, or custom scripts) load only if the operator enabled them and you accept non-essential cookies.",
       "Closing the banner lets you keep reading and use offer buttons. It does not send you away from this page.",
-      "Merchant privacy or checkout policies (when linked in the footer) are separate and describe the seller’s own processing.",
+      "Accept may continue to the offer through the tracked link when the operator enabled that option.",
     ],
   },
   de: {
     title: "Cookie-Hinweis",
     close: "Zurück",
-    openExternal: "Vollständigen Hinweis in neuem Tab öffnen",
     paragraphs: [
       `Diese Seite kann notwendige Speicherung nutzen, damit der Hinweis Ihre Wahl merkt, sowie ${SITE_LEGAL_NAME}-Messung (Impression-Pixel und getrackte Weiterleitungen) für den Seitenbetreiber.`,
       "Werbe-Pixel (Meta, TikTok, Google, Bing oder eigene Skripte) laden nur, wenn der Betreiber sie aktiviert hat und Sie nicht essenzielle Cookies akzeptieren.",
       "„Schließen“ lässt Sie weiterlesen und Angebots-Buttons nutzen. Es führt nicht von dieser Seite weg.",
-      "Datenschutz-/Checkout-Richtlinien des Händlers (falls im Footer verlinkt) sind getrennt und beschreiben die Verarbeitung des Verkäufers.",
+      "„Akzeptieren“ kann zur Offerte über den getrackten Link weiterleiten, wenn der Betreiber das aktiviert hat.",
     ],
   },
   "pt-BR": {
     title: "Aviso de cookies",
     close: "Voltar",
-    openExternal: "Abrir aviso completo noutra aba",
     paragraphs: [
       `Esta página pode usar armazenamento essencial para o aviso lembrar a sua escolha, e medição ${SITE_LEGAL_NAME} (pixel de impressão e redirects rastreados) para o operador.`,
       "Pixels de anúncios (Meta, TikTok, Google, Bing ou scripts próprios) só carregam se o operador os activou e você aceitar cookies não essenciais.",
       "Fechar o aviso permite continuar a ler e usar os botões da oferta. Não o tira desta página.",
-      "Políticas do comerciante (quando no rodapé) são separadas e descrevem o tratamento do vendedor.",
+      "Aceitar pode continuar para a oferta pelo link rastreado quando o operador activou essa opção.",
     ],
   },
 };
@@ -57,17 +57,11 @@ function pick(language: string) {
 }
 
 /**
- * Painel de política dentro da presell — não navega o visitante para fora do funil.
- * URL externa (se houver) só como opção «nova aba».
+ * Painel de política dentro da presell — sem link externo (evita fuga da Final URL / Ads).
  */
-export function CookiePolicyInlineSheet({ language, open, onClose, policyUrl }: Props) {
+export function CookiePolicyInlineSheet({ language, open, onClose, policyUrl: _policyUrl }: Props) {
   const copy = useMemo(() => pick(language), [language]);
-  const external = (policyUrl || "").trim();
-  const canOpenExternal =
-    Boolean(external) &&
-    (external.startsWith("http://") ||
-      external.startsWith("https://") ||
-      external.startsWith("/aviso-cookies"));
+  void _policyUrl;
 
   if (!open) return null;
 
@@ -103,19 +97,6 @@ export function CookiePolicyInlineSheet({ language, open, onClose, policyUrl }: 
           {copy.paragraphs.map((p) => (
             <p key={p.slice(0, 24)}>{p}</p>
           ))}
-          {canOpenExternal ? (
-            <p>
-              <a
-                href={external}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-blue-600 underline underline-offset-2"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {copy.openExternal}
-              </a>
-            </p>
-          ) : null}
         </div>
       </div>
     </div>

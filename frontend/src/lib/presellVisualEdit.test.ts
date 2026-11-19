@@ -328,7 +328,9 @@ describe("buildEditablePageDocument", () => {
     const cookie = baked.sections
       .flatMap((s) => s.columns.flatMap((c) => c.widgets))
       .find((w) => w.type === "cookieBanner");
-    expect(cookie?.content.policyUrl).toBe("https://brand.example/privacy");
+    expect(cookie?.content.policyUrl).toBe("/aviso-cookies");
+    expect(cookie?.content.variant).toBe("bar");
+    expect(cookie?.content.position).toBe("bottom");
     expect(cookie?.content.offerHref || "").toBe("");
     const bakedHtml = String(
       baked.sections.flatMap((s) => s.columns.flatMap((c) => c.widgets)).find((w) => w.type === "html")

@@ -104,9 +104,11 @@ function CookieText({
   );
 }
 
-function resolveCookieVariant(raw: unknown): "modal" | "corner" | "bar" {
+function resolveCookieVariant(raw: unknown, forceExpandedBar: boolean): "modal" | "corner" | "bar" {
+  /** Pública: sempre barra expandida em baixo — canto/minimizado esconde Aceitar (redirect). */
+  if (forceExpandedBar) return "bar";
   if (raw === "corner" || raw === "bar" || raw === "modal") return raw;
-  return "modal";
+  return "bar";
 }
 
 function defaultPositionForVariant(variant: "modal" | "corner" | "bar"): OverlayPosition {
@@ -127,19 +129,12 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const declineLabel = copy.declineLabel;
   const policyLabel = copy.policyLabel;
   const footerNote = copy.footerNote;
-  const policyUrl = (c.policyUrl ?? "").trim();
-  /** Bloquear só privacidade SaaS; /aviso-cookies é o aviso correcto das presells. */
-  const policyIsAccountPrivacy =
-    policyUrl === "/privacidade" ||
-    policyUrl === "/privacy" ||
-    policyUrl === "/privacy-policy" ||
-    /\/privacidade\/?($|\?)/i.test(policyUrl);
-  const visitorPolicyUrl = !policyUrl || policyIsAccountPrivacy ? "" : policyUrl;
-  const variant = resolveCookieVariant(c.variant);
+  const inBuilder = useBuilderSurface();
+  /** Pública / redirect: barra expandida; no builder o editor pode pré-visualizar outros layouts. */
+  const variant = resolveCookieVariant(c.variant, !inBuilder);
   const visual = resolveCookieBannerVisual(c, device, variant);
-  const position = resolveOverlayPosition(
-    c.position,
-    defaultPositionForVariant(variant),
+  const position = (
+    !inBuilder ? "bottom" : resolveOverlayPosition(c.position, defaultPositionForVariant(variant))
   ) as CookieBannerContent["position"];
   const backdrop = c.backdrop !== false;
   const overlayOpacity = clampCookieOverlayOpacity(c.overlayOpacity);
@@ -149,7 +144,6 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
    * `offerHref` só é baked quando `settings.cookieRedirectToOffer` está activo.
    * Sem ele, Aceitar grava consentimento e a compra fica nos CTAs (`/track/r/`).
    */
-  const inBuilder = useBuilderSurface();
   const offerNav =
     !inBuilder
       ? cookieConsentNavigation("allow", (c.offerHref ?? "").trim(), "")
@@ -495,7 +489,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       language={pageLanguage || "en"}
       open={policyOpen}
       onClose={() => setPolicyOpen(false)}
-      policyUrl={visitorPolicyUrl || "/aviso-cookies"}
+      policyUrl=""
     />
   ) : null;
 

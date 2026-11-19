@@ -977,19 +977,15 @@ export function bakePublicOfferHrefs(
         }
         if (widget.type === "cookieBanner") {
           const next: Record<string, unknown> = { ...widget.content };
-          if (policy) {
-            next.policyUrl = policy;
-          } else {
-            const current = typeof next.policyUrl === "string" ? next.policyUrl.trim() : "";
-            if (
-              !current ||
-              current === "/privacidade" ||
-              current === "/privacy" ||
-              current === "/privacy-policy"
-            ) {
-              next.policyUrl = "/aviso-cookies";
-            }
-          }
+          /** Pública: barra expandida — canto esconde Aceitar (crítico com redirect). */
+          next.variant = "bar";
+          next.position = "bottom";
+          /**
+           * Política só in-page (CookiePolicyInlineSheet). Não bakear URL merchant/SaaS —
+           * “abrir noutra aba” era fuga da Final URL.
+           */
+          next.policyUrl = "/aviso-cookies";
+          void policy;
           if (redirectToOffer && href && href !== "#") {
             next.offerHref = href;
           } else {
