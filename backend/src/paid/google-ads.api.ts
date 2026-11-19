@@ -433,3 +433,29 @@ export async function runGoogleAdsMutate(
   }
   return { results: j.results };
 }
+
+/**
+ * Chamadas REST tipo `recommendations:apply` / `recommendations:dismiss` (não usam :mutate).
+ */
+export async function runGoogleAdsCustomerAction(
+  accessToken: string,
+  customerId: string,
+  devToken: string,
+  actionPath: string,
+  body: unknown,
+  loginCustomerId?: string,
+): Promise<{ ok: true; raw: unknown } | { ok: false; error: string }> {
+  assertDeveloperToken(devToken);
+  const clean = customerId.replace(/\D/g, "");
+  const path = actionPath.replace(/^\//, "");
+  const res = await fetch(`${API_BASE}/customers/${clean}/${path}`, {
+    method: "POST",
+    headers: headersForGoogleAds(accessToken, devToken, loginCustomerId),
+    body: JSON.stringify(body ?? {}),
+  });
+  const j = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+  if (!res.ok || j.error) {
+    return { ok: false, error: j.error?.message ?? `${path} (${res.status})` };
+  }
+  return { ok: true, raw: j };
+}

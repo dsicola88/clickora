@@ -397,6 +397,322 @@ export const paidAdsService = {
     }>(`/paid/projects/${projectId}/reconcile-campaigns`, {});
   },
 
+  /** Gestor Google Ads — overview / métricas / inventário / recomendações / IA / duplicar */
+  getGoogleAdsManagerOverview(
+    projectId: string,
+    opts?: { preset?: string; from?: string; to?: string },
+  ) {
+    const q = new URLSearchParams();
+    if (opts?.preset) q.set("preset", opts.preset);
+    if (opts?.from) q.set("from", opts.from);
+    if (opts?.to) q.set("to", opts.to);
+    const qs = q.toString() ? `?${q}` : "";
+    return apiClient.get<{
+      ok: true;
+      connected: boolean;
+      range: { from: string; to: string };
+      counts: Record<string, number>;
+      metrics: {
+        impressions: number;
+        clicks: number;
+        cost_micros: number;
+        conversions: number;
+        conversions_value: number;
+        ctr: number;
+        average_cpc_micros: number;
+        cost_per_conversion_micros: number;
+        roas: number;
+      } | null;
+      source: string;
+      connection_error?: string;
+      account?: { customer_id: string; account_name: string | null };
+    }>(`/paid/projects/${projectId}/google-ads/overview${qs}`);
+  },
+
+  getGoogleAdsCampaignsMetrics(
+    projectId: string,
+    opts?: { preset?: string; from?: string; to?: string },
+  ) {
+    const q = new URLSearchParams();
+    if (opts?.preset) q.set("preset", opts.preset);
+    if (opts?.from) q.set("from", opts.from);
+    if (opts?.to) q.set("to", opts.to);
+    const qs = q.toString() ? `?${q}` : "";
+    return apiClient.get<{
+      ok: true;
+      connected: boolean;
+      connection_error: string | null;
+      range: { from: string; to: string };
+      source: string;
+      campaigns: Array<{
+        id: string;
+        name: string;
+        local_status: string;
+        external_campaign_id: string | null;
+        daily_budget_micros: number | null;
+        bidding_strategy: string | null;
+        created_at: string;
+        metrics: {
+          impressions: number;
+          clicks: number;
+          cost_micros: number;
+          conversions: number;
+          conversions_value: number;
+          ctr: number;
+          average_cpc_micros: number;
+          cost_per_conversion_micros: number;
+          roas: number;
+        } | null;
+        metrics_available: boolean;
+      }>;
+    }>(`/paid/projects/${projectId}/google-ads/campaigns-metrics${qs}`);
+  },
+
+  getGoogleAdsInventory(projectId: string) {
+    return apiClient.get<{
+      ok: true;
+      ad_groups: Array<Record<string, unknown>>;
+      keywords: Array<Record<string, unknown>>;
+      ads: Array<Record<string, unknown>>;
+      budgets: Array<Record<string, unknown>>;
+      negative_keywords: {
+        campaign_level: Array<Record<string, unknown>>;
+        ad_group_level: Array<Record<string, unknown>>;
+      };
+      totals: Record<string, number>;
+    }>(`/paid/projects/${projectId}/google-ads/inventory`);
+  },
+
+  getGoogleAdsRecommendations(projectId: string) {
+    return apiClient.get<{
+      ok: true;
+      customer_id: string;
+      recommendations: Array<{
+        resource_name: string | null;
+        type: string;
+        campaign_resource: string | null;
+        impact: unknown;
+        apply_supported: boolean;
+        dismiss_supported?: boolean;
+        note: string;
+      }>;
+      apply_policy: string;
+    }>(`/paid/projects/${projectId}/google-ads/recommendations`);
+  },
+
+  postGoogleAdsRecommendationAction(
+    projectId: string,
+    body: { resource_name: string; action: "apply" | "dismiss" },
+  ) {
+    return apiClient.post<{ ok: true; action: "apply" | "dismiss" }>(
+      `/paid/projects/${projectId}/google-ads/recommendations/action`,
+      body,
+    );
+  },
+
+  getGoogleAdsDevicePerformance(
+    projectId: string,
+    opts?: { preset?: string; from?: string; to?: string },
+  ) {
+    const q = new URLSearchParams();
+    if (opts?.preset) q.set("preset", opts.preset);
+    if (opts?.from) q.set("from", opts.from);
+    if (opts?.to) q.set("to", opts.to);
+    const qs = q.toString() ? `?${q}` : "";
+    return apiClient.get<{
+      ok: true;
+      range: { from: string; to: string };
+      source: string;
+      devices: Array<{
+        device: string;
+        metrics: {
+          impressions: number;
+          clicks: number;
+          cost_micros: number;
+          conversions: number;
+          ctr: number;
+          average_cpc_micros: number;
+          cost_per_conversion_micros: number;
+          roas: number;
+        };
+      }>;
+    }>(`/paid/projects/${projectId}/google-ads/device-performance${qs}`);
+  },
+
+  postGoogleAdsAiInsights(projectId: string, body: { question: string; preset?: string }) {
+    return apiClient.post<{
+      ok: true;
+      question: string;
+      range: { from: string; to: string };
+      source: string;
+      diagnosis: string;
+      evidence: Array<{ label: string; detail: string; campaign_id?: string }>;
+      suggestions: Array<{
+        action: string;
+        risk: string;
+        evidence: string;
+        campaign_id?: string;
+        suggested_op?: "pause_campaign" | "increase_budget_20";
+        daily_budget_micros?: number | null;
+      }>;
+      executes_mutations: boolean;
+      note: string;
+    }>(`/paid/projects/${projectId}/google-ads/ai-insights`, body);
+  },
+
+  duplicateGoogleCampaign(
+    projectId: string,
+    campaignId: string,
+    body?: { name?: string; daily_budget_usd?: number; publish?: boolean },
+  ) {
+    return apiClient.post<{
+      ok: true;
+      campaign_id: string;
+      name: string;
+      status: string;
+      published_request_id?: string;
+      warnings: string[];
+    }>(`/paid/projects/${projectId}/campaigns/${campaignId}/duplicate-google`, body ?? {});
+  },
+
+  getGoogleAdsSearchTerms(
+    projectId: string,
+    campaignId: string,
+    opts?: { preset?: string; from?: string; to?: string },
+  ) {
+    const q = new URLSearchParams();
+    if (opts?.preset) q.set("preset", opts.preset);
+    if (opts?.from) q.set("from", opts.from);
+    if (opts?.to) q.set("to", opts.to);
+    const qs = q.toString() ? `?${q}` : "";
+    return apiClient.get<{
+      ok: true;
+      campaign_id: string;
+      campaign_name: string;
+      range: { from: string; to: string };
+      terms: Array<{
+        search_term: string;
+        status: string | null;
+        metrics: {
+          impressions: number;
+          clicks: number;
+          cost_micros: number;
+          conversions: number;
+          ctr: number;
+          average_cpc_micros: number;
+          cost_per_conversion_micros: number;
+          roas: number;
+        };
+        already_negative: boolean;
+        waste_candidate: boolean;
+      }>;
+      source: string;
+    }>(`/paid/projects/${projectId}/campaigns/${campaignId}/google-ads/search-terms${qs}`);
+  },
+
+  negateGoogleAdsSearchTerms(
+    projectId: string,
+    campaignId: string,
+    terms: Array<{ text: string; match_type?: "exact" | "phrase" | "broad" }>,
+  ) {
+    return apiClient.post<{ ok: true; added: number; total: number }>(
+      `/paid/projects/${projectId}/campaigns/${campaignId}/google-ads/search-terms/negate`,
+      { terms },
+    );
+  },
+
+  listRemoteGoogleCampaigns(projectId: string) {
+    return apiClient.get<{
+      ok: true;
+      customer_id: string;
+      account_name: string | null;
+      campaigns: Array<{
+        external_campaign_id: string;
+        name: string;
+        status: string;
+        channel_type: string;
+        daily_budget_micros: number | null;
+        already_imported: boolean;
+        local_campaign_id: string | null;
+      }>;
+      totals: { remote: number; imported: number; new: number };
+    }>(`/paid/projects/${projectId}/google-ads/remote-campaigns`);
+  },
+
+  importGoogleCampaigns(
+    projectId: string,
+    body: { external_campaign_ids: string[]; refresh_existing?: boolean },
+  ) {
+    return apiClient.post<{
+      ok: true;
+      imported: Array<{
+        campaign_id: string;
+        external_campaign_id: string;
+        created: boolean;
+        name: string;
+        status: string;
+        counts: Record<string, number>;
+      }>;
+      errors: Array<{ external_campaign_id: string; error: string }>;
+    }>(`/paid/projects/${projectId}/google-ads/import-campaigns`, body);
+  },
+
+  getGoogleRsaPolicy(projectId: string, campaignId: string) {
+    return apiClient.get<{
+      ok: true;
+      campaign_id: string;
+      campaign_name: string;
+      ads: Array<{
+        external_ad_id: string;
+        status: string | null;
+        approval_status: string | null;
+        review_status: string | null;
+        policy_topics: string[];
+        disapproved: boolean;
+      }>;
+      disapproved_count: number;
+    }>(`/paid/projects/${projectId}/campaigns/${campaignId}/google-ads/rsa-policy`);
+  },
+
+  getGoogleAdsKeywordMetrics(
+    projectId: string,
+    opts?: { preset?: string; from?: string; to?: string },
+  ) {
+    const q = new URLSearchParams();
+    if (opts?.preset) q.set("preset", opts.preset);
+    if (opts?.from) q.set("from", opts.from);
+    if (opts?.to) q.set("to", opts.to);
+    const qs = q.toString() ? `?${q}` : "";
+    return apiClient.get<{
+      ok: true;
+      connected: boolean;
+      connection_error: string | null;
+      range: { from: string; to: string };
+      source: string;
+      keywords: Array<{
+        id: string;
+        text: string;
+        match_type: string;
+        status: string;
+        campaign_id: string;
+        campaign_name: string;
+        ad_group_id: string;
+        ad_group_name: string;
+        external_criterion_id: string | null;
+        metrics: {
+          impressions: number;
+          clicks: number;
+          cost_micros: number;
+          conversions: number;
+          ctr: number;
+          average_cpc_micros: number;
+          cost_per_conversion_micros: number;
+          roas: number;
+        } | null;
+      }>;
+    }>(`/paid/projects/${projectId}/google-ads/keyword-metrics${qs}`);
+  },
+
   updatePaidMode(projectId: string, paidMode: "copilot" | "autopilot") {
     return apiClient.post<{ ok: boolean }>(`/paid/projects/${projectId}/paid-mode`, { paidMode });
   },

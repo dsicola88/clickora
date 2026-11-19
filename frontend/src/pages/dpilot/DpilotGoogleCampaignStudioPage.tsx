@@ -37,11 +37,12 @@ import type {
 import { paidAdsService } from "@/services/paidAdsService";
 import { cn } from "@/lib/utils";
 import { useViewportMinWidth, VIEWPORT_LG_MIN_PX } from "@/hooks/useViewportMinWidth";
-import { ExternalLink, ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { Gate } from "./DpilotPaidPages";
 import { UUID_RE, useDpilotPaid } from "./DpilotPaidContext";
 import { StudioSettingsPanel, StudioSettingsRow } from "./dpilotGoogleStudioSettingsUi";
 import { GoogleAdsRsaDraftPreview } from "./DpilotGoogleSearchAdPreview";
+import { DpilotGoogleSearchTermsPanel } from "./DpilotGoogleSearchTermsPanel";
 
 type MatchSel = "exact" | "phrase" | "broad";
 
@@ -357,6 +358,12 @@ export function DpilotGoogleCampaignStudioPage() {
   const [insightKw, setInsightKw] = useState("");
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightResult, setInsightResult] = useState<Record<string, unknown> | null>(null);
+
+  /** Aprovação Google (policy_summary) */
+  const [policyLoading, setPolicyLoading] = useState(false);
+  const [policyData, setPolicyData] = useState<Awaited<
+    ReturnType<typeof paidAdsService.getGoogleRsaPolicy>
+  >["data"]>(null);
 
   const [studioSection, setStudioSection] = useState<StudioSection>("visao");
 
@@ -926,7 +933,7 @@ export function DpilotGoogleCampaignStudioPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/campanhas`}>{t("pages.dpilot.google.studio.backCampaigns")}</Link>
+              <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>{t("pages.dpilot.google.studio.backCampaigns")}</Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to={`/tracking/dpilot/p/${projectId}/aprovacoes`}>{t("pages.dpilot.google.studio.approvals")}</Link>
@@ -941,13 +948,9 @@ export function DpilotGoogleCampaignStudioPage() {
         <Alert variant="default" className="border-neutral-200 bg-neutral-50/80 dark:border-border dark:bg-muted/25">
           <AlertTitle className="text-sm">{t("pages.dpilot.google.studio.studioTitle")}</AlertTitle>
           <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
-            Layout alinhado ao fluxo da consola: navegação à esquerda, formulário ao centro e{" "}
-            <strong className="font-medium text-foreground">pré-visualização</strong> à direita. Licitações por dispositivo,
-            públicos avançados e relatórios completos continuam em{" "}
-            <a className="font-medium text-primary underline-offset-2 hover:underline" href="https://ads.google.com/" target="_blank" rel="noreferrer">
-              ads.google.com
-            </a>
-            .
+            Operação Search do afiliado neste ecrã: pausar/ativar, orçamento, RSA, keywords, negativas e termos de
+            pesquisa (separador Insights). Públicos avançados e leilões por dispositivo raros no dia a dia afiliado —
+            use a consola Google só nesses casos pontuais.
           </AlertDescription>
         </Alert>
 
@@ -2309,6 +2312,68 @@ export function DpilotGoogleCampaignStudioPage() {
                   </CardContent>
                 </Card>
               )}
+
+              {published ? (
+                <Card className="border-amber-500/20 shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Aprovação dos anúncios (Google)</CardTitle>
+                    <CardDescription>
+                      Estado real de policy — a Dclickora nunca marca «aprovado» sem confirmação da API.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={policyLoading}
+                      onClick={async () => {
+                        if (!projectId || !campaignId) return;
+                        setPolicyLoading(true);
+                        const { data, error } = await paidAdsService.getGoogleRsaPolicy(projectId, campaignId);
+                        setPolicyLoading(false);
+                        if (error) toast.error(error);
+                        else setPolicyData(data ?? null);
+                      }}
+                    >
+                      {policyLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> A consultar…
+                        </>
+                      ) : (
+                        "Consultar aprovação na Google"
+                      )}
+                    </Button>
+                    {policyData ? (
+                      <div className="space-y-2 text-sm">
+                        <p className="text-xs text-muted-foreground">
+                          {policyData.disapproved_count > 0
+                            ? `${policyData.disapproved_count} anúncio(s) reprovado(s)`
+                            : "Nenhum RSA marcado como DISAPPROVED neste pedido"}
+                        </p>
+                        <ul className="space-y-2">
+                          {policyData.ads.map((ad, idx) => (
+                            <li
+                              key={ad.external_ad_id || `ad-${idx}`}
+                              className="rounded-md border border-border/60 px-3 py-2 text-xs"
+                            >
+                              <span className="font-mono">{ad.external_ad_id || "—"}</span>
+                              {" · "}
+                              <span className={ad.disapproved ? "text-destructive font-medium" : ""}>
+                                {ad.approval_status || "—"}
+                              </span>
+                              {ad.review_status ? ` · review ${ad.review_status}` : ""}
+                              {ad.policy_topics.length > 0 ? (
+                                <p className="mt-1 text-muted-foreground">{ad.policy_topics.join(" · ")}</p>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ) : null}
             </div>
             )}
 
@@ -2372,33 +2437,24 @@ export function DpilotGoogleCampaignStudioPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-muted-foreground/15 shadow-sm">
+              <Card className="border-[#1a73e8]/25 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-base">{t("pages.dpilot.google.studio.reportsTitle")}</CardTitle>
+                  <CardTitle className="text-base">Termos de pesquisa</CardTitle>
                   <CardDescription>
-                    Como no menu «Estatísticas e relatórios» da consola Google Ads: métricas detalhadas, termos de pesquisa,
-                    leilões, horários e localização, páginas de destino e painéis. Aqui ficam só um atalho e o planner de
-                    palavras‑chave; não duplicamos toda a consola no Clickora.
+                    Desperdício e negativas sem sair da Dclickora. Auction insights avançados e horários raros no fluxo
+                    afiliado ficam na consola Google quando necessário.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4 text-sm">
-                  <div>
-                    <a
-                      href="https://ads.google.com/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      {t("pages.dpilot.google.studio.openGoogleAds")}
-                      <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                    </a>
-                    <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-muted-foreground leading-relaxed">
-                      <li>Estatísticas e resumos de desempenho</li>
-                      <li>Termos de pesquisa e leilões (auction insights)</li>
-                      <li>Quando e onde os anúncios foram mostrados</li>
-                      <li>Páginas de destino e painéis personalizados</li>
-                    </ul>
-                  </div>
+                <CardContent>
+                  {ok && projectId && campaignId ? (
+                    <DpilotGoogleSearchTermsPanel
+                      projectId={projectId}
+                      campaignId={campaignId}
+                      campaignName={campaign?.name}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Campanha indisponível.</p>
+                  )}
                 </CardContent>
               </Card>
             </div>

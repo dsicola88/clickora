@@ -62,6 +62,43 @@ const DpilotEquipaPage = lazy(() =>
   import("./DpilotPaidPages").then((m) => ({ default: m.DpilotEquipaPage })),
 );
 
+const DpilotGoogleOverviewPage = lazy(() =>
+  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleOverviewPage })),
+);
+const DpilotGoogleCampaignsManagerPage = lazy(() =>
+  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleCampaignsManagerPage })),
+);
+const DpilotGoogleAdGroupsPage = lazy(() =>
+  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleAdGroupsPage })),
+);
+const DpilotGoogleAdsCreativesPage = lazy(() =>
+  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleAdsCreativesPage })),
+);
+const DpilotGoogleKeywordsPage = lazy(() =>
+  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleKeywordsPage })),
+);
+const DpilotGoogleBudgetsPage = lazy(() =>
+  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleBudgetsPage })),
+);
+const DpilotGoogleConversionsPage = lazy(() =>
+  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleConversionsPage })),
+);
+const DpilotGoogleReportsPage = lazy(() =>
+  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleReportsPage })),
+);
+const DpilotGoogleRecommendationsPage = lazy(() =>
+  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleRecommendationsPage })),
+);
+const DpilotGoogleAutomationsPage = lazy(() =>
+  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleAutomationsPage })),
+);
+const DpilotGoogleAiAssistantPage = lazy(() =>
+  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleAiAssistantPage })),
+);
+const DpilotGoogleHistoryPage = lazy(() =>
+  import("./DpilotGoogleManagerPages").then((m) => ({ default: m.DpilotGoogleHistoryPage })),
+);
+
 function PageFallback() {
   const { t } = useAppLocale();
   return <p className="px-4 py-10 text-sm text-muted-foreground">{t("pages.dpilot.app.loading")}</p>;
@@ -221,6 +258,18 @@ export function DpilotPaidApp() {
           <Route index element={<Navigate to="visao" replace />} />
           <Route path="visao" element={<LazyPage><DpilotVisaoPage /></LazyPage>} />
           <Route path="ligacoes" element={<LazyPage><DpilotLigacoesPage /></LazyPage>} />
+          <Route path="google/visao" element={<LazyPage><DpilotGoogleOverviewPage /></LazyPage>} />
+          <Route path="google/campanhas" element={<LazyPage><DpilotGoogleCampaignsManagerPage /></LazyPage>} />
+          <Route path="google/grupos" element={<LazyPage><DpilotGoogleAdGroupsPage /></LazyPage>} />
+          <Route path="google/anuncios" element={<LazyPage><DpilotGoogleAdsCreativesPage /></LazyPage>} />
+          <Route path="google/palavras-chave" element={<LazyPage><DpilotGoogleKeywordsPage /></LazyPage>} />
+          <Route path="google/orcamentos" element={<LazyPage><DpilotGoogleBudgetsPage /></LazyPage>} />
+          <Route path="google/conversoes" element={<LazyPage><DpilotGoogleConversionsPage /></LazyPage>} />
+          <Route path="google/relatorios" element={<LazyPage><DpilotGoogleReportsPage /></LazyPage>} />
+          <Route path="google/recomendacoes" element={<LazyPage><DpilotGoogleRecommendationsPage /></LazyPage>} />
+          <Route path="google/automacoes" element={<LazyPage><DpilotGoogleAutomationsPage /></LazyPage>} />
+          <Route path="google/assistente" element={<LazyPage><DpilotGoogleAiAssistantPage /></LazyPage>} />
+          <Route path="google/historico" element={<LazyPage><DpilotGoogleHistoryPage /></LazyPage>} />
           <Route path="google" element={<LazyPage><DpilotGooglePage /></LazyPage>} />
           <Route path="meta/nova" element={<LazyPage><DpilotMetaWizardPage /></LazyPage>} />
           <Route path="meta/campanhas" element={<LazyPage><DpilotMetaCampanhasPage /></LazyPage>} />

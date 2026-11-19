@@ -89,13 +89,33 @@ export async function applyGoogleUpdateBudget(
     return { ok: false, error: "Campanha sem ID Google; publique a campanha primeiro." };
   }
   const extId = camp.externalCampaignId.replace(/\D/g, "");
-  const q = `SELECT campaign.campaign_budget FROM campaign WHERE campaign.id = ${extId}`;
+  const q = `
+    SELECT
+      campaign.campaign_budget,
+      campaign_budget.explicitly_shared,
+      campaign_budget.reference_count,
+      campaign_budget.amount_micros
+    FROM campaign
+    WHERE campaign.id = ${extId}
+  `;
   const s = await runGoogleAdsSearch(access, customerId, dev, q, LOGIN);
   if (s.error) return { ok: false, error: s.error.message ?? "Falha na consulta" };
-  const row = s.results?.[0] as { campaign?: { campaignBudget?: string } } | undefined;
+  const row = s.results?.[0] as {
+    campaign?: { campaignBudget?: string };
+    campaignBudget?: { explicitlyShared?: boolean; referenceCount?: number | string; amountMicros?: string };
+  } | undefined;
   const brn = row?.campaign?.campaignBudget;
   if (!brn) {
     return { ok: false, error: "Orçamento da campanha não encontrado no Google." };
+  }
+  const budgetMeta = row?.campaignBudget;
+  const shared = Boolean(budgetMeta?.explicitlyShared);
+  const refCount = Number(budgetMeta?.referenceCount ?? 1);
+  if (shared && refCount > 1) {
+    return {
+      ok: false,
+      error: `Orçamento partilhado por ${refCount} campanhas na Google. Alterar aqui afectaria outras campanhas. Separe o orçamento na consola Google ou escolha um orçamento exclusivo antes de ajustar na Dclickora.`,
+    };
   }
   const m = await runGoogleAdsMutate(
     access,

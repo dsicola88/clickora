@@ -572,9 +572,14 @@ export function DpilotCampanhasPage() {
           <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">{t("pages.dpilot.hub.campaignsDesc")}</p>
         }
         actions={
-          <Button asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>{t("pages.dpilot.hub.newGoogle")}</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Gestor Google Ads</Link>
+            </Button>
+            <Button asChild>
+              <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>{t("pages.dpilot.hub.newGoogle")}</Link>
+            </Button>
+          </div>
         }
       />
       <Card className="mt-4">

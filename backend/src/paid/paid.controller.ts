@@ -19,6 +19,29 @@ import {
 } from "./google-campaign-studio.service";
 import { fetchGoogleCampaignPerformanceSeries } from "./google-campaign-performance.service";
 import {
+  applyOrDismissGoogleRecommendation,
+  buildGoogleAdsAiInsights,
+  fetchGoogleAdsAccountOverview,
+  fetchGoogleAdsCampaignsMetrics,
+  fetchGoogleAdsDevicePerformance,
+  fetchGoogleAdsProjectInventory,
+  fetchGoogleAdsRecommendations,
+} from "./google-ads-manager.service";
+import {
+  duplicateGoogleCampaignBodySchema,
+  duplicateGoogleSearchCampaignLocal,
+} from "./google-ads-duplicate-campaign.service";
+import {
+  fetchGoogleAdsKeywordMetrics,
+  fetchGoogleAdsSearchTerms,
+  mergeCampaignNegativesWithNewTerms,
+} from "./google-ads-search-terms.service";
+import {
+  fetchGoogleRsaPolicyStatus,
+  importGoogleSearchCampaigns,
+  listRemoteGoogleSearchCampaigns,
+} from "./google-ads-import.service";
+import {
   googleKeywordInsightInputSchema,
   googleKeywordSuggestInputSchema,
   runGoogleKeywordInsight,
@@ -1263,5 +1286,355 @@ export const paidController = {
     }
     const r = await reconcileProjectCampaigns(parsed.data.projectId);
     return res.json(r);
+  },
+
+  /** Visão geral Google Ads — métricas reais da API (ou local_only se OAuth em falta). */
+  async googleAdsManagerOverview(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const q = z
+      .object({
+        preset: z
+          .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
+          .optional()
+          .default("last_7"),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success) return res.status(400).json({ error: "Parâmetros de período inválidos." });
+    const out = await fetchGoogleAdsAccountOverview(
+      parsed.data.projectId,
+      q.data.preset,
+      q.data.from,
+      q.data.to,
+    );
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async googleAdsManagerCampaignsMetrics(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const q = z
+      .object({
+        preset: z
+          .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
+          .optional()
+          .default("last_7"),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success) return res.status(400).json({ error: "Parâmetros de período inválidos." });
+    const out = await fetchGoogleAdsCampaignsMetrics(
+      parsed.data.projectId,
+      q.data.preset,
+      q.data.from,
+      q.data.to,
+    );
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async googleAdsManagerInventory(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const out = await fetchGoogleAdsProjectInventory(parsed.data.projectId);
+    return res.json(out);
+  },
+
+  async googleAdsManagerRecommendations(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const out = await fetchGoogleAdsRecommendations(parsed.data.projectId);
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async googleAdsRecommendationAction(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para alterar recomendações." });
+    }
+    const body = z
+      .object({
+        resource_name: z.string().min(10).max(500),
+        action: z.enum(["apply", "dismiss"]),
+      })
+      .safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Dados inválidos." });
+    const out = await applyOrDismissGoogleRecommendation(parsed.data.projectId, body.data);
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async googleAdsDevicePerformance(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const q = z
+      .object({
+        preset: z
+          .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
+          .optional()
+          .default("last_7"),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success) return res.status(400).json({ error: "Período inválido." });
+    const out = await fetchGoogleAdsDevicePerformance(
+      parsed.data.projectId,
+      q.data.preset,
+      q.data.from,
+      q.data.to,
+    );
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async googleAdsManagerAiInsights(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const body = z
+      .object({
+        question: z.string().trim().min(3).max(500),
+        preset: z
+          .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month"])
+          .optional()
+          .default("last_7"),
+      })
+      .safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Pergunta inválida." });
+    const out = await buildGoogleAdsAiInsights(parsed.data.projectId, body.data.question, body.data.preset);
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async duplicateGoogleCampaign(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const { projectId, campaignId } = parsed.data;
+    if (!(await canWriteProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para duplicar campanhas." });
+    }
+    const body = duplicateGoogleCampaignBodySchema.safeParse(req.body ?? {});
+    if (!body.success) {
+      return res.status(400).json({ error: "Dados inválidos.", details: body.error.flatten() });
+    }
+    const out = await duplicateGoogleSearchCampaignLocal(projectId, campaignId, a.userId, body.data);
+    if (!out.ok) return res.status(400).json({ error: out.error });
+    return res.json(out);
+  },
+
+  async googleAdsSearchTerms(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const q = z
+      .object({
+        preset: z
+          .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
+          .optional()
+          .default("last_7"),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success) return res.status(400).json({ error: "Período inválido." });
+    const out = await fetchGoogleAdsSearchTerms(
+      parsed.data.projectId,
+      parsed.data.campaignId,
+      q.data.preset,
+      q.data.from,
+      q.data.to,
+    );
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async googleAdsAppendSearchTermNegatives(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para alterar negativas." });
+    }
+    const body = z
+      .object({
+        terms: z
+          .array(
+            z.object({
+              text: z.string().trim().min(1).max(80),
+              match_type: z.enum(["exact", "phrase", "broad"]).optional(),
+            }),
+          )
+          .min(1)
+          .max(50),
+      })
+      .safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Termos inválidos." });
+    const merged = await mergeCampaignNegativesWithNewTerms(
+      parsed.data.projectId,
+      parsed.data.campaignId,
+      body.data.terms,
+    );
+    if (!merged.ok) return res.status(400).json({ error: merged.error });
+    if (merged.added === 0) {
+      return res.json({ ok: true as const, added: 0, total: merged.keywords.length, already_present: true });
+    }
+    const out = await executeGoogleStudioAction(
+      parsed.data.projectId,
+      parsed.data.campaignId,
+      { action: "sync_campaign_negative_keywords", keywords: merged.keywords },
+      a.userId,
+    );
+    if (!out.ok) {
+      return res.status(400).json({
+        error: out.error,
+        ...(out.change_request_id ? { change_request_id: out.change_request_id } : {}),
+      });
+    }
+    return res.json({
+      ok: true as const,
+      added: merged.added,
+      total: merged.keywords.length,
+      change_request: out.change_request,
+    });
+  },
+
+  async googleAdsKeywordMetrics(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const q = z
+      .object({
+        preset: z
+          .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
+          .optional()
+          .default("last_7"),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success) return res.status(400).json({ error: "Período inválido." });
+    const out = await fetchGoogleAdsKeywordMetrics(
+      parsed.data.projectId,
+      q.data.preset,
+      q.data.from,
+      q.data.to,
+    );
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async googleAdsListRemoteCampaigns(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const out = await listRemoteGoogleSearchCampaigns(parsed.data.projectId);
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async googleAdsImportCampaigns(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para importar campanhas." });
+    }
+    const body = z
+      .object({
+        external_campaign_ids: z.array(z.string().min(1)).min(1).max(25),
+        refresh_existing: z.boolean().optional().default(false),
+      })
+      .safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "IDs inválidos." });
+
+    const project = await prisma.paidAdsProject.findFirst({
+      where: { id: parsed.data.projectId },
+      select: { userId: true },
+    });
+    if (!project) return res.status(404).json({ error: "Projeto não encontrado." });
+
+    const out = await importGoogleSearchCampaigns(
+      parsed.data.projectId,
+      project.userId,
+      body.data.external_campaign_ids,
+      { refresh_existing: body.data.refresh_existing },
+    );
+    if (!out.ok) return res.status(400).json({ error: out.error });
+    return res.json(out);
+  },
+
+  async googleAdsRsaPolicy(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const out = await fetchGoogleRsaPolicyStatus(parsed.data.projectId, parsed.data.campaignId);
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
   },
 };

@@ -152,6 +152,63 @@ paidRouter.post(
   "/projects/:projectId/reconcile-campaigns",
   asyncRoute((req, res) => paidController.reconcileCampaigns(req, res)),
 );
+/** Gestor Google Ads — overview, métricas, inventário, recomendações, IA, duplicação */
+paidRouter.get(
+  "/projects/:projectId/google-ads/overview",
+  asyncRoute((req, res) => paidController.googleAdsManagerOverview(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/google-ads/campaigns-metrics",
+  asyncRoute((req, res) => paidController.googleAdsManagerCampaignsMetrics(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/google-ads/inventory",
+  asyncRoute((req, res) => paidController.googleAdsManagerInventory(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/google-ads/recommendations",
+  asyncRoute((req, res) => paidController.googleAdsManagerRecommendations(req, res)),
+);
+paidRouter.post(
+  "/projects/:projectId/google-ads/recommendations/action",
+  asyncRoute((req, res) => paidController.googleAdsRecommendationAction(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/google-ads/device-performance",
+  asyncRoute((req, res) => paidController.googleAdsDevicePerformance(req, res)),
+);
+paidRouter.post(
+  "/projects/:projectId/google-ads/ai-insights",
+  asyncRoute((req, res) => paidController.googleAdsManagerAiInsights(req, res)),
+);
+paidRouter.post(
+  "/projects/:projectId/campaigns/:campaignId/duplicate-google",
+  asyncRoute((req, res) => paidController.duplicateGoogleCampaign(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/campaigns/:campaignId/google-ads/search-terms",
+  asyncRoute((req, res) => paidController.googleAdsSearchTerms(req, res)),
+);
+paidRouter.post(
+  "/projects/:projectId/campaigns/:campaignId/google-ads/search-terms/negate",
+  asyncRoute((req, res) => paidController.googleAdsAppendSearchTermNegatives(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/google-ads/keyword-metrics",
+  asyncRoute((req, res) => paidController.googleAdsKeywordMetrics(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/google-ads/remote-campaigns",
+  asyncRoute((req, res) => paidController.googleAdsListRemoteCampaigns(req, res)),
+);
+paidRouter.post(
+  "/projects/:projectId/google-ads/import-campaigns",
+  asyncRoute((req, res) => paidController.googleAdsImportCampaigns(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/campaigns/:campaignId/google-ads/rsa-policy",
+  asyncRoute((req, res) => paidController.googleAdsRsaPolicy(req, res)),
+);
 paidRouter.post(
   "/projects/:projectId/meta-campaign-plan",
   asyncRoute((req, res) => paidController.metaCampaignPlan(req, res)),

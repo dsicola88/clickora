@@ -42,6 +42,14 @@ function deriveSectionOpen(base: string, pathname: string) {
   };
 }
 
+function googleNavActive(base: string, pathname: string, segment: string) {
+  const path = `${base}/google/${segment}`;
+  if (segment === "campanhas") {
+    return pathname === path || pathname === `${base}/campanhas`;
+  }
+  return pathname === path || pathname.startsWith(`${path}/`);
+}
+
 export function DpilotPaidLayout() {
   const location = useLocation();
   const { projectId, changeRequests } = useDpilotPaid();
@@ -106,28 +114,65 @@ export function DpilotPaidLayout() {
             </CollapsibleTrigger>
             <CollapsibleContent className="data-[state=closed]:animate-none pb-1">
               <div className="flex flex-col gap-0.5 pt-1">
+                <NavLink
+                  to={`${base}/google/visao`}
+                  className={() => cn(navSub, googleNavActive(base, location.pathname, "visao") && navSubActive)}
+                >
+                  Centro de operações
+                </NavLink>
                 <NavLink to={`${base}/google`} className={({ isActive }) => cn(navSub, isActive && navSubActive)} end>
                   Conta e ligações
                 </NavLink>
                 <NavLink
-                  to={`${base}/campanhas`}
-                  className={() =>
-                    cn(
-                      navSub,
-                      (location.pathname === `${base}/campanhas` ||
-                        (location.pathname.startsWith(`${base}/campanhas/`) &&
-                          !location.pathname.startsWith(`${base}/campanhas/nova`))) &&
-                        navSubActive,
-                    )
-                  }
+                  to={`${base}/google/campanhas`}
+                  className={() => cn(navSub, googleNavActive(base, location.pathname, "campanhas") && navSubActive)}
                 >
                   <Workflow className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                  Campanhas (lista · Gestão)
+                  Campanhas & termos
                 </NavLink>
                 <NavLink to={`${base}/campanhas/nova`} className={({ isActive }) => cn(navSub, isActive && navSubActive)} end>
                   <Sparkles className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                  Nova campanha (assistente)
+                  Nova campanha
                 </NavLink>
+                <NavLink
+                  to={`${base}/google/palavras-chave`}
+                  className={() => cn(navSub, googleNavActive(base, location.pathname, "palavras-chave") && navSubActive)}
+                >
+                  Palavras-chave
+                </NavLink>
+                <NavLink
+                  to={`${base}/google/conversoes`}
+                  className={() => cn(navSub, googleNavActive(base, location.pathname, "conversoes") && navSubActive)}
+                >
+                  Conversões (tracking)
+                </NavLink>
+                <NavLink
+                  to={`${base}/google/recomendacoes`}
+                  className={() => cn(navSub, googleNavActive(base, location.pathname, "recomendacoes") && navSubActive)}
+                >
+                  Recomendações
+                </NavLink>
+                <NavLink
+                  to={`${base}/google/relatorios`}
+                  className={() => cn(navSub, googleNavActive(base, location.pathname, "relatorios") && navSubActive)}
+                >
+                  Relatórios
+                </NavLink>
+                <NavLink
+                  to={`${base}/google/assistente`}
+                  className={() => cn(navSub, googleNavActive(base, location.pathname, "assistente") && navSubActive)}
+                >
+                  Assistente IA
+                </NavLink>
+                <NavLink
+                  to={`${base}/google/historico`}
+                  className={() => cn(navSub, googleNavActive(base, location.pathname, "historico") && navSubActive)}
+                >
+                  Histórico
+                </NavLink>
+                <p className="px-3 pt-1 text-[10px] leading-snug text-muted-foreground">
+                  Grupos/anúncios: estúdio. Motor automático: Auditoria.
+                </p>
               </div>
             </CollapsibleContent>
           </Collapsible>
