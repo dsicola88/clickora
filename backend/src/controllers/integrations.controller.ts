@@ -27,6 +27,7 @@ import {
   restateConversionToGoogleAds,
   retractConversionFromGoogleAds,
 } from "../modules/googleAds/googleAds.service";
+import { linkAllPaidProjectsFromIntegrations } from "../paid/google-ads-link-from-integrations";
 import { syncAdCostsForUser } from "../modules/affiliateOps/costSync.service";
 import {
   isMetaCapiReadyForUser,
@@ -1154,6 +1155,9 @@ export const integrationsController = {
         void syncAdCostsForUser(decoded.userId, 14).catch((e) =>
           console.warn("[googleAdsOAuthCallback] cost sync", e),
         );
+        void linkAllPaidProjectsFromIntegrations(decoded.userId, { import_campaigns: true }).catch((e) =>
+          console.warn("[googleAdsOAuthCallback] paid link", e),
+        );
       }
     } catch (e) {
       console.warn("[googleAdsOAuthCallback] bootstrap", e);
@@ -1173,6 +1177,9 @@ export const integrationsController = {
       const boot = await bootstrapGoogleAdsAfterOAuth(userId);
       if (boot.ok) {
         void syncAdCostsForUser(userId, 14).catch((e) => console.warn("[bootstrapGoogleAds] cost sync", e));
+        void linkAllPaidProjectsFromIntegrations(userId, { import_campaigns: true }).catch((e) =>
+          console.warn("[bootstrapGoogleAds] paid link", e),
+        );
       }
       return res.status(boot.ok ? 200 : 422).json(boot.ok ? boot : { ...boot, error: boot.detail });
     } catch (e) {

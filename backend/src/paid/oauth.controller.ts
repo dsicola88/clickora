@@ -6,15 +6,10 @@ import {
   buildGoogleOAuthAuthUrl,
   exchangeGoogleAuthorizationCode,
   fetchCustomerName,
-  getAccessFromRefreshToken,
   isGoogleAdsOAuthConfigured,
   listFirstAccessibleCustomerId,
 } from "./google-ads.api";
-import { resolveUserGoogleAdsRefreshToken } from "../modules/googleAds/googleAds.service";
-import {
-  importGoogleSearchCampaigns,
-  listRemoteGoogleSearchCampaigns,
-} from "./google-ads-import.service";
+import { linkGoogleAdsProjectFromIntegrations } from "./google-ads-link-from-integrations";
 import { prisma } from "./paidPrisma";
 import { getPaidActor, canAdminProject } from "./permissions";
 import {
@@ -467,132 +462,26 @@ export const oauthController = {
     if (!(await canAdminProject(body.data.projectId, a.userId, a.tenantUserId))) {
       return res.status(403).json({ error: "Sem permissão para gerir a ligação Google Ads." });
     }
-    if (!isGoogleAdsOAuthConfigured()) {
-      return res.status(503).json({
-        error:
-          "Google Ads OAuth em falta. Defina GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET e GOOGLE_ADS_DEVELOPER_TOKEN.",
-      });
-    }
 
-    const project = await prisma.paidAdsProject.findFirst({
-      where: { id: body.data.projectId, userId: a.tenantUserId },
-      select: { id: true, userId: true },
+    const out = await linkGoogleAdsProjectFromIntegrations(body.data.projectId, a.tenantUserId, {
+      import_campaigns: body.data.import_campaigns,
     });
-    if (!project) {
-      return res.status(404).json({ error: "Projeto não encontrado." });
+    if (!out.ok) {
+      const status =
+        out.code === "project_not_found"
+          ? 404
+          : out.code === "oauth_not_configured"
+            ? 503
+            : 400;
+      return res.status(status).json({ error: out.error, code: out.code });
     }
-
-    const user = await prisma.user.findUnique({
-      where: { id: a.tenantUserId },
-      select: {
-        googleAdsRefreshToken: true,
-        googleAdsCustomerId: true,
-        googleAdsLoginCustomerId: true,
-      },
-    });
-    if (!user) {
-      return res.status(404).json({ error: "Utilizador não encontrado." });
-    }
-
-    const refresh = resolveUserGoogleAdsRefreshToken(user);
-    if (!refresh) {
-      return res.status(400).json({
-        error: "Ligue primeiro a conta em Integrações → Google (Conectar a conta).",
-        code: "integrations_oauth_required",
-      });
-    }
-
-    let customerId = (user.googleAdsCustomerId ?? "").replace(/\D/g, "");
-    let accountName: string | null = customerId ? `Conta ${customerId}` : null;
-
-    try {
-      const { access_token: access } = await getAccessFromRefreshToken(refresh);
-      if (!customerId) {
-        const listed = await listFirstAccessibleCustomerId(access);
-        customerId = listed.customerId.replace(/\D/g, "");
-        accountName = listed.name ?? `Conta ${customerId}`;
-      } else {
-        const name = await fetchCustomerName(access, customerId);
-        if (name) accountName = name;
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Token Google inválido.";
-      return res.status(400).json({
-        error: `${message} Volte a conectar em Integrações → Google.`,
-        code: "token_refresh_failed",
-      });
-    }
-
-    if (!customerId) {
-      return res.status(400).json({
-        error: "Conta Google sem número de cliente. Guarde o customer ID em Integrações.",
-        code: "customer_id_required",
-      });
-    }
-
-    await prisma.paidAdsGoogleAdsConnection.upsert({
-      where: { projectId: project.id },
-      create: {
-        userId: project.userId,
-        projectId: project.id,
-        status: "connected",
-        tokenRef: storePaidToken(refresh),
-        googleCustomerId: customerId,
-        accountName,
-        lastSyncAt: new Date(),
-        errorMessage: null,
-      },
-      update: {
-        status: "connected",
-        tokenRef: storePaidToken(refresh),
-        googleCustomerId: customerId,
-        accountName,
-        lastSyncAt: new Date(),
-        errorMessage: null,
-      },
-    });
-
-    let importSummary: {
-      imported: number;
-      errors: number;
-      remote: number;
-    } | null = null;
-
-    if (body.data.import_campaigns) {
-      const remote = await listRemoteGoogleSearchCampaigns(project.id);
-      if (remote.ok) {
-        const ids = remote.campaigns
-          .filter((c) => !c.already_imported)
-          .map((c) => c.external_campaign_id);
-        let imported = 0;
-        let errors = 0;
-        for (let i = 0; i < ids.length; i += 25) {
-          const chunk = ids.slice(i, i + 25);
-          const out = await importGoogleSearchCampaigns(project.id, project.userId, chunk, {
-            refresh_existing: false,
-          });
-          if (out.ok) {
-            imported += out.imported.length;
-            errors += out.errors.length;
-          } else {
-            errors += chunk.length;
-          }
-        }
-        importSummary = {
-          imported,
-          errors,
-          remote: remote.totals.remote,
-        };
-      }
-    }
-
     return res.json({
       ok: true,
       linked_from: "integrations",
-      customer_id: customerId,
-      account_name: accountName,
-      login_customer_id: user.googleAdsLoginCustomerId?.replace(/\D/g, "") || null,
-      import: importSummary,
+      customer_id: out.customer_id,
+      account_name: out.account_name,
+      login_customer_id: null,
+      import: out.import,
     });
   },
 

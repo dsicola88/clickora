@@ -1,6 +1,6 @@
 import { fill } from "@/i18n";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
-import { useCallback, useEffect, useMemo, useState, memo, startTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo, startTransition } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Activity, Info, Loader2 } from "lucide-react";
@@ -275,6 +275,37 @@ export function DpilotGooglePage() {
   const [convReady, setConvReady] = useState<boolean | null>(null);
   const [customerLabel, setCustomerLabel] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
+  const autoSyncedRef = useRef(false);
+
+  const paidOk = isConnConnected(overview?.connection);
+  const oauthBusy = connecting !== null || disconnecting !== null || linking;
+
+  const syncFromIntegrations = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      setLinking(true);
+      try {
+        const { data, error } = await paidAdsService.googleLinkFromIntegrations(projectId, {
+          import_campaigns: true,
+        });
+        if (error || !data) {
+          if (!opts?.silent) toast.error(error || "Não foi possível sincronizar a conta.");
+          return;
+        }
+        const imp = data.import;
+        if (!opts?.silent) {
+          toast.success(
+            imp
+              ? `Conta ${data.customer_id} sincronizada · ${imp.imported} campanha(s) importada(s)`
+              : `Conta ${data.customer_id} sincronizada`,
+          );
+        }
+        reload();
+      } finally {
+        setLinking(false);
+      }
+    },
+    [projectId, reload],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -294,30 +325,12 @@ export function DpilotGooglePage() {
     };
   }, []);
 
-  const paidOk = isConnConnected(overview?.connection);
-  const oauthBusy = connecting !== null || disconnecting !== null || linking;
-
-  const syncFromIntegrations = async () => {
-    setLinking(true);
-    try {
-      const { data, error } = await paidAdsService.googleLinkFromIntegrations(projectId, {
-        import_campaigns: true,
-      });
-      if (error || !data) {
-        toast.error(error || "Não foi possível sincronizar a conta.");
-        return;
-      }
-      const imp = data.import;
-      toast.success(
-        imp
-          ? `Conta ${data.customer_id} sincronizada · ${imp.imported} campanha(s) importada(s)`
-          : `Conta ${data.customer_id} sincronizada`,
-      );
-      reload();
-    } finally {
-      setLinking(false);
-    }
-  };
+  /** Se Integrações já está ligada e o Studio ainda não — sincroniza sozinho (um só «Ligar»). */
+  useEffect(() => {
+    if (convReady !== true || paidOk || linking || autoSyncedRef.current) return;
+    autoSyncedRef.current = true;
+    void syncFromIntegrations({ silent: true });
+  }, [convReady, paidOk, linking, syncFromIntegrations]);
 
   return (
     <Gate>

@@ -147,21 +147,39 @@ export function DpilotGoogleVisaoDashboard() {
         </Card>
       ) : null}
 
-      {loading && !metrics ? (
+      {loading && !metrics && !ov?.counts ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-24 w-full" />
           ))}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard label="Total de campanhas" value={fmtNum(ov?.counts?.campaigns_total)} />
+          <KpiCard label="Campanhas ativas" value={fmtNum(ov?.counts?.campaigns_live)} />
+          <KpiCard label="Campanhas pausadas" value={fmtNum(ov?.counts?.campaigns_paused)} />
           <KpiCard
-            label="Investimento"
+            label="Investimento total"
             value={metrics ? formatUsdFromMicros(metrics.cost_micros) : "—"}
           />
           <KpiCard label="Cliques" value={metrics ? fmtNum(metrics.clicks) : "—"} />
-          <KpiCard label="Impressões" value={metrics ? fmtNum(metrics.impressions) : "—"} />
           <KpiCard label="Conversões" value={metrics ? fmtNum(metrics.conversions, 1) : "—"} />
+          <KpiCard
+            label="Custo por conversão"
+            value={metrics ? formatUsdFromMicros(metrics.cost_per_conversion_micros) : "—"}
+          />
+          <KpiCard
+            label="Receita"
+            value={
+              metrics && metrics.conversions_value > 0
+                ? `$${fmtNum(metrics.conversions_value, 2)}`
+                : "—"
+            }
+          />
+          <KpiCard
+            label="ROAS"
+            value={metrics && metrics.roas > 0 ? fmtNum(metrics.roas, 2) : "—"}
+          />
         </div>
       )}
 
