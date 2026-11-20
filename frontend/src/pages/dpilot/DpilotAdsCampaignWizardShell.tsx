@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ListTree } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { paidModeCanonicalLine } from "@/lib/paidModeCopy";
 import { cn } from "@/lib/utils";
 
 export type DpilotAdsWizardPlatform = "google" | "meta" | "tiktok";
@@ -49,6 +50,8 @@ type ShellProps = {
   subtitle: ReactNode;
   /** Opcional: segunda linha menor (ex.: alinhamento técnico ao assistente da rede). */
   hint?: ReactNode;
+  /** Modo Paid do projecto — frase canónica no chrome do assistente. */
+  paidMode?: string | null;
   backHref: string;
   backLabel?: string;
   readiness?: ReactNode;
@@ -66,12 +69,14 @@ export function DpilotAdsCampaignWizardShell({
   title = "Criar campanha",
   subtitle,
   hint,
+  paidMode,
   backHref,
   backLabel = "Sair do assistente",
   readiness,
   children,
 }: ShellProps) {
   const t = PLATFORM_THEME[platform];
+  const modeLine = paidModeCanonicalLine(paidMode);
 
   return (
     <div className="pb-16">
@@ -123,10 +128,7 @@ export function DpilotAdsCampaignWizardShell({
                 <ListTree className="h-3.5 w-3.5 opacity-70" aria-hidden />
                 Rascunho no navegador
               </span>
-              <span className="text-muted-foreground/80">
-                Em Copilot, nada vai à Google até «Aplicar na rede» em Aprovações. Em Autopilot, o plano pode
-                publicar já se os guardrails permitirem.
-              </span>
+              <span className="text-muted-foreground/80">{modeLine}</span>
             </p>
           </div>
         </div>

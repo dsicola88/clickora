@@ -94,10 +94,12 @@ function Field({
 
 export function DpilotGoogleWizardPage() {
   const { t } = useAppLocale();
-  const { projectId } = useDpilotPaid();
+  const { projectId, overview } = useDpilotPaid();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const base = `/tracking/dpilot/p/${projectId}`;
+  const paidMode = overview?.project?.paid_mode ?? "copilot";
+  const isAutopilot = paidMode === "autopilot";
 
   const [landingUrl, setLandingUrl] = useState(() => parseDpilotLandingQuery(searchParams));
   const [offer, setOffer] = useState("");
@@ -543,22 +545,22 @@ export function DpilotGoogleWizardPage() {
             ? t("pages.dpilot.common.planNoteReserve")
             : t("pages.dpilot.common.planNoteAi");
       if (data.autoApplied) {
-        toast.success(t("pages.dpilot.google.wizard.autopilot"), {
-          description: fill(t("pages.dpilot.google.wizard.autopilotDesc"), { note: planGenNote }),
+        toast.success("Na Google — plano aplicado", {
+          description: `${planGenNote} A abrir o estúdio da campanha.`,
         });
       } else if (data.reasons && data.reasons.length > 0) {
-        toast.warning(t("pages.dpilot.google.wizard.needsApproval"), {
+        toast.warning("Na Fila — falta confirmar", {
           description: fill(t("pages.dpilot.common.reasonWithNote"), {
             reason: data.reasons[0]?.message ?? t("pages.dpilot.google.wizard.needsApprovalFallback"),
             note: planGenNote,
           }),
         });
       } else {
-        toast.success(t("pages.dpilot.google.wizard.generated"), {
-          description: fill(t("pages.dpilot.google.wizard.generatedDesc"), { note: planGenNote }),
+        toast.message("Na Fila — confirme em Aprovações", {
+          description: `${planGenNote} Use «Aplicar na rede» para publicar na Google.`,
         });
       }
-      /** Paridade com duplicar: Autopilot → estúdio; Copilot → fila da campanha. */
+      /** Paridade com duplicar: aplicado → estúdio; senão → fila da campanha. */
       if (data.campaignId && data.autoApplied) {
         navigate(`${base}/campanhas/${data.campaignId}/google`);
       } else if (data.campaignId) {
@@ -613,20 +615,21 @@ export function DpilotGoogleWizardPage() {
         }
         hint={
           <span className="text-muted-foreground">
-            <strong className="font-medium text-foreground">Antes da primeira publicação</strong>, escolha mais abaixo se o
-            plano é{" "}
-            <strong className="font-medium text-foreground">
-              gerado com apoio de IA ou definido integralmente manualmente
-            </strong>
-            — ambos ficam dentro dos guardrails ao submeter «Gerar plano».{" "}
-            <strong className="font-medium text-foreground">Depois de estar na conta Google</strong>, atualize grupos,
-            palavras‑chave, anúncios RSA, CPC, pausas e orçamento na página{" "}
-            <Link to={`${base}/campanhas`} className="font-medium text-foreground underline underline-offset-2 hover:text-primary">
-              Campanhas
+            <strong className="font-medium text-foreground">Antes de gerar</strong>, escolha IA ou estrutura manual —
+            ambos respeitam guardrails.{" "}
+            <strong className="font-medium text-foreground">Final URL</strong> = presell{" "}
+            <code className="rounded bg-muted px-1 font-mono text-[10px]">/p/…</code> (não o hoplink).{" "}
+            <strong className="font-medium text-foreground">Depois</strong>, opere no{" "}
+            <Link
+              to={`${base}/google/campanhas`}
+              className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
+            >
+              Campaign Manager
             </Link>{" "}
-            (botão «Gestão» nas linhas Google) — modo Copilot regista auditoria através de «Aprovações» quando aplicável.
+            ou no estúdio da campanha.
           </span>
         }
+        paidMode={paidMode}
         backHref={`${base}/campanhas`}
         backLabel={t("pages.dpilot.google.wizard.back")}
         readiness={<DpilotCampaignReadinessCard platform="google" />}
@@ -666,14 +669,14 @@ export function DpilotGoogleWizardPage() {
             platform="google"
             stepLabel={fill(t("pages.dpilot.common.step"), { n: 2, total: 7 })}
             title={t("pages.dpilot.google.wizard.stepLanding")}
-            description="URL obrigatória; a extracção pode pré‑preencher a oferta — confirme factos antes de publicar. Neste passo escolhe também se a estrutura de Pesquisa é sugerida pela IA ou definida manualmente (cartão imediatamente abaixo)."
+            description="Final URL da campanha Google = a sua presell publicada. A extracção pode pré-preencher a oferta — confirme factos. Abaixo escolhe estrutura de Pesquisa por IA ou manual."
           >
             <Field
-              label="URL da landing page"
+              label="Final URL (presell)"
               hint={
                 parseDpilotLandingQuery(searchParams)
-                  ? "Veio da presell que acabou de publicar. A extracção lê essa página; confirme a oferta antes de gerar o plano."
-                  : "Cola o URL — a extracção lê a página e preenche os campos abaixo. Tudo é editável."
+                  ? "Veio da presell que acabou de publicar. Confirme a oferta antes de gerar o plano."
+                  : "Cole a URL pública da presell (recomendado: caminho /p/…). Removemos gclid e parâmetros de tracking da Final URL."
               }
             >
               <Input
@@ -682,9 +685,16 @@ export function DpilotGoogleWizardPage() {
                 value={landingUrl}
                 onChange={(e) => setLandingUrl(e.target.value)}
                 autoComplete="url"
-                placeholder="https://exemplo.com/produto"
+                placeholder="https://seu-dominio.com/p/oferta"
                 required
               />
+              <p className="mt-2 rounded-md border border-slate-200 bg-slate-50/80 px-3 py-2 text-[11px] leading-relaxed text-slate-600">
+                <span className="font-medium text-slate-800">Final URL ≠ hop de afiliado.</span> Use a página
+                presell (<code className="rounded bg-white px-1 font-mono text-[10px]">/p/…</code>). Os CTAs da
+                página passam por{" "}
+                <code className="rounded bg-white px-1 font-mono text-[10px]">/track/r/</code> → hoplink. Não cole
+                o link da rede de afiliados nem cloaking — o Ads e a Inspection Tool devem ver a mesma Final URL.
+              </p>
               {feedback ? (
                 <div
                   className={
@@ -698,15 +708,16 @@ export function DpilotGoogleWizardPage() {
                   {feedback.status === "extracting" ? (
                     <div className="flex items-center gap-2 font-medium">
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
-                      <span>🔍 A analisar a página…</span>
+                      <span>A analisar a página…</span>
                     </div>
                   ) : feedback.status === "error" ? (
                     <div className="font-medium">
-                      ⚠ Não consegui ler a landing: <span className="font-normal">{feedback.errorMsg}</span>
+                      Não foi possível ler a landing:{" "}
+                      <span className="font-normal">{feedback.errorMsg}</span>
                     </div>
                   ) : (
                     <div className="font-medium">
-                      ✔ Pronto. Os campos abaixo já reflectem a landing — confirma e edita o que quiseres.
+                      Extracção concluída. Confirme e edite os campos abaixo se precisar.
                     </div>
                   )}
                   {feedback.status !== "error" ? (
@@ -1130,7 +1141,11 @@ export function DpilotGoogleWizardPage() {
             platform="google"
             stepLabel={fill(t("pages.dpilot.common.step"), { n: 7, total: 7 })}
             title={t("pages.dpilot.google.wizard.stepFinish")}
-            description="Cria pedido técnico e rascunho; em Copilot, confirme em «Aprovações» antes de «Aplicar na rede»."
+            description={
+              isAutopilot
+                ? "Gera o plano e, se os guardrails permitirem, publica já na Google Ads. Em seguida abre o estúdio da campanha."
+                : "Gera o plano. Se for o dono do projecto e os guardrails passarem, aplica já; caso contrário fica em Aprovações com «Aplicar na rede»."
+            }
           >
             {error ? (
               <div role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">

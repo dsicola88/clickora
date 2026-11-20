@@ -29,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { paidModeCanonicalLine } from "@/lib/paidModeCopy";
 import { cn } from "@/lib/utils";
 import {
   campaignStatusBadgeClass,
@@ -40,6 +41,7 @@ import {
   formatUsdFromMicros,
   friendlyGoogleAdsNetworkError,
   googleAdsNeedsReauth,
+  googleBiddingStrategyLabel,
   describeStudioChangeRequestStatus,
   summarizeChangeRequestPayload,
   toastGoogleAdsError,
@@ -878,7 +880,9 @@ export function DpilotGoogleCampaignsManagerPage() {
                             ) : null}
                           </div>
                           {c.bidding_strategy ? (
-                            <p className="mt-0.5 text-[10px] text-muted-foreground">{c.bidding_strategy}</p>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">
+                              {googleBiddingStrategyLabel(c.bidding_strategy)}
+                            </p>
                           ) : null}
                           {urlAudit && urlAudit.severity !== "ok" ? (
                             <p
@@ -950,9 +954,11 @@ export function DpilotGoogleCampaignsManagerPage() {
                             className="text-right hover:underline disabled:no-underline"
                             disabled={busy || !c.external_campaign_id || c.budget_editable === false}
                             title={
-                              c.budget_editable === false
-                                ? `Orçamento partilhado (${c.budget_reference_count})`
-                                : "Alterar orçamento"
+                              !c.external_campaign_id
+                                ? "Ainda só rascunho — publique com «Aplicar na rede» para editar o orçamento na Google"
+                                : c.budget_editable === false
+                                  ? `Orçamento partilhado (${c.budget_reference_count}) — separe na consola Google`
+                                  : "Alterar orçamento diário na Google"
                             }
                             onClick={() =>
                               onBudget(c.id, c.daily_budget_micros, {
@@ -2718,10 +2724,7 @@ export function DpilotGoogleAiAssistantPage() {
     action: string;
   }) => {
     if (!s.campaign_id || !s.suggested_op) return;
-    const modeHint =
-      paidMode === "autopilot"
-        ? "Modo Autopilot: a acção tenta aplicar já na Google."
-        : "Modo Copilot: se for o dono do projecto, aplica já; senão fica em Aprovações.";
+    const modeHint = paidModeCanonicalLine(paidMode);
     if (!window.confirm(`${s.action}\n\n${modeHint}\n\nContinuar?`)) {
       return;
     }

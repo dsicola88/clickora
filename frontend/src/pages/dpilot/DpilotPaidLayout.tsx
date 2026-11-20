@@ -34,6 +34,7 @@ export function DpilotPaidLayout() {
   const onGoogleManager =
     location.pathname.startsWith(`${base}/google`) ||
     /\/campanhas\/[^/]+\/google\/?$/.test(location.pathname);
+  const onCreateCampaign = /\/campanhas\/nova\/?$/.test(location.pathname);
 
   if (onGoogleManager) {
     return (
@@ -52,7 +53,9 @@ export function DpilotPaidLayout() {
             <p className="text-xs font-semibold tracking-wide text-foreground">Ads Studio</p>
           </div>
           <p className="text-[11px] leading-snug text-muted-foreground">
-            Escolha a rede. Google Ads abre o Campaign Manager.
+            {onCreateCampaign
+              ? "Assistente Pesquisa Google. Final URL = presell /p/… · CTAs da página → /track/r/."
+              : "Google Ads = Campaign Manager. Nova campanha = assistente Pesquisa."}
           </p>
         </div>
         <nav className="flex flex-col gap-1">

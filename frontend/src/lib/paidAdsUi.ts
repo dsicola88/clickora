@@ -325,6 +325,21 @@ export function changeRequestCampaignIdFromPayload(payload: unknown): string | n
   return typeof p.campaign_id === "string" ? p.campaign_id : null;
 }
 
+const GOOGLE_BIDDING_STRATEGY_LABELS: Record<string, string> = {
+  manual_cpc: "CPC manual",
+  maximize_clicks: "Maximizar cliques",
+  maximize_conversions: "Maximizar conversões",
+  target_cpa: "CPA alvo",
+  target_roas: "ROAS alvo",
+};
+
+/** Rótulo humano da estratégia Google (nunca `maximize_conversions` cru na UI). */
+export function googleBiddingStrategyLabel(strategy: string | null | undefined): string {
+  const s = (strategy ?? "").trim();
+  if (!s) return "";
+  return GOOGLE_BIDDING_STRATEGY_LABELS[s] ?? s.replace(/_/g, " ");
+}
+
 /** Linhas legíveis a partir de `bidding_config` gravado no pedido (Google). */
 export function googleBiddingSummaryLinesFromPayload(payload: Record<string, unknown>): string[] {
   const bc = payload.bidding_config ?? payload.biddingConfig;
@@ -332,14 +347,7 @@ export function googleBiddingSummaryLinesFromPayload(payload: Record<string, unk
   const g = (bc as { google?: Record<string, unknown> }).google;
   if (!g || typeof g !== "object") return [];
   const strat = typeof g.strategy === "string" ? g.strategy : "";
-  const labels: Record<string, string> = {
-    manual_cpc: "CPC manual",
-    maximize_clicks: "Maximizar cliques",
-    maximize_conversions: "Maximizar conversões",
-    target_cpa: "CPA alvo",
-    target_roas: "ROAS alvo",
-  };
-  const human = labels[strat] ?? strat.replace(/_/g, " ");
+  const human = googleBiddingStrategyLabel(strat);
   const out: string[] = [
     `Estratégia de licitação (Google): ${human}. O CPC efectivo define-se no leilão por segundo.`,
   ];

@@ -29,6 +29,7 @@ import {
   describeStudioChangeRequestStatus,
   effectiveCampaignServingStatus,
   formatUsdFromMicros,
+  googleBiddingStrategyLabel,
   toastGoogleAdsError,
 } from "@/lib/paidAdsUi";
 import { cn } from "@/lib/utils";
@@ -615,7 +616,9 @@ export function DpilotCampaignsHub() {
                             ) : null}
                           </div>
                           {g?.bidding_strategy ? (
-                            <p className="mt-0.5 text-[10px] text-muted-foreground">{g.bidding_strategy}</p>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">
+                              {googleBiddingStrategyLabel(g.bidding_strategy)}
+                            </p>
                           ) : null}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">

@@ -1090,37 +1090,36 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
           ) : null}
           {cr.error_message ? (
             <div className="space-y-1.5">
-              {errFriendly ? (
-                <>
-                  <p className="text-xs leading-relaxed text-destructive">
-                    <span className="font-medium">Erro na rede:</span> {errFriendly}
-                  </p>
-                  <p className="text-[10px] font-mono text-muted-foreground/90 whitespace-pre-wrap leading-snug border-l border-border pl-2">
-                    {cr.error_message}
-                  </p>
-                </>
-              ) : (
-                <p className="text-xs text-destructive">
-                  <span className="font-medium">Erro na rede:</span> {cr.error_message}
-                </p>
-              )}
+              <p className="text-xs leading-relaxed text-destructive">
+                <span className="font-medium">Erro na rede:</span>{" "}
+                {errFriendly ?? "A Google recusou este pedido. Abra os detalhes técnicos se precisar de suporte."}
+              </p>
               {!errFriendly && /invalid\s+argument|INVALID_ARGUMENT/i.test(cr.error_message) ? (
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  Sugestão: confirme em{" "}
+                  Confirme a{" "}
                   <Link
                     className="font-medium underline underline-offset-2"
                     to={`/tracking/dpilot/p/${projectId}/google`}
                   >
                     Conta Google
                   </Link>
-                  , orçamentos mínimos da rede e conta de faturação. Inclua a referência técnica abaixo ao contactar suporte.
+                  , orçamento mínimo e faturação — depois tente «Aplicar na rede» de novo.
                 </p>
               ) : null}
+              <details className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-1.5">
+                <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground">
+                  Detalhe técnico (suporte)
+                </summary>
+                <p className="mt-1.5 whitespace-pre-wrap break-all font-mono text-[10px] leading-snug text-muted-foreground">
+                  {cr.error_message}
+                </p>
+              </details>
             </div>
           ) : null}
-          <p className="font-mono text-[10px] text-muted-foreground/80">
-            Ref. técnica: {cr.id}
-          </p>
+          <details className="text-[10px] text-muted-foreground/80">
+            <summary className="cursor-pointer font-medium">Ref. para suporte</summary>
+            <p className="mt-1 break-all font-mono">{cr.id}</p>
+          </details>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
           {busy ? (
@@ -1277,11 +1276,22 @@ export function DpilotAprovacoesPage() {
   const p = useDpilotPaid();
   const [searchParams] = useSearchParams();
   const campaignFocus = searchParams.get("campaign")?.trim() || null;
+  /** Por defeito só o que o media buyer precisa tratar — histórico fica um clique atrás. */
+  const [queueView, setQueueView] = useState<"actionable" | "history">("actionable");
   const sorted = useMemo(() => sortChangeRequests(p.changeRequests), [p.changeRequests]);
-  const visible = useMemo(() => {
+  const scoped = useMemo(() => {
     if (!campaignFocus) return sorted;
     return sorted.filter((cr) => changeRequestCampaignIdFromPayload(cr.payload) === campaignFocus);
   }, [sorted, campaignFocus]);
+  const actionable = useMemo(
+    () => scoped.filter((cr) => cr.status === "pending" || cr.status === "approved"),
+    [scoped],
+  );
+  const history = useMemo(
+    () => scoped.filter((cr) => cr.status !== "pending" && cr.status !== "approved"),
+    [scoped],
+  );
+  const visible = queueView === "actionable" ? actionable : history;
   const focusName = useMemo(() => {
     if (!campaignFocus) return null;
     return p.campaigns.find((c) => c.id === campaignFocus)?.name ?? null;
@@ -1308,20 +1318,42 @@ export function DpilotAprovacoesPage() {
             <span className="font-medium text-foreground">
               {focusName ?? campaignFocus.slice(0, 8) + "…"}
             </span>
-            {visible.length === 0 ? " — nenhum na fila." : ` (${visible.length})`}
+            {scoped.length === 0 ? " — nenhum na fila." : ` (${scoped.length})`}
           </span>
           <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>Ver todos</Link>
           </Button>
         </div>
       ) : null}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={queueView === "actionable" ? "default" : "outline"}
+          className="h-8"
+          onClick={() => setQueueView("actionable")}
+        >
+          A tratar ({actionable.length})
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={queueView === "history" ? "default" : "outline"}
+          className="h-8"
+          onClick={() => setQueueView("history")}
+        >
+          Histórico ({history.length})
+        </Button>
+      </div>
       <Card className="mt-4">
         <CardContent className="pt-6">
           {visible.length === 0 ? (
             <p className="text-sm text-muted-foreground leading-relaxed">
-              {campaignFocus
-                ? "Não há pedidos nesta campanha. Use «Ver todos» para a fila completa."
-                : t("pages.dpilot.hub.approvalsEmpty")}
+              {queueView === "actionable"
+                ? campaignFocus
+                  ? "Nada a tratar nesta campanha. Veja o histórico ou «Ver todos»."
+                  : "Nada a tratar. Novas criações e pedidos da equipa aparecem aqui."
+                : "Sem pedidos no histórico deste filtro."}
             </p>
           ) : (
             <div className="space-y-4">

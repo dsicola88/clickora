@@ -16,6 +16,7 @@ import {
   type GoogleCampaignAiPlan,
 } from "./google-campaign-ai-shared";
 import { landingHostnameFromUrl } from "./google-campaign-negative-keywords-defaults";
+import { shouldApplyStudioChangeImmediately } from "./studio-apply-policy";
 
 const googleManualKeywordSchema = z.object({
   text: z.string().trim().min(1).max(80),
@@ -461,8 +462,14 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
     gr,
   );
 
-  const isAutopilot = project.paidMode === "autopilot";
-  const shouldTryAutoApply = isAutopilot && evalResult.passed;
+  /** Paridade com o estúdio: Autopilot sempre; Copilot só se o dono do projecto pedir. */
+  const shouldTryAutoApply =
+    evalResult.passed &&
+    shouldApplyStudioChangeImmediately({
+      paidMode: project.paidMode,
+      projectOwnerId: ownerUserId,
+      requestedById: actor.userId,
+    });
   const reasons: GuardrailViolation[] = evalResult.violations;
 
   const now = new Date();
@@ -569,7 +576,7 @@ Blocked keywords (must NOT appear): ${[...blocked].join(", ") || "(none)"}`;
         didAutoApply
           ? "publicado no Google"
           : shouldTryAutoApply
-            ? "autopilot: falha na publicação — ver aprovações"
+            ? "publicação imediata falhou — ver aprovações"
             : "aguardando aprovação"
       }`,
     },

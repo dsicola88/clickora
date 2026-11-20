@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DpilotGoogleNetworkBanner } from "@/components/dpilot/DpilotGoogleNetworkBanner";
+import { paidModeCanonicalLine, paidModeShortChip } from "@/lib/paidModeCopy";
 import { cn } from "@/lib/utils";
 import { paidAdsService } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
@@ -73,6 +74,7 @@ export function DpilotGoogleCampaignManagerLayout() {
   const id = projectId || pid;
   const base = `/tracking/dpilot/p/${id}`;
   const pendingApprovals = changeRequests.filter((c) => c.status === "pending").length;
+  const paidMode = overview?.project?.paid_mode ?? "copilot";
   /** Estúdio por campanha tem o próprio índice — não empilhar GESTÃO do CM. */
   const onCampaignStudio = /\/campanhas\/[^/]+\/google\/?$/.test(location.pathname);
 
@@ -110,12 +112,12 @@ export function DpilotGoogleCampaignManagerLayout() {
     conn?.account_name ||
     null;
   const badgeLabel = !connected
-    ? "Google Ads por sincronizar"
+    ? "Google por ligar"
     : networkOk === false
-      ? "Ligada · rede indisponível"
+      ? "Sessão expirada · religar"
       : networkOk === true
-        ? "Conta Google · rede OK"
-        : "Conta Google ligada";
+        ? "Google OK"
+        : "Google ligada";
   const badgeClass = !connected
     ? "bg-amber-500/20 text-amber-100"
     : networkOk === false
@@ -195,14 +197,22 @@ export function DpilotGoogleCampaignManagerLayout() {
           </div>
         </div>
         <div className="text-right">
-          <span
-            className={cn(
-              "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
-              badgeClass,
-            )}
-          >
-            {badgeLabel}
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <span
+              className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-100"
+              title={paidModeCanonicalLine(paidMode)}
+            >
+              {paidModeShortChip(paidMode)}
+            </span>
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+                badgeClass,
+              )}
+            >
+              {badgeLabel}
+            </span>
+          </div>
           {accountLabel ? (
             <p className="mt-1 font-mono text-[11px] text-slate-300">Conta: {accountLabel}</p>
           ) : (
@@ -212,6 +222,9 @@ export function DpilotGoogleCampaignManagerLayout() {
               </NavLink>
             </p>
           )}
+          <p className="mt-1 max-w-[22rem] text-[10px] leading-snug text-slate-400">
+            {paidModeCanonicalLine(paidMode)}
+          </p>
         </div>
       </header>
 

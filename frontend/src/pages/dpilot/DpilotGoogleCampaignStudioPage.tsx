@@ -1232,17 +1232,17 @@ export function DpilotGoogleCampaignStudioPage() {
                 <Alert>
                   <AlertTitle>{t("pages.dpilot.google.studio.draftAlertTitle")}</AlertTitle>
                   <AlertDescription>
-                    Não há ligação a um ID de campanha na Google até publicar pela fila («Aplicações» / Autopilot).
-                    Palavras-chave, anúncios, negativas e extensões gravam-se no rascunho com «Gravar rascunho completo» em Palavras-chave e anúncios,
-                    ou à parte na secção «Negativas e extensões».
+                    Ainda sem ID na Google. Publique pela fila de Aprovações ou em Autopilot (dono aplica já no
+                    Copilot). Palavras-chave, anúncios, negativas e extensões gravam-se no rascunho com «Gravar
+                    rascunho completo» ou na secção «Negativas e extensões».
                   </AlertDescription>
                 </Alert>
               ) : (
                 <Alert>
                   <AlertTitle>Alterações supervisionadas</AlertTitle>
                   <AlertDescription>
-                    Cada modificação ao vivo neste estúdio cria um registo técnico. Em modo Copilot, um administrador
-                    aplica em «Aprovações».
+                    Cada alteração ao vivo cria um registo. Autopilot e dono em Copilot aplicam já; o resto da equipa
+                    confirma em Aprovações.
                   </AlertDescription>
                 </Alert>
               )}
@@ -2333,8 +2333,8 @@ export function DpilotGoogleCampaignStudioPage() {
                   </CardHeader>
                   <CardContent className="space-y-4 text-sm">
                     <p className="leading-relaxed text-muted-foreground">
-                      Em modo <strong className="font-medium text-foreground">Copilot</strong>, estas acções podem criar uma
-                      entrada em «Aprovações». Em modo automático aplicam assim que a conta permitir.
+                      Autopilot e dono em Copilot aplicam já na Google. O resto da equipa confirma em «Aprovações» com
+                      «Aplicar na rede».
                     </p>
                     <StudioSettingsPanel>
                       <StudioSettingsRow

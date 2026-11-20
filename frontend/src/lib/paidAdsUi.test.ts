@@ -4,9 +4,18 @@ import {
   changeRequestCampaignIdFromPayload,
   describeStudioChangeRequestStatus,
   effectiveCampaignServingStatus,
+  googleBiddingStrategyLabel,
   publishedBidStrategyHint,
   summarizeChangeRequestPayload,
 } from "./paidAdsUi";
+
+describe("googleBiddingStrategyLabel", () => {
+  it("traduz códigos Google para rótulo humano", () => {
+    expect(googleBiddingStrategyLabel("maximize_conversions")).toBe("Maximizar conversões");
+    expect(googleBiddingStrategyLabel("manual_cpc")).toBe("CPC manual");
+    expect(googleBiddingStrategyLabel("")).toBe("");
+  });
+});
 
 describe("describeStudioChangeRequestStatus", () => {
   it("distingue aplicado, pendente e falha", () => {

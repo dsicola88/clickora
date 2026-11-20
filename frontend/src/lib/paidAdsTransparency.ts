@@ -186,27 +186,20 @@ export function approvalQueueTransparencyBullets(args: {
   paidMode: string;
   hasHardGuardrailBlocks: boolean;
 }): string[] {
-  const mode = args.paidMode === "autopilot" ? "Autopilot" : "Copilot";
-  const out: string[] = [
-    `Modo do projecto: ${mode}. Define se alterações podem ir directamente à rede ou passam por esta fila.`,
-  ];
+  const out: string[] = [];
   if (args.paidMode === "copilot") {
     out.push(
-      "Copilot: o dono aplica já pausas/orçamento/negativas no estúdio Google. Este cartão é para publicações grandes ou pedidos de outros membros — até «Aplicar na rede» a conta não muda.",
+      "Copilot: o dono aplica já no estúdio e ao criar (se os guardrails passarem). Nesta fila ficam bloqueios, falhas e pedidos da equipa — use «Aplicar na rede» para mudar a conta Google.",
     );
   } else {
     out.push(
-      "Autopilot: dentro dos guardrails o sistema pode aplicar automaticamente; quando há bloqueio ou excepção, o pedido aparece aqui.",
+      "Autopilot: dentro dos guardrails aplica sozinho; bloqueios ou excepções aparecem aqui para confirmar.",
     );
   }
   if (args.hasHardGuardrailBlocks) {
-    out.push(
-      "Motivos «limites»: violações que impedem publicação até corrigir orçamento, palavras-chave ou segmentação.",
-    );
+    out.push("Há limites a corrigir (orçamento, keywords ou segmentação) antes de publicar.");
   } else {
-    out.push(
-      "Sem bloqueios rígidos de guardrail neste pedido — pode rever parâmetros e aplicar quando estiver alinhado com a sua estratégia.",
-    );
+    out.push("Sem bloqueio de guardrail — reveja o plano e use «Aplicar na rede» quando estiver pronto.");
   }
   return out;
 }
