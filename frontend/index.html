@@ -78,6 +78,14 @@
               .forEach(function (el) {
                 el.setAttribute("content", "");
               });
+            // Fuga SaaS: keywords/author/site_name do marketing não podem ficar em landers /p/.
+            document
+              .querySelectorAll(
+                'meta[name="keywords"], meta[name="author"], meta[property="og:site_name"]',
+              )
+              .forEach(function (el) {
+                el.parentNode && el.parentNode.removeChild(el);
+              });
             try {
               if (isPresell && host !== "localhost" && host !== "127.0.0.1") {
                 var seg = "";

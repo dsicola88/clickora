@@ -7,6 +7,8 @@ import {
   resolvePublicPresellDocumentTitle,
 } from "@/lib/publicPresellDocumentTitle";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
+import { readMarketCountryHint } from "@/lib/consentMarketPolicy";
+import { htmlLangForPresell } from "@/lib/presellUiStrings";
 
 const MAX_META_DESC = 165;
 
@@ -226,12 +228,15 @@ export type PublicPresellHeadSnapshot = {
   title: string;
   metaDescription: string | null;
   metaRobots: string | null;
+  metaKeywords: string | null;
+  metaAuthor: string | null;
   ogTitle: string | null;
   ogDescription: string | null;
   ogImage: string | null;
   ogUrl: string | null;
   ogType: string | null;
   ogLocale: string | null;
+  ogSiteName: string | null;
   twitterCard: string | null;
   twitterTitle: string | null;
   twitterDescription: string | null;
@@ -239,6 +244,27 @@ export type PublicPresellHeadSnapshot = {
   appleAppTitle: string | null;
   originalIconHtml: string[];
 };
+
+/** `en-US` → `en_US` para Open Graph. */
+export function ogLocaleFromHtmlLang(htmlLang: string): string {
+  const t = htmlLang.trim().replace(/-/g, "_");
+  if (/^[a-z]{2}_[A-Z]{2}$/.test(t)) return t;
+  if (/^[a-z]{2}$/i.test(t)) {
+    const lang = t.toLowerCase();
+    // Sem mercado: EN Ads default US (CA/AU/GB passam por htmlLangForPresell).
+    if (lang === "en") return "en_US";
+    return `${lang}_${lang.toUpperCase()}`;
+  }
+  return "en_US";
+}
+
+export function resolvePublicPresellOgLocale(page: Presell): string {
+  const market = readMarketCountryHint(
+    (page.settings || {}) as Record<string, unknown>,
+    (page.content || {}) as Record<string, unknown>,
+  );
+  return ogLocaleFromHtmlLang(htmlLangForPresell(page.language, market));
+}
 
 function attr(sel: string): string | null {
   return document.querySelector(sel)?.getAttribute("content");
@@ -251,12 +277,15 @@ export function capturePublicPresellHeadSnapshot(): PublicPresellHeadSnapshot {
     title: document.title,
     metaDescription: attr('meta[name="description"]'),
     metaRobots: attr('meta[name="robots"]'),
+    metaKeywords: attr('meta[name="keywords"]'),
+    metaAuthor: attr('meta[name="author"]'),
     ogTitle: attr('meta[property="og:title"]'),
     ogDescription: attr('meta[property="og:description"]'),
     ogImage: attr('meta[property="og:image"]'),
     ogUrl: attr('meta[property="og:url"]'),
     ogType: attr('meta[property="og:type"]'),
     ogLocale: attr('meta[property="og:locale"]'),
+    ogSiteName: attr('meta[property="og:site_name"]'),
     twitterCard: attr('meta[name="twitter:card"]'),
     twitterTitle: attr('meta[name="twitter:title"]'),
     twitterDescription: attr('meta[name="twitter:description"]'),
@@ -375,17 +404,31 @@ export function restorePublicPresellHeadSnapshot(s: PublicPresellHeadSnapshot) {
   document.title = s.title;
   restoreMeta("name", "description", s.metaDescription);
   restoreMeta("name", "robots", s.metaRobots);
+  restoreMeta("name", "keywords", s.metaKeywords);
+  restoreMeta("name", "author", s.metaAuthor);
   restoreMeta("property", "og:title", s.ogTitle);
   restoreMeta("property", "og:description", s.ogDescription);
   restoreMeta("property", "og:image", s.ogImage);
   restoreMeta("property", "og:url", s.ogUrl);
   restoreMeta("property", "og:type", s.ogType);
   restoreMeta("property", "og:locale", s.ogLocale);
+  restoreMeta("property", "og:site_name", s.ogSiteName);
   restoreMeta("name", "twitter:card", s.twitterCard);
   restoreMeta("name", "twitter:title", s.twitterTitle);
   restoreMeta("name", "twitter:description", s.twitterDescription);
   restoreMeta("name", "twitter:image", s.twitterImage);
   restorePresellIcons(s);
+}
+
+/** Remove metas de marketing SaaS que vazam em landers /p/. */
+export function stripSaasMarketingMetasFromHead(): void {
+  for (const sel of [
+    'meta[name="keywords"]',
+    'meta[name="author"]',
+    'meta[property="og:site_name"]',
+  ]) {
+    document.querySelectorAll(sel).forEach((el) => el.remove());
+  }
 }
 
 /**
@@ -416,22 +459,36 @@ export function applyPublicPresellHeadMetadata(page: Presell): () => void {
 
   document.title = title;
   if (faviconRaw) applyPresellProductIcons(faviconRaw, productLabel);
+  stripSaasMarketingMetasFromHead();
   setMetaName("description", description);
   setMetaName("robots", robots);
   setMetaProperty("og:type", "website");
   setMetaProperty("og:title", title);
   setMetaProperty("og:description", description);
   if (canonical) setMetaProperty("og:url", canonical);
-  if (ogImageAbs) setMetaProperty("og:image", ogImageAbs);
+  if (ogImageAbs) {
+    setMetaProperty("og:image", ogImageAbs);
+  } else {
+    restoreMeta("property", "og:image", null);
+  }
   const siteName = String(page.tenant_branding?.brand_name ?? "").trim();
-  if (siteName) setMetaProperty("og:site_name", siteName);
-  setMetaProperty("og:locale", "pt_BR");
+  // Só white-label do tenant — nunca deixar og:site_name=dclickora do shell.
+  if (siteName && !looksLikeAppBrandTitle(siteName)) {
+    setMetaProperty("og:site_name", siteName);
+  } else {
+    restoreMeta("property", "og:site_name", null);
+  }
+  setMetaProperty("og:locale", resolvePublicPresellOgLocale(page));
 
   const twitterCard = ogImageAbs ? "summary_large_image" : "summary";
   setMetaName("twitter:card", twitterCard);
   setMetaName("twitter:title", title);
   setMetaName("twitter:description", description);
-  if (ogImageAbs) setMetaName("twitter:image", ogImageAbs);
+  if (ogImageAbs) {
+    setMetaName("twitter:image", ogImageAbs);
+  } else {
+    restoreMeta("name", "twitter:image", null);
+  }
 
   setJsonLd({
     "@context": "https://schema.org",

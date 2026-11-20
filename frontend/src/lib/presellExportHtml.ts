@@ -1061,10 +1061,12 @@ ${faviconAbs ? `<link rel="icon" href="${escapeAttr(faviconAbs)}" />\n<link rel=
 <meta property="og:description" content="${escapeHtml(metaDesc)}" />
 <meta property="og:url" content="${escapeAttr(exportCanonical)}" />
 ${
-  typeof page.tenant_branding?.brand_name === "string" && page.tenant_branding.brand_name.trim()
+  typeof page.tenant_branding?.brand_name === "string" &&
+  page.tenant_branding.brand_name.trim() &&
+  !/dclickora|clickora/i.test(page.tenant_branding.brand_name)
     ? `<meta property="og:site_name" content="${escapeHtml(page.tenant_branding.brand_name.trim())}" />\n`
     : ""
-}<meta property="og:locale" content="pt_BR" />
+}<meta property="og:locale" content="${escapeAttr(htmlLang.replace(/-/g, "_"))}" />
 ${ogImageAbs ? `<meta property="og:image" content="${escapeAttr(ogImageAbs)}" />\n` : ""}<meta name="twitter:card" content="${escapeAttr(twitterCardExport)}" />
 <meta name="twitter:title" content="${escapeHtml(docTitle)}" />
 <meta name="twitter:description" content="${escapeHtml(metaDesc)}" />
@@ -1075,7 +1077,6 @@ ${ogImageAbs ? `<meta name="twitter:image" content="${escapeAttr(ogImageAbs)}" /
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="generator" content="Clickora Presell Export">
 <title>${escapeHtml(docTitle)}</title>
 ${seoBlock}
 ${fontLink}

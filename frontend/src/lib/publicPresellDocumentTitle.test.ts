@@ -31,6 +31,7 @@ describe("título público da presell", () => {
     const p = page({
       title: "Visivra White cookies",
       content: {
+        generationNiche: "white",
         productName: "Visivra",
         sourcePageTitle: "Visivra™ | Official Website | Support Clear Vision and Eye Health",
       },
@@ -49,5 +50,33 @@ describe("título público da presell", () => {
       content: { productName: "Visivra" },
     });
     expect(getPresellSeoPrimaryTitle(p)).toBe("Visivra");
+  });
+
+  it("black EN: ignora sourcePageTitle agressivo PT e usa o produto", () => {
+    const p = page({
+      language: "en",
+      title: "KW Melara black cookies",
+      content: {
+        generationNiche: "black",
+        productName: "Melara Max",
+        sourcePageTitle: "Adquira seu Melara Max hoje mesmo | Melara Max",
+      },
+    });
+    expect(getPresellSeoPrimaryTitle(p)).toBe("Melara Max");
+    expect(resolvePublicPresellDocumentTitle(p)).toBe("Melara Max");
+  });
+
+  it("white: mantém título oficial da origem quando não é sales agressivo", () => {
+    const p = page({
+      language: "en",
+      content: {
+        generationNiche: "white",
+        productName: "Visivra",
+        sourcePageTitle: "Visivra™ | Official Website | Support Clear Vision and Eye Health",
+      },
+    });
+    expect(getPresellSeoPrimaryTitle(p)).toBe(
+      "Visivra™ | Official Website | Support Clear Vision and Eye Health",
+    );
   });
 });

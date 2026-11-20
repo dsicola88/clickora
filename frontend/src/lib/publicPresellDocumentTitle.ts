@@ -1,6 +1,7 @@
 import type { Presell } from "@/types/api";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
+import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
 
 /** Alinhar com `frontend/index.html` — valor ao sair da página pública. */
 export const DEFAULT_BROWSER_TAB_TITLE =
@@ -10,6 +11,18 @@ const MAX_SEO_TITLE = 120;
 
 export function looksLikeAppBrandTitle(s: string): boolean {
   return /dclickora|clickora|presell pages.*rastreamento|ferramenta para afiliados/i.test(s);
+}
+
+/**
+ * Título de sales page agressiva (PT/EN) — na black EN não deve virar &lt;title&gt;
+ * (ex.: «Adquira seu Melara Max hoje mesmo»).
+ */
+export function looksLikeAggressiveSalesSourceTitle(s: string): boolean {
+  const t = s.trim();
+  if (!t) return false;
+  return /\b(adquira|compre agora|comprar agora|buy now|order now|shop now|get yours|claim your|hoje mesmo|encomendar agora|add to cart)\b/i.test(
+    t,
+  );
 }
 
 function clampSeoTitle(s: string): string {
@@ -74,15 +87,35 @@ export function getPresellSeoPrimaryTitle(page: Presell): string {
       : typeof c.import_mirror_src_doc === "string"
         ? c.import_mirror_src_doc
         : "";
-  const picked = firstUsableSeoTitle([
-    String(doc?.seo?.title ?? ""),
-    String(c.sourcePageTitle ?? c.source_page_title ?? ""),
-    titleFromImportedHtml(mirror),
-    String(c.productName ?? c.product_name ?? ""),
-    String(c.title ?? ""),
-    String(doc?.name ?? ""),
-    String(page.title ?? ""),
-  ]);
+  const sourceTitle = String(c.sourcePageTitle ?? c.source_page_title ?? "").trim();
+  const niche = resolvePresellGenerationNiche(c);
+  const sourceOk =
+    sourceTitle &&
+    !looksLikeAppBrandTitle(sourceTitle) &&
+    !(niche === "black" && looksLikeAggressiveSalesSourceTitle(sourceTitle));
+
+  // Black: portal informativo — produto primeiro; evita título de sales page PT em landers EN.
+  const candidates =
+    niche === "black"
+      ? [
+          String(doc?.seo?.title ?? ""),
+          String(c.productName ?? c.product_name ?? ""),
+          String(c.title ?? ""),
+          sourceOk ? sourceTitle : "",
+          String(doc?.name ?? ""),
+          String(page.title ?? ""),
+        ]
+      : [
+          String(doc?.seo?.title ?? ""),
+          sourceOk ? sourceTitle : "",
+          titleFromImportedHtml(mirror),
+          String(c.productName ?? c.product_name ?? ""),
+          String(c.title ?? ""),
+          String(doc?.name ?? ""),
+          String(page.title ?? ""),
+        ];
+
+  const picked = firstUsableSeoTitle(candidates);
   return picked || getPresellProductLabel(page);
 }
 
