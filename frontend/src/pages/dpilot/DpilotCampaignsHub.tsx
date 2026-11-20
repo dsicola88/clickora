@@ -35,6 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import { GoogleAdsBudgetDialog } from "@/components/dpilot/GoogleAdsBudgetDialog";
 import { GoogleAdsDuplicateDialog } from "@/components/dpilot/GoogleAdsDuplicateDialog";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useGoogleManagerPrefs } from "@/hooks/useGoogleManagerPrefs";
 import { googleManagerPresetLabel } from "@/lib/googleManagerPrefs";
 import { syncGoogleAdsFromIntegrations } from "@/lib/googleAdsSync";
@@ -79,6 +80,7 @@ function manageHref(projectId: string, c: CampaignRow) {
 }
 
 export function DpilotCampaignsHub() {
+  const { t } = useAppLocale();
   const { campaigns, projectId, reload, overview, isConnConnected, changeRequests } = useDpilotPaid();
   const { preset } = useGoogleManagerPrefs(projectId);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -434,12 +436,18 @@ export function DpilotCampaignsHub() {
         <Kpi label="Ativas" value={fmtNum(kpis.active)} />
         <Kpi label="Pausadas" value={fmtNum(kpis.paused)} />
         <Kpi
-          label="Investimento"
+          label={t("pages.dpilot.google.cm.visao.spend")}
           value={kpis.withMetrics ? formatUsdFromMicros(kpis.costMicros) : "—"}
-          hint={connected ? googleManagerPresetLabel(preset) : "Sem sync Google"}
+          hint={connected ? googleManagerPresetLabel(preset, t) : "Sem sync Google"}
         />
-        <Kpi label="Cliques" value={kpis.withMetrics ? fmtNum(kpis.clicks) : "—"} />
-        <Kpi label="Conversões" value={kpis.withMetrics ? fmtNum(kpis.conversions, 1) : "—"} />
+        <Kpi
+          label={t("pages.dpilot.google.cm.visao.clicks")}
+          value={kpis.withMetrics ? fmtNum(kpis.clicks) : "—"}
+        />
+        <Kpi
+          label={t("pages.dpilot.google.cm.visao.conversions")}
+          value={kpis.withMetrics ? fmtNum(kpis.conversions, 1) : "—"}
+        />
         <Kpi
           label="Custo / conv."
           value={kpis.cpaMicros != null ? formatUsdFromMicros(kpis.cpaMicros) : "—"}

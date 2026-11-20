@@ -2,6 +2,7 @@
  * Preferências partilhadas do Campaign Manager (período + filtro de campanha).
  * Persistidas por projecto no localStorage para não resetar ao mudar de página.
  */
+import type { MessageKey } from "@/i18n";
 
 export const GOOGLE_MANAGER_ALL_CAMPAIGNS = "__all__";
 
@@ -29,6 +30,7 @@ const DEFAULT: GoogleManagerPrefs = {
 
 const PRESET_SET = new Set<string>(GOOGLE_MANAGER_PRESETS);
 
+/** Fallback PT-PT (testes / callers sem `t`). Preferir `googleManagerPresetLabelKey` + i18n. */
 const PRESET_LABELS: Record<GoogleManagerPreset, string> = {
   today: "Hoje",
   yesterday: "Ontem",
@@ -36,6 +38,15 @@ const PRESET_LABELS: Record<GoogleManagerPreset, string> = {
   last_30: "Últimos 30 dias",
   this_month: "Este mês",
   last_month: "Mês anterior",
+};
+
+const PRESET_I18N_KEYS: Record<GoogleManagerPreset, MessageKey> = {
+  today: "pages.dpilot.google.cm.presetToday",
+  yesterday: "pages.dpilot.google.cm.presetYesterday",
+  last_7: "pages.dpilot.google.cm.presetLast7",
+  last_30: "pages.dpilot.google.cm.presetLast30",
+  this_month: "pages.dpilot.google.cm.presetThisMonth",
+  last_month: "pages.dpilot.google.cm.presetLastMonth",
 };
 
 function storageKey(projectId: string) {
@@ -55,7 +66,17 @@ function normalizeCampaignFilter(raw: unknown): string {
   return s;
 }
 
-export function googleManagerPresetLabel(preset: string): string {
+export function googleManagerPresetLabelKey(preset: string): MessageKey | null {
+  if (PRESET_SET.has(preset)) return PRESET_I18N_KEYS[preset as GoogleManagerPreset];
+  return null;
+}
+
+export function googleManagerPresetLabel(
+  preset: string,
+  t?: (key: MessageKey) => string,
+): string {
+  const key = googleManagerPresetLabelKey(preset);
+  if (key && t) return t(key);
   if (PRESET_SET.has(preset)) return PRESET_LABELS[preset as GoogleManagerPreset];
   return preset;
 }

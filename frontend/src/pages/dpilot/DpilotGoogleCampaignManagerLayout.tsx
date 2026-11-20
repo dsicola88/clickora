@@ -184,7 +184,10 @@ export function DpilotGoogleCampaignManagerLayout() {
   );
 
   return (
-    <div className="mx-auto flex min-h-[min(900px,calc(100vh-120px))] w-full max-w-[1400px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm">
+    <div
+      data-no-i18n
+      className="mx-auto flex min-h-[min(900px,calc(100vh-120px))] w-full max-w-[1400px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm"
+    >
       <header className="flex flex-wrap items-center justify-between gap-3 bg-[#1a234e] px-4 py-3 text-white sm:px-5">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">

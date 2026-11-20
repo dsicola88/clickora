@@ -11,16 +11,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useGoogleManagerPrefs } from "@/hooks/useGoogleManagerPrefs";
+import {
+  GOOGLE_MANAGER_PRESETS,
+  googleManagerPresetLabelKey,
+} from "@/lib/googleManagerPrefs";
 import { formatUsdFromMicros } from "@/lib/paidAdsUi";
 import { paidAdsService } from "@/services/paidAdsService";
 
-const PRESETS = [
-  { value: "today", label: "Hoje" },
-  { value: "yesterday", label: "Ontem" },
-  { value: "last_7", label: "Últimos 7 dias" },
-  { value: "last_30", label: "Últimos 30 dias" },
-] as const;
+const TERM_PRESETS = GOOGLE_MANAGER_PRESETS.filter((p) =>
+  p === "today" || p === "yesterday" || p === "last_7" || p === "last_30",
+);
 
 type TermRow = NonNullable<
   Awaited<ReturnType<typeof paidAdsService.getGoogleAdsSearchTerms>>["data"]
@@ -35,6 +37,7 @@ export function DpilotGoogleSearchTermsPanel({
   campaignId: string;
   campaignName?: string;
 }) {
+  const { t } = useAppLocale();
   const { preset, setPreset } = useGoogleManagerPrefs(projectId);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -127,11 +130,14 @@ export function DpilotGoogleSearchTermsPanel({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {PRESETS.map((p) => (
-                <SelectItem key={p.value} value={p.value}>
-                  {p.label}
-                </SelectItem>
-              ))}
+              {TERM_PRESETS.map((p) => {
+                const key = googleManagerPresetLabelKey(p);
+                return (
+                  <SelectItem key={p} value={p}>
+                    {key ? t(key) : p}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
           <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>

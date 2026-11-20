@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { fill, type MessageKey } from "@/i18n";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import {
   campaignStatusBadgeClass,
   campaignStatusLabel,
@@ -28,17 +30,18 @@ import {
 } from "@/lib/paidAdsUi";
 import { cn } from "@/lib/utils";
 import { useGoogleManagerPrefs } from "@/hooks/useGoogleManagerPrefs";
+import { GOOGLE_MANAGER_PRESETS, type GoogleManagerPreset } from "@/lib/googleManagerPrefs";
 import { paidAdsService } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 
-const PRESETS = [
-  { value: "today", label: "Hoje" },
-  { value: "yesterday", label: "Ontem" },
-  { value: "last_7", label: "Últimos 7 dias" },
-  { value: "last_30", label: "Últimos 30 dias" },
-  { value: "this_month", label: "Este mês" },
-  { value: "last_month", label: "Mês anterior" },
-] as const;
+const PRESET_KEYS: Record<GoogleManagerPreset, MessageKey> = {
+  today: "pages.dpilot.google.cm.presetToday",
+  yesterday: "pages.dpilot.google.cm.presetYesterday",
+  last_7: "pages.dpilot.google.cm.presetLast7",
+  last_30: "pages.dpilot.google.cm.presetLast30",
+  this_month: "pages.dpilot.google.cm.presetThisMonth",
+  last_month: "pages.dpilot.google.cm.presetLastMonth",
+};
 
 function fmtNum(n: number | null | undefined, digits = 0) {
   if (n == null || Number.isNaN(n)) return "—";
@@ -85,6 +88,7 @@ function KpiCard({
 }
 
 export function DpilotGoogleVisaoDashboard() {
+  const { t } = useAppLocale();
   const { projectId, reload, isConnConnected, overview, changeRequests } = useDpilotPaid();
   const { preset, setPreset } = useGoogleManagerPrefs(projectId);
   const [loading, setLoading] = useState(true);
@@ -129,7 +133,8 @@ export function DpilotGoogleVisaoDashboard() {
   const localOnly = Boolean(ov?.connection_error) || ov?.source === "local_only" || !networkOk;
   const connected = paidLinked;
   const metrics = ov?.metrics;
-  const presetLabel = PRESETS.find((p) => p.value === preset)?.label ?? preset;
+  const presetLabel =
+    preset in PRESET_KEYS ? t(PRESET_KEYS[preset as GoogleManagerPreset]) : preset;
 
   const linkedRows = useMemo(
     () =>
@@ -153,16 +158,16 @@ export function DpilotGoogleVisaoDashboard() {
   /** Captura colectiva = soma Clickora / soma Google nas campanhas importadas. */
   const captureAgg = useMemo(() => {
     let g = 0;
-    let t = 0;
+    let tClicks = 0;
     let withG = 0;
     for (const c of linkedRows) {
       if (c.google_clicks == null) continue;
       withG += 1;
       g += c.google_clicks;
-      t += c.tracking_clicks ?? 0;
+      tClicks += c.tracking_clicks ?? 0;
     }
     if (withG === 0 || g <= 0) return null;
-    return { google: g, tracking: t, ratio: t / g };
+    return { google: g, tracking: tClicks, ratio: tClicks / g };
   }, [linkedRows]);
 
   const importedRollup = useMemo(() => {
@@ -213,11 +218,13 @@ export function DpilotGoogleVisaoDashboard() {
     ov?.range?.from && ov?.range?.to ? `${ov.range.from} → ${ov.range.to}` : presetLabel;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-no-i18n>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight text-slate-900">Visão geral</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+              {t("pages.dpilot.google.cm.visao.title")}
+            </h1>
             <Badge
               className={
                 networkOk
@@ -228,13 +235,17 @@ export function DpilotGoogleVisaoDashboard() {
               }
               variant="outline"
             >
-              {networkOk ? "Rede OK" : connected ? "Só rascunhos locais" : "Por sincronizar"}
+              {networkOk
+                ? t("pages.dpilot.google.cm.visao.networkOk")
+                : connected
+                  ? t("pages.dpilot.google.cm.visao.localDraftsOnly")
+                  : t("pages.dpilot.google.cm.visao.pendingSync")}
             </Badge>
           </div>
           <p className="mt-1 text-sm text-slate-500">
             {networkOk
-              ? `${rangeLabel} · métricas da conta Google Ads`
-              : `${rangeLabel} · contagens locais neste projecto (ainda sem inventário Google)`}
+              ? fill(t("pages.dpilot.google.cm.visao.metricsFromGoogle"), { range: rangeLabel })
+              : fill(t("pages.dpilot.google.cm.visao.metricsLocalOnly"), { range: rangeLabel })}
             {ov?.account?.customer_id
               ? ` · ${ov.account.account_name || ov.account.customer_id.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3")}`
               : ""}
@@ -242,13 +253,16 @@ export function DpilotGoogleVisaoDashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={preset} onValueChange={setPreset}>
-            <SelectTrigger className="w-[180px] border-slate-200" aria-label="Período">
-              <SelectValue placeholder="Período" />
+            <SelectTrigger
+              className="w-[180px] border-slate-200"
+              aria-label={t("pages.dpilot.google.cm.periodAria")}
+            >
+              <SelectValue placeholder={t("pages.dpilot.google.cm.periodAria")} />
             </SelectTrigger>
             <SelectContent>
-              {PRESETS.map((p) => (
-                <SelectItem key={p.value} value={p.value}>
-                  {p.label}
+              {GOOGLE_MANAGER_PRESETS.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {t(PRESET_KEYS[p])}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -267,10 +281,14 @@ export function DpilotGoogleVisaoDashboard() {
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
           <Button size="sm" variant="outline" className="border-slate-200" asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/google/conversoes`}>Conversões</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/google/conversoes`}>
+              {t("pages.dpilot.google.cm.visao.conversions")}
+            </Link>
           </Button>
           <Button size="sm" className="bg-[#1a73e8] hover:bg-[#1557b0]" asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>
+              {t("pages.dpilot.google.cm.visao.newCampaign")}
+            </Link>
           </Button>
         </div>
       </div>
@@ -278,11 +296,11 @@ export function DpilotGoogleVisaoDashboard() {
       {!connected ? (
         <Card className="border-amber-200 bg-amber-50/50 shadow-none">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-            <p className="text-sm text-amber-950">
-              Sincronize a conta de Integrações para ver investimento, cliques e conversões reais.
-            </p>
+            <p className="text-sm text-amber-950">{t("pages.dpilot.google.cm.visao.syncPrompt")}</p>
             <Button size="sm" variant="outline" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/google`}>Configurações / sync</Link>
+              <Link to={`/tracking/dpilot/p/${projectId}/google`}>
+                {t("pages.dpilot.google.cm.visao.settingsSync")}
+              </Link>
             </Button>
           </CardContent>
         </Card>
@@ -294,11 +312,12 @@ export function DpilotGoogleVisaoDashboard() {
             <Card className="border-red-200/80 bg-red-50/40 shadow-none">
               <CardContent className="flex flex-wrap items-center justify-between gap-2 py-3">
                 <p className="text-xs leading-relaxed text-red-950">
-                  <span className="font-semibold">{funnelRisk} campanha(s)</span> com captura &lt; 50% (Google →
-                  Clickora).
+                  {fill(t("pages.dpilot.google.cm.visao.funnelRisk"), { n: funnelRisk })}
                 </p>
                 <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-                  <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Ver campanhas</Link>
+                  <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>
+                    {t("pages.dpilot.google.cm.visao.viewCampaigns")}
+                  </Link>
                 </Button>
               </CardContent>
             </Card>
@@ -307,11 +326,15 @@ export function DpilotGoogleVisaoDashboard() {
             <Card className="border-amber-200/80 bg-amber-50/40 shadow-none">
               <CardContent className="flex flex-wrap items-center justify-between gap-2 py-3">
                 <p className="text-xs leading-relaxed text-amber-950">
-                  Final URL: <span className="font-semibold">{urlTotals.critical}</span> crítica(s) ·{" "}
-                  {urlTotals.warn} aviso(s).
+                  {fill(t("pages.dpilot.google.cm.visao.finalUrlIssues"), {
+                    critical: urlTotals.critical,
+                    warn: urlTotals.warn,
+                  })}
                 </p>
                 <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-                  <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Reparar em Campanhas</Link>
+                  <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>
+                    {t("pages.dpilot.google.cm.visao.repairInCampaigns")}
+                  </Link>
                 </Button>
               </CardContent>
             </Card>
@@ -329,66 +352,80 @@ export function DpilotGoogleVisaoDashboard() {
         <div className="space-y-2">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-              {localOnly ? "Contagens locais" : "Conta Google (colectivo)"}
+              {localOnly
+                ? t("pages.dpilot.google.cm.visao.localCounts")
+                : t("pages.dpilot.google.cm.visao.googleAccountCollective")}
             </p>
-            <p className="text-[11px] text-slate-400">
-              <span className="font-semibold tabular-nums text-slate-600">—</span> = sem dados no período
-              (não é zero)
-            </p>
+            <p className="text-[11px] text-slate-400">{t("pages.dpilot.google.cm.visao.dashMeansNoData")}</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
             {localOnly ? (
               <>
-                <KpiCard label="Na Google (lidas)" value="—" />
-                <KpiCard label="Rascunhos neste projecto" value={fmtNum(draftCount)} />
+                <KpiCard label={t("pages.dpilot.google.cm.visao.onGoogleRead")} value="—" />
                 <KpiCard
-                  label="IDs importados (não verificados)"
+                  label={t("pages.dpilot.google.cm.visao.draftsInProject")}
+                  value={fmtNum(draftCount)}
+                />
+                <KpiCard
+                  label={t("pages.dpilot.google.cm.visao.importedIdsUnverified")}
                   value={fmtNum(ov?.counts?.campaigns_linked)}
                 />
               </>
             ) : (
               <>
                 <KpiCard
-                  label="Campanhas importadas"
+                  label={t("pages.dpilot.google.cm.visao.importedCampaigns")}
                   value={fmtNum(ov?.counts?.campaigns_linked ?? ov?.counts?.campaigns_total)}
-                  hint={`${fmtNum(ov?.counts?.campaigns_live)} ativas · ${fmtNum(ov?.counts?.campaigns_paused)} pausadas`}
+                  hint={fill(t("pages.dpilot.google.cm.visao.livePausedHint"), {
+                    live: fmtNum(ov?.counts?.campaigns_live),
+                    paused: fmtNum(ov?.counts?.campaigns_paused),
+                  })}
                 />
-                <KpiCard label="Impressões" value={metrics ? fmtNum(metrics.impressions) : "—"} />
-                <KpiCard label="Cliques" value={metrics ? fmtNum(metrics.clicks) : "—"} />
-                <KpiCard label="CTR" value={metrics ? fmtPct(metrics.ctr) : "—"} />
                 <KpiCard
-                  label="CPC médio"
+                  label={t("pages.dpilot.google.cm.visao.impressions")}
+                  value={metrics ? fmtNum(metrics.impressions) : "—"}
+                />
+                <KpiCard
+                  label={t("pages.dpilot.google.cm.visao.clicks")}
+                  value={metrics ? fmtNum(metrics.clicks) : "—"}
+                />
+                <KpiCard
+                  label={t("pages.dpilot.google.cm.visao.ctr")}
+                  value={metrics ? fmtPct(metrics.ctr) : "—"}
+                />
+                <KpiCard
+                  label={t("pages.dpilot.google.cm.visao.avgCpc")}
                   value={metrics ? formatUsdFromMicros(metrics.average_cpc_micros) : "—"}
                 />
               </>
             )}
             <KpiCard
-              label="Investimento"
+              label={t("pages.dpilot.google.cm.visao.spend")}
               value={metrics ? formatUsdFromMicros(metrics.cost_micros) : "—"}
             />
-            <KpiCard label="Conversões" value={metrics ? fmtNum(metrics.conversions, 1) : "—"} />
             <KpiCard
-              label="Custo / conv."
+              label={t("pages.dpilot.google.cm.visao.conversions")}
+              value={metrics ? fmtNum(metrics.conversions, 1) : "—"}
+            />
+            <KpiCard
+              label={t("pages.dpilot.google.cm.visao.costPerConv")}
               value={metrics ? formatUsdFromMicros(metrics.cost_per_conversion_micros) : "—"}
             />
             <KpiCard
-              label="ROAS"
+              label={t("pages.dpilot.google.cm.visao.roas")}
               value={metrics && metrics.roas > 0 ? fmtNum(metrics.roas, 2) : "—"}
             />
             <KpiCard
-              label="Captura (Clickora / Google)"
-              value={
-                captureAgg
-                  ? fmtPct(captureAgg.ratio, 0)
-                  : networkOk
-                    ? "—"
-                    : "—"
-              }
+              label={t("pages.dpilot.google.cm.visao.capture")}
+              value={captureAgg ? fmtPct(captureAgg.ratio, 0) : "—"}
               hint={
                 captureAgg
-                  ? `${fmtNum(captureAgg.tracking)} / ${fmtNum(captureAgg.google)} cliques · campanhas importadas`
+                  ? fill(t("pages.dpilot.google.cm.visao.captureHint"), {
+                      tracking: fmtNum(captureAgg.tracking),
+                      google: fmtNum(captureAgg.google),
+                    })
                   : networkOk
-                    ? "Sem cliques Google no período nas importadas"
+                    ? t("pages.dpilot.google.cm.visao.noGoogleClicks")
                     : undefined
               }
               tone={
@@ -404,9 +441,12 @@ export function DpilotGoogleVisaoDashboard() {
           </div>
           {networkOk && importedRollup ? (
             <p className="text-[11px] text-slate-500">
-              Soma das importadas: {fmtNum(importedRollup.impressions)} impr. · {fmtNum(importedRollup.clicks)}{" "}
-              cliques · {formatUsdFromMicros(importedRollup.cost)} · {fmtNum(importedRollup.conv, 1)} conv. — pode
-              diferir ligeiramente do total da conta se nem todas as campanhas estiverem importadas.
+              {fill(t("pages.dpilot.google.cm.visao.importedSum"), {
+                impr: fmtNum(importedRollup.impressions),
+                clicks: fmtNum(importedRollup.clicks),
+                cost: formatUsdFromMicros(importedRollup.cost),
+                conv: fmtNum(importedRollup.conv, 1),
+              })}
             </p>
           ) : null}
         </div>
@@ -414,15 +454,19 @@ export function DpilotGoogleVisaoDashboard() {
 
       <Card className="border-slate-200/90 shadow-none">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-base font-semibold text-slate-900">Top campanhas por custo</CardTitle>
-          <span className="text-xs text-slate-500">{presetLabel} · importadas</span>
+          <CardTitle className="text-base font-semibold text-slate-900">
+            {t("pages.dpilot.google.cm.visao.topByCost")}
+          </CardTitle>
+          <span className="text-xs text-slate-500">
+            {fill(t("pages.dpilot.google.cm.visao.importedSuffix"), { preset: presetLabel })}
+          </span>
         </CardHeader>
         <CardContent className="h-56 pt-2">
           {loading ? (
             <Skeleton className="h-full w-full" />
           ) : chartData.length === 0 ? (
             <p className="flex h-full items-center justify-center text-sm text-slate-500">
-              Sem custo no período nas campanhas importadas.
+              {t("pages.dpilot.google.cm.visao.noCostInPeriod")}
             </p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
@@ -441,10 +485,10 @@ export function DpilotGoogleVisaoDashboard() {
                   }
                   formatter={(value: number, name: string) =>
                     name === "investimento"
-                      ? [`$${Number(value).toFixed(2)}`, "Investimento"]
+                      ? [`$${Number(value).toFixed(2)}`, t("pages.dpilot.google.cm.visao.chartSpend")]
                       : name === "cliques"
-                        ? [fmtNum(value), "Cliques"]
-                        : [fmtNum(value, 1), "Conversões"]
+                        ? [fmtNum(value), t("pages.dpilot.google.cm.visao.chartClicks")]
+                        : [fmtNum(value, 1), t("pages.dpilot.google.cm.visao.chartConversions")]
                   }
                 />
                 <Bar dataKey="investimento" fill="#1a73e8" radius={[4, 4, 0, 0]} maxBarSize={48} />
@@ -458,25 +502,28 @@ export function DpilotGoogleVisaoDashboard() {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div>
             <CardTitle className="text-base font-semibold text-slate-900">
-              {localOnly ? "Inventário Google" : "Desempenho por campanha"}
+              {localOnly
+                ? t("pages.dpilot.google.cm.visao.inventoryGoogle")
+                : t("pages.dpilot.google.cm.visao.performanceByCampaign")}
             </CardTitle>
             {localOnly ? (
               <p className="mt-1 text-xs text-amber-800/90">
-                A rede não respondeu — não listamos rascunhos deste projecto como se fossem da conta{" "}
-                {ov?.account?.customer_id ?? "Google"}. Use «Re-sincronizar e importar» em Campanhas.
+                {fill(t("pages.dpilot.google.cm.visao.inventoryOfflineHint"), {
+                  account: ov?.account?.customer_id ?? "Google",
+                })}
                 {draftCount > 0
-                  ? ` (${draftCount} rascunho${draftCount === 1 ? "" : "s"} só neste projecto.)`
+                  ? fill(t("pages.dpilot.google.cm.visao.draftsCount"), { n: draftCount })
                   : ""}
               </p>
             ) : (
-              <p className="mt-1 text-xs text-slate-500">
-                Ordenado por custo · Google vs Clickora na mesma linha
-              </p>
+              <p className="mt-1 text-xs text-slate-500">{t("pages.dpilot.google.cm.visao.sortedByCost")}</p>
             )}
           </div>
           <Button variant="link" className="h-auto p-0 text-[#1a73e8]" asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>
-              {localOnly ? "Importar da Google" : "Ver todas"}
+              {localOnly
+                ? t("pages.dpilot.google.cm.visao.importFromGoogle")
+                : t("pages.dpilot.google.cm.visao.viewAll")}
             </Link>
           </Button>
         </CardHeader>
@@ -489,21 +536,33 @@ export function DpilotGoogleVisaoDashboard() {
           ) : list.length === 0 ? (
             <p className="px-6 py-6 text-sm text-slate-500">
               {localOnly
-                ? "Nenhuma campanha da Google confirmada. Os rascunhos ficam em Campanhas → «Só neste projecto»."
-                : "Ainda não há campanhas Google importadas neste projecto."}
+                ? t("pages.dpilot.google.cm.visao.emptyLocalInventory")
+                : t("pages.dpilot.google.cm.visao.emptyImported")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wide text-slate-500">
-                    <th className="px-6 py-2 font-medium">Campanha</th>
-                    <th className="px-2 py-2 font-medium text-right">Impr.</th>
-                    <th className="px-2 py-2 font-medium text-right">Cliques</th>
-                    <th className="px-2 py-2 font-medium text-right">CTR</th>
-                    <th className="px-2 py-2 font-medium text-right">Custo</th>
-                    <th className="px-2 py-2 font-medium text-right">Conv.</th>
-                    <th className="px-6 py-2 font-medium text-right">Captura</th>
+                    <th className="px-6 py-2 font-medium">{t("pages.dpilot.google.cm.visao.colCampaign")}</th>
+                    <th className="px-2 py-2 font-medium text-right">
+                      {t("pages.dpilot.google.cm.visao.colImpr")}
+                    </th>
+                    <th className="px-2 py-2 font-medium text-right">
+                      {t("pages.dpilot.google.cm.visao.colClicks")}
+                    </th>
+                    <th className="px-2 py-2 font-medium text-right">
+                      {t("pages.dpilot.google.cm.visao.colCtr")}
+                    </th>
+                    <th className="px-2 py-2 font-medium text-right">
+                      {t("pages.dpilot.google.cm.visao.colCost")}
+                    </th>
+                    <th className="px-2 py-2 font-medium text-right">
+                      {t("pages.dpilot.google.cm.visao.colConv")}
+                    </th>
+                    <th className="px-6 py-2 font-medium text-right">
+                      {t("pages.dpilot.google.cm.visao.colCapture")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -547,16 +606,23 @@ export function DpilotGoogleVisaoDashboard() {
                               <Link
                                 to={`/tracking/dpilot/p/${projectId}/google/aprovacoes?campaign=${c.id}`}
                                 className="inline-flex shrink-0"
-                                title="Pedidos pendentes em Aprovações"
-                                aria-label={`Fila de aprovações: ${pendingN} pendente(s)`}
+                                title={t("pages.dpilot.google.cm.visao.queuePendingTitle")}
+                                aria-label={fill(t("pages.dpilot.google.cm.visao.queuePendingAria"), {
+                                  n: pendingN,
+                                })}
                               >
-                                <Badge variant="secondary" className="h-5 font-normal text-[10px] hover:bg-secondary/80">
-                                  Fila {pendingN}
+                                <Badge
+                                  variant="secondary"
+                                  className="h-5 font-normal text-[10px] hover:bg-secondary/80"
+                                >
+                                  {fill(t("pages.dpilot.google.cm.visao.queueBadge"), { n: pendingN })}
                                 </Badge>
                               </Link>
                             ) : null}
                             {localDraftLinked ? (
-                              <span className="text-[10px] text-amber-800">Local: rascunho</span>
+                              <span className="text-[10px] text-amber-800">
+                                {t("pages.dpilot.google.cm.visao.localDraft")}
+                              </span>
                             ) : null}
                           </div>
                         </td>
@@ -581,7 +647,7 @@ export function DpilotGoogleVisaoDashboard() {
                               className="text-xs font-medium text-red-700"
                               title={`Clickora ${fmtNum(c.tracking_clicks)} / Google ${fmtNum(c.google_clicks)}`}
                             >
-                              {capturePct ?? "Risco"}
+                              {capturePct ?? t("pages.dpilot.google.cm.visao.risk")}
                             </span>
                           ) : capturePct ? (
                             <span

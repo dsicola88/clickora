@@ -14,19 +14,26 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useGoogleManagerPrefs, GOOGLE_MANAGER_ALL_CAMPAIGNS } from "@/hooks/useGoogleManagerPrefs";
+import {
+  GOOGLE_MANAGER_PRESETS,
+  googleManagerPresetLabelKey,
+  type GoogleManagerPreset,
+} from "@/lib/googleManagerPrefs";
 import { formatUsdFromMicros } from "@/lib/paidAdsUi";
 import { paidAdsService } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { Gate } from "./DpilotPaidPages";
 
-const PRESETS = [
-  { value: "today", label: "Hoje" },
-  { value: "yesterday", label: "Ontem" },
-  { value: "last_7", label: "Últimos 7 dias" },
-  { value: "last_30", label: "Últimos 30 dias" },
-  { value: "this_month", label: "Este mês" },
-] as const;
+const HUB_PRESETS = GOOGLE_MANAGER_PRESETS.filter(
+  (p): p is GoogleManagerPreset =>
+    p === "today" ||
+    p === "yesterday" ||
+    p === "last_7" ||
+    p === "last_30" ||
+    p === "this_month",
+);
 
 type TermRow = NonNullable<
   Awaited<ReturnType<typeof paidAdsService.getGoogleAdsProjectSearchTerms>>["data"]
@@ -37,6 +44,7 @@ function rowKey(t: Pick<TermRow, "campaign_id" | "search_term">) {
 }
 
 export function DpilotGoogleSearchTermsHubPage() {
+  const { t } = useAppLocale();
   const { projectId } = useDpilotPaid();
   const { preset, setPreset, campaignFilter, setCampaignFilter, ensureCampaignFilterValid } =
     useGoogleManagerPrefs(projectId);
@@ -204,15 +212,18 @@ export function DpilotGoogleSearchTermsHubPage() {
                 </SelectContent>
               </Select>
               <Select value={preset} onValueChange={setPreset}>
-                <SelectTrigger className="w-[170px]" aria-label="Período">
+                <SelectTrigger className="w-[170px]" aria-label={t("pages.dpilot.google.cm.periodAria")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {PRESETS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
+                  {HUB_PRESETS.map((p) => {
+                    const key = googleManagerPresetLabelKey(p);
+                    return (
+                      <SelectItem key={p} value={p}>
+                        {key ? t(key) : p}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               <Button

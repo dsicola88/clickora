@@ -49,7 +49,11 @@ import {
 } from "@/lib/paidAdsUi";
 import { syncGoogleAdsFromIntegrations } from "@/lib/googleAdsSync";
 import { useGoogleManagerPrefs, GOOGLE_MANAGER_ALL_CAMPAIGNS } from "@/hooks/useGoogleManagerPrefs";
-import { googleManagerPresetLabel } from "@/lib/googleManagerPrefs";
+import {
+  GOOGLE_MANAGER_PRESETS,
+  googleManagerPresetLabel,
+  googleManagerPresetLabelKey,
+} from "@/lib/googleManagerPrefs";
 import { GoogleAdsBudgetDialog } from "@/components/dpilot/GoogleAdsBudgetDialog";
 import { GoogleAdsDuplicateDialog } from "@/components/dpilot/GoogleAdsDuplicateDialog";
 import {
@@ -66,16 +70,6 @@ import { Gate } from "./DpilotPaidPages";
 import { DpilotGoogleSearchTermsPanel } from "./DpilotGoogleSearchTermsPanel";
 import { DpilotGoogleImportPanel } from "./DpilotGoogleImportPanel";
 
-const PRESETS = [
-  { value: "today", label: "Hoje" },
-  { value: "yesterday", label: "Ontem" },
-  { value: "last_7", label: "Últimos 7 dias" },
-  { value: "last_30", label: "Últimos 30 dias" },
-  { value: "this_month", label: "Este mês" },
-  { value: "last_month", label: "Mês anterior" },
-] as const;
-
-
 function fmtPct(n: number | null | undefined) {
   if (n == null || Number.isNaN(n)) return "—";
   return `${(n * 100).toFixed(2)}%`;
@@ -87,17 +81,21 @@ function fmtNum(n: number | null | undefined, digits = 0) {
 }
 
 function PeriodSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useAppLocale();
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-[200px]" aria-label="Período">
-        <SelectValue placeholder="Período" />
+      <SelectTrigger className="w-[200px]" aria-label={t("pages.dpilot.google.cm.periodAria")}>
+        <SelectValue placeholder={t("pages.dpilot.google.cm.periodAria")} />
       </SelectTrigger>
       <SelectContent>
-        {PRESETS.map((p) => (
-          <SelectItem key={p.value} value={p.value}>
-            {p.label}
-          </SelectItem>
-        ))}
+        {GOOGLE_MANAGER_PRESETS.map((p) => {
+          const key = googleManagerPresetLabelKey(p);
+          return (
+            <SelectItem key={p} value={p}>
+              {key ? t(key) : p}
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );
@@ -1721,6 +1719,7 @@ export function DpilotGoogleKeywordsPage() {
 }
 
 export function DpilotGoogleBudgetsPage() {
+  const { t } = useAppLocale();
   const { projectId, reload } = useDpilotPaid();
   const { preset, setPreset } = useGoogleManagerPrefs(projectId);
   const [loading, setLoading] = useState(true);
@@ -1816,7 +1815,7 @@ export function DpilotGoogleBudgetsPage() {
                   <TableHead>Campanha</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Orçamento/dia</TableHead>
-                  <TableHead>Custo ({googleManagerPresetLabel(preset)})</TableHead>
+                  <TableHead>Custo ({googleManagerPresetLabel(preset, t)})</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
