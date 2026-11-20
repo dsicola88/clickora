@@ -32,6 +32,7 @@ export async function duplicateGoogleSearchCampaignLocal(
       name: string;
       status: string;
       published_request_id?: string;
+      published_applied?: boolean;
       warnings: string[];
     }
   | { ok: false; error: string }
