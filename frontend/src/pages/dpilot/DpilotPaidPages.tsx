@@ -271,6 +271,7 @@ export function DpilotLigacoesPage() {
 }
 
 export function DpilotGooglePage() {
+  const { t } = useAppLocale();
   const { projectId, overview, isConnConnected, reload, connecting, disconnecting, startOAuth, disconnect } =
     useDpilotPaid();
   const [convReady, setConvReady] = useState<boolean | null>(null);
@@ -321,40 +322,46 @@ export function DpilotGooglePage() {
     void syncFromIntegrations({ silent: true });
   }, [convReady, paidOk, linking, syncFromIntegrations]);
 
+  const readyAccount =
+    (overview?.connection as { account_name?: string | null } | undefined)?.account_name ||
+    customerLabel ||
+    "Google Ads";
+
   return (
     <Gate>
+      <div data-no-i18n className="mt-0 space-y-4 max-w-xl">
       <PageHeader
-        title="Conta Google"
-        description="Uma ligação: Integrações → Google. O Studio sincroniza a mesma conta e as campanhas Search."
+        title={t("pages.dpilot.google.cm.settings.title")}
+        description={t("pages.dpilot.google.cm.settings.description")}
         actions={
           paidOk ? (
             <Button asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Ver campanhas</Link>
+              <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>
+                {t("pages.dpilot.google.cm.common.viewCampaigns")}
+              </Link>
             </Button>
           ) : null
         }
       />
-      <div className="mt-4 space-y-4 max-w-xl">
+      <div className="space-y-4">
         {!convReady ? (
           <Card className="border-amber-500/30">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Ligar a conta Google</CardTitle>
-              <CardDescription>
-                Faça isto uma vez em Integrações. Depois o Ads Studio usa a mesma conta — sem segundo «Ligar Google».
-              </CardDescription>
+              <CardTitle className="text-base">{t("pages.dpilot.google.cm.settings.connectTitle")}</CardTitle>
+              <CardDescription>{t("pages.dpilot.google.cm.settings.connectDesc")}</CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild>
-                <Link to="/integracoes/google-ads">Conectar a conta</Link>
+                <Link to="/integracoes/google-ads">{t("pages.dpilot.google.cm.settings.connectCta")}</Link>
               </Button>
             </CardContent>
           </Card>
         ) : !paidOk ? (
           <Card className="border-[#1a73e8]/25">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Sincronizar no Ads Studio</CardTitle>
+              <CardTitle className="text-base">{t("pages.dpilot.google.cm.settings.syncTitle")}</CardTitle>
               <CardDescription>
-                Conta {customerLabel} já ligada em Integrações. Um clique traz campanhas Search para trabalhar aqui.
+                {fill(t("pages.dpilot.google.cm.settings.syncDesc"), { customer: customerLabel ?? "—" })}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
@@ -362,10 +369,10 @@ export function DpilotGooglePage() {
                 {linking ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                    A sincronizar…
+                    {t("pages.dpilot.google.cm.settings.syncing")}
                   </>
                 ) : (
-                  "Usar esta conta e importar campanhas"
+                  t("pages.dpilot.google.cm.settings.useAndImport")
                 )}
               </Button>
               <Button
@@ -375,24 +382,23 @@ export function DpilotGooglePage() {
                 disabled={oauthBusy}
                 onClick={() => void startOAuth("google")}
               >
-                Autorizar outra conta Google…
+                {t("pages.dpilot.google.cm.settings.authorizeOther")}
               </Button>
             </CardContent>
           </Card>
         ) : (
           <Card className="border-emerald-500/25">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Conta pronta</CardTitle>
+              <CardTitle className="text-base">{t("pages.dpilot.google.cm.settings.readyTitle")}</CardTitle>
               <CardDescription>
-                {(overview?.connection as { account_name?: string | null } | undefined)?.account_name ||
-                  customerLabel ||
-                  "Google Ads"}{" "}
-                · vendas e gestão na mesma conta.
+                {fill(t("pages.dpilot.google.cm.settings.readyDesc"), { account: readyAccount })}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
               <Button asChild>
-                <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Abrir campanhas</Link>
+                <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>
+                  {t("pages.dpilot.google.cm.common.openCampaigns")}
+                </Link>
               </Button>
               <Button
                 type="button"
@@ -401,7 +407,7 @@ export function DpilotGooglePage() {
                 disabled={oauthBusy}
                 onClick={() => void syncFromIntegrations()}
               >
-                {linking ? <Loader2 className="h-4 w-4 animate-spin" /> : "Re-sincronizar / importar"}
+                {linking ? <Loader2 className="h-4 w-4 animate-spin" /> : t("pages.dpilot.google.cm.settings.resyncShort")}
               </Button>
               <Button
                 type="button"
@@ -410,11 +416,12 @@ export function DpilotGooglePage() {
                 disabled={oauthBusy}
                 onClick={() => void disconnect("google")}
               >
-                Desligar do Studio
+                {t("pages.dpilot.google.cm.settings.disconnectStudio")}
               </Button>
             </CardContent>
           </Card>
         )}
+      </div>
       </div>
     </Gate>
   );
@@ -944,14 +951,18 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold leading-snug">{title}</h3>
             <Badge variant="outline" className={cn("shrink-0", changeRequestStatusBadgeClass(cr.status))}>
-              {changeRequestStatusLabel(cr.status)}
+              {changeRequestStatusLabel(cr.status, t)}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            Pedido · {new Date(cr.created_at).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" })}
+            {fill(t("pages.dpilot.google.cm.approvals.cardRequestAt"), {
+              when: new Date(cr.created_at).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }),
+            })}
           </p>
           <Alert className="border-sky-500/30 bg-sky-500/[0.07]">
-            <AlertTitle className="text-xs font-semibold text-foreground">Porque está aqui</AlertTitle>
+            <AlertTitle className="text-xs font-semibold text-foreground">
+              {t("pages.dpilot.google.cm.approvals.cardWhyTitle")}
+            </AlertTitle>
             <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
               <ul className="mt-1.5 list-inside list-disc space-y-1 marker:text-sky-600/80">
                 {transparencyBullets.map((b) => (
@@ -964,20 +975,26 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm" variant="secondary" className="h-8">
                 <Link to={`/tracking/dpilot/p/${projectId}/campanhas/${editCampaignId}/google`}>
-                  Abrir estúdio da campanha
+                  {t("pages.dpilot.google.cm.approvals.openStudio")}
                 </Link>
               </Button>
               <Button asChild size="sm" variant="outline" className="h-8">
-                <Link to={`/tracking/dpilot/p/${projectId}/google/visao`}>Visão Google</Link>
+                <Link to={`/tracking/dpilot/p/${projectId}/google/visao`}>
+                  {t("pages.dpilot.google.cm.approvals.googleOverview")}
+                </Link>
               </Button>
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm" variant="outline" className="h-8">
-                <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Campanhas Google</Link>
+                <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>
+                  {t("pages.dpilot.google.cm.approvals.googleCampaigns")}
+                </Link>
               </Button>
               <Button asChild size="sm" variant="outline" className="h-8">
-                <Link to={`/tracking/dpilot/p/${projectId}/google/visao`}>Visão geral</Link>
+                <Link to={`/tracking/dpilot/p/${projectId}/google/visao`}>
+                  {t("pages.dpilot.google.cm.approvals.overview")}
+                </Link>
               </Button>
             </div>
           )}
@@ -993,7 +1010,9 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
           {guardrailMessages.length > 0 ? (
             <div className="space-y-2">
               <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-xs text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-50">
-                <p className="font-medium text-amber-950/90 dark:text-amber-50/95">Motivos da revisão (limites)</p>
+                <p className="font-medium text-amber-950/90 dark:text-amber-50/95">
+                  {t("pages.dpilot.google.cm.approvals.guardrailReasons")}
+                </p>
                 <ul className="mt-1 list-inside list-disc space-y-0.5">
                   {guardrailMessages.map((m, i) => (
                     <li key={`g-${i}-${m.slice(0, 32)}`}>{m}</li>
@@ -1142,11 +1161,11 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
                       })
                     }
                   >
-                    Aprovar
+                    {t("pages.dpilot.google.cm.approvals.approve")}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs text-left" side="bottom">
-                  Regista que aceita o plano no Clickora; ainda não publica na rede publicitária.
+                  {t("pages.dpilot.google.cm.approvals.approveTip")}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -1162,11 +1181,11 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
                       })
                     }
                   >
-                    Rejeitar
+                    {t("pages.dpilot.google.cm.common.reject")}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs text-left" side="bottom">
-                  Fecha o pedido sem aplicar alterações na conta Google / Meta / TikTok.
+                  {t("pages.dpilot.google.cm.approvals.rejectTip")}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -1181,11 +1200,11 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
                       })
                     }
                   >
-                    Aplicar na rede
+                    {t("pages.dpilot.google.cm.approvals.applyNetwork")}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs text-left" side="bottom">
-                  Envia este plano para a API da rede e tenta criar ou actualizar recursos na conta ligada.
+                  {t("pages.dpilot.google.cm.approvals.applyNetworkTip")}
                 </TooltipContent>
               </Tooltip>
             </>
@@ -1203,11 +1222,11 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
                       })
                     }
                   >
-                    Aplicar na rede
+                    {t("pages.dpilot.google.cm.approvals.applyNetwork")}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs text-left" side="bottom">
-                  Publicação efectiva na conta — utilize quando já validou o plano apresentado acima.
+                  {t("pages.dpilot.google.cm.approvals.applyNetworkApprovedTip")}
                 </TooltipContent>
               </Tooltip>
               <Button
@@ -1221,7 +1240,7 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
                   })
                 }
               >
-                Arquivar pedido
+                {t("pages.dpilot.google.cm.approvals.archiveRequest")}
               </Button>
             </div>
           ) : cr.status === "failed" ? (
@@ -1238,11 +1257,11 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
                       })
                     }
                   >
-                    Tentar «Aplicar na rede» de novo
+                    {t("pages.dpilot.google.cm.approvals.retryApply")}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs text-left" side="bottom">
-                  Depois de corrigir o rascunho (limites ou campanha), volte a enviar para a API da rede.
+                  {t("pages.dpilot.google.cm.approvals.retryTip")}
                 </TooltipContent>
               </Tooltip>
               <Button
@@ -1256,7 +1275,7 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
                   })
                 }
               >
-                Arquivar pedido
+                {t("pages.dpilot.google.cm.approvals.archiveRequest")}
               </Button>
               <DpilotChangeRequestPurgeButton changeRequestId={cr.id} reload={reload} />
             </div>
@@ -1298,8 +1317,12 @@ export function DpilotAprovacoesPage() {
   }, [campaignFocus, p.campaigns]);
   const { reviewBusyChangeRequestId, projectId, overview, campaigns, reload } = p;
 
+  const scopedCount = scoped.length;
+  const filterCountSuffix = scopedCount === 0 ? t("pages.dpilot.google.cm.approvals.filterNone") : fill(t("pages.dpilot.google.cm.approvals.filterCount"), { n: scopedCount });
+
   return (
     <Gate>
+      <div data-no-i18n>
       <PageHeader
         title={t("pages.dpilot.hub.approvalsTitle")}
         description={t("pages.dpilot.hub.approvalsDesc")}
@@ -1314,14 +1337,13 @@ export function DpilotAprovacoesPage() {
       {campaignFocus ? (
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
           <span>
-            A filtrar pedidos da campanha{" "}
-            <span className="font-medium text-foreground">
-              {focusName ?? campaignFocus.slice(0, 8) + "…"}
-            </span>
-            {scoped.length === 0 ? " — nenhum na fila." : ` (${scoped.length})`}
+            {fill(t("pages.dpilot.google.cm.approvals.filterBanner"), {
+              name: focusName ?? campaignFocus.slice(0, 8) + "…",
+              count: filterCountSuffix,
+            })}
           </span>
           <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>Ver todos</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>{t("pages.dpilot.google.cm.approvals.viewAll")}</Link>
           </Button>
         </div>
       ) : null}
@@ -1333,7 +1355,7 @@ export function DpilotAprovacoesPage() {
           className="h-8"
           onClick={() => setQueueView("actionable")}
         >
-          A tratar ({actionable.length})
+          {fill(t("pages.dpilot.google.cm.approvals.tabActionable"), { n: actionable.length })}
         </Button>
         <Button
           type="button"
@@ -1342,7 +1364,7 @@ export function DpilotAprovacoesPage() {
           className="h-8"
           onClick={() => setQueueView("history")}
         >
-          Histórico ({history.length})
+          {fill(t("pages.dpilot.google.cm.approvals.tabHistory"), { n: history.length })}
         </Button>
       </div>
       <Card className="mt-4">
@@ -1351,9 +1373,9 @@ export function DpilotAprovacoesPage() {
             <p className="text-sm text-muted-foreground leading-relaxed">
               {queueView === "actionable"
                 ? campaignFocus
-                  ? "Nada a tratar nesta campanha. Veja o histórico ou «Ver todos»."
-                  : "Nada a tratar. Novas criações e pedidos da equipa aparecem aqui."
-                : "Sem pedidos no histórico deste filtro."}
+                  ? t("pages.dpilot.google.cm.approvals.emptyActionableFocus")
+                  : t("pages.dpilot.google.cm.approvals.emptyActionable")
+                : t("pages.dpilot.google.cm.approvals.emptyHistory")}
             </p>
           ) : (
             <div className="space-y-4">
@@ -1373,6 +1395,7 @@ export function DpilotAprovacoesPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </Gate>
   );
 }

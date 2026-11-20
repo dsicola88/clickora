@@ -1,4 +1,6 @@
 /** English — source of truth for app i18n keys (en / pt / pt-BR must match). */
+import { cmOpsEn } from "./fragments/cmOps.en";
+
 export const en = {
   language: {
     label: "Language",
@@ -2973,6 +2975,7 @@ export const en = {
             chartClicks: "Clicks",
             chartConversions: "Conversions",
           },
+          ...cmOpsEn,
         },
         studio: {
           loadFailed: "Could not load the studio.",

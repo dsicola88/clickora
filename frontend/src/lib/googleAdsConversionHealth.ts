@@ -3,6 +3,22 @@
  * Sem inventar eventos — só classifica estado a partir de settings + sync ledger.
  */
 
+import type { MessageKey } from "@/i18n";
+
+type Translator = (key: MessageKey) => string;
+
+const SYNC_I18N = {
+  sent: "pages.dpilot.google.cm.status.syncLabel.sent",
+  direct: "pages.dpilot.google.cm.status.syncLabel.direct",
+  csv: "pages.dpilot.google.cm.status.syncLabel.csv",
+  restated: "pages.dpilot.google.cm.status.syncLabel.restated",
+  retracted: "pages.dpilot.google.cm.status.syncLabel.retracted",
+  failed: "pages.dpilot.google.cm.status.syncLabel.failed",
+  pending: "pages.dpilot.google.cm.status.syncLabel.pending",
+  noGclid: "pages.dpilot.google.cm.status.syncLabel.noGclid",
+  disabled: "pages.dpilot.google.cm.status.syncLabel.disabled",
+} as const satisfies Record<string, MessageKey>;
+
 export function normalizeGoogleCustomerId(id: string | null | undefined): string {
   return String(id ?? "").replace(/\D/g, "");
 }
@@ -83,18 +99,20 @@ export function conversionFunnelStatus(opts: {
   return "ready";
 }
 
-export function googleAdsSyncShortLabel(sync: string | null | undefined): string {
+export function googleAdsSyncShortLabel(sync: string | null | undefined, t?: Translator): string {
   const b = bucketGoogleAdsSync(sync);
   if (b === "ok") {
-    if (sync === "skipped_direct_upload" || sync === "skipped_ads_direct") return "Directo";
-    if (sync === "skipped_offline_csv_import") return "CSV";
-    if (sync === "restated") return "Restated";
-    if (sync === "retracted") return "Retracted";
-    return "Enviado";
+    if (sync === "skipped_direct_upload" || sync === "skipped_ads_direct") {
+      return t?.(SYNC_I18N.direct) ?? "Directo";
+    }
+    if (sync === "skipped_offline_csv_import") return t?.(SYNC_I18N.csv) ?? "CSV";
+    if (sync === "restated") return t?.(SYNC_I18N.restated) ?? "Restated";
+    if (sync === "retracted") return t?.(SYNC_I18N.retracted) ?? "Retracted";
+    return t?.(SYNC_I18N.sent) ?? "Enviado";
   }
-  if (b === "failed") return "Falhou";
-  if (b === "pending") return "Pendente";
-  if (b === "no_gclid") return "Sem gclid";
-  if (b === "disabled") return "Off / sem config";
+  if (b === "failed") return t?.(SYNC_I18N.failed) ?? "Falhou";
+  if (b === "pending") return t?.(SYNC_I18N.pending) ?? "Pendente";
+  if (b === "no_gclid") return t?.(SYNC_I18N.noGclid) ?? "Sem gclid";
+  if (b === "disabled") return t?.(SYNC_I18N.disabled) ?? "Off / sem config";
   return sync || "—";
 }

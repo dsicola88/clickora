@@ -1,4 +1,6 @@
 /** Auto-synced leaf-key parity with en.ts — do not drop keys. */
+import { cmOpsPt } from "./fragments/cmOps.pt";
+
 export const pt = {
   "language": {
     "label": "Idioma",
@@ -2933,6 +2935,7 @@ export const pt = {
             "chartClicks": "Cliques",
             "chartConversions": "Conversões",
           },
+          ...cmOpsPt,
         },
         "studio": {
           "loadFailed": "Não foi possível carregar o estúdio.",

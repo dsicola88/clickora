@@ -1,4 +1,6 @@
 /** Auto-synced leaf-key parity with en.ts — do not drop keys. */
+import { cmOpsEs } from "./fragments/cmOps.es";
+
 export const es = {
   "language": {
     "label": "Idioma",
@@ -2933,6 +2935,7 @@ export const es = {
             "chartClicks": "Clics",
             "chartConversions": "Conversiones",
           },
+          ...cmOpsEs,
         },
         "studio": {
           "loadFailed": "No se pudo cargar el estudio.",

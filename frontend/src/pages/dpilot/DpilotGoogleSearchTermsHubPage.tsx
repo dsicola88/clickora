@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { fill } from "@/i18n";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { useGoogleManagerPrefs, GOOGLE_MANAGER_ALL_CAMPAIGNS } from "@/hooks/useGoogleManagerPrefs";
 import {
@@ -138,10 +139,18 @@ export function DpilotGoogleSearchTermsHubPage() {
     if (items.length === 0) return;
     const termCount = items.reduce((s, i) => s + i.terms.length, 0);
     const matchLabel =
-      matchType === "exact" ? "igual ao termo" : matchType === "broad" ? "qualquer pesquisa semelhante" : "frase com o termo";
+      matchType === "exact"
+        ? t("pages.dpilot.google.cm.terms.matchLabelExact")
+        : matchType === "broad"
+          ? t("pages.dpilot.google.cm.terms.matchLabelBroad")
+          : t("pages.dpilot.google.cm.terms.matchLabelPhrase");
     if (
       !window.confirm(
-        `Bloquear ${termCount} termo(s) em ${items.length} campanha(s)?\n\nModo: ${matchLabel}.\nComo dono, aplica já na Google; outros membros vão a Aprovações.`,
+        fill(t("pages.dpilot.google.cm.terms.confirmBatch"), {
+          terms: termCount,
+          campaigns: items.length,
+          match: matchLabel,
+        }),
       )
     ) {
       return;
@@ -157,53 +166,63 @@ export function DpilotGoogleSearchTermsHubPage() {
       return;
     }
     if (!data?.added) {
-      toast.success("Estes termos já estavam bloqueados");
+      toast.success(t("pages.dpilot.google.cm.terms.toastAlreadyBlocked"));
     } else if (data.failed) {
       toast.message(
-        `${data.added} termo(s) processados; ${data.failed} campanha(s) falharam — veja Aprovações.`,
+        fill(t("pages.dpilot.google.cm.terms.toastPartialFail"), { added: data.added, failed: data.failed }),
       );
     } else if ((data.applied ?? 0) > 0 && (data.pending ?? 0) === 0) {
-      toast.success(`${data.added} termo(s) bloqueados na Google (${items.length} campanha(s)).`);
+      toast.success(
+        fill(t("pages.dpilot.google.cm.terms.toastApplied"), { added: data.added, campaigns: items.length }),
+      );
     } else if ((data.pending ?? 0) > 0) {
       toast.message(
-        `${data.added} termo(s) · ${data.applied ?? 0} aplicados · ${data.pending} pendentes em Aprovações.`,
+        fill(t("pages.dpilot.google.cm.terms.toastPending"), {
+          added: data.added,
+          applied: data.applied ?? 0,
+          pending: data.pending,
+        }),
       );
     } else {
-      toast.message(`${data.added} termo(s) processados em ${items.length} campanha(s).`);
+      toast.message(
+        fill(t("pages.dpilot.google.cm.terms.toastProcessed"), { added: data.added, campaigns: items.length }),
+      );
     }
     void load();
   };
 
   return (
     <Gate>
+      <div data-no-i18n>
       <div className="relative overflow-hidden rounded-xl border border-[#1a73e8]/25 bg-gradient-to-br from-[#1a73e8]/10 via-background to-background p-5 sm:p-6">
         <PageHeader
           title={
             <span className="flex flex-wrap items-center gap-2.5">
               <Search className="h-7 w-7 text-[#1a73e8]" aria-hidden />
-              <span>Termos de pesquisa</span>
+              <span>{t("pages.dpilot.google.cm.terms.title")}</span>
               <Badge
                 aria-hidden
                 className="border border-[#1a73e8]/30 bg-[#1a73e8]/15 font-normal text-[#1a73e8] hover:bg-[#1a73e8]/15"
               >
-                Projecto
+                {t("pages.dpilot.google.cm.terms.badgeProject")}
               </Badge>
             </span>
           }
           description={
             <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              O que as pessoas pesquisaram antes de clicar. Escolha uma campanha no filtro (ou «Todas»),
-              marque o que gasta mal e bloqueie — sem abrir o Google Ads. A lander não muda.
+              {t("pages.dpilot.google.cm.terms.description")}
             </p>
           }
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Select value={campaignFilter} onValueChange={setCampaignFilter}>
-                <SelectTrigger className="w-[220px]" aria-label="Filtrar por campanha">
-                  <SelectValue placeholder="Campanha" />
+                <SelectTrigger className="w-[220px]" aria-label={t("pages.dpilot.google.cm.common.filterByCampaignAria")}>
+                  <SelectValue placeholder={t("pages.dpilot.google.cm.common.campaign")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={GOOGLE_MANAGER_ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
+                  <SelectItem value={GOOGLE_MANAGER_ALL_CAMPAIGNS}>
+                    {t("pages.dpilot.google.cm.common.allCampaigns")}
+                  </SelectItem>
                   {campaignOptions.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
@@ -232,7 +251,7 @@ export function DpilotGoogleSearchTermsHubPage() {
                 size="sm"
                 onClick={() => setWasteOnly((v) => !v)}
               >
-                Só o que gasta mal
+                {t("pages.dpilot.google.cm.terms.wasteOnly")}
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -245,7 +264,7 @@ export function DpilotGoogleSearchTermsHubPage() {
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Termos</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.terms.kpiTerms")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold tracking-tight">{totals?.rows ?? "—"}</p>
@@ -253,7 +272,7 @@ export function DpilotGoogleSearchTermsHubPage() {
         </Card>
         <Card className="border-amber-500/25 bg-amber-500/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Gastam e quase não vendem</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.terms.kpiWaste")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold tracking-tight text-amber-800 dark:text-amber-200">
@@ -263,7 +282,7 @@ export function DpilotGoogleSearchTermsHubPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Campanhas com termos</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.terms.kpiCampaignsWithTerms")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold tracking-tight">{totals?.campaigns_with_terms ?? "—"}</p>
@@ -271,7 +290,7 @@ export function DpilotGoogleSearchTermsHubPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Campanhas no ar</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.terms.kpiLiveCampaigns")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold tracking-tight">{totals?.published_campaigns ?? "—"}</p>
@@ -288,24 +307,21 @@ export function DpilotGoogleSearchTermsHubPage() {
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <CardTitle className="text-base">Bloquear termos seleccionados</CardTitle>
-              <CardDescription>
-                Escolha o modo de bloqueio e confirme. Em campanhas novas, espere um pouco — a venda pode
-                chegar atrasada.
-              </CardDescription>
+              <CardTitle className="text-base">{t("pages.dpilot.google.cm.terms.blockTitle")}</CardTitle>
+              <CardDescription>{t("pages.dpilot.google.cm.terms.blockDesc")}</CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Select
                 value={matchType}
                 onValueChange={(v) => setMatchType(v as "exact" | "phrase" | "broad")}
               >
-                <SelectTrigger className="w-[200px]" aria-label="Modo de bloqueio">
+                <SelectTrigger className="w-[200px]" aria-label={t("pages.dpilot.google.cm.terms.matchAria")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="phrase">Frase (recomendado)</SelectItem>
-                  <SelectItem value="exact">Só este termo exacto</SelectItem>
-                  <SelectItem value="broad">Parecido (mais largo)</SelectItem>
+                  <SelectItem value="phrase">{t("pages.dpilot.google.cm.terms.matchPhrase")}</SelectItem>
+                  <SelectItem value="exact">{t("pages.dpilot.google.cm.terms.matchExact")}</SelectItem>
+                  <SelectItem value="broad">{t("pages.dpilot.google.cm.terms.matchBroad")}</SelectItem>
                 </SelectContent>
               </Select>
               {waste.length > 0 ? (
@@ -315,12 +331,12 @@ export function DpilotGoogleSearchTermsHubPage() {
                   size="sm"
                   onClick={() => setSelected(new Set(waste.map(rowKey)))}
                 >
-                  Marcar os que gastam mal ({waste.length})
+                  {fill(t("pages.dpilot.google.cm.terms.markWaste"), { n: waste.length })}
                 </Button>
               ) : null}
               <Button type="button" size="sm" disabled={busy || selected.size === 0} onClick={() => void negateSelected()}>
                 {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Ban className="mr-1.5 h-4 w-4" />}
-                Bloquear ({selected.size})
+                {fill(t("pages.dpilot.google.cm.terms.blockCount"), { n: selected.size })}
               </Button>
             </div>
           </div>
@@ -328,11 +344,11 @@ export function DpilotGoogleSearchTermsHubPage() {
         <CardContent className="space-y-3">
           {note ? (
             <Alert>
-              <AlertTitle className="text-sm">Ainda sem termos da Google</AlertTitle>
+              <AlertTitle className="text-sm">{t("pages.dpilot.google.cm.terms.noTermsYetTitle")}</AlertTitle>
               <AlertDescription className="text-xs space-y-2">
                 <p>{note}</p>
                 <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                  <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Ir a Campanhas e importar</Link>
+                  <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>{t("pages.dpilot.google.cm.terms.goImport")}</Link>
                 </Button>
               </AlertDescription>
             </Alert>
@@ -340,7 +356,7 @@ export function DpilotGoogleSearchTermsHubPage() {
 
           {err ? (
             <Alert variant="destructive">
-              <AlertTitle>Não foi possível carregar</AlertTitle>
+              <AlertTitle>{t("pages.dpilot.google.cm.common.loadFailed")}</AlertTitle>
               <AlertDescription>{err}</AlertDescription>
             </Alert>
           ) : null}
@@ -349,9 +365,13 @@ export function DpilotGoogleSearchTermsHubPage() {
             <Skeleton className="h-48 w-full" />
           ) : terms.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Sem pesquisas neste período
-              {campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS ? " nesta campanha" : ""}
-              {wasteOnly ? " no filtro «só o que gasta mal»" : ""}.
+              {fill(t("pages.dpilot.google.cm.terms.emptyPeriod"), {
+                campaign:
+                  campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS
+                    ? t("pages.dpilot.google.cm.common.emptyInCampaignSuffix")
+                    : "",
+                waste: wasteOnly ? t("pages.dpilot.google.cm.terms.emptyWasteSuffix") : "",
+              })}
             </p>
           ) : (
             <div className="overflow-x-auto rounded-lg border">
@@ -359,57 +379,57 @@ export function DpilotGoogleSearchTermsHubPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10" />
-                    <TableHead>O que pesquisaram</TableHead>
-                    <TableHead>Campanha</TableHead>
-                    <TableHead>Vezes visto</TableHead>
-                    <TableHead>Cliques</TableHead>
-                    <TableHead>Gasto</TableHead>
-                    <TableHead>Vendas</TableHead>
-                    <TableHead>Estado</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.terms.colQuery")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.campaign")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.terms.colImpressions")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.clicks")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.terms.colSpend")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.terms.colSales")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.status")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {terms.map((t) => {
-                    const key = rowKey(t);
+                  {terms.map((row) => {
+                    const key = rowKey(row);
                     return (
-                      <TableRow key={key} className={t.waste_candidate ? "bg-amber-500/5" : undefined}>
+                      <TableRow key={key} className={row.waste_candidate ? "bg-amber-500/5" : undefined}>
                         <TableCell>
                           <Checkbox
                             checked={selected.has(key)}
-                            disabled={t.already_negative}
+                            disabled={row.already_negative}
                             onCheckedChange={(v) => toggle(key, v === true)}
-                            aria-label={`Seleccionar ${t.search_term}`}
+                            aria-label={fill(t("pages.dpilot.google.cm.terms.selectAria"), { term: row.search_term })}
                           />
                         </TableCell>
                         <TableCell className="max-w-[14rem] font-medium">
-                          <span className="line-clamp-2">{t.search_term}</span>
+                          <span className="line-clamp-2">{row.search_term}</span>
                         </TableCell>
                         <TableCell className="max-w-[12rem]">
                           <Link
                             className="line-clamp-2 text-xs text-[#1a73e8] hover:underline"
-                            to={`/tracking/dpilot/p/${projectId}/campanhas/${t.campaign_id}/google`}
+                            to={`/tracking/dpilot/p/${projectId}/campanhas/${row.campaign_id}/google`}
                           >
-                            {t.campaign_name}
+                            {row.campaign_name}
                           </Link>
                         </TableCell>
-                        <TableCell>{t.metrics.impressions.toLocaleString()}</TableCell>
-                        <TableCell>{t.metrics.clicks.toLocaleString()}</TableCell>
-                        <TableCell>{formatUsdFromMicros(t.metrics.cost_micros)}</TableCell>
-                        <TableCell>{t.metrics.conversions.toFixed(1)}</TableCell>
+                        <TableCell>{row.metrics.impressions.toLocaleString()}</TableCell>
+                        <TableCell>{row.metrics.clicks.toLocaleString()}</TableCell>
+                        <TableCell>{formatUsdFromMicros(row.metrics.cost_micros)}</TableCell>
+                        <TableCell>{row.metrics.conversions.toFixed(1)}</TableCell>
                         <TableCell>
-                          {t.already_negative ? (
+                          {row.already_negative ? (
                             <Badge variant="secondary" className="font-normal">
-                              Já bloqueado
+                              {t("pages.dpilot.google.cm.terms.alreadyBlocked")}
                             </Badge>
-                          ) : t.waste_candidate ? (
+                          ) : row.waste_candidate ? (
                             <Badge
                               variant="outline"
                               className="border-amber-500/50 font-normal text-amber-800 dark:text-amber-200"
                             >
-                              Gasta mal?
+                              {t("pages.dpilot.google.cm.terms.wasteBadge")}
                             </Badge>
                           ) : (
-                            <span className="text-xs text-muted-foreground">{t.status || "—"}</span>
+                            <span className="text-xs text-muted-foreground">{row.status || "—"}</span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -421,6 +441,7 @@ export function DpilotGoogleSearchTermsHubPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </Gate>
   );
 }

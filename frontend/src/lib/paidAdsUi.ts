@@ -2,6 +2,57 @@
  * Textos e formatação do módulo Paid Ads — linguagem de produto (PT).
  */
 
+import type { MessageKey } from "@/i18n";
+
+type Translator = (key: MessageKey) => string;
+
+const CM = "pages.dpilot.google.cm" as const;
+
+const CHANGE_REQUEST_TYPE_I18N: Record<string, MessageKey> = {
+  create_campaign: `${CM}.status.changeRequestType.createCampaign`,
+  update_budget: `${CM}.status.changeRequestType.updateBudget`,
+  add_keywords: `${CM}.status.changeRequestType.addKeywords`,
+  publish_rsa: `${CM}.status.changeRequestType.publishRsa`,
+  pause_entity: `${CM}.status.changeRequestType.pauseEntity`,
+  resume_entity: `${CM}.status.changeRequestType.resumeEntity`,
+  remove_keyword: `${CM}.status.changeRequestType.removeKeyword`,
+  update_rsa_copy: `${CM}.status.changeRequestType.updateRsaCopy`,
+  update_ad_group_cpc: `${CM}.status.changeRequestType.updateAdGroupCpc`,
+  update_campaign_bidding: `${CM}.status.changeRequestType.updateCampaignBidding`,
+  sync_campaign_negative_keywords: `${CM}.status.changeRequestType.syncCampaignNegatives`,
+  sync_ad_group_negative_keywords: `${CM}.status.changeRequestType.syncAdGroupNegatives`,
+  replace_google_asset_extensions: `${CM}.status.changeRequestType.replaceExtensions`,
+  sync_campaign_geo_targets: `${CM}.status.changeRequestType.syncGeo`,
+  sync_campaign_language_targets: `${CM}.status.changeRequestType.syncLanguages`,
+  sync_campaign_device_bids: `${CM}.status.changeRequestType.syncDeviceBids`,
+  sync_campaign_age_exclusions: `${CM}.status.changeRequestType.syncAgeExclusions`,
+};
+
+const CHANGE_REQUEST_STATUS_I18N: Record<string, MessageKey> = {
+  pending: `${CM}.status.changeRequest.pending`,
+  approved: `${CM}.status.changeRequest.approved`,
+  rejected: `${CM}.status.changeRequest.rejected`,
+  applied: `${CM}.status.changeRequest.applied`,
+  failed: `${CM}.status.changeRequest.failed`,
+};
+
+const CAMPAIGN_STATUS_I18N: Record<string, MessageKey> = {
+  draft: `${CM}.status.campaign.draft`,
+  pending_publish: `${CM}.status.campaign.pendingPublish`,
+  live: `${CM}.status.campaign.live`,
+  paused: `${CM}.status.campaign.paused`,
+  archived: `${CM}.status.campaign.archived`,
+  error: `${CM}.status.campaign.error`,
+};
+
+const GOOGLE_BIDDING_I18N: Record<string, MessageKey> = {
+  manual_cpc: `${CM}.status.bidding.manualCpc`,
+  maximize_clicks: `${CM}.status.bidding.maximizeClicks`,
+  maximize_conversions: `${CM}.status.bidding.maximizeConversions`,
+  target_cpa: `${CM}.status.bidding.targetCpa`,
+  target_roas: `${CM}.status.bidding.targetRoas`,
+};
+
 export const CHANGE_REQUEST_TYPE_LABELS: Record<string, string> = {
   create_campaign: "Google Ads — nova campanha Search",
   update_budget: "Google Ads — alteração de orçamento",
@@ -29,7 +80,9 @@ export const CHANGE_REQUEST_TYPE_LABELS: Record<string, string> = {
   tiktok_pause_entity: "TikTok — pausar elemento",
 };
 
-export function changeRequestTypeLabel(type: string): string {
+export function changeRequestTypeLabel(type: string, t?: Translator): string {
+  const i18nKey = CHANGE_REQUEST_TYPE_I18N[type];
+  if (t && i18nKey) return t(i18nKey);
   return CHANGE_REQUEST_TYPE_LABELS[type] ?? type.replace(/_/g, " ");
 }
 
@@ -41,7 +94,9 @@ const CHANGE_REQUEST_STATUS_LABELS: Record<string, string> = {
   failed: "Falhou na rede",
 };
 
-export function changeRequestStatusLabel(status: string): string {
+export function changeRequestStatusLabel(status: string, t?: Translator): string {
+  const i18nKey = CHANGE_REQUEST_STATUS_I18N[status];
+  if (t && i18nKey) return t(i18nKey);
   return CHANGE_REQUEST_STATUS_LABELS[status] ?? status;
 }
 
@@ -85,7 +140,9 @@ const CAMPAIGN_STATUS_LABELS: Record<string, string> = {
   error: "Erro",
 };
 
-export function campaignStatusLabel(status: string): string {
+export function campaignStatusLabel(status: string, t?: Translator): string {
+  const i18nKey = CAMPAIGN_STATUS_I18N[status];
+  if (t && i18nKey) return t(i18nKey);
   return CAMPAIGN_STATUS_LABELS[status] ?? status;
 }
 
@@ -302,20 +359,28 @@ export function toastGoogleAdsError(message: string | null | undefined): string 
  */
 export function describeStudioChangeRequestStatus(
   status: string | undefined | null,
+  t?: Translator,
 ): { kind: "applied" | "pending" | "failed" | "unknown"; message: string } {
   if (status === "applied") {
-    return { kind: "applied", message: "Aplicado na Google." };
+    return {
+      kind: "applied",
+      message: t?.(`${CM}.common.studioApplied`) ?? "Aplicado na Google.",
+    };
   }
   if (status === "failed") {
-    return { kind: "failed", message: "Falhou na rede — veja Aprovações ou o erro do pedido." };
+    return {
+      kind: "failed",
+      message: t?.(`${CM}.common.studioFailed`) ?? "Falhou na rede — veja Aprovações ou o erro do pedido.",
+    };
   }
   if (status === "pending") {
     return {
       kind: "pending",
-      message: "Pendente em Aprovações — confirme para aplicar na rede.",
+      message:
+        t?.(`${CM}.common.studioPending`) ?? "Pendente em Aprovações — confirme para aplicar na rede.",
     };
   }
-  return { kind: "unknown", message: "Pedido registado." };
+  return { kind: "unknown", message: t?.(`${CM}.common.studioUnknown`) ?? "Pedido registado." };
 }
 
 /** `campaign_id` opcional no payload dos pedidos create_campaign / update_* . */
@@ -334,9 +399,11 @@ const GOOGLE_BIDDING_STRATEGY_LABELS: Record<string, string> = {
 };
 
 /** Rótulo humano da estratégia Google (nunca `maximize_conversions` cru na UI). */
-export function googleBiddingStrategyLabel(strategy: string | null | undefined): string {
+export function googleBiddingStrategyLabel(strategy: string | null | undefined, t?: Translator): string {
   const s = (strategy ?? "").trim();
   if (!s) return "";
+  const i18nKey = GOOGLE_BIDDING_I18N[s];
+  if (t && i18nKey) return t(i18nKey);
   return GOOGLE_BIDDING_STRATEGY_LABELS[s] ?? s.replace(/_/g, " ");
 }
 

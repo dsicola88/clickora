@@ -29,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { fill } from "@/i18n";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { paidModeCanonicalLine, paidModeShortChip } from "@/lib/paidModeCopy";
 import { cn } from "@/lib/utils";
@@ -103,6 +104,7 @@ function PeriodSelect({ value, onChange }: { value: string; onChange: (v: string
 
 
 export function DpilotGoogleCampaignsManagerPage() {
+  const { t } = useAppLocale();
   const { projectId, reload, overview, isConnConnected, changeRequests } = useDpilotPaid();
   const { preset, setPreset } = useGoogleManagerPrefs(projectId);
   const [q, setQ] = useState("");
@@ -154,11 +156,11 @@ export function DpilotGoogleCampaignsManagerPage() {
   const openSearchTerms = useCallback(
     (campaignId: string, campaignName: string) => {
       setTermsCampaignId(campaignId);
-      toast.message(`Termos de pesquisa · ${campaignName}`);
+      toast.message(fill(t("pages.dpilot.google.cm.campaigns.termsToast"), { name: campaignName }));
       // Re-clique na mesma campanha: estado igual → force scroll
       scrollTermsPanelIntoView();
     },
-    [scrollTermsPanelIntoView],
+    [scrollTermsPanelIntoView, t],
   );
 
   useEffect(() => {
@@ -192,9 +194,7 @@ export function DpilotGoogleCampaignsManagerPage() {
       setUrlAuditTotals(null);
       if (auditRes.error) {
         toast.message(
-          toastGoogleAdsError(
-            "Auditoria de Final URL indisponível neste momento — confirme presell limpa e auto-tagging.",
-          ),
+          toastGoogleAdsError(t("pages.dpilot.google.cm.campaigns.urlAuditUnavailable")),
         );
       }
     }
@@ -321,7 +321,7 @@ export function DpilotGoogleCampaignsManagerPage() {
       toast.error(toastGoogleAdsError(error));
       return;
     }
-    toast.success(`Cópia criada: ${data?.name}`);
+    toast.success(fill(t("pages.dpilot.google.cm.campaigns.copyCreated"), { name: data?.name ?? "" }));
     data?.warnings?.forEach((w) => toast.message(w));
     setDupDialog(null);
     reload();
@@ -343,7 +343,9 @@ export function DpilotGoogleCampaignsManagerPage() {
   ) => {
     if (meta?.budget_editable === false) {
       toast.error(
-        `Orçamento partilhado por ${meta.budget_reference_count ?? "várias"} campanhas na Google. Separe o orçamento na consola antes de ajustar aqui.`,
+        fill(t("pages.dpilot.google.cm.common.sharedBudgetBlocked"), {
+          n: meta.budget_reference_count ?? t("pages.dpilot.google.cm.common.sharedBudgetSeveral"),
+        }),
       );
       return;
     }
@@ -364,11 +366,11 @@ export function DpilotGoogleCampaignsManagerPage() {
     setBusyId(null);
     if (error) toast.error(toastGoogleAdsError(error));
     else {
-      const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+      const info = describeStudioChangeRequestStatus(data?.change_request?.status, t);
       const msg =
         info.kind === "applied"
-          ? `Orçamento ${usd.toFixed(2)} USD/dia aplicado na Google.`
-          : `Orçamento ${usd.toFixed(2)} USD/dia — ${info.message}`;
+          ? fill(t("pages.dpilot.google.cm.common.budgetApplied"), { usd: usd.toFixed(2) })
+          : fill(t("pages.dpilot.google.cm.common.budgetQueued"), { usd: usd.toFixed(2), msg: info.message });
       if (info.kind === "failed") toast.error(msg);
       else if (info.kind === "applied") toast.success(msg);
       else toast.message(msg);
@@ -379,17 +381,29 @@ export function DpilotGoogleCampaignsManagerPage() {
   };
 
   const studioAction = async (campaignId: string, action: "pause_campaign" | "resume_campaign") => {
-    const label = action === "pause_campaign" ? "Pausar" : "Ativar";
-    if (!window.confirm(`${label} esta campanha na Google Ads?`)) return;
+    const label =
+      action === "pause_campaign"
+        ? t("pages.dpilot.google.cm.common.pause")
+        : t("pages.dpilot.google.cm.common.resume");
+    const confirmMsg =
+      action === "pause_campaign"
+        ? t("pages.dpilot.google.cm.common.pauseCampaignConfirm")
+        : t("pages.dpilot.google.cm.common.resumeCampaignConfirm");
+    if (!window.confirm(confirmMsg)) return;
     setBusyId(campaignId);
     const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, { action });
     setBusyId(null);
     if (error) toast.error(toastGoogleAdsError(error));
     else {
-      const info = describeStudioChangeRequestStatus(data?.change_request?.status);
-      if (info.kind === "failed") toast.error(`${label}: ${info.message}`);
-      else if (info.kind === "applied") toast.success(`${label}: aplicado na Google.`);
-      else toast.message(`${label}: ${info.message}`);
+      const info = describeStudioChangeRequestStatus(data?.change_request?.status, t);
+      if (info.kind === "failed") toast.error(fill(t("pages.dpilot.google.cm.common.actionWithMsg"), { label, msg: info.message }));
+      else if (info.kind === "applied")
+        toast.success(
+          action === "pause_campaign"
+            ? t("pages.dpilot.google.cm.common.pauseApplied")
+            : t("pages.dpilot.google.cm.common.resumeApplied"),
+        );
+      else toast.message(fill(t("pages.dpilot.google.cm.common.actionWithMsg"), { label, msg: info.message }));
       reload();
       void load();
     }
@@ -442,14 +456,20 @@ export function DpilotGoogleCampaignsManagerPage() {
     URL.revokeObjectURL(url);
   };
 
+  const accountSuffix = accountCustomerId
+    ? fill(t("pages.dpilot.google.cm.campaigns.accountParen"), {
+        id: accountCustomerId.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3"),
+      })
+    : "";
+
   return (
     <Gate>
+      <div className="space-y-0" data-no-i18n>
       <PageHeader
-        title="Campanhas"
+        title={t("pages.dpilot.google.cm.campaigns.title")}
         description={
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Grelha estilo Ads: impr., cliques, CTR, CPC, custo, conv. e captura Clickora/Google por campanha.
-            Pause, orçamento e duplicar sem abrir a consola.
+            {t("pages.dpilot.google.cm.campaigns.description")}
           </p>
         }
         actions={
@@ -462,12 +482,12 @@ export function DpilotGoogleCampaignsManagerPage() {
             <PeriodSelect value={preset} onChange={setPreset} />
             <Button type="button" variant="outline" size="sm" onClick={exportCsv}>
               <Download className="mr-1.5 h-4 w-4" />
-              CSV
+              {t("pages.dpilot.google.cm.common.csv")}
             </Button>
             <Button asChild>
               <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>
                 <Plus className="mr-1.5 h-4 w-4" />
-                Criar campanha
+                {t("pages.dpilot.google.cm.campaigns.createCampaign")}
               </Link>
             </Button>
           </div>
@@ -476,16 +496,16 @@ export function DpilotGoogleCampaignsManagerPage() {
 
       {!paidConnected ? (
         <Alert className="mt-4 border-[#1a73e8]/30">
-          <AlertTitle>Conta por sincronizar</AlertTitle>
+          <AlertTitle>{t("pages.dpilot.google.cm.campaigns.accountUnsyncedTitle")}</AlertTitle>
           <AlertDescription className="space-y-3">
-            <p>Ligue uma vez em Integrações → Google; depois sincronize aqui para ver as campanhas da conta.</p>
+            <p>{t("pages.dpilot.google.cm.campaigns.accountUnsyncedBody")}</p>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" disabled={linking} onClick={() => void syncAccount()}>
                 {linking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Usar conta de Integrações
+                {t("pages.dpilot.google.cm.common.useIntegrationsAccount")}
               </Button>
               <Button size="sm" variant="outline" asChild>
-                <Link to="/integracoes/google-ads">Abrir Integrações</Link>
+                <Link to="/integracoes/google-ads">{t("pages.dpilot.google.cm.common.openIntegrations")}</Link>
               </Button>
             </div>
           </AlertDescription>
@@ -494,46 +514,41 @@ export function DpilotGoogleCampaignsManagerPage() {
 
       {connErr && paidConnected && !googleAdsNeedsReauth(connErr) ? (
         <Alert className="mt-4 border-amber-500/40 bg-amber-500/5">
-          <AlertTitle>Lista local ≠ conta Google</AlertTitle>
+          <AlertTitle>{t("pages.dpilot.google.cm.campaigns.localMismatchTitle")}</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>{friendlyGoogleAdsNetworkError(connErr) ?? connErr}</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Campanhas sem ID Google são rascunhos deste projecto — não o inventário de ads.google.com
-              {accountCustomerId
-                ? ` (conta ${accountCustomerId.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3")})`
-                : ""}
-              . Use «Re-sincronizar e importar» para trazer as campanhas reais da conta.
+              {fill(t("pages.dpilot.google.cm.campaigns.localMismatchHint"), { accountSuffix })}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" disabled={linking} onClick={() => void syncAccount()}>
                 {linking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Re-sincronizar e importar
+                {t("pages.dpilot.google.cm.common.resyncImport")}
               </Button>
               <Button size="sm" variant="outline" asChild>
-                <Link to="/integracoes/google-ads">Verificar Integrações → Google</Link>
+                <Link to="/integracoes/google-ads">{t("pages.dpilot.google.cm.campaigns.checkIntegrations")}</Link>
               </Button>
             </div>
           </AlertDescription>
         </Alert>
       ) : paidConnected && localOnlyInventory && chipCounts.on_google === 0 ? (
         <Alert className="mt-4 border-amber-500/40 bg-amber-500/5">
-          <AlertTitle>Ainda sem campanhas importadas da Google</AlertTitle>
+          <AlertTitle>{t("pages.dpilot.google.cm.campaigns.noImportedTitle")}</AlertTitle>
           <AlertDescription className="space-y-3">
-            <p className="text-xs leading-relaxed">
-              A vista «Na Google» está vazia. Os rascunhos ficam em «Só neste projecto» — ainda não estão na conta
-              de anúncios.
-            </p>
+            <p className="text-xs leading-relaxed">{t("pages.dpilot.google.cm.campaigns.noImportedBody")}</p>
             <Button size="sm" disabled={linking} onClick={() => void syncAccount()}>
               {linking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Re-sincronizar e importar
+              {t("pages.dpilot.google.cm.common.resyncImport")}
             </Button>
           </AlertDescription>
         </Alert>
       ) : paidConnected && !connErr ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          Fonte: {source || "—"}
+          {fill(t("pages.dpilot.google.cm.common.sourceLabel"), { source: source || "—" })}
           {accountCustomerId
-            ? ` · conta ${accountCustomerId.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3")}`
+            ? fill(t("pages.dpilot.google.cm.common.accountSuffix"), {
+                id: accountCustomerId.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3"),
+              })
             : ""}
         </p>
       ) : null}
@@ -541,24 +556,24 @@ export function DpilotGoogleCampaignsManagerPage() {
       {paidConnected ? (
         <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50/80 px-2 py-1 text-emerald-900">
-            <span className="font-semibold">Na Google</span>
-            na conta ({chipCounts.on_google}) · não implica Activa
+            <span className="font-semibold">{t("pages.dpilot.google.cm.common.onGoogle")}</span>
+            {fill(t("pages.dpilot.google.cm.campaigns.legendOnGoogle"), { n: chipCounts.on_google })}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200/80 bg-white px-2 py-1 text-emerald-900">
-            <span className="font-semibold">Activa</span>
-            ENABLED na Google ({chipCounts.live})
+            <span className="font-semibold">{t("pages.dpilot.google.cm.common.active")}</span>
+            {fill(t("pages.dpilot.google.cm.campaigns.legendActive"), { n: chipCounts.live })}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50/80 px-2 py-1 text-amber-950">
-            <span className="font-semibold">Pausada</span>
-            PAUSED na Google ({chipCounts.paused})
+            <span className="font-semibold">{t("pages.dpilot.google.cm.common.paused")}</span>
+            {fill(t("pages.dpilot.google.cm.campaigns.legendPaused"), { n: chipCounts.paused })}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700">
-            <span className="font-semibold">Só neste projecto</span>
-            rascunhos locais ({chipCounts.local_drafts})
+            <span className="font-semibold">{t("pages.dpilot.google.cm.common.onlyInProject")}</span>
+            {fill(t("pages.dpilot.google.cm.campaigns.legendLocal"), { n: chipCounts.local_drafts })}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1">
             <span className="font-semibold tabular-nums">—</span>
-            sem impressões/gasto no período (não é zero)
+            {t("pages.dpilot.google.cm.common.dashNoDataHint")}
           </span>
         </div>
       ) : null}
@@ -604,21 +619,18 @@ export function DpilotGoogleCampaignsManagerPage() {
         );
         return (
           <div className="mt-4 space-y-1.5">
-            <p className="text-[11px] text-muted-foreground">
-              Métricas Google Ads das campanhas <span className="font-medium text-foreground/80">importadas</span> —
-              custo/CPC da API (sem inventar). Re-sincronize se faltar país/idioma no estúdio.
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t("pages.dpilot.google.cm.campaigns.metricsHint")}</p>
             <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10">
-              {tile("Na Google", fmtNum(chipCounts.on_google))}
-              {tile("Rascunhos", fmtNum(chipCounts.local_drafts))}
-              {tile("Ativas", fmtNum(chipCounts.live))}
-              {tile("Impr.", withM ? fmtNum(impressions) : "—")}
-              {tile("Cliques", withM ? fmtNum(clicks) : "—")}
-              {tile("CPC méd.", withM && avgCpc != null ? formatUsdFromMicros(avgCpc) : "—")}
-              {tile("Investimento", withM ? formatUsdFromMicros(cost) : "—")}
-              {tile("Conversões", withM ? fmtNum(conv, 1) : "—")}
+              {tile(t("pages.dpilot.google.cm.common.onGoogle"), fmtNum(chipCounts.on_google))}
+              {tile(t("pages.dpilot.google.cm.common.drafts"), fmtNum(chipCounts.local_drafts))}
+              {tile(t("pages.dpilot.google.cm.common.activePlural"), fmtNum(chipCounts.live))}
+              {tile(t("pages.dpilot.google.cm.common.impressionsShort"), withM ? fmtNum(impressions) : "—")}
+              {tile(t("pages.dpilot.google.cm.common.clicks"), withM ? fmtNum(clicks) : "—")}
+              {tile(t("pages.dpilot.google.cm.common.avgCpc"), withM && avgCpc != null ? formatUsdFromMicros(avgCpc) : "—")}
+              {tile(t("pages.dpilot.google.cm.common.spend"), withM ? formatUsdFromMicros(cost) : "—")}
+              {tile(t("pages.dpilot.google.cm.common.conversions"), withM ? fmtNum(conv, 1) : "—")}
               {tile(
-                "ROAS",
+                t("pages.dpilot.google.cm.common.roas"),
                 withM && roas != null ? roas.toFixed(2) : "—",
                 withM && value > 0
                   ? value.toLocaleString(undefined, {
@@ -629,12 +641,15 @@ export function DpilotGoogleCampaignsManagerPage() {
                   : undefined,
               )}
               {tile(
-                "Captura",
+                t("pages.dpilot.google.cm.common.capture"),
                 capturePct != null ? `${(capturePct * 100).toFixed(0)}%` : "—",
                 capturePct != null
-                  ? `Clickora ${fmtNum(tClicks)} / Google ${fmtNum(gClicks)}`
+                  ? fill(t("pages.dpilot.google.cm.campaigns.captureClickoraGoogle"), {
+                      tracking: fmtNum(tClicks),
+                      google: fmtNum(gClicks),
+                    })
                   : funnelRiskCount > 0
-                    ? `${funnelRiskCount} com risco`
+                    ? fill(t("pages.dpilot.google.cm.campaigns.withRiskCount"), { n: funnelRiskCount })
                     : undefined,
               )}
             </div>
@@ -644,12 +659,14 @@ export function DpilotGoogleCampaignsManagerPage() {
 
       {urlAuditTotals && urlAuditTotals.critical + urlAuditTotals.warn > 0 ? (
         <Alert variant={urlAuditTotals.critical > 0 ? "destructive" : "default"} className="mt-4">
-          <AlertTitle className="text-sm">Final URL — atenção no funil</AlertTitle>
+          <AlertTitle className="text-sm">{t("pages.dpilot.google.cm.campaigns.finalUrlAlertTitle")}</AlertTitle>
           <AlertDescription className="flex flex-col gap-2 text-xs leading-relaxed sm:flex-row sm:items-center sm:justify-between">
             <span>
-              {urlAuditTotals.critical} crítica(s) · {urlAuditTotals.warn} aviso(s) · {urlAuditTotals.ok} OK. gclid
-              manual ou ValueTrack na Final URL fazem cliques Ads não baterem na Clickora — use auto-tagging e lander
-              limpa.
+              {fill(t("pages.dpilot.google.cm.campaigns.finalUrlAlertBody"), {
+                critical: urlAuditTotals.critical,
+                warn: urlAuditTotals.warn,
+                ok: urlAuditTotals.ok,
+              })}
             </span>
             {urlAuditTotals.critical > 0 ? (
               <Button
@@ -673,8 +690,8 @@ export function DpilotGoogleCampaignsManagerPage() {
                         toast.error(
                           toastGoogleAdsError(
                             looks404
-                              ? "Reparação automática indisponível neste momento. Em ads.google.com → anúncio → Final URL: deixe só a presell https://…/p/… (sem gclid nem {lpurl}/{keyword}). ValueTrack e UTMs vão no «Sufixo da URL final». Depois sincronize de novo."
-                              : raw || "Falha ao reparar Final URLs.",
+                              ? t("pages.dpilot.google.cm.campaigns.repairUnavailable")
+                              : raw || t("pages.dpilot.google.cm.campaigns.repairFailed"),
                           ),
                         );
                         return;
@@ -686,27 +703,22 @@ export function DpilotGoogleCampaignsManagerPage() {
                       const sampleErr = data.errors[0]?.error;
                       if (applied > 0 && data.error_count > 0) {
                         toast.message(
-                          `Aplicadas na Google Ads: ${applied}. ${data.error_count} falhou(aram)${
-                            sampleErr ? ` — ${sampleErr}` : ""
-                          }.`,
+                          fill(t("pages.dpilot.google.cm.campaigns.repairPartial"), {
+                            applied,
+                            failed: data.error_count,
+                            detail: sampleErr ? ` — ${sampleErr}` : "",
+                          }),
                         );
                       } else if (applied > 0) {
-                        toast.success(
-                          `Aplicadas na Google Ads: ${applied} anúncio(s). Não precisa de colar de novo no ads.google.com. ValueTrack/UTMs dinâmicos → sufixo da URL.`,
-                        );
+                        toast.success(fill(t("pages.dpilot.google.cm.campaigns.repairSuccess"), { n: applied }));
                       } else if (data.error_count > 0) {
                         toast.error(
-                          toastGoogleAdsError(
-                            sampleErr ||
-                              "Não foi possível aplicar na Google Ads. Sincronize/importe a campanha e tente de novo, ou limpe a Final URL em ads.google.com.",
-                          ),
+                          toastGoogleAdsError(sampleErr || t("pages.dpilot.google.cm.campaigns.repairCouldNotApply")),
                         );
                       } else if (data.repaired_count === 0) {
-                        toast.message("Nenhuma Final URL precisava de limpeza automática.");
+                        toast.message(t("pages.dpilot.google.cm.campaigns.repairNothingNeeded"));
                       } else {
-                        toast.error(
-                          "A limpeza ficou só local — a Google Ads não foi actualizada. Sincronize a campanha e volte a Reparar.",
-                        );
+                        toast.error(t("pages.dpilot.google.cm.campaigns.repairLocalOnly"));
                       }
                       await load();
                     } finally {
@@ -716,7 +728,7 @@ export function DpilotGoogleCampaignsManagerPage() {
                 }}
               >
                 {repairingUrls ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-                Reparar Final URLs
+                {t("pages.dpilot.google.cm.campaigns.repairFinalUrls")}
               </Button>
             ) : null}
           </AlertDescription>
@@ -726,11 +738,10 @@ export function DpilotGoogleCampaignsManagerPage() {
       {funnelRiskCount > 0 ? (
         <Alert variant="destructive" className="mt-4">
           <AlertTitle className="text-sm">
-            {funnelRiskCount} campanha(s) com cliques Google que quase não chegam à Clickora
+            {fill(t("pages.dpilot.google.cm.campaigns.funnelRiskTitle"), { n: funnelRiskCount })}
           </AlertTitle>
           <AlertDescription className="text-xs leading-relaxed">
-            Captura &lt; 50% com ≥10 cliques na rede. Confirme Final URL (presell limpa), auto-tagging e que o anúncio
-            aponta para a lander — não cloaking.
+            {t("pages.dpilot.google.cm.campaigns.funnelRiskBody")}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -740,12 +751,29 @@ export function DpilotGoogleCampaignsManagerPage() {
           <div className="flex flex-wrap items-center gap-2">
             {(
               [
-                { id: "on_google" as const, label: `Na Google ${chipCounts.on_google}` },
-                { id: "local_drafts" as const, label: `Só neste projecto ${chipCounts.local_drafts}` },
-                { id: "live" as const, label: `Ativas ${chipCounts.live}` },
-                { id: "paused" as const, label: `Pausadas ${chipCounts.paused}` },
+                {
+                  id: "on_google" as const,
+                  label: fill(t("pages.dpilot.google.cm.campaigns.chipOnGoogle"), { n: chipCounts.on_google }),
+                },
+                {
+                  id: "local_drafts" as const,
+                  label: fill(t("pages.dpilot.google.cm.campaigns.chipLocal"), { n: chipCounts.local_drafts }),
+                },
+                {
+                  id: "live" as const,
+                  label: fill(t("pages.dpilot.google.cm.campaigns.chipActive"), { n: chipCounts.live }),
+                },
+                {
+                  id: "paused" as const,
+                  label: fill(t("pages.dpilot.google.cm.campaigns.chipPaused"), { n: chipCounts.paused }),
+                },
                 ...(funnelRiskCount > 0
-                  ? [{ id: "funnel_risk" as const, label: `Risco funil ${funnelRiskCount}` }]
+                  ? [
+                      {
+                        id: "funnel_risk" as const,
+                        label: fill(t("pages.dpilot.google.cm.campaigns.chipFunnelRisk"), { n: funnelRiskCount }),
+                      },
+                    ]
                   : []),
               ] as const
             ).map((chip) => (
@@ -771,7 +799,7 @@ export function DpilotGoogleCampaignsManagerPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 className="w-[220px] pl-8"
-                placeholder="Buscar campanha pelo nome"
+                placeholder={t("pages.dpilot.google.cm.campaigns.searchPlaceholder")}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
@@ -787,19 +815,19 @@ export function DpilotGoogleCampaignsManagerPage() {
             <div className="space-y-3 py-2">
               <p className="text-sm text-muted-foreground">
                 {!paidConnected
-                  ? "Sincronize a conta para listar campanhas."
+                  ? t("pages.dpilot.google.cm.campaigns.emptySyncFirst")
                   : st === "funnel_risk"
-                    ? "Nenhuma campanha com risco de captura neste período."
+                    ? t("pages.dpilot.google.cm.campaigns.emptyFunnelRisk")
                     : st === "on_google" || st === "live" || st === "paused"
-                      ? "Nenhuma campanha da conta Google neste filtro. Importe com «Re-sincronizar e importar» — os rascunhos locais estão em «Só neste projecto»."
+                      ? t("pages.dpilot.google.cm.campaigns.emptyOnGoogleFilter")
                       : st === "local_drafts"
-                        ? "Sem rascunhos locais neste projecto."
-                        : "Nenhuma campanha neste filtro."}
+                        ? t("pages.dpilot.google.cm.campaigns.emptyLocalDrafts")
+                        : t("pages.dpilot.google.cm.campaigns.emptyFilter")}
               </p>
               {paidConnected && (st === "on_google" || st === "live") && chipCounts.on_google === 0 ? (
                 <Button size="sm" disabled={linking} onClick={() => void syncAccount()}>
                   {linking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Re-sincronizar e importar
+                  {t("pages.dpilot.google.cm.common.resyncImport")}
                 </Button>
               ) : null}
             </div>
@@ -808,18 +836,18 @@ export function DpilotGoogleCampaignsManagerPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-14">Ativo</TableHead>
-                    <TableHead>Campanha</TableHead>
-                    <TableHead className="text-right">Impr.</TableHead>
-                    <TableHead className="text-right">Cliques</TableHead>
-                    <TableHead className="text-right">CTR</TableHead>
-                    <TableHead className="text-right">CPC</TableHead>
-                    <TableHead className="text-right">Custo</TableHead>
-                    <TableHead className="text-right">Conv.</TableHead>
-                    <TableHead className="text-right">CPA</TableHead>
-                    <TableHead>Captura</TableHead>
-                    <TableHead className="text-right">Orç./dia</TableHead>
-                    <TableHead className="text-right">Acções</TableHead>
+                    <TableHead className="w-14">{t("pages.dpilot.google.cm.campaigns.colActive")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.campaign")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.impressionsShort")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.clicks")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.ctr")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.cpc")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.cost")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.conversionsShort")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.cpa")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.capture")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.budgetPerDayShort")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -838,10 +866,12 @@ export function DpilotGoogleCampaignsManagerPage() {
                       (serving === "live" || serving === "paused");
                     const captureTitle =
                       c.google_clicks != null
-                        ? `Clickora ${fmtNum(c.tracking_clicks)} / Google ${fmtNum(c.google_clicks)}${
-                            c.click_delta != null ? ` · Δ ${c.click_delta}` : ""
-                          }`
-                        : "Sem cliques Google no período";
+                        ? fill(t("pages.dpilot.google.cm.campaigns.captureTitle"), {
+                            tracking: fmtNum(c.tracking_clicks),
+                            google: fmtNum(c.google_clicks),
+                            delta: c.click_delta != null ? ` · Δ ${c.click_delta}` : "",
+                          })
+                        : t("pages.dpilot.google.cm.campaigns.noGoogleClicksPeriod");
                     return (
                       <TableRow key={c.id} className={c.funnel_risk ? "bg-destructive/[0.03]" : undefined}>
                         <TableCell>
@@ -850,7 +880,11 @@ export function DpilotGoogleCampaignsManagerPage() {
                               <Switch
                                 checked={serving === "live"}
                                 disabled={busy}
-                                aria-label={serving === "live" ? "Pausar campanha" : "Ativar campanha"}
+                                aria-label={
+                                  serving === "live"
+                                    ? t("pages.dpilot.google.cm.campaigns.pauseCampaignAria")
+                                    : t("pages.dpilot.google.cm.campaigns.resumeCampaignAria")
+                                }
                                 onCheckedChange={(on) =>
                                   void studioAction(c.id, on ? "resume_campaign" : "pause_campaign")
                                 }
@@ -861,16 +895,20 @@ export function DpilotGoogleCampaignsManagerPage() {
                               className={cn("font-normal text-[10px]", campaignStatusBadgeClass(serving))}
                               title={
                                 c.google_status
-                                  ? `Google: ${c.google_status}`
+                                  ? fill(t("pages.dpilot.google.cm.common.googleStatusTitle"), {
+                                      status: c.google_status,
+                                    })
                                   : c.external_campaign_id
-                                    ? "Estado local (rede sem status)"
-                                    : "Só neste projecto"
+                                    ? t("pages.dpilot.google.cm.common.localStatusNoNetwork")
+                                    : t("pages.dpilot.google.cm.common.onlyInProject")
                               }
                             >
-                              {campaignStatusLabel(serving)}
+                              {campaignStatusLabel(serving, t)}
                             </Badge>
                             {localDraftLinked ? (
-                              <span className="text-[10px] leading-tight text-amber-800">Local: rascunho</span>
+                              <span className="text-[10px] leading-tight text-amber-800">
+                                {t("pages.dpilot.google.cm.common.localDraft")}
+                              </span>
                             ) : null}
                           </div>
                         </TableCell>
@@ -884,25 +922,25 @@ export function DpilotGoogleCampaignsManagerPage() {
                             </Link>
                             {!c.external_campaign_id ? (
                               <Badge variant="secondary" className="font-normal text-[10px]">
-                                Só local
+                                {t("pages.dpilot.google.cm.common.localOnly")}
                               </Badge>
                             ) : null}
                             {pendingN > 0 ? (
                               <Link
                                 to={`/tracking/dpilot/p/${projectId}/google/aprovacoes?campaign=${c.id}`}
                                 className="inline-flex"
-                                title="Pedidos pendentes em Aprovações"
-                                aria-label={`Fila de aprovações: ${pendingN} pendente(s)`}
+                                title={t("pages.dpilot.google.cm.common.queuePendingTitle")}
+                                aria-label={fill(t("pages.dpilot.google.cm.common.queuePendingAria"), { n: pendingN })}
                               >
                                 <Badge variant="secondary" className="h-5 font-normal text-[10px] hover:bg-secondary/80">
-                                  Fila {pendingN}
+                                  {fill(t("pages.dpilot.google.cm.common.queueBadge"), { n: pendingN })}
                                 </Badge>
                               </Link>
                             ) : null}
                           </div>
                           {c.bidding_strategy ? (
                             <p className="mt-0.5 text-[10px] text-muted-foreground">
-                              {googleBiddingStrategyLabel(c.bidding_strategy)}
+                              {googleBiddingStrategyLabel(c.bidding_strategy, t)}
                             </p>
                           ) : null}
                           {urlAudit && urlAudit.severity !== "ok" ? (
@@ -915,7 +953,10 @@ export function DpilotGoogleCampaignsManagerPage() {
                                 .filter(Boolean)
                                 .join(" · ")}
                             >
-                              Final URL {urlAudit.severity === "critical" ? "crítica" : "aviso"}
+                              Final URL{" "}
+                              {urlAudit.severity === "critical"
+                                ? t("pages.dpilot.google.cm.campaigns.finalUrlCritical")
+                                : t("pages.dpilot.google.cm.campaigns.finalUrlWarn")}
                               {urlAudit.issue_labels?.[0] ? ` · ${urlAudit.issue_labels[0]}` : ""}
                             </p>
                           ) : null}
@@ -950,7 +991,7 @@ export function DpilotGoogleCampaignsManagerPage() {
                               >
                                 {c.click_capture_ratio != null
                                   ? `${(c.click_capture_ratio * 100).toFixed(0)}%`
-                                  : "Risco"}
+                                  : t("pages.dpilot.google.cm.common.risk")}
                               </Badge>
                               <p className="mt-0.5 text-[10px] text-muted-foreground">
                                 {fmtNum(c.tracking_clicks)}/{fmtNum(c.google_clicks)}
@@ -976,10 +1017,12 @@ export function DpilotGoogleCampaignsManagerPage() {
                             disabled={busy || !c.external_campaign_id || c.budget_editable === false}
                             title={
                               !c.external_campaign_id
-                                ? "Ainda só rascunho — publique com «Aplicar na rede» para editar o orçamento na Google"
+                                ? t("pages.dpilot.google.cm.campaigns.draftBudgetLocked")
                                 : c.budget_editable === false
-                                  ? `Orçamento partilhado (${c.budget_reference_count}) — separe na consola Google`
-                                  : "Alterar orçamento diário na Google"
+                                  ? fill(t("pages.dpilot.google.cm.campaigns.sharedBudgetConsole"), {
+                                      n: c.budget_reference_count ?? 0,
+                                    })
+                                  : t("pages.dpilot.google.cm.common.changeDailyBudgetGoogle")
                             }
                             onClick={() =>
                               onBudget(c.id, c.daily_budget_micros, {
@@ -995,7 +1038,9 @@ export function DpilotGoogleCampaignsManagerPage() {
                             </span>
                             {c.budget_shared ? (
                               <span className="mt-0.5 block text-[10px] text-muted-foreground">
-                                Partilhado ({c.budget_reference_count})
+                                {fill(t("pages.dpilot.google.cm.common.sharedBudgetCount"), {
+                                  n: c.budget_reference_count ?? 0,
+                                })}
                               </span>
                             ) : null}
                           </button>
@@ -1009,12 +1054,12 @@ export function DpilotGoogleCampaignsManagerPage() {
                                 size="sm"
                                 className="h-8 gap-1 px-2"
                                 disabled={busy}
-                                aria-label={`Termos de pesquisa · ${c.name}`}
-                                title="Termos de pesquisa"
+                                aria-label={fill(t("pages.dpilot.google.cm.campaigns.termsToast"), { name: c.name })}
+                                title={t("pages.dpilot.google.cm.campaigns.termsTitle")}
                                 onClick={() => openSearchTerms(c.id, c.name)}
                               >
                                 <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                                <span className="hidden sm:inline text-xs">Termos</span>
+                                <span className="hidden sm:inline text-xs">{t("pages.dpilot.google.cm.campaigns.termsBtn")}</span>
                               </Button>
                             ) : null}
                             <Button
@@ -1024,11 +1069,11 @@ export function DpilotGoogleCampaignsManagerPage() {
                               className="h-8 gap-1 px-2"
                               disabled={busy || c.local_status === "archived"}
                               aria-label={`Duplicar · ${c.name}`}
-                              title="Duplicar campanha"
+                              title={t("pages.dpilot.google.cm.campaigns.duplicateTitle")}
                               onClick={() => onDuplicate(c.id, c.name, c.daily_budget_micros)}
                             >
                               <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                              <span className="hidden sm:inline text-xs">Duplicar</span>
+                              <span className="hidden sm:inline text-xs">{t("pages.dpilot.google.cm.campaigns.duplicate")}</span>
                             </Button>
                           </div>
                         </TableCell>
@@ -1051,13 +1096,14 @@ export function DpilotGoogleCampaignsManagerPage() {
         >
           <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
             <div>
-              <CardTitle className="text-base">Termos de pesquisa</CardTitle>
+              <CardTitle className="text-base">{t("pages.dpilot.google.cm.campaigns.termsTitle")}</CardTitle>
               <CardDescription>
-                {rows.find((r) => r.id === termsCampaignId)?.name || "Campanha seleccionada"}
+                {rows.find((r) => r.id === termsCampaignId)?.name ||
+                  t("pages.dpilot.google.cm.campaigns.termsPanelSelected")}
               </CardDescription>
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => setTermsCampaignId(null)}>
-              Fechar
+              {t("pages.dpilot.google.cm.common.close")}
             </Button>
           </CardHeader>
           <CardContent>
@@ -1069,17 +1115,13 @@ export function DpilotGoogleCampaignsManagerPage() {
           </CardContent>
         </Card>
       ) : (
-        <p className="mt-3 text-xs text-muted-foreground">
-          Dica: em Acções → Termos numa campanha na Google abre as pesquisas reais e pode bloquear desperdício aqui.
-        </p>
+        <p className="mt-3 text-xs text-muted-foreground">{t("pages.dpilot.google.cm.campaigns.termsTip")}</p>
       )}
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle className="text-base">Importar Search da conta Google</CardTitle>
-          <CardDescription>
-            Campanhas criadas fora da Dclickora passam a ser geríveis aqui após importação.
-          </CardDescription>
+          <CardTitle className="text-base">{t("pages.dpilot.google.cm.campaigns.importTitle")}</CardTitle>
+          <CardDescription>{t("pages.dpilot.google.cm.campaigns.importDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <DpilotGoogleImportPanel
@@ -1111,6 +1153,7 @@ export function DpilotGoogleCampaignsManagerPage() {
         busy={dupDialog != null && busyId === dupDialog.campaignId}
         onConfirm={confirmDuplicate}
       />
+      </div>
     </Gate>
   );
 }
@@ -1125,6 +1168,7 @@ function InventoryTablePage({
   description: string;
   kind: "ad_groups" | "ads" | "keywords" | "budgets";
 }) {
+  const { t } = useAppLocale();
   const { projectId } = useDpilotPaid();
   const { campaignFilter, setCampaignFilter, ensureCampaignFilterValid } = useGoogleManagerPrefs(projectId);
   const [loading, setLoading] = useState(true);
@@ -1169,14 +1213,22 @@ function InventoryTablePage({
     return list.filter((r) => JSON.stringify(r).toLowerCase().includes(needle));
   }, [inv, kind, q, campaignFilter]);
 
+  const emptySuffix =
+    campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS
+      ? t("pages.dpilot.google.cm.common.emptyInCampaignSuffix")
+      : "";
+
   return (
     <Gate>
+      <div data-no-i18n>
       <PageHeader
         title={title}
         description={<p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">{description}</p>}
         actions={
           <Button asChild variant="outline">
-            <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Ver campanhas</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>
+              {t("pages.dpilot.google.cm.common.viewCampaigns")}
+            </Link>
           </Button>
         }
       />
@@ -1184,11 +1236,13 @@ function InventoryTablePage({
         <CardContent className="space-y-4 pt-6">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={campaignFilter} onValueChange={setCampaignFilter}>
-              <SelectTrigger className="w-[220px]" aria-label="Filtrar por campanha">
-                <SelectValue placeholder="Campanha" />
+              <SelectTrigger className="w-[220px]" aria-label={t("pages.dpilot.google.cm.common.filterByCampaignAria")}>
+                <SelectValue placeholder={t("pages.dpilot.google.cm.common.campaign")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={GOOGLE_MANAGER_ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
+                <SelectItem value={GOOGLE_MANAGER_ALL_CAMPAIGNS}>
+                  {t("pages.dpilot.google.cm.common.allCampaigns")}
+                </SelectItem>
                 {campaignOptions.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
@@ -1196,14 +1250,18 @@ function InventoryTablePage({
                 ))}
               </SelectContent>
             </Select>
-            <Input placeholder="Filtrar…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
+            <Input
+              placeholder={t("pages.dpilot.google.cm.common.filterPlaceholder")}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="max-w-sm"
+            />
           </div>
           {loading ? (
             <Skeleton className="h-32 w-full" />
           ) : rows.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Sem registos
-              {campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS ? " nesta campanha" : ""}. Crie ou sincronize campanhas Google.
+              {fill(t("pages.dpilot.google.cm.adGroups.empty"), { scope: emptySuffix })}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -1212,39 +1270,39 @@ function InventoryTablePage({
                   <TableRow>
                     {kind === "ad_groups" && (
                       <>
-                        <TableHead>Grupo</TableHead>
-                        <TableHead>Campanha</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>KW</TableHead>
-                        <TableHead>Anúncios</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.adGroups.colGroup")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.campaign")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.status")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.adGroups.colKw")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.adGroups.colAds")}</TableHead>
                         <TableHead />
                       </>
                     )}
                     {kind === "ads" && (
                       <>
-                        <TableHead>Campanha</TableHead>
-                        <TableHead>Grupo</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>Títulos</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.campaign")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.adGroup")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.status")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.ads.colRsas")}</TableHead>
                         <TableHead />
                       </>
                     )}
                     {kind === "keywords" && (
                       <>
-                        <TableHead>Palavra-chave</TableHead>
-                        <TableHead>Match</TableHead>
-                        <TableHead>Campanha</TableHead>
-                        <TableHead>Grupo</TableHead>
-                        <TableHead>Estado</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.keyword")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.match")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.campaign")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.adGroup")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.status")}</TableHead>
                         <TableHead />
                       </>
                     )}
                     {kind === "budgets" && (
                       <>
-                        <TableHead>Campanha</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>Orçamento/dia</TableHead>
-                        <TableHead>ID Google</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.campaign")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.status")}</TableHead>
+                        <TableHead>{t("pages.dpilot.google.cm.common.budgetPerDay")}</TableHead>
+                        <TableHead>Google ID</TableHead>
                         <TableHead />
                       </>
                     )}
@@ -1255,7 +1313,9 @@ function InventoryTablePage({
                     const cid = String(r.campaign_id ?? "");
                     const manage = (
                       <Button size="sm" variant="secondary" className="h-8" asChild>
-                        <Link to={`/tracking/dpilot/p/${projectId}/campanhas/${cid}/google`}>Gestão</Link>
+                        <Link to={`/tracking/dpilot/p/${projectId}/campanhas/${cid}/google`}>
+                          {t("pages.dpilot.google.cm.common.manage")}
+                        </Link>
                       </Button>
                     );
                     if (kind === "ad_groups") {
@@ -1263,7 +1323,7 @@ function InventoryTablePage({
                         <TableRow key={String(r.id)}>
                           <TableCell className="font-medium">{String(r.name)}</TableCell>
                           <TableCell>{String(r.campaign_name)}</TableCell>
-                          <TableCell>{campaignStatusLabel(String(r.status))}</TableCell>
+                          <TableCell>{campaignStatusLabel(String(r.status), t)}</TableCell>
                           <TableCell>{String(r.keywords_count)}</TableCell>
                           <TableCell>{String(r.ads_count)}</TableCell>
                           <TableCell className="text-right">{manage}</TableCell>
@@ -1276,7 +1336,7 @@ function InventoryTablePage({
                         <TableRow key={String(r.id)}>
                           <TableCell>{String(r.campaign_name)}</TableCell>
                           <TableCell>{String(r.ad_group_name)}</TableCell>
-                          <TableCell>{campaignStatusLabel(String(r.status))}</TableCell>
+                          <TableCell>{campaignStatusLabel(String(r.status), t)}</TableCell>
                           <TableCell className="max-w-xs truncate text-sm">{heads}</TableCell>
                           <TableCell className="text-right">{manage}</TableCell>
                         </TableRow>
@@ -1289,7 +1349,7 @@ function InventoryTablePage({
                           <TableCell>{String(r.match_type)}</TableCell>
                           <TableCell>{String(r.campaign_name)}</TableCell>
                           <TableCell>{String(r.ad_group_name)}</TableCell>
-                          <TableCell>{campaignStatusLabel(String(r.status))}</TableCell>
+                          <TableCell>{campaignStatusLabel(String(r.status), t)}</TableCell>
                           <TableCell className="text-right">{manage}</TableCell>
                         </TableRow>
                       );
@@ -1297,7 +1357,7 @@ function InventoryTablePage({
                     return (
                       <TableRow key={cid}>
                         <TableCell className="font-medium">{String(r.campaign_name)}</TableCell>
-                        <TableCell>{campaignStatusLabel(String(r.local_status))}</TableCell>
+                        <TableCell>{campaignStatusLabel(String(r.local_status), t)}</TableCell>
                         <TableCell>
                           {r.daily_budget_micros != null
                             ? formatUsdFromMicros(Number(r.daily_budget_micros))
@@ -1314,30 +1374,35 @@ function InventoryTablePage({
           )}
           {kind === "keywords" && inv?.negative_keywords ? (
             <div className="space-y-2 border-t pt-4">
-              <p className="text-sm font-medium">Negativas (campanha)</p>
+              <p className="text-sm font-medium">{t("pages.dpilot.google.cm.keywords.negativesTitle")}</p>
               <p className="text-xs text-muted-foreground">
-                {inv.negative_keywords.campaign_level.length} ao nível da campanha ·{" "}
-                {inv.negative_keywords.ad_group_level.length} ao nível do grupo. Edite no estúdio da campanha.
+                {fill(t("pages.dpilot.google.cm.keywords.negativesHint"), {
+                  campaign: inv.negative_keywords.campaign_level.length,
+                  adGroup: inv.negative_keywords.ad_group_level.length,
+                })}
               </p>
             </div>
           ) : null}
         </CardContent>
       </Card>
+      </div>
     </Gate>
   );
 }
 
 export function DpilotGoogleAdGroupsPage() {
+  const { t } = useAppLocale();
   return (
     <InventoryTablePage
-      title="Google Ads · Grupos de anúncios"
-      description="Inventário local sincronizado com a estrutura publicada. Pausar/ativar/editar no estúdio da campanha (API real)."
+      title={t("pages.dpilot.google.cm.adGroups.title")}
+      description={t("pages.dpilot.google.cm.adGroups.description")}
       kind="ad_groups"
     />
   );
 }
 
 export function DpilotGoogleAdsCreativesPage() {
+  const { t } = useAppLocale();
   const { projectId } = useDpilotPaid();
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -1375,12 +1440,12 @@ export function DpilotGoogleAdsCreativesPage() {
 
   return (
     <Gate>
+      <div data-no-i18n>
       <PageHeader
-        title="Google Ads · Anúncios (RSA)"
+        title={t("pages.dpilot.google.cm.ads.title")}
         description={
           <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            Política real da Google (DISAPPROVED / APPROVED_LIMITED) nas Search deste projecto — sem inventar
-            «aprovado».
+            {t("pages.dpilot.google.cm.ads.description")}
           </p>
         }
         actions={
@@ -1394,7 +1459,7 @@ export function DpilotGoogleAdsCreativesPage() {
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Campanhas</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.ads.kpiCampaigns")}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-semibold tracking-tight">{totals.campaigns}</p>
@@ -1402,7 +1467,7 @@ export function DpilotGoogleAdsCreativesPage() {
           </Card>
           <Card className={totals.disapproved_ads > 0 ? "border-destructive/30" : undefined}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">RSA reprovados</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.ads.kpiDisapproved")}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-semibold tracking-tight">{totals.disapproved_ads}</p>
@@ -1410,7 +1475,7 @@ export function DpilotGoogleAdsCreativesPage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Limitados</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.ads.kpiLimited")}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-semibold tracking-tight">{totals.limited_ads}</p>
@@ -1421,36 +1486,36 @@ export function DpilotGoogleAdsCreativesPage() {
 
       {err ? (
         <Alert variant="destructive" className="mt-4">
-          <AlertTitle>API</AlertTitle>
+          <AlertTitle>{t("pages.dpilot.google.cm.common.apiErrorTitle")}</AlertTitle>
           <AlertDescription>{err}</AlertDescription>
         </Alert>
       ) : null}
       {note ? (
         <Alert className="mt-4">
-          <AlertTitle className="text-sm">Sem dados de rede</AlertTitle>
+          <AlertTitle className="text-sm">{t("pages.dpilot.google.cm.ads.noNetworkTitle")}</AlertTitle>
           <AlertDescription className="text-xs">{note}</AlertDescription>
         </Alert>
       ) : null}
 
       <Card className="mt-4">
         <CardHeader>
-          <CardTitle className="text-base">Por campanha</CardTitle>
-          <CardDescription>Abra o estúdio para editar RSA; aqui só diagnóstico de policy.</CardDescription>
+          <CardTitle className="text-base">{t("pages.dpilot.google.cm.ads.byCampaignTitle")}</CardTitle>
+          <CardDescription>{t("pages.dpilot.google.cm.ads.byCampaignDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <Skeleton className="h-32 w-full" />
           ) : rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem campanhas para auditar.</p>
+            <p className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.ads.empty")}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Campanha</TableHead>
-                  <TableHead>RSAs</TableHead>
-                  <TableHead>Reprovados</TableHead>
-                  <TableHead>Limitados</TableHead>
-                  <TableHead>Tópicos</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.campaign")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.ads.colRsas")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.ads.colDisapproved")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.ads.colLimited")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.ads.colTopics")}</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
@@ -1480,7 +1545,7 @@ export function DpilotGoogleAdsCreativesPage() {
                     <TableCell className="text-right">
                       <Button size="sm" variant="secondary" className="h-8" asChild>
                         <Link to={`/tracking/dpilot/p/${projectId}/campanhas/${r.campaign_id}/google`}>
-                          Estúdio
+                          {t("pages.dpilot.google.cm.common.studio")}
                         </Link>
                       </Button>
                     </TableCell>
@@ -1493,17 +1558,19 @@ export function DpilotGoogleAdsCreativesPage() {
       </Card>
 
       <p className="mt-4 text-xs text-muted-foreground">
-        Detalhe de headlines/descrições: abra o{" "}
+        {t("pages.dpilot.google.cm.ads.footerHint")}{" "}
         <Link className="text-[#1a73e8] hover:underline" to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>
-          estúdio da campanha
+          {t("pages.dpilot.google.cm.ads.studioLink")}
         </Link>
         .
       </p>
+      </div>
     </Gate>
   );
 }
 
 export function DpilotGoogleKeywordsPage() {
+  const { t } = useAppLocale();
   const { projectId, reload } = useDpilotPaid();
   const { preset, setPreset, campaignFilter, setCampaignFilter, ensureCampaignFilterValid } =
     useGoogleManagerPrefs(projectId);
@@ -1573,7 +1640,7 @@ export function DpilotGoogleKeywordsPage() {
   }, [rows, q]);
 
   const pauseKw = async (campaignId: string, keywordId: string) => {
-    if (!window.confirm("Pausar esta palavra-chave na Google Ads?")) return;
+    if (!window.confirm(t("pages.dpilot.google.cm.keywords.pauseConfirm"))) return;
     setBusyId(keywordId);
     const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
       action: "pause_keyword",
@@ -1582,9 +1649,9 @@ export function DpilotGoogleKeywordsPage() {
     setBusyId(null);
     if (error) toast.error(error);
     else {
-      const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+      const info = describeStudioChangeRequestStatus(data?.change_request?.status, t);
       if (info.kind === "failed") toast.error(info.message);
-      else if (info.kind === "applied") toast.success("Palavra-chave pausada na Google.");
+      else if (info.kind === "applied") toast.success(t("pages.dpilot.google.cm.keywords.pauseSuccess"));
       else toast.message(info.message);
       reload();
       void load();
@@ -1593,23 +1660,26 @@ export function DpilotGoogleKeywordsPage() {
 
   return (
     <Gate>
+      <div data-no-i18n>
       <PageHeader
-        title="Google Ads · Palavras-chave"
+        title={t("pages.dpilot.google.cm.keywords.title")}
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
             {kwSource === "google_ads_api"
-              ? "Métricas por keyword via GAQL da conta ligada. Pause perdedoras aqui; edite no estúdio."
-              : "Lista local do projecto — métricas Google só aparecem após import/publicação com criterion ID na rede."}
+              ? t("pages.dpilot.google.cm.keywords.descNetwork")
+              : t("pages.dpilot.google.cm.keywords.descLocal")}
           </p>
         }
         actions={
           <div className="flex flex-wrap gap-2">
             <Select value={campaignFilter} onValueChange={setCampaignFilter}>
-              <SelectTrigger className="w-[220px]" aria-label="Filtrar por campanha">
-                <SelectValue placeholder="Campanha" />
+              <SelectTrigger className="w-[220px]" aria-label={t("pages.dpilot.google.cm.common.filterByCampaignAria")}>
+                <SelectValue placeholder={t("pages.dpilot.google.cm.common.campaign")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={GOOGLE_MANAGER_ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
+                <SelectItem value={GOOGLE_MANAGER_ALL_CAMPAIGNS}>
+                  {t("pages.dpilot.google.cm.common.allCampaigns")}
+                </SelectItem>
                 {campaignOptions.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
@@ -1626,28 +1696,32 @@ export function DpilotGoogleKeywordsPage() {
       />
       {connErr ? (
         <Alert className="mt-4">
-          <AlertTitle>Métricas de rede indisponíveis</AlertTitle>
+          <AlertTitle>{t("pages.dpilot.google.cm.keywords.networkUnavailable")}</AlertTitle>
           <AlertDescription>{connErr}</AlertDescription>
         </Alert>
       ) : null}
       <Card className="mt-4">
         <CardContent className="space-y-4 pt-6">
-          <Input className="max-w-sm" placeholder="Filtrar keyword…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input
+            className="max-w-sm"
+            placeholder={t("pages.dpilot.google.cm.keywords.filterPlaceholder")}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
           {loading ? (
             <Skeleton className="h-32 w-full" />
           ) : filtered.length === 0 ? (
             <div className="space-y-2 py-1">
               <p className="text-sm text-muted-foreground">
                 {q.trim()
-                  ? "Nenhuma keyword corresponde ao filtro."
+                  ? t("pages.dpilot.google.cm.keywords.emptyFilter")
                   : campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS
-                    ? "Sem palavras-chave nesta campanha."
-                    : "Sem palavras-chave locais neste projecto."}
+                    ? t("pages.dpilot.google.cm.keywords.emptyCampaign")
+                    : t("pages.dpilot.google.cm.keywords.emptyProject")}
               </p>
               {!q.trim() ? (
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Em Campanhas use «Re-sincronizar e importar» para trazer keywords das campanhas Google, ou abra o
-                  estúdio da campanha para as editar.
+                  {t("pages.dpilot.google.cm.keywords.emptyHint")}
                 </p>
               ) : null}
             </div>
@@ -1656,14 +1730,14 @@ export function DpilotGoogleKeywordsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Keyword</TableHead>
-                    <TableHead>Match</TableHead>
-                    <TableHead>Campanha</TableHead>
-                    <TableHead>Custo</TableHead>
-                    <TableHead>Cliques</TableHead>
-                    <TableHead>Conv.</TableHead>
-                    <TableHead>CPA</TableHead>
-                    <TableHead>Estado</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.keywordPt")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.match")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.campaign")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.cost")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.clicks")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.conversionsShort")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.cpa")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.status")}</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
@@ -1683,13 +1757,15 @@ export function DpilotGoogleKeywordsPage() {
                         <TableCell>{m ? formatUsdFromMicros(m.cost_per_conversion_micros) : "—"}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="font-normal">
-                            {campaignStatusLabel(k.status)}
+                            {campaignStatusLabel(k.status, t)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap justify-end gap-1">
                             <Button size="sm" variant="secondary" className="h-8" asChild>
-                              <Link to={`/tracking/dpilot/p/${projectId}/campanhas/${k.campaign_id}/google`}>Gestão</Link>
+                              <Link to={`/tracking/dpilot/p/${projectId}/campanhas/${k.campaign_id}/google`}>
+                                {t("pages.dpilot.google.cm.common.manage")}
+                              </Link>
                             </Button>
                             {k.external_criterion_id && k.status !== "paused" ? (
                               <Button
@@ -1714,6 +1790,7 @@ export function DpilotGoogleKeywordsPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </Gate>
   );
 }
@@ -1751,7 +1828,9 @@ export function DpilotGoogleBudgetsPage() {
   ) => {
     if (meta?.budget_editable === false) {
       toast.error(
-        `Orçamento partilhado por ${meta.budget_reference_count ?? "várias"} campanhas. Separe na consola Google antes de ajustar aqui.`,
+        fill(t("pages.dpilot.google.cm.common.sharedBudgetBlockedShort"), {
+          n: meta.budget_reference_count ?? t("pages.dpilot.google.cm.common.sharedBudgetSeveral"),
+        }),
       );
       return;
     }
@@ -1772,25 +1851,27 @@ export function DpilotGoogleBudgetsPage() {
     setBusyId(null);
     if (error) toast.error(error);
     else {
-      const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+      const info = describeStudioChangeRequestStatus(data?.change_request?.status, t);
       if (info.kind === "failed") toast.error(info.message);
       else if (info.kind === "applied") {
-        toast.success(`Orçamento ${usd.toFixed(2)} USD/dia aplicado na Google.`);
-      } else toast.message(`Orçamento ${usd.toFixed(2)} USD/dia — ${info.message}`);
+        toast.success(fill(t("pages.dpilot.google.cm.common.budgetApplied"), { usd: usd.toFixed(2) }));
+      } else toast.message(fill(t("pages.dpilot.google.cm.common.budgetQueued"), { usd: usd.toFixed(2), msg: info.message }));
       setBudgetDialog(null);
       reload();
       void load();
     }
   };
 
+  const periodLabel = googleManagerPresetLabel(preset, t);
+
   return (
     <Gate>
+      <div data-no-i18n>
       <PageHeader
-        title="Google Ads · Orçamentos"
+        title={t("pages.dpilot.google.cm.budgets.title")}
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            Pré-voo de orçamento partilhado: se várias campanhas partilham o mesmo budget, o ajuste fica bloqueado
-            aqui (e na API). Compara orçamento vs custo no período seleccionado (default: hoje).
+            {t("pages.dpilot.google.cm.budgets.description")}
           </p>
         }
         actions={
@@ -1807,15 +1888,15 @@ export function DpilotGoogleBudgetsPage() {
           {loading ? (
             <Skeleton className="h-32 w-full" />
           ) : rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem campanhas Google.</p>
+            <p className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.budgets.empty")}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Campanha</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Orçamento/dia</TableHead>
-                  <TableHead>Custo ({googleManagerPresetLabel(preset, t)})</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.campaign")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.status")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.budgetPerDay")}</TableHead>
+                  <TableHead>{fill(t("pages.dpilot.google.cm.budgets.colCostPeriod"), { period: periodLabel })}</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
@@ -1834,13 +1915,13 @@ export function DpilotGoogleBudgetsPage() {
                         )}
                         title={
                           c.google_status
-                            ? `Google: ${c.google_status}`
+                            ? fill(t("pages.dpilot.google.cm.common.googleStatusTitle"), { status: c.google_status })
                             : c.external_campaign_id
-                              ? "Estado local (rede sem status)"
-                              : "Só neste projecto"
+                              ? t("pages.dpilot.google.cm.common.localStatusNoNetwork")
+                              : t("pages.dpilot.google.cm.common.onlyInProject")
                         }
                       >
-                        {campaignStatusLabel(effectiveCampaignServingStatus(c))}
+                        {campaignStatusLabel(effectiveCampaignServingStatus(c), t)}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -1857,7 +1938,9 @@ export function DpilotGoogleBudgetsPage() {
                                 : "block w-fit border-amber-500/50 font-normal text-[10px] text-amber-800 dark:text-amber-200"
                             }
                           >
-                            Partilhado ({c.budget_reference_count})
+                            {fill(t("pages.dpilot.google.cm.budgets.sharedTitle"), {
+                              n: c.budget_reference_count ?? 0,
+                            })}
                           </Badge>
                         ) : null}
                       </div>
@@ -1868,7 +1951,9 @@ export function DpilotGoogleBudgetsPage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button size="sm" variant="secondary" className="h-8" asChild>
-                          <Link to={`/tracking/dpilot/p/${projectId}/campanhas/${c.id}/google`}>Gestão</Link>
+                          <Link to={`/tracking/dpilot/p/${projectId}/campanhas/${c.id}/google`}>
+                            {t("pages.dpilot.google.cm.common.manage")}
+                          </Link>
                         </Button>
                         {c.external_campaign_id ? (
                           <Button
@@ -1879,8 +1964,10 @@ export function DpilotGoogleBudgetsPage() {
                             disabled={busyId === c.id || c.budget_editable === false}
                             title={
                               c.budget_editable === false
-                                ? `Orçamento partilhado (${c.budget_reference_count})`
-                                : "Alterar orçamento"
+                                ? fill(t("pages.dpilot.google.cm.budgets.sharedTitle"), {
+                                    n: c.budget_reference_count ?? 0,
+                                  })
+                                : t("pages.dpilot.google.cm.common.changeBudget")
                             }
                             onClick={() =>
                               onBudget(c.id, c.daily_budget_micros, {
@@ -1911,11 +1998,13 @@ export function DpilotGoogleBudgetsPage() {
         busy={budgetDialog != null && busyId === budgetDialog.campaignId}
         onConfirm={confirmBudget}
       />
+      </div>
     </Gate>
   );
 }
 
 export function DpilotGoogleConversionsPage() {
+  const { t } = useAppLocale();
   const { projectId, overview, campaigns } = useDpilotPaid();
   const [loading, setLoading] = useState(true);
   const [bootBusy, setBootBusy] = useState(false);
@@ -1985,36 +2074,36 @@ export function DpilotGoogleConversionsPage() {
   const statusBanner =
     funnel === "ready"
       ? {
-          title: "Ciclo afiliado pronto",
-          detail: "Upload activo e customer alinhado com a conta Paid deste projecto.",
+          title: t("pages.dpilot.google.cm.conversions.readyTitle"),
+          detail: t("pages.dpilot.google.cm.conversions.readyDetail"),
           variant: "default" as const,
         }
       : funnel === "customer_mismatch"
         ? {
-            title: "Customers diferentes",
-            detail:
-              "O upload de conversões aponta para outra conta Google do que o Ads Studio. Confirme se é MCC/intencional — senão as vendas não optimizam as campanhas que gere aqui.",
+            title: t("pages.dpilot.google.cm.conversions.mismatchTitle"),
+            detail: t("pages.dpilot.google.cm.conversions.mismatchDetail"),
             variant: "destructive" as const,
           }
         : funnel === "settings_unknown"
           ? {
-              title: "Não foi possível ler o upload",
-              detail: "Recarregue ou abra Integrações → Google Ads.",
+              title: t("pages.dpilot.google.cm.conversions.settingsUnknownTitle"),
+              detail: t("pages.dpilot.google.cm.conversions.settingsUnknownDetail"),
               variant: "destructive" as const,
             }
           : {
-              title: "Upload de conversões incompleto",
-              detail: "Ligue OAuth, customer e conversion action (bootstrap) para fechar gclid → rede.",
+              title: t("pages.dpilot.google.cm.conversions.incompleteTitle"),
+              detail: t("pages.dpilot.google.cm.conversions.incompleteDetail"),
               variant: "default" as const,
             };
 
   return (
     <Gate>
+      <div data-no-i18n>
       <PageHeader
-        title="Google Ads · Conversões (tracking)"
+        title={t("pages.dpilot.google.cm.conversions.title")}
         description={
           <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            Saúde real do upload afiliado (gclid) ao lado da conta Paid — sem misturar OAuth nem inventar eventos.
+            {t("pages.dpilot.google.cm.conversions.description")}
           </p>
         }
         actions={
@@ -2023,7 +2112,7 @@ export function DpilotGoogleConversionsPage() {
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             </Button>
             <Button size="sm" asChild>
-              <Link to="/integracoes/google-ads">Integrações</Link>
+              <Link to="/integracoes/google-ads">{t("pages.dpilot.google.cm.common.integrations")}</Link>
             </Button>
           </div>
         }
@@ -2037,51 +2126,55 @@ export function DpilotGoogleConversionsPage() {
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Upload pronto</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.conversions.kpiUploadReady")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold tracking-tight">
-              {settingsErr ? "?" : settings?.can_upload ? "Sim" : "Não"}
+              {settingsErr ? "?" : settings?.can_upload ? t("pages.dpilot.google.cm.common.yes") : t("pages.dpilot.google.cm.common.no")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Alinhamento</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.conversions.kpiAlignment")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold tracking-tight">
-              {align === "match" ? "OK" : align === "mismatch" ? "≠" : "—"}
+              {align === "match" ? t("pages.dpilot.google.cm.common.ok") : align === "mismatch" ? "≠" : "—"}
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
               {align === "match"
-                ? "Mesmo customer"
+                ? t("pages.dpilot.google.cm.conversions.alignSame")
                 : align === "mismatch"
-                  ? "Paid ≠ upload"
-                  : "Falta um dos IDs"}
+                  ? t("pages.dpilot.google.cm.conversions.alignMismatch")
+                  : t("pages.dpilot.google.cm.conversions.alignMissing")}
             </p>
           </CardContent>
         </Card>
         <Card className={health.failed > 0 ? "border-destructive/30" : undefined}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Sync recentes</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.conversions.kpiRecentSync")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold tracking-tight">
               {health.total ? `${health.ok}/${health.total}` : "—"}
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {health.failed ? `${health.failed} falha(s)` : health.total ? "sem falhas na amostra" : "sem vendas"}
+              {health.failed
+                ? fill(t("pages.dpilot.google.cm.conversions.syncFails"), { n: health.failed })
+                : health.total
+                  ? t("pages.dpilot.google.cm.conversions.syncNoFails")
+                  : t("pages.dpilot.google.cm.conversions.syncNoSales")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Sem gclid</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.conversions.kpiNoGclid")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold tracking-tight">{health.total ? health.no_gclid : "—"}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Na amostra recente</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{t("pages.dpilot.google.cm.conversions.kpiNoGclidHint")}</p>
           </CardContent>
         </Card>
       </div>
@@ -2089,29 +2182,45 @@ export function DpilotGoogleConversionsPage() {
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Upload (stack afiliado)</CardTitle>
-            <CardDescription>OAuth do utilizador · Integrações Google Ads</CardDescription>
+            <CardTitle className="text-base">{t("pages.dpilot.google.cm.conversions.uploadCardTitle")}</CardTitle>
+            <CardDescription>{t("pages.dpilot.google.cm.conversions.uploadCardDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             {loading ? (
               <Skeleton className="h-24 w-full" />
             ) : settingsErr ? (
               <Alert variant="destructive">
-                <AlertTitle className="text-sm">Falha ao ler settings</AlertTitle>
-                <AlertDescription className="text-xs">Tente novamente ou abra Integrações.</AlertDescription>
+                <AlertTitle className="text-sm">{t("pages.dpilot.google.cm.conversions.settingsReadFail")}</AlertTitle>
+                <AlertDescription className="text-xs">{t("pages.dpilot.google.cm.conversions.settingsReadFailHint")}</AlertDescription>
               </Alert>
             ) : (
               <ul className="space-y-1.5 text-xs">
-                <li>Conta Google: {settings?.has_refresh_token ? "ligada" : "não ligada"}</li>
-                <li>Customer ID: {settings?.google_ads_customer_id || "—"}</li>
-                <li>Conversion action: {settings?.google_ads_conversion_action_id || "—"}</li>
-                <li>API env: {settings?.api_env_configured ? "ok" : "em falta"}</li>
-                <li>Enabled: {settings?.google_ads_enabled ? "sim" : "não"}</li>
+                <li>
+                  {fill(t("pages.dpilot.google.cm.conversions.rowGoogleAccount"), {
+                    state: settings?.has_refresh_token ? t("pages.dpilot.google.cm.conversions.linked") : t("pages.dpilot.google.cm.conversions.notLinked"),
+                  })}
+                </li>
+                <li>{fill(t("pages.dpilot.google.cm.conversions.rowCustomerId"), { id: settings?.google_ads_customer_id || "—" })}</li>
+                <li>
+                  {fill(t("pages.dpilot.google.cm.conversions.rowConversionAction"), {
+                    id: settings?.google_ads_conversion_action_id || "—",
+                  })}
+                </li>
+                <li>
+                  {fill(t("pages.dpilot.google.cm.conversions.rowApiEnv"), {
+                    state: settings?.api_env_configured ? t("pages.dpilot.google.cm.conversions.apiEnvOk") : t("pages.dpilot.google.cm.conversions.apiEnvMissing"),
+                  })}
+                </li>
+                <li>
+                  {fill(t("pages.dpilot.google.cm.conversions.rowEnabled"), {
+                    state: settings?.google_ads_enabled ? t("pages.dpilot.google.cm.conversions.enabledYes") : t("pages.dpilot.google.cm.conversions.enabledNo"),
+                  })}
+                </li>
               </ul>
             )}
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm">
-                <Link to="/integracoes/google-ads">Configurar / bootstrap</Link>
+                <Link to="/integracoes/google-ads">{t("pages.dpilot.google.cm.conversions.configureBootstrap")}</Link>
               </Button>
               {!settings?.can_upload && !settingsErr ? (
                 <Button
@@ -2125,13 +2234,13 @@ export function DpilotGoogleConversionsPage() {
                     setBootBusy(false);
                     if (error) toast.error(error);
                     else {
-                      toast.success(data?.detail || "Bootstrap concluído");
+                      toast.success(data?.detail || t("pages.dpilot.google.cm.conversions.bootstrapDone"));
                       void reload();
                     }
                   }}
                 >
                   {bootBusy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-                  Correr bootstrap
+                  {t("pages.dpilot.google.cm.conversions.runBootstrap")}
                 </Button>
               ) : null}
             </div>
@@ -2139,32 +2248,32 @@ export function DpilotGoogleConversionsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Conta Paid (este projecto)</CardTitle>
-            <CardDescription>OAuth do Ads Studio · gestão de campanhas</CardDescription>
+            <CardTitle className="text-base">{t("pages.dpilot.google.cm.conversions.paidCardTitle")}</CardTitle>
+            <CardDescription>{t("pages.dpilot.google.cm.conversions.paidCardDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <ul className="space-y-1.5 text-xs">
-              <li>Customer ID Paid: {paidCustomer || "—"}</li>
+              <li>{fill(t("pages.dpilot.google.cm.conversions.paidCustomerId"), { id: paidCustomer || "—" })}</li>
               <li>
-                Alinhamento:{" "}
                 {align === "match"
-                  ? "mesmo customer — ideal"
+                  ? t("pages.dpilot.google.cm.conversions.alignIdeal")
                   : align === "mismatch"
-                    ? "diferentes — confirme MCC / intenção"
-                    : "ligue ambas as contas para comparar"}
+                    ? t("pages.dpilot.google.cm.conversions.alignDifferent")
+                    : t("pages.dpilot.google.cm.conversions.alignLinkBoth")}
               </li>
             </ul>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" asChild>
-                <Link to={`/tracking/dpilot/p/${projectId}/google`}>Ligações Paid</Link>
+                <Link to={`/tracking/dpilot/p/${projectId}/google`}>{t("pages.dpilot.google.cm.conversions.paidLinks")}</Link>
               </Button>
               <Button variant="outline" size="sm" asChild>
-                <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Métricas por campanha</Link>
+                <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>
+                  {t("pages.dpilot.google.cm.conversions.metricsByCampaign")}
+                </Link>
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Dois OAuth são intencionais (stacks separados). Configure uma vez; no dia-a-dia opere campanhas e vendas
-              aqui sem a consola Google.
+              {t("pages.dpilot.google.cm.conversions.twoOauthNote")}
             </p>
           </CardContent>
         </Card>
@@ -2174,21 +2283,20 @@ export function DpilotGoogleConversionsPage() {
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
-              <CardTitle className="text-base">Ledger recente (upload)</CardTitle>
+              <CardTitle className="text-base">{t("pages.dpilot.google.cm.conversions.ledgerTitle")}</CardTitle>
               <CardDescription>
-                Estado `google_ads_sync`.{" "}
                 {scopedApplied
-                  ? "Filtrado às campanhas Paid deste projecto."
-                  : "Sem UUID Paid nas vendas recentes — a mostrar amostra da conta."}
+                  ? t("pages.dpilot.google.cm.conversions.ledgerFiltered")
+                  : t("pages.dpilot.google.cm.conversions.ledgerSample")}
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Checkbox checked={projectOnly} onCheckedChange={(v) => setProjectOnly(v === true)} />
-                Só este projecto
+                {t("pages.dpilot.google.cm.conversions.projectOnly")}
               </label>
               <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                <Link to="/resultados/relatorios/conversoes">Relatórios → Conversões</Link>
+                <Link to="/resultados/relatorios/conversoes">{t("pages.dpilot.google.cm.conversions.reportsLink")}</Link>
               </Button>
             </div>
           </div>
@@ -2196,23 +2304,23 @@ export function DpilotGoogleConversionsPage() {
         <CardContent>
           {ledgerErr ? (
             <Alert variant="destructive">
-              <AlertTitle className="text-sm">Não foi possível carregar vendas</AlertTitle>
+              <AlertTitle className="text-sm">{t("pages.dpilot.google.cm.conversions.ledgerLoadFail")}</AlertTitle>
               <AlertDescription className="text-xs">{ledgerErr}</AlertDescription>
             </Alert>
           ) : loading ? (
             <Skeleton className="h-32 w-full" />
           ) : scopedLedger.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Ainda sem conversões registadas.</p>
+            <p className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.conversions.ledgerEmpty")}</p>
           ) : (
             <div className="overflow-x-auto rounded-lg border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Quando</TableHead>
-                    <TableHead>Origem</TableHead>
-                    <TableHead>gclid</TableHead>
-                    <TableHead>Sync Google</TableHead>
-                    <TableHead>Erro</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.when")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.conversions.colOrigin")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.conversions.colGclid")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.conversions.colSyncGoogle")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.error")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -2225,7 +2333,11 @@ export function DpilotGoogleConversionsPage() {
                         {row.origin || row.platform || "—"}
                       </TableCell>
                       <TableCell className="font-mono text-[11px]">
-                        {row.has_gclid ? (row.gclid ? `${row.gclid.slice(0, 12)}…` : "sim") : "não"}
+                        {row.has_gclid
+                          ? row.gclid
+                            ? `${row.gclid.slice(0, 12)}…`
+                            : t("pages.dpilot.google.cm.conversions.gclidYes")
+                          : t("pages.dpilot.google.cm.conversions.gclidNo")}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -2236,7 +2348,7 @@ export function DpilotGoogleConversionsPage() {
                               : "font-normal"
                           }
                         >
-                          {googleAdsSyncShortLabel(row.google_ads_sync)}
+                          {googleAdsSyncShortLabel(row.google_ads_sync, t)}
                         </Badge>
                       </TableCell>
                       <TableCell className="max-w-[14rem] truncate text-[11px] text-muted-foreground">
@@ -2250,11 +2362,13 @@ export function DpilotGoogleConversionsPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </Gate>
   );
 }
 
 export function DpilotGoogleReportsPage() {
+  const { t } = useAppLocale();
   const { projectId, campaigns } = useDpilotPaid();
   const { preset, setPreset, campaignFilter, setCampaignFilter, ensureCampaignFilterValid } =
     useGoogleManagerPrefs(projectId);
@@ -2314,23 +2428,23 @@ export function DpilotGoogleReportsPage() {
 
   return (
     <Gate>
+      <div data-no-i18n>
       <PageHeader
-        title="Google Ads · Relatórios"
+        title={t("pages.dpilot.google.cm.reports.title")}
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            Colectivo por dispositivo e breakdown por campanha Search importada — mesmo período que Visão /
-            Campanhas. Use o filtro para isolar uma campanha.
+            {t("pages.dpilot.google.cm.reports.description")}
           </p>
         }
         actions={
           <div className="flex flex-wrap gap-2">
             <PeriodSelect value={preset} onChange={setPreset} />
             <Select value={campaignFilter} onValueChange={setCampaignFilter}>
-              <SelectTrigger className="w-[220px]" aria-label="Campanha">
-                <SelectValue placeholder="Campanha" />
+              <SelectTrigger className="w-[220px]" aria-label={t("pages.dpilot.google.cm.reports.campaignAria")}>
+                <SelectValue placeholder={t("pages.dpilot.google.cm.common.campaign")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={GOOGLE_MANAGER_ALL_CAMPAIGNS}>Todas as importadas</SelectItem>
+                <SelectItem value={GOOGLE_MANAGER_ALL_CAMPAIGNS}>{t("pages.dpilot.google.cm.reports.allImported")}</SelectItem>
                 {campaignOptions.map(([id, name]) => (
                   <SelectItem key={id} value={id}>
                     {name}
@@ -2342,53 +2456,53 @@ export function DpilotGoogleReportsPage() {
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             </Button>
             <Button asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Campanhas</Link>
+              <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>{t("pages.dpilot.google.cm.common.campaignsNav")}</Link>
             </Button>
           </div>
         }
       />
       {err ? (
         <Alert variant="destructive" className="mt-4">
-          <AlertTitle>API</AlertTitle>
+          <AlertTitle>{t("pages.dpilot.google.cm.common.apiErrorTitle")}</AlertTitle>
           <AlertDescription>{err}</AlertDescription>
         </Alert>
       ) : null}
 
       {mobileShare != null && mobileShare >= 0.55 ? (
         <Alert className="mt-4">
-          <AlertTitle className="text-sm">Mobile concentra {(mobileShare * 100).toFixed(0)}% do custo</AlertTitle>
-          <AlertDescription className="text-xs">
-            Revise CPA/ROAS mobile na tabela por campanha antes de subir orçamento desktop.
-          </AlertDescription>
+          <AlertTitle className="text-sm">
+            {fill(t("pages.dpilot.google.cm.reports.mobileAlertTitle"), { pct: (mobileShare * 100).toFixed(0) })}
+          </AlertTitle>
+          <AlertDescription className="text-xs">{t("pages.dpilot.google.cm.reports.mobileAlertBody")}</AlertDescription>
         </Alert>
       ) : null}
 
       <Card className="mt-4">
         <CardHeader>
-          <CardTitle className="text-base">Por dispositivo</CardTitle>
+          <CardTitle className="text-base">{t("pages.dpilot.google.cm.reports.byDeviceTitle")}</CardTitle>
           <CardDescription>
-            {campaignFilter === "all"
-              ? "Colectivo: rollup da conta / campanhas no período."
-              : "Só a campanha seleccionada."}
-            {scoped ? ` · ${scoped} Search importada(s) no breakdown abaixo.` : ""}
+            {campaignFilter === GOOGLE_MANAGER_ALL_CAMPAIGNS
+              ? t("pages.dpilot.google.cm.reports.byDeviceAll")
+              : t("pages.dpilot.google.cm.reports.byDeviceOne")}
+            {scoped ? fill(t("pages.dpilot.google.cm.reports.scopedSuffix"), { n: scoped }) : ""}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <Skeleton className="h-28 w-full" />
           ) : devices.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem dados neste período.</p>
+            <p className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.reports.emptyPeriod")}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Dispositivo</TableHead>
-                  <TableHead>Impr.</TableHead>
-                  <TableHead>Cliques</TableHead>
-                  <TableHead>CTR</TableHead>
-                  <TableHead>Custo</TableHead>
-                  <TableHead>Conv.</TableHead>
-                  <TableHead>ROAS</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.reports.colDevice")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.impressionsShort")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.clicks")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.ctr")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.cost")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.conversionsShort")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.roas")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2411,32 +2525,28 @@ export function DpilotGoogleReportsPage() {
 
       <Card className="mt-4">
         <CardHeader>
-          <CardTitle className="text-base">Campanha × dispositivo</CardTitle>
-          <CardDescription>
-            Só campanhas Search publicadas/importadas neste projecto. Use o filtro acima para isolar uma.
-          </CardDescription>
+          <CardTitle className="text-base">{t("pages.dpilot.google.cm.reports.byCampaignTitle")}</CardTitle>
+          <CardDescription>{t("pages.dpilot.google.cm.reports.byCampaignDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <Skeleton className="h-40 w-full" />
           ) : byCampaign.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Sem breakdown — importe ou publique Search para ver dispositivo por campanha.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.reports.emptyBreakdown")}</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Campanha</TableHead>
-                    <TableHead>Dispositivo</TableHead>
-                    <TableHead className="text-right">Impr.</TableHead>
-                    <TableHead className="text-right">Cliques</TableHead>
-                    <TableHead className="text-right">CTR</TableHead>
-                    <TableHead className="text-right">Custo</TableHead>
-                    <TableHead className="text-right">Conv.</TableHead>
-                    <TableHead className="text-right">CPA</TableHead>
-                    <TableHead className="text-right">ROAS</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.common.campaign")}</TableHead>
+                    <TableHead>{t("pages.dpilot.google.cm.reports.colDevice")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.impressionsShort")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.clicks")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.ctr")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.cost")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.conversionsShort")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.cpa")}</TableHead>
+                    <TableHead className="text-right">{t("pages.dpilot.google.cm.common.roas")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -2472,6 +2582,7 @@ export function DpilotGoogleReportsPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </Gate>
   );
 }
@@ -2483,6 +2594,7 @@ function googleCampaignIdFromResource(resource: string | null | undefined): stri
 }
 
 export function DpilotGoogleRecommendationsPage() {
+  const { t } = useAppLocale();
   const { projectId, campaigns } = useDpilotPaid();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -2514,11 +2626,12 @@ export function DpilotGoogleRecommendationsPage() {
   }, [load]);
 
   const act = async (resource_name: string, action: "apply" | "dismiss") => {
-    const label = action === "apply" ? "Aplicar" : "Rejeitar";
+    const label =
+      action === "apply"
+        ? t("pages.dpilot.google.cm.recommendations.applyAction")
+        : t("pages.dpilot.google.cm.recommendations.dismissAction");
     if (
-      !window.confirm(
-        `${label} esta recomendação na conta Google Ads?\n\nIsto chama a API oficial já (não passa pela fila de Aprovações).\nSó continue se compreende o impacto.`,
-      )
+      !window.confirm(fill(t("pages.dpilot.google.cm.recommendations.confirm"), { action: label }))
     ) {
       return;
     }
@@ -2530,31 +2643,31 @@ export function DpilotGoogleRecommendationsPage() {
     setBusy(null);
     if (error) toast.error(error);
     else {
-      toast.success(`${label} concluído`);
+      toast.success(fill(t("pages.dpilot.google.cm.recommendations.done"), { action: label }));
       void load();
     }
   };
 
   return (
     <Gate>
+      <div data-no-i18n>
       <PageHeader
-        title="Google Ads · Recomendações"
+        title={t("pages.dpilot.google.cm.recommendations.title")}
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            RecommendationService real. Aplicar / rejeitar vai directo à conta Google (confirmação explícita) — não
-            passa pela fila de Aprovações. Só tipos suportados podem ser aplicados; dismiss está sempre disponível.
+            {t("pages.dpilot.google.cm.recommendations.description")}
           </p>
         }
         actions={
           <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Atualizar
+            {t("pages.dpilot.google.cm.common.refresh")}
           </Button>
         }
       />
       {err ? (
         <Alert variant="destructive" className="mt-4">
-          <AlertTitle>API</AlertTitle>
+          <AlertTitle>{t("pages.dpilot.google.cm.common.apiErrorTitle")}</AlertTitle>
           <AlertDescription>{err}</AlertDescription>
         </Alert>
       ) : null}
@@ -2563,15 +2676,15 @@ export function DpilotGoogleRecommendationsPage() {
           {loading ? (
             <Skeleton className="h-28 w-full" />
           ) : recs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem recomendações activas ou conta sem acesso a este recurso.</p>
+            <p className="text-sm text-muted-foreground">{t("pages.dpilot.google.cm.recommendations.empty")}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Campanha</TableHead>
-                  <TableHead>Nota</TableHead>
-                  <TableHead className="text-right">Acções</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.type")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.campaign")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.note")}</TableHead>
+                  <TableHead className="text-right">{t("pages.dpilot.google.cm.common.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2605,7 +2718,7 @@ export function DpilotGoogleRecommendationsPage() {
                               disabled={busy === r.resource_name}
                               onClick={() => void act(r.resource_name!, "apply")}
                             >
-                              Aplicar
+                              {t("pages.dpilot.google.cm.recommendations.applyAction")}
                             </Button>
                           ) : null}
                           <Button
@@ -2616,7 +2729,7 @@ export function DpilotGoogleRecommendationsPage() {
                             disabled={busy === r.resource_name}
                             onClick={() => void act(r.resource_name!, "dismiss")}
                           >
-                            Rejeitar
+                            {t("pages.dpilot.google.cm.common.reject")}
                           </Button>
                         </div>
                       ) : (
@@ -2631,6 +2744,7 @@ export function DpilotGoogleRecommendationsPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </Gate>
   );
 }
@@ -2655,59 +2769,59 @@ export function DpilotGoogleAutomationsPage() {
 
   return (
     <Gate>
+      <div data-no-i18n>
       <PageHeader
-        title="Google Ads · Automações"
+        title={t("pages.dpilot.google.cm.automations.title")}
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            Estado actual do motor Paid neste projecto. Regras e histórico detalhado ficam em Auditoria — aqui só o
-            resumo para o media buyer no {t("pages.dpilot.google.cm.title")}.
+            {fill(t("pages.dpilot.google.cm.automations.description"), { cmTitle: t("pages.dpilot.google.cm.title") })}
           </p>
         }
         actions={
           <Button asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/auditoria`}>Abrir auditoria & motor</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/auditoria`}>{t("pages.dpilot.google.cm.automations.openAudit")}</Link>
           </Button>
         }
       />
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Modo</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("pages.dpilot.google.cm.automations.mode")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-lg font-semibold tracking-tight">{modeLabel}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">
               {paidMode === "autopilot"
-                ? "Acções do estúdio aplicam na Google quando o motor as envia."
-                : "Dono do projecto: aplicar já no estúdio; outros pedidos vão a Aprovações."}
+                ? t("pages.dpilot.google.cm.automations.modeAutopilotHint")
+                : t("pages.dpilot.google.cm.automations.modeCopilotHint")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Teto diário</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("pages.dpilot.google.cm.automations.dailyCap")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-lg font-semibold tracking-tight">
               {maxDailyMicros != null ? formatUsdFromMicros(maxDailyMicros) : "—"}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Guardrail max_daily_budget</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{t("pages.dpilot.google.cm.automations.dailyCapHint")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Teto mensal</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("pages.dpilot.google.cm.automations.monthlyCap")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-lg font-semibold tracking-tight">
               {maxMonthlyMicros != null ? formatUsdFromMicros(maxMonthlyMicros) : "—"}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Guardrail max_monthly_budget</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{t("pages.dpilot.google.cm.automations.monthlyCapHint")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Países</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("pages.dpilot.google.cm.automations.countries")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-lg font-semibold tracking-tight">
@@ -2715,18 +2829,16 @@ export function DpilotGoogleAutomationsPage() {
               {countries.length > 8 ? ` +${countries.length - 8}` : ""}
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Fila: {overview?.pending_approvals ?? 0} pendente(s)
+              {fill(t("pages.dpilot.google.cm.automations.queuePending"), { n: overview?.pending_approvals ?? 0 })}
             </p>
           </CardContent>
         </Card>
       </div>
       <Alert className="mt-4">
-        <AlertTitle>Não há um segundo motor aqui</AlertTitle>
-        <AlertDescription>
-          Configure e reveja automações em Auditoria. Dry-run do servidor (
-          <code className="text-xs">PAID_OPTIMIZER_DRY_RUN</code>) aplica-se ao mesmo motor.
-        </AlertDescription>
+        <AlertTitle>{t("pages.dpilot.google.cm.automations.noSecondMotorTitle")}</AlertTitle>
+        <AlertDescription>{t("pages.dpilot.google.cm.automations.noSecondMotorBody")}</AlertDescription>
       </Alert>
+      </div>
     </Gate>
   );
 }
@@ -2737,7 +2849,7 @@ export function DpilotGoogleAiAssistantPage() {
   const { preset, setPreset } = useGoogleManagerPrefs(projectId);
   const paidMode = overview?.project?.paid_mode ?? "copilot";
   const modeChip = paidModeShortChip(paidMode, t);
-  const [question, setQuestion] = useState("Qual campanha está a gastar mais?");
+  const [question, setQuestion] = useState(() => t("pages.dpilot.google.cm.assistant.qSpendMost"));
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [pendingCampaignId, setPendingCampaignId] = useState<string | null>(null);
@@ -2759,7 +2871,11 @@ export function DpilotGoogleAiAssistantPage() {
   }) => {
     if (!s.campaign_id || !s.suggested_op) return;
     const modeHint = paidModeCanonicalLine(paidMode, t);
-    if (!window.confirm(`${s.action}\n\n${modeHint}\n\nContinuar?`)) {
+    if (
+      !window.confirm(
+        fill(t("pages.dpilot.google.cm.assistant.confirmContinue"), { action: s.action, modeHint }),
+      )
+    ) {
       return;
     }
     setBusy(s.campaign_id);
@@ -2770,11 +2886,11 @@ export function DpilotGoogleAiAssistantPage() {
       setBusy(null);
       if (error) toast.error(error);
       else {
-        const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+        const info = describeStudioChangeRequestStatus(data?.change_request?.status, t);
         if (info.kind === "failed") toast.error(info.message);
         else if (info.kind === "applied") {
           setPendingCampaignId(null);
-          toast.success("Campanha pausada na Google.");
+          toast.success(t("pages.dpilot.google.cm.common.campaignPausedToast"));
         } else {
           setPendingCampaignId(s.campaign_id);
           toast.message(info.message);
@@ -2786,7 +2902,7 @@ export function DpilotGoogleAiAssistantPage() {
     const base = s.daily_budget_micros != null ? Number(s.daily_budget_micros) / 1e6 : 0;
     if (!(base > 0)) {
       setBusy(null);
-      toast.error("Sem orçamento actual para calcular +20%.");
+      toast.error(t("pages.dpilot.google.cm.assistant.noBudgetForBump"));
       return;
     }
     const next = Math.round(base * 1.2 * 100) / 100;
@@ -2797,35 +2913,45 @@ export function DpilotGoogleAiAssistantPage() {
     setBusy(null);
     if (error) toast.error(error);
     else {
-      const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+      const info = describeStudioChangeRequestStatus(data?.change_request?.status, t);
       if (info.kind === "failed") toast.error(info.message);
       else if (info.kind === "applied") {
         setPendingCampaignId(null);
-        toast.success(`Orçamento → ${next.toFixed(2)} USD/dia aplicado na Google.`);
+        toast.success(fill(t("pages.dpilot.google.cm.assistant.budgetBumpApplied"), { usd: next.toFixed(2) }));
       } else {
         setPendingCampaignId(s.campaign_id);
-        toast.message(`Orçamento → ${next.toFixed(2)} USD/dia — ${info.message}`);
+        toast.message(fill(t("pages.dpilot.google.cm.assistant.budgetBumpQueued"), { usd: next.toFixed(2), msg: info.message }));
       }
       reload();
     }
   };
 
+  const quickQuestions = [
+    t("pages.dpilot.google.cm.assistant.qSpendMost"),
+    t("pages.dpilot.google.cm.assistant.qConvertBest"),
+    t("pages.dpilot.google.cm.assistant.qPause"),
+    t("pages.dpilot.google.cm.assistant.qMoreBudget"),
+  ] as const;
+
   return (
     <Gate>
+      <div data-no-i18n>
       <PageHeader
-        title="Google Ads · Assistente IA"
+        title={t("pages.dpilot.google.cm.assistant.title")}
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            Analisa métricas reais. Cada sugestão pede confirmação. Modo actual:{" "}
+            {t("pages.dpilot.google.cm.assistant.descriptionLead")}
             <span className="font-medium text-foreground">{modeChip}</span>
             {paidMode === "autopilot"
-              ? " — tenta aplicar já na Google."
-              : " — dono aplica já; outros vão a Aprovações."}
+              ? t("pages.dpilot.google.cm.assistant.descAutopilot")
+              : t("pages.dpilot.google.cm.assistant.descCopilot")}
           </p>
         }
         actions={
           <Button variant="outline" size="sm" asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>Aprovações</Link>
+            <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>
+              {t("pages.dpilot.google.cm.common.approvalsPt")}
+            </Link>
           </Button>
         }
       />
@@ -2833,12 +2959,12 @@ export function DpilotGoogleAiAssistantPage() {
         <CardContent className="space-y-4 pt-6">
           {pendingCampaignId ? (
             <Alert>
-              <AlertTitle className="text-sm">Pedido na fila</AlertTitle>
+              <AlertTitle className="text-sm">{t("pages.dpilot.google.cm.assistant.queuedTitle")}</AlertTitle>
               <AlertDescription className="flex flex-wrap items-center gap-2 text-xs">
-                A última sugestão ficou em Aprovações — confirme para aplicar na Google.
+                {t("pages.dpilot.google.cm.assistant.queuedBody")}
                 <Button size="sm" className="h-7" asChild>
                   <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes?campaign=${pendingCampaignId}`}>
-                    Abrir Fila
+                    {t("pages.dpilot.google.cm.assistant.openQueue")}
                   </Link>
                 </Button>
               </AlertDescription>
@@ -2849,12 +2975,7 @@ export function DpilotGoogleAiAssistantPage() {
           </div>
           <Textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} />
           <div className="flex flex-wrap gap-2">
-            {[
-              "Qual campanha está a gastar mais?",
-              "Qual campanha está a converter melhor?",
-              "Quais campanhas devo pausar?",
-              "Qual campanha merece mais orçamento?",
-            ].map((s) => (
+            {quickQuestions.map((s) => (
               <Button key={s} type="button" size="sm" variant="outline" onClick={() => setQuestion(s)}>
                 {s}
               </Button>
@@ -2862,7 +2983,7 @@ export function DpilotGoogleAiAssistantPage() {
           </div>
           <Button type="button" onClick={() => void ask()} disabled={loading}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            Analisar
+            {t("pages.dpilot.google.cm.assistant.analyze")}
           </Button>
           {out ? (
             <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-4">
@@ -2877,7 +2998,9 @@ export function DpilotGoogleAiAssistantPage() {
                     <span className="text-muted-foreground"> — {e.detail}</span>
                     {e.campaign_id ? (
                       <Button variant="link" className="h-auto px-1 text-xs" asChild>
-                        <Link to={`/tracking/dpilot/p/${projectId}/campanhas/${e.campaign_id}/google`}>Gestão</Link>
+                        <Link to={`/tracking/dpilot/p/${projectId}/campanhas/${e.campaign_id}/google`}>
+                          {t("pages.dpilot.google.cm.common.manage")}
+                        </Link>
                       </Button>
                     ) : null}
                   </li>
@@ -2885,13 +3008,16 @@ export function DpilotGoogleAiAssistantPage() {
               </ul>
               {out.suggestions.length > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Sugestões (confirmação obrigatória)</p>
+                  <p className="text-sm font-medium">{t("pages.dpilot.google.cm.assistant.suggestionsTitle")}</p>
                   {out.suggestions.map((s, i) => (
                     <Alert key={i}>
                       <AlertTitle className="text-sm">{s.action}</AlertTitle>
                       <AlertDescription className="space-y-2 text-xs">
                         <p>
-                          Risco: {s.risk}. Evidência: {s.evidence}
+                          {fill(t("pages.dpilot.google.cm.assistant.suggestionMeta"), {
+                            risk: s.risk,
+                            evidence: s.evidence,
+                          })}
                         </p>
                         {s.campaign_id && s.suggested_op ? (
                           <Button
@@ -2903,7 +3029,7 @@ export function DpilotGoogleAiAssistantPage() {
                             {busy === s.campaign_id ? (
                               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                             ) : null}
-                            Confirmar e enviar
+                            {t("pages.dpilot.google.cm.assistant.confirmSend")}
                           </Button>
                         ) : null}
                       </AlertDescription>
@@ -2916,11 +3042,13 @@ export function DpilotGoogleAiAssistantPage() {
           ) : null}
         </CardContent>
       </Card>
+      </div>
     </Gate>
   );
 }
 
 export function DpilotGoogleHistoryPage() {
+  const { t } = useAppLocale();
   const { projectId, changeRequests } = useDpilotPaid();
   const googleRelated = useMemo(
     () =>
@@ -2934,21 +3062,23 @@ export function DpilotGoogleHistoryPage() {
 
   return (
     <Gate>
+      <div data-no-i18n>
       <PageHeader
-        title="Google Ads · Histórico"
+        title={t("pages.dpilot.google.cm.history.title")}
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            Pedidos da Dclickora (change requests) — não é o change history da consola Google. Sem tokens nem
-            segredos. Motor automático e decisões do optimizador ficam em Auditoria.
+            {t("pages.dpilot.google.cm.history.description")}
           </p>
         }
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>Aprovações</Link>
+              <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>
+                {t("pages.dpilot.google.cm.common.approvalsPt")}
+              </Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/auditoria`}>Auditoria</Link>
+              <Link to={`/tracking/dpilot/p/${projectId}/auditoria`}>{t("pages.dpilot.google.cm.history.viewMotorAudit")}</Link>
             </Button>
           </div>
         }
@@ -2957,16 +3087,17 @@ export function DpilotGoogleHistoryPage() {
         <CardContent className="pt-6">
           {googleRelated.length === 0 ? (
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>
-                Ainda não há change requests Google neste projecto. Pausas, orçamentos e publicações pedidas aqui
-                aparecem nesta lista.
-              </p>
+              <p>{t("pages.dpilot.google.cm.history.empty")}</p>
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" asChild>
-                  <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>Abrir Aprovações</Link>
+                  <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>
+                    {t("pages.dpilot.google.cm.history.openApprovals")}
+                  </Link>
                 </Button>
                 <Button size="sm" variant="outline" asChild>
-                  <Link to={`/tracking/dpilot/p/${projectId}/auditoria`}>Ver motor em Auditoria</Link>
+                  <Link to={`/tracking/dpilot/p/${projectId}/auditoria`}>
+                    {t("pages.dpilot.google.cm.history.viewMotorAudit")}
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -2974,18 +3105,18 @@ export function DpilotGoogleHistoryPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Resumo</TableHead>
-                  <TableHead>Quando</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.type")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.status")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.history.colSummary")}</TableHead>
+                  <TableHead>{t("pages.dpilot.google.cm.common.when")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {googleRelated.slice(0, 80).map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="text-sm">{changeRequestTypeLabel(c.type)}</TableCell>
+                    <TableCell className="text-sm">{changeRequestTypeLabel(c.type, t)}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{changeRequestStatusLabel(c.status)}</Badge>
+                      <Badge variant="outline">{changeRequestStatusLabel(c.status, t)}</Badge>
                     </TableCell>
                     <TableCell className="max-w-md text-xs text-muted-foreground">
                       {summarizeChangeRequestPayload(c.payload).lines.join(" · ") || "—"}
@@ -3003,6 +3134,7 @@ export function DpilotGoogleHistoryPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </Gate>
   );
 }
