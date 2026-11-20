@@ -7,9 +7,11 @@ import { runGoogleAdsSearch } from "./google-ads.api";
 import { parseGoogleBudgetShareFromRow } from "./google-ads-budget";
 import { resolveGoogleAdsAccess } from "./google-ads-connection";
 import { isoFromGoogleGeoCriterionId } from "./geo-google";
+import { normalizeGoogleCriterionId } from "./google-ads-ids";
 import { isoFromGoogleLanguageConstantId } from "./language-google";
 import { prisma } from "./paidPrisma";
 
+/** IDs de campanha / ad group da API (já numéricos). */
 function numId(v: unknown): string {
   return String(v ?? "").replace(/\D/g, "");
 }
@@ -371,7 +373,7 @@ async function pullStructureIntoLocalCampaign(
     const agExt = numId(ag.id);
     const localAg = adGroupLocalByExt.get(agExt);
     if (!localAg) continue;
-    const critId = numId(crit.criterionId);
+    const critId = normalizeGoogleCriterionId(crit.criterionId);
     const text = String(crit.keyword?.text ?? "").trim().slice(0, 80);
     if (!text || !critId) continue;
     kwCreates.push({
@@ -505,7 +507,7 @@ async function pullStructureIntoLocalCampaign(
         criterionId?: string;
         keyword?: { text?: string; matchType?: string };
       };
-      const critId = numId(crit.criterionId);
+      const critId = normalizeGoogleCriterionId(crit.criterionId);
       const text = String(crit.keyword?.text ?? "").trim().slice(0, 80);
       if (!text || !critId) continue;
       const existing = await prisma.paidAdsCampaignNegativeKeyword.findFirst({
@@ -549,7 +551,7 @@ async function pullStructureIntoLocalCampaign(
       };
       const localAg = adGroupLocalByExt.get(numId(ag.id));
       if (!localAg) continue;
-      const critId = numId(crit.criterionId);
+      const critId = normalizeGoogleCriterionId(crit.criterionId);
       const text = String(crit.keyword?.text ?? "").trim().slice(0, 80);
       if (!text || !critId) continue;
       const existing = await prisma.paidAdsAdGroupNegativeKeyword.findFirst({

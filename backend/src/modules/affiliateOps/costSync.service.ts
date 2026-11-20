@@ -112,10 +112,16 @@ async function syncGoogleForUser(
     const accRows = (await customer.query(accountGaql)) as Array<Record<string, unknown>>;
     for (const row of Array.isArray(accRows) ? accRows : []) {
       const seg = row.segments as { date?: string } | undefined;
-      const m = row.metrics as { cost_micros?: unknown; clicks?: unknown; impressions?: unknown } | undefined;
-      const cust = row.customer as { currency_code?: string } | undefined;
+      const m = row.metrics as {
+        cost_micros?: unknown;
+        costMicros?: unknown;
+        clicks?: unknown;
+        impressions?: unknown;
+      } | undefined;
+      const cust = row.customer as { currency_code?: string; currencyCode?: string } | undefined;
       if (!seg?.date) continue;
       const date = dayUtc(new Date(`${seg.date}T00:00:00.000Z`));
+      const costRaw = m?.costMicros ?? m?.cost_micros ?? 0;
       await upsertCostRow({
         userId: user.id,
         platform: "google_ads",
@@ -123,10 +129,10 @@ async function syncGoogleForUser(
         level: "account",
         entityKey: "account",
         label: "Google Ads (conta)",
-        costMicros: BigInt(Math.round(Number(m?.cost_micros ?? 0))),
+        costMicros: BigInt(Math.round(Number(costRaw))),
         clicks: Number(m?.clicks ?? 0),
         impressions: Number(m?.impressions ?? 0),
-        currency: cust?.currency_code ?? "USD",
+        currency: cust?.currency_code ?? cust?.currencyCode ?? "USD",
       });
       rows += 1;
     }
@@ -157,7 +163,12 @@ async function syncGoogleForUser(
     const byAg = new Map<string, Agg & { date: Date }>();
     for (const row of Array.isArray(kwRows) ? kwRows : []) {
       const seg = row.segments as { date?: string } | undefined;
-      const m = row.metrics as { cost_micros?: unknown; clicks?: unknown; impressions?: unknown } | undefined;
+      const m = row.metrics as {
+        cost_micros?: unknown;
+        costMicros?: unknown;
+        clicks?: unknown;
+        impressions?: unknown;
+      } | undefined;
       const camp = (row.campaign as { name?: string } | undefined)?.name ?? "";
       const agObj = row.ad_group as { name?: string; id?: string | number } | undefined;
       const ag = agObj?.name ?? "";
@@ -166,7 +177,7 @@ async function syncGoogleForUser(
         (row.ad_group_criterion as { keyword?: { text?: string } } | undefined)?.keyword?.text ?? "";
       if (!seg?.date) continue;
       const date = dayUtc(new Date(`${seg.date}T00:00:00.000Z`));
-      const cost = Number(m?.cost_micros ?? 0);
+      const cost = Number(m?.costMicros ?? m?.cost_micros ?? 0);
       const clicks = Number(m?.clicks ?? 0);
       const impressions = Number(m?.impressions ?? 0);
       if (kw.trim()) {

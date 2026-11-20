@@ -496,7 +496,7 @@ export function DpilotGoogleCampaignsManagerPage() {
       paidAdsService.getGoogleAdsCampaignsMetrics(projectId, { preset }),
       paidAdsService.getGoogleAdsFinalUrlAudit(projectId),
     ]);
-    if (metricsRes.error) toast.error(metricsRes.error);
+    if (metricsRes.error) toast.error(toastGoogleAdsError(metricsRes.error));
     else {
       const data = metricsRes.data;
       setRows(data?.campaigns ?? []);
@@ -514,6 +514,13 @@ export function DpilotGoogleCampaignsManagerPage() {
     } else {
       setUrlAuditById(new Map());
       setUrlAuditTotals(null);
+      if (auditRes.error) {
+        toast.message(
+          toastGoogleAdsError(
+            "Auditoria de Final URL indisponível neste momento — confirme presell limpa e auto-tagging.",
+          ),
+        );
+      }
     }
     setLoading(false);
   }, [projectId, preset]);

@@ -435,22 +435,27 @@ export async function fetchGoogleAdsCampaignsMetrics(
   const since = new Date(`${range.from}T00:00:00.000Z`);
   const trackingByCampaign = new Map<string, number>();
   if (project?.userId && Number.isFinite(since.getTime())) {
-    const targets = localRows.slice(0, 60);
-    const settled = await Promise.all(
-      targets.map(async (c) => {
-        try {
-          const t = await aggregateTrackingMetricsForCampaign({
-            userId: project.userId,
-            campaignId: c.id,
-            since,
-          });
-          return [c.id, t.clicks] as const;
-        } catch {
-          return [c.id, 0] as const;
-        }
-      }),
-    );
-    for (const [id, clicks] of settled) trackingByCampaign.set(id, clicks);
+    /** Só campanhas com ID Google — não inventar captura 0% por corte artificial a 60. */
+    const targets = localRows.filter((c) => Boolean(c.externalCampaignId?.replace(/\D/g, "")));
+    const CHUNK = 40;
+    for (let i = 0; i < targets.length; i += CHUNK) {
+      const batch = targets.slice(i, i + CHUNK);
+      const settled = await Promise.all(
+        batch.map(async (c) => {
+          try {
+            const t = await aggregateTrackingMetricsForCampaign({
+              userId: project.userId,
+              campaignId: c.id,
+              since,
+            });
+            return [c.id, t.clicks] as const;
+          } catch {
+            return [c.id, 0] as const;
+          }
+        }),
+      );
+      for (const [id, clicks] of settled) trackingByCampaign.set(id, clicks);
+    }
   }
 
   const campaigns = localRows.map((c) => {

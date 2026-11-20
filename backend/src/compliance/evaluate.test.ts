@@ -125,7 +125,12 @@ describe("presell compliance engine", () => {
   });
 
   it("4. missing affiliate disclosure FAILs CT-001 (bloqueia publicação)", () => {
-    const signals = baseSignals({ hasAffiliateDisclosure: false, affiliateLink: "https://offer.example.com" });
+    const signals = baseSignals({
+      /** Rodapé ligado → divulgação obrigatória. */
+      showAffiliateTrustFooter: true,
+      hasAffiliateDisclosure: false,
+      affiliateLink: "https://offer.example.com",
+    });
     const ev = evaluateCompliance({ signals, destination: destOk() });
     assert.equal(result("CT-001", ev).status, "FAIL");
     assert.equal(canPublishForAds(ev.gate), false);
@@ -133,6 +138,7 @@ describe("presell compliance engine", () => {
 
   it("5. missing business identity FAILs CT-002 (bloqueia publicação)", () => {
     const signals = baseSignals({
+      showAffiliateTrustFooter: true,
       hasAffiliateDisclosure: true,
       hasBusinessIdentity: false,
       businessName: null,
@@ -408,6 +414,7 @@ describe("presell compliance engine", () => {
   it("correction assistant does not invent business or legal text", () => {
     const ev = evaluateCompliance({
       signals: baseSignals({
+        showAffiliateTrustFooter: true,
         hasBusinessIdentity: false,
         businessName: null,
         contactEmail: null,

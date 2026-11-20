@@ -258,42 +258,50 @@ export async function fetchGoogleAdsProjectSearchTerms(
 
   const limit = Math.min(Math.max(opts?.limit ?? 400, 50), 500);
   const scopedExtIds = [...byExt.keys()];
-  const campaignClause =
-    scopedExtIds.length === 1
-      ? `campaign.id = ${scopedExtIds[0]}`
-      : scopedExtIds.length > 1 && scopedExtIds.length <= 25
-        ? `campaign.id IN (${scopedExtIds.join(",")})`
-        : null;
-  const q = `
-    SELECT
-      campaign.id,
-      campaign.name,
-      search_term_view.search_term,
-      search_term_view.status,
-      metrics.impressions,
-      metrics.clicks,
-      metrics.cost_micros,
-      metrics.conversions,
-      metrics.conversions_value
-    FROM search_term_view
-    WHERE segments.date BETWEEN '${range.from}' AND '${range.to}'
-      ${campaignClause ? `AND ${campaignClause}` : ""}
-    ORDER BY metrics.cost_micros DESC
-    LIMIT ${limit}
-  `;
-  const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
-  if (s.error) {
+  const IN_CHUNK = 25;
+  const rawRows: Record<string, unknown>[] = [];
+  let gaqlError: string | null = null;
+  for (let i = 0; i < scopedExtIds.length; i += IN_CHUNK) {
+    const chunk = scopedExtIds.slice(i, i + IN_CHUNK);
+    const campaignClause =
+      chunk.length === 1 ? `campaign.id = ${chunk[0]}` : `campaign.id IN (${chunk.join(",")})`;
+    const q = `
+      SELECT
+        campaign.id,
+        campaign.name,
+        search_term_view.search_term,
+        search_term_view.status,
+        metrics.impressions,
+        metrics.clicks,
+        metrics.cost_micros,
+        metrics.conversions,
+        metrics.conversions_value
+      FROM search_term_view
+      WHERE segments.date BETWEEN '${range.from}' AND '${range.to}'
+        AND ${campaignClause}
+      ORDER BY metrics.cost_micros DESC
+      LIMIT ${limit}
+    `;
+    const s = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, q, ctx.loginCustomerId);
+    if (s.error) {
+      gaqlError = s.error.message ?? "Falha ao ler termos de pesquisa na Google Ads API.";
+      break;
+    }
+    for (const raw of Array.isArray(s.results) ? s.results : []) {
+      rawRows.push(raw as Record<string, unknown>);
+    }
+  }
+  if (gaqlError && rawRows.length === 0) {
     return {
       ok: false as const,
-      error: s.error.message ?? "Falha ao ler termos de pesquisa na Google Ads API.",
+      error: gaqlError,
       code: "gaql_error",
     };
   }
 
   const campaignsTouched = new Set<string>();
-  let terms = (Array.isArray(s.results) ? s.results : [])
-    .map((raw) => {
-      const row = raw as Record<string, unknown>;
+  let terms = rawRows
+    .map((row) => {
       const camp = (row.campaign ?? {}) as { id?: string; name?: string };
       const st = (row.searchTermView ?? row.search_term_view ?? {}) as {
         searchTerm?: string;
@@ -317,7 +325,9 @@ export async function fetchGoogleAdsProjectSearchTerms(
         waste_candidate: isSearchTermWasteCandidate(metrics.cost_micros, metrics.conversions),
       };
     })
-    .filter((t): t is NonNullable<typeof t> => t != null);
+    .filter((t): t is NonNullable<typeof t> => t != null)
+    .sort((a, b) => b.metrics.cost_micros - a.metrics.cost_micros)
+    .slice(0, limit);
 
   if (opts?.waste_only) {
     terms = terms.filter((t) => t.waste_candidate && !t.already_negative);
