@@ -52,36 +52,6 @@ export const GOOGLE_WIZARD_OBJECTIVES: {
 
 export type GoogleWizardChannelId = "search";
 
-const CHANNEL_CARDS: {
-  id: GoogleWizardChannelId;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-}[] = [
-  {
-    id: "search",
-    label: "Pesquisar",
-    description: "Anúncios de texto na Pesquisa Google — palavras-chave, RSA e o assistente de decisão.",
-    icon: Search,
-  },
-];
-
-function StepBadge({ step, label }: { step: number; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-600 text-xs font-bold text-white shadow-sm dark:bg-violet-500"
-        aria-hidden
-      >
-        {step}
-      </span>
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-violet-700/90 dark:text-violet-300/90">
-        {label}
-      </span>
-    </div>
-  );
-}
-
 export function DpilotGoogleWizardObjectiveStep({
   objective,
   onObjectiveChange,
@@ -92,19 +62,12 @@ export function DpilotGoogleWizardObjectiveStep({
   const selectedId = GOOGLE_WIZARD_OBJECTIVES.find((o) => o.objective === objective.trim())?.id ?? null;
 
   return (
-    <section className="space-y-4 rounded-2xl border border-violet-500/20 bg-gradient-to-b from-violet-500/[0.06] to-transparent p-5 shadow-sm dark:from-violet-500/[0.09] dark:to-transparent">
+    <div className="space-y-4">
       <div className="space-y-1">
-        <StepBadge step={1} label="Objetivo" />
-        <h2 className="text-base font-semibold tracking-tight text-foreground md:text-lg">
-          Qual é o objetivo da campanha?
-        </h2>
+        <h3 className="text-base font-semibold tracking-tight text-foreground">Qual é o objetivo?</h3>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          O cartão que escolher preenche um <strong className="font-medium text-foreground">briefing em texto</strong>{" "}
-          para o plano: nome da campanha, palavras-chave sugeridas e copy dos anúncios (RSA). Isto orienta a nossa IA —
-          <strong className="font-medium text-foreground"> não</strong> substitui o campo de «objetivo» do Google Ads.
-          Na conta Google, o que o leilão optimiza vem sobretudo da{" "}
-          <strong className="font-medium text-foreground">estratégia de licitação</strong> que definir no passo de
-          configuração (e das conversões / dados ligados à conta).
+          Preenche o briefing do plano (nome, keywords, RSA). O leilão na Google segue a{" "}
+          <strong className="font-medium text-foreground">estratégia de licitação</strong> do passo Orçamento.
         </p>
       </div>
 
@@ -124,22 +87,20 @@ export function DpilotGoogleWizardObjectiveStep({
               aria-checked={selected}
               onClick={() => onObjectiveChange(o.objective)}
               className={cn(
-                "group relative flex w-full flex-col rounded-xl border bg-card p-4 text-left shadow-sm transition-all",
-                "hover:border-violet-400/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2",
-                selected
-                  ? "border-violet-500 bg-violet-500/[0.08] ring-1 ring-violet-500/35 dark:bg-violet-500/[0.12]"
-                  : "border-border/80",
+                "group relative flex w-full flex-col rounded-xl border bg-card p-4 text-left transition-colors",
+                "hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                selected ? "border-primary/50 bg-primary/[0.06] ring-1 ring-primary/25" : "border-border/80",
               )}
             >
               {selected ? (
-                <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-violet-600 text-white dark:bg-violet-500">
+                <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
                 </span>
               ) : null}
               <div
                 className={cn(
                   "mb-3 flex h-10 w-10 items-center justify-center rounded-lg border bg-background/80",
-                  selected ? "border-violet-500/40 text-violet-700 dark:text-violet-300" : "text-muted-foreground",
+                  selected ? "border-primary/40 text-primary" : "text-muted-foreground",
                 )}
               >
                 <Icon className="h-5 w-5" aria-hidden />
@@ -151,9 +112,9 @@ export function DpilotGoogleWizardObjectiveStep({
         })}
       </div>
 
-      <div className="space-y-2 border-t border-border/60 pt-4">
+      <div className="space-y-2 border-t border-border/50 pt-4">
         <label htmlFor="g-wiz-objective-refine" className="text-xs font-medium text-foreground">
-          Detalhe ou personalize o objetivo (briefing para o plano)
+          Detalhe o briefing (editável)
         </label>
         <textarea
           id="g-wiz-objective-refine"
@@ -161,74 +122,36 @@ export function DpilotGoogleWizardObjectiveStep({
           maxLength={200}
           value={objective}
           onChange={(e) => onObjectiveChange(e.target.value)}
-          placeholder='Ex.: "Vendas: gerar compras com ROAS mínimo 3; refinar palavras de compra."'
-          className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+          placeholder='Ex.: "Vendas: gerar compras com ROAS mínimo 3."'
+          className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           required
         />
         <p className="text-right text-[11px] tabular-nums text-muted-foreground">{objective.length}/200</p>
       </div>
-    </section>
+    </div>
   );
 }
 
 export function DpilotGoogleWizardCampaignTypeStep() {
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-card/60 p-5 shadow-sm">
-      <div className="space-y-1">
-        <StepBadge step={2} label="Tipo" />
-        <h2 className="text-base font-semibold tracking-tight text-foreground md:text-lg">
-          Tipo de campanha
-        </h2>
-        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          Ao <strong className="font-medium text-foreground">publicar</strong> na Google, criamos uma campanha de{" "}
-          <strong className="font-medium text-foreground">Pesquisa (Search)</strong>:{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">advertisingChannelType: SEARCH</code>, rede de
-          pesquisa, palavras-chave e RSA. Outros tipos de canal não estão disponíveis nesta versão do produto.
+    <div className="flex flex-wrap items-start gap-3 rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-foreground">
+        <Search className="h-4 w-4" aria-hidden />
+      </div>
+      <div className="min-w-0 space-y-0.5">
+        <p className="text-sm font-semibold text-foreground">
+          Pesquisa Google{" "}
+          <span className="ml-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">única opção</span>
+        </p>
+        <p className="text-[13px] leading-relaxed text-muted-foreground">
+          Campanha Search com keywords e RSA. PMax / Display / vídeo ficam na consola Google.
         </p>
       </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" role="list" aria-label="Tipos de campanha Google Ads">
-        {CHANNEL_CARDS.map((c) => {
-          const Icon = c.icon;
-          return (
-            <div
-              key={c.id}
-              role="listitem"
-              className="relative flex flex-col rounded-xl border border-emerald-500/50 bg-emerald-500/[0.07] p-4 ring-1 ring-emerald-500/30 transition-all dark:bg-emerald-500/[0.1]"
-            >
-              <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white dark:bg-emerald-500">
-                <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
-              </span>
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-500/40 bg-background/90 text-emerald-800 dark:text-emerald-200">
-                <Icon className="h-5 w-5" aria-hidden />
-              </div>
-              <span className="font-semibold text-foreground">{c.label}</span>
-              <span className="mt-1 text-[12px] leading-snug text-muted-foreground">{c.description}</span>
-            </div>
-          );
-        })}
-      </div>
-    </section>
+    </div>
   );
 }
 
-/** Marcador visual do passo seguinte (detalhes da campanha). */
+/** @deprecated Removido do fluxo — numeração falsa «Configuração 3». Mantido para imports legados. */
 export function DpilotGoogleWizardDetailsStepHeader() {
-  return (
-    <div className="space-y-2 border-b border-border/70 pb-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-        <StepBadge step={3} label="Configuração" />
-        <span className="text-sm text-muted-foreground">
-          Landing, orçamento,{" "}
-          <span className="font-medium text-foreground">licitação (o que o Google optimiza)</span>, segmentação e
-          palavras-chave
-        </span>
-      </div>
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Resumo: passo 1 = briefing para o plano e anúncios · passo 2 = tipo{" "}
-        <strong className="font-medium text-foreground">Pesquisa (Search)</strong> na publicação · abaixo = opções que a API Google
-        aplica ao leilão (orçamento, licitação, geo, idiomas).
-      </p>
-    </div>
-  );
+  return null;
 }

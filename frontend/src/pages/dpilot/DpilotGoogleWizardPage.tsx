@@ -18,7 +18,8 @@ import { DpilotAdsWizardFormPreviewSplit } from "./DpilotAdsWizardFormPreviewSpl
 import { DpilotCampaignReadinessCard } from "./DpilotCampaignReadinessCard";
 import { DpilotWizardFormSection } from "./DpilotWizardFormSection";
 import {
-  DpilotGoogleManualSearchCampaignBlock,
+  DpilotGoogleManualSearchStructurePanel,
+  DpilotGoogleSearchPlanModePicker,
   type GoogleManualWizardContextPreview,
 } from "./DpilotGoogleManualSearchCampaignBlock";
 import { DpilotGoogleSearchAdPreview } from "./DpilotGoogleSearchAdPreview";
@@ -33,7 +34,6 @@ import {
 } from "./googleManualSearchPlanForm";
 import {
   DpilotGoogleWizardCampaignTypeStep,
-  DpilotGoogleWizardDetailsStepHeader,
   DpilotGoogleWizardObjectiveStep,
   GOOGLE_WIZARD_OBJECTIVES,
 } from "./DpilotGoogleWizardCampaignSetup";
@@ -602,31 +602,33 @@ export function DpilotGoogleWizardPage() {
           { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[1], label: t("pages.dpilot.google.wizard.navLanding") },
           { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[2], label: t("pages.dpilot.google.wizard.navBudget") },
           { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[3], label: t("pages.dpilot.google.wizard.navGeo") },
-          { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[4], label: t("pages.dpilot.google.wizard.navKeywords") },
+          {
+            id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[4],
+            label:
+              googleSearchPlanMode === "manual"
+                ? "Estrutura e palavras-chave"
+                : t("pages.dpilot.google.wizard.navKeywords"),
+          },
           { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[5], label: t("pages.dpilot.google.wizard.navSignals") },
           { id: DPILOT_GOOGLE_CAMPAIGN_STEP_IDS[6], label: t("pages.dpilot.google.wizard.navGenerate") },
         ]}
         subtitle={
           <>
-            Assistente alinhado com o fluxo de <strong className="font-medium text-foreground">Pesquisa</strong> no Google Ads:
-            objectivo da campanha, estratégia de licitação, segmentação e palavras‑chave, com pré‑via automática opcional da
-            landing — só incorporamos sinais que valida antes de criar.
+            Campanha de <strong className="font-medium text-foreground">Pesquisa</strong> na Google Ads: objectivo,
+            Final URL da presell, orçamento, geo e palavras-chave.
           </>
         }
         hint={
-          <span className="text-muted-foreground">
-            <strong className="font-medium text-foreground">Antes de gerar</strong>, escolha IA ou estrutura manual —
-            ambos respeitam guardrails.{" "}
-            <strong className="font-medium text-foreground">Final URL</strong> = presell{" "}
-            <code className="rounded bg-muted px-1 font-mono text-[10px]">/p/…</code> (não o hoplink).{" "}
-            <strong className="font-medium text-foreground">Depois</strong>, opere no{" "}
+          <span>
+            Final URL = <code className="rounded bg-muted px-1 font-mono text-[11px]">/p/…</code> (não o hoplink). CTAs
+            da página → <code className="rounded bg-muted px-1 font-mono text-[11px]">/track/r/</code>. Depois gerencie no{" "}
             <Link
               to={`${base}/google/campanhas`}
               className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
             >
               Campaign Manager
-            </Link>{" "}
-            ou no estúdio da campanha.
+            </Link>
+            .
           </span>
         }
         paidMode={paidMode}
@@ -661,7 +663,6 @@ export function DpilotGoogleWizardPage() {
           >
             <DpilotGoogleWizardObjectiveStep objective={objective} onObjectiveChange={setObjective} />
             <DpilotGoogleWizardCampaignTypeStep />
-            <DpilotGoogleWizardDetailsStepHeader />
           </DpilotWizardFormSection>
 
           <DpilotWizardFormSection
@@ -669,7 +670,7 @@ export function DpilotGoogleWizardPage() {
             platform="google"
             stepLabel={fill(t("pages.dpilot.common.step"), { n: 2, total: 7 })}
             title={t("pages.dpilot.google.wizard.stepLanding")}
-            description="Final URL da campanha Google = a sua presell publicada. A extracção pode pré-preencher a oferta — confirme factos. Abaixo escolhe estrutura de Pesquisa por IA ou manual."
+            description="Final URL = presell. Escolha Com IA ou Manual — a estrutura fica no passo Palavras-chave."
           >
             <Field
               label="Final URL (presell)"
@@ -688,12 +689,9 @@ export function DpilotGoogleWizardPage() {
                 placeholder="https://seu-dominio.com/p/oferta"
                 required
               />
-              <p className="mt-2 rounded-md border border-slate-200 bg-slate-50/80 px-3 py-2 text-[11px] leading-relaxed text-slate-600">
-                <span className="font-medium text-slate-800">Final URL ≠ hop de afiliado.</span> Use a página
-                presell (<code className="rounded bg-white px-1 font-mono text-[10px]">/p/…</code>). Os CTAs da
-                página passam por{" "}
-                <code className="rounded bg-white px-1 font-mono text-[10px]">/track/r/</code> → hoplink. Não cole
-                o link da rede de afiliados nem cloaking — o Ads e a Inspection Tool devem ver a mesma Final URL.
+              <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
+                Não cole o hoplink da rede. Presell <code className="font-mono text-[11px]">/p/…</code> na Final URL;
+                CTAs → <code className="font-mono text-[11px]">/track/r/</code>. AdsBot deve ver a mesma página.
               </p>
               {feedback ? (
                 <div
@@ -776,7 +774,7 @@ export function DpilotGoogleWizardPage() {
               </div>
             </Field>
 
-            <DpilotGoogleManualSearchCampaignBlock
+            <DpilotGoogleSearchPlanModePicker
               mode={googleSearchPlanMode}
               onModeChange={(m) => {
                 setGoogleSearchPlanMode(m);
@@ -790,9 +788,6 @@ export function DpilotGoogleWizardPage() {
                   );
                 }
               }}
-              manualForm={manualPlanForm}
-              onManualFormChange={setManualPlanForm}
-              wizardContextPreview={manualWizardContextPreview}
             />
           </DpilotWizardFormSection>
 
@@ -955,8 +950,16 @@ export function DpilotGoogleWizardPage() {
             id="dpilot-wiz-google-kw"
             platform="google"
             stepLabel={fill(t("pages.dpilot.common.step"), { n: 5, total: 7 })}
-            title={t("pages.dpilot.google.wizard.stepKeywords")}
-            description="Volumes, intenção e palavra-semente para o grupo; opcionalmente regras de pausa antes de despesa sem conversão."
+            title={
+              googleSearchPlanMode === "manual"
+                ? "Estrutura e palavras-chave"
+                : t("pages.dpilot.google.wizard.stepKeywords")
+            }
+            description={
+              googleSearchPlanMode === "manual"
+                ? "Nome, grupos, keywords e RSA. Depois negativas e pausa automática."
+                : "Volumes, palavra-semente e protecção; a IA monta a estrutura a partir do briefing."
+            }
           >
             {googleSearchPlanMode === "assistant" ? (
               <DpilotKeywordDecisionCard
@@ -976,11 +979,11 @@ export function DpilotGoogleWizardPage() {
                 connectionsPageHref={`${base}/google`}
               />
             ) : (
-              <div className="rounded-lg border border-dashed border-border/80 bg-muted/25 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
-                No modo <strong className="text-foreground">manual</strong>, as correspondências das palavras-chave e todo
-                o RSA estão definidos no passo «Landing e oferta». O orçamento, a licitação e a pausa automática continuam a
-                aplicar‑se igualmente à campanha.
-              </div>
+              <DpilotGoogleManualSearchStructurePanel
+                manualForm={manualPlanForm}
+                onManualFormChange={setManualPlanForm}
+                wizardContextPreview={manualWizardContextPreview}
+              />
             )}
 
             <div className="rounded-lg border border-border/80 bg-muted/20 px-4 py-3">

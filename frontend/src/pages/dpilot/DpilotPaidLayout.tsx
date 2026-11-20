@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation, useParams } from "react-router-dom";
 import {
+  ArrowLeft,
   BarChart3,
   Facebook,
   FileText,
@@ -23,6 +24,7 @@ const navActive = "bg-primary/10 text-foreground font-medium";
 /**
  * Ads Studio shell.
  * Rotas Google (`/google/*` e detalhe de campanha) usam o Campaign Manager.
+ * «Nova campanha» usa chrome mínimo — o assistente precisa de largura.
  */
 export function DpilotPaidLayout() {
   const location = useLocation();
@@ -34,12 +36,72 @@ export function DpilotPaidLayout() {
   const onGoogleManager =
     location.pathname.startsWith(`${base}/google`) ||
     /\/campanhas\/[^/]+\/google\/?$/.test(location.pathname);
-  const onCreateCampaign = /\/campanhas\/nova\/?$/.test(location.pathname);
+  const onGoogleCreate = /\/campanhas\/nova\/?$/.test(location.pathname);
+  const onMetaCreate = /\/meta\/nova\/?$/.test(location.pathname);
+  const onTiktokCreate = /\/tiktok\/nova\/?$/.test(location.pathname);
+  const onCreateWizard = onGoogleCreate || onMetaCreate || onTiktokCreate;
+  const createTitle = onMetaCreate
+    ? "Nova campanha · Meta"
+    : onTiktokCreate
+      ? "Nova campanha · TikTok"
+      : "Nova campanha · Pesquisa";
+  const createBackHref = onMetaCreate
+    ? `${base}/meta/campanhas`
+    : onTiktokCreate
+      ? `${base}/tiktok/campanhas`
+      : `${base}/campanhas`;
+  const createNetworkHref = onMetaCreate
+    ? `${base}/meta`
+    : onTiktokCreate
+      ? `${base}/tiktok`
+      : `${base}/google/visao`;
+  const createNetworkLabel = onMetaCreate ? "Meta" : onTiktokCreate ? "TikTok" : "Campaign Manager";
 
   if (onGoogleManager) {
     return (
       <div className="px-2 py-4 lg:px-4">
         <DpilotGoogleCampaignManagerLayout />
+      </div>
+    );
+  }
+
+  /** Assistente: sem rail lateral — evita o aspecto apertado/amador. */
+  if (onCreateWizard) {
+    return (
+      <div className="px-3 py-4 sm:px-5 lg:px-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <NavLink
+              to={createBackHref}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden />
+              Campanhas
+            </NavLink>
+            <span className="hidden h-4 w-px bg-border sm:block" aria-hidden />
+            <p className="text-sm font-semibold tracking-tight text-foreground">{createTitle}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <NavLink
+              to={createNetworkHref}
+              className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              {createNetworkLabel}
+            </NavLink>
+            <NavLink
+              to={`${base}/aprovacoes`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted/60"
+            >
+              Aprovações
+              {pending > 0 ? (
+                <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                  {pending}
+                </Badge>
+              ) : null}
+            </NavLink>
+          </div>
+        </div>
+        <Outlet />
       </div>
     );
   }
@@ -53,9 +115,7 @@ export function DpilotPaidLayout() {
             <p className="text-xs font-semibold tracking-wide text-foreground">Ads Studio</p>
           </div>
           <p className="text-[11px] leading-snug text-muted-foreground">
-            {onCreateCampaign
-              ? "Assistente Pesquisa Google. Final URL = presell /p/… · CTAs da página → /track/r/."
-              : "Google Ads = Campaign Manager. Nova campanha = assistente Pesquisa."}
+            Google Ads = Campaign Manager. Nova campanha = assistente Pesquisa.
           </p>
         </div>
         <nav className="flex flex-col gap-1">
