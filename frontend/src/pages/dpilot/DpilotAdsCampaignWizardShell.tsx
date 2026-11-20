@@ -124,8 +124,8 @@ export function DpilotAdsCampaignWizardShell({
                 Rascunho no navegador
               </span>
               <span className="text-muted-foreground/80">
-                Nada é publicado até gerar o plano e usar «Aplicar na rede» quando autorizado pelo seu modo Copilot /
-                guardrails.
+                Em Copilot, nada vai à Google até «Aplicar na rede» em Aprovações. Em Autopilot, o plano pode
+                publicar já se os guardrails permitirem.
               </span>
             </p>
           </div>

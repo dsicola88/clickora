@@ -19,7 +19,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { campaignStatusLabel, formatUsdFromMicros } from "@/lib/paidAdsUi";
+import {
+  campaignStatusBadgeClass,
+  campaignStatusLabel,
+  changeRequestCampaignIdFromPayload,
+  effectiveCampaignServingStatus,
+  formatUsdFromMicros,
+} from "@/lib/paidAdsUi";
+import { cn } from "@/lib/utils";
+import { useGoogleManagerPrefs } from "@/hooks/useGoogleManagerPrefs";
 import { paidAdsService } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 
@@ -77,8 +85,8 @@ function KpiCard({
 }
 
 export function DpilotGoogleVisaoDashboard() {
-  const { projectId, reload, isConnConnected, overview } = useDpilotPaid();
-  const [preset, setPreset] = useState("last_7");
+  const { projectId, reload, isConnConnected, overview, changeRequests } = useDpilotPaid();
+  const { preset, setPreset } = useGoogleManagerPrefs(projectId);
   const [loading, setLoading] = useState(true);
   const [ov, setOv] = useState<Awaited<ReturnType<typeof paidAdsService.getGoogleAdsManagerOverview>>["data"]>(
     null,
@@ -130,6 +138,17 @@ export function DpilotGoogleVisaoDashboard() {
       ),
     [rows],
   );
+
+  const pendingByCampaign = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const cr of changeRequests) {
+      if (cr.status !== "pending") continue;
+      const cid = changeRequestCampaignIdFromPayload(cr.payload);
+      if (!cid) continue;
+      map.set(cid, (map.get(cid) ?? 0) + 1);
+    }
+    return map;
+  }, [changeRequests]);
 
   /** Captura colectiva = soma Clickora / soma Google nas campanhas importadas. */
   const captureAgg = useMemo(() => {
@@ -247,6 +266,9 @@ export function DpilotGoogleVisaoDashboard() {
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
+          <Button size="sm" variant="outline" className="border-slate-200" asChild>
+            <Link to={`/tracking/dpilot/p/${projectId}/google/conversoes`}>Conversões</Link>
+          </Button>
           <Button size="sm" className="bg-[#1a73e8] hover:bg-[#1557b0]" asChild>
             <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha</Link>
           </Button>
@@ -305,9 +327,15 @@ export function DpilotGoogleVisaoDashboard() {
         </div>
       ) : (
         <div className="space-y-2">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-            {localOnly ? "Contagens locais" : "Conta Google (colectivo)"}
-          </p>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              {localOnly ? "Contagens locais" : "Conta Google (colectivo)"}
+            </p>
+            <p className="text-[11px] text-slate-400">
+              <span className="font-semibold tabular-nums text-slate-600">—</span> = sem dados no período
+              (não é zero)
+            </p>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
             {localOnly ? (
               <>
@@ -483,29 +511,54 @@ export function DpilotGoogleVisaoDashboard() {
                     const m = c.metrics;
                     const capturePct =
                       c.click_capture_ratio != null ? `${(c.click_capture_ratio * 100).toFixed(0)}%` : null;
+                    const serving = effectiveCampaignServingStatus(c);
+                    const pendingN = pendingByCampaign.get(c.id) ?? 0;
+                    const localDraftLinked =
+                      Boolean(c.external_campaign_id) &&
+                      (c.local_status === "draft" || c.local_status === "pending_publish") &&
+                      (serving === "live" || serving === "paused");
                     return (
                       <tr key={c.id} className="transition hover:bg-slate-50">
                         <td className="px-6 py-3">
-                          <Link
-                            to={`/tracking/dpilot/p/${projectId}/campanhas/${c.id}/google`}
-                            className="flex min-w-0 items-center gap-2"
-                          >
-                            <span className="min-w-0 truncate font-medium text-slate-900 hover:text-[#1a73e8]">
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <Link
+                              to={`/tracking/dpilot/p/${projectId}/campanhas/${c.id}/google`}
+                              className="min-w-0 truncate font-medium text-slate-900 hover:text-[#1a73e8]"
+                            >
                               {c.name}
-                            </span>
+                            </Link>
                             <Badge
                               variant="outline"
-                              className={
-                                c.local_status === "live"
-                                  ? "shrink-0 border-emerald-200 bg-emerald-50 font-normal text-emerald-700"
-                                  : c.local_status === "paused"
-                                    ? "shrink-0 border-orange-200 bg-orange-50 font-normal text-orange-800"
-                                    : "shrink-0 font-normal"
+                              className={cn(
+                                "shrink-0 font-normal",
+                                campaignStatusBadgeClass(serving),
+                              )}
+                              title={
+                                c.google_status
+                                  ? `Google: ${c.google_status}`
+                                  : c.external_campaign_id
+                                    ? "Estado local (rede sem status)"
+                                    : undefined
                               }
                             >
-                              {campaignStatusLabel(c.local_status)}
+                              {campaignStatusLabel(serving)}
                             </Badge>
-                          </Link>
+                            {pendingN > 0 ? (
+                              <Link
+                                to={`/tracking/dpilot/p/${projectId}/google/aprovacoes?campaign=${c.id}`}
+                                className="inline-flex shrink-0"
+                                title="Pedidos pendentes em Aprovações"
+                                aria-label={`Fila de aprovações: ${pendingN} pendente(s)`}
+                              >
+                                <Badge variant="secondary" className="h-5 font-normal text-[10px] hover:bg-secondary/80">
+                                  Fila {pendingN}
+                                </Badge>
+                              </Link>
+                            ) : null}
+                            {localDraftLinked ? (
+                              <span className="text-[10px] text-amber-800">Local: rascunho</span>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-2 py-3 text-right tabular-nums text-slate-700">
                           {m ? fmtNum(m.impressions) : "—"}

@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useGoogleManagerPrefs, GOOGLE_MANAGER_ALL_CAMPAIGNS } from "@/hooks/useGoogleManagerPrefs";
 import { formatUsdFromMicros } from "@/lib/paidAdsUi";
 import { paidAdsService } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
@@ -35,12 +36,10 @@ function rowKey(t: Pick<TermRow, "campaign_id" | "search_term">) {
   return `${t.campaign_id}::${t.search_term}`;
 }
 
-const ALL_CAMPAIGNS = "__all__";
-
 export function DpilotGoogleSearchTermsHubPage() {
   const { projectId } = useDpilotPaid();
-  const [preset, setPreset] = useState("last_7");
-  const [campaignFilter, setCampaignFilter] = useState<string>(ALL_CAMPAIGNS);
+  const { preset, setPreset, campaignFilter, setCampaignFilter, ensureCampaignFilterValid } =
+    useGoogleManagerPrefs(projectId);
   const [wasteOnly, setWasteOnly] = useState(false);
   const [matchType, setMatchType] = useState<"exact" | "phrase" | "broad">("phrase");
   const [loading, setLoading] = useState(true);
@@ -64,13 +63,20 @@ export function DpilotGoogleSearchTermsHubPage() {
     const { data, error } = await paidAdsService.getGoogleAdsProjectSearchTerms(projectId, {
       preset,
       waste_only: wasteOnly,
-      ...(campaignFilter !== ALL_CAMPAIGNS ? { campaign_id: campaignFilter } : {}),
+      ...(campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS ? { campaign_id: campaignFilter } : {}),
     });
     if (error) {
       setErr(error);
       setTerms([]);
       setTotals(null);
       setNote(null);
+      /** Filtro persistido apontava a campanha já apagada — limpar e deixar o próximo load recuperar. */
+      if (
+        campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS &&
+        /não encontrada|not found/i.test(error)
+      ) {
+        setCampaignFilter(GOOGLE_MANAGER_ALL_CAMPAIGNS);
+      }
     } else {
       setTerms(data?.terms ?? []);
       setTotals(data?.totals ?? null);
@@ -87,6 +93,11 @@ export function DpilotGoogleSearchTermsHubPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (campaignOptions.length === 0) return;
+    ensureCampaignFilterValid(campaignOptions.map((c) => c.id));
+  }, [campaignOptions, ensureCampaignFilterValid]);
 
   const waste = useMemo(
     () => terms.filter((t) => t.waste_candidate && !t.already_negative),
@@ -122,7 +133,7 @@ export function DpilotGoogleSearchTermsHubPage() {
       matchType === "exact" ? "igual ao termo" : matchType === "broad" ? "qualquer pesquisa semelhante" : "frase com o termo";
     if (
       !window.confirm(
-        `Bloquear ${termCount} termo(s) em ${items.length} campanha(s)?\n\nModo: ${matchLabel}.\nA alteração vai para Aprovações (ou aplica sozinha se o Autopilot estiver ligado).`,
+        `Bloquear ${termCount} termo(s) em ${items.length} campanha(s)?\n\nModo: ${matchLabel}.\nComo dono, aplica já na Google; outros membros vão a Aprovações.`,
       )
     ) {
       return;
@@ -137,16 +148,20 @@ export function DpilotGoogleSearchTermsHubPage() {
       toast.error(error);
       return;
     }
-    if (data?.failed) {
+    if (!data?.added) {
+      toast.success("Estes termos já estavam bloqueados");
+    } else if (data.failed) {
       toast.message(
-        `${data.added} termo(s) a bloquear; ${data.failed} campanha(s) falharam — veja Aprovações.`,
+        `${data.added} termo(s) processados; ${data.failed} campanha(s) falharam — veja Aprovações.`,
+      );
+    } else if ((data.applied ?? 0) > 0 && (data.pending ?? 0) === 0) {
+      toast.success(`${data.added} termo(s) bloqueados na Google (${items.length} campanha(s)).`);
+    } else if ((data.pending ?? 0) > 0) {
+      toast.message(
+        `${data.added} termo(s) · ${data.applied ?? 0} aplicados · ${data.pending} pendentes em Aprovações.`,
       );
     } else {
-      toast.success(
-        data?.added
-          ? `${data.added} termo(s) enviados para bloquear em ${items.length} campanha(s)`
-          : "Estes termos já estavam bloqueados",
-      );
+      toast.message(`${data.added} termo(s) processados em ${items.length} campanha(s).`);
     }
     void load();
   };
@@ -180,7 +195,7 @@ export function DpilotGoogleSearchTermsHubPage() {
                   <SelectValue placeholder="Campanha" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
+                  <SelectItem value={GOOGLE_MANAGER_ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
                   {campaignOptions.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
@@ -324,7 +339,7 @@ export function DpilotGoogleSearchTermsHubPage() {
           ) : terms.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Sem pesquisas neste período
-              {campaignFilter !== ALL_CAMPAIGNS ? " nesta campanha" : ""}
+              {campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS ? " nesta campanha" : ""}
               {wasteOnly ? " no filtro «só o que gasta mal»" : ""}.
             </p>
           ) : (

@@ -7,13 +7,12 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { syncGoogleAdsFromIntegrations } from "@/lib/googleAdsSync";
 import {
   friendlyGoogleAdsNetworkError,
   googleAdsNeedsReauth,
-  toastGoogleAdsError,
 } from "@/lib/paidAdsUi";
 import { paidAdsService } from "@/services/paidAdsService";
-import { toast } from "sonner";
 
 export function DpilotGoogleNetworkBanner({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +21,7 @@ export function DpilotGoogleNetworkBanner({ projectId }: { projectId: string }) 
 
   const load = async () => {
     setChecking(true);
-    const { data } = await paidAdsService.getGoogleAdsManagerOverview(projectId, { preset: "last_7" });
+    const { data } = await paidAdsService.getGoogleAdsManagerOverview(projectId, { preset: "today" });
     setError(data?.connection_error ?? null);
     setChecking(false);
   };
@@ -38,20 +37,9 @@ export function DpilotGoogleNetworkBanner({ projectId }: { projectId: string }) 
 
   const sync = async () => {
     setSyncing(true);
-    const { data, error: err } = await paidAdsService.googleLinkFromIntegrations(projectId, {
-      import_campaigns: true,
-    });
+    const result = await syncGoogleAdsFromIntegrations(projectId);
     setSyncing(false);
-    if (err || !data) {
-      toast.error(toastGoogleAdsError(err));
-      return;
-    }
-    const imp = data.import;
-    toast.success(
-      imp
-        ? `Conta ${data.customer_id} · ${imp.imported} campanha(s) importada(s) da Google`
-        : `Conta ${data.customer_id} sincronizada`,
-    );
+    if (!result.ok) return;
     void load();
     window.location.reload();
   };

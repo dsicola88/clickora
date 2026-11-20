@@ -148,12 +148,14 @@ export async function duplicateGoogleSearchCampaignLocal(
   });
 
   let published_request_id: string | undefined;
+  let published_applied: boolean | undefined;
   if (opts.publish) {
     const pub = await enqueueCreateCampaignChangeRequest(projectId, created.id, actorUserId);
     if (!pub.ok) {
       warnings.push(`Cópia criada como rascunho, mas publicação não enfileirada: ${pub.error}`);
     } else {
       published_request_id = pub.change_request_id;
+      published_applied = pub.applied;
       if (pub.applied) {
         warnings.push("Pedido de publicação aplicado (Autopilot ou fluxo imediato).");
       } else {
@@ -168,6 +170,7 @@ export async function duplicateGoogleSearchCampaignLocal(
     name: created.name,
     status: created.status,
     published_request_id,
+    published_applied,
     warnings,
   };
 }

@@ -1,8 +1,12 @@
 /**
- * Mutações de segmentação Google Ads: geo (incluir/excluir), dispositivos, idades.
+ * Mutações de segmentação Google Ads: geo (incluir/excluir), idiomas, dispositivos, idades.
  */
 import type { Prisma } from "@prisma/client";
 import { GOOGLE_GEO_CRITERION_IDS, normalizeGoogleCountryCode } from "./geo-google";
+import {
+  GOOGLE_ADS_LANGUAGE_NUMERIC_ID,
+  normalizeGoogleLanguageCode,
+} from "./language-google";
 import { runGoogleAdsMutate, runGoogleAdsSearch } from "./google-ads.api";
 import { resolveGoogleAdsAccess } from "./google-ads-connection";
 import {
@@ -181,6 +185,103 @@ export async function applyGoogleSyncCampaignGeoTargets(
       geoTargets: include,
       biddingConfig: merged as Prisma.InputJsonValue,
     },
+  });
+
+  return { ok: true };
+}
+
+function uniqueLangIsos(list: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of list) {
+    const c = normalizeGoogleLanguageCode(String(raw));
+    if (!c || seen.has(c)) continue;
+    if (!(c in GOOGLE_ADS_LANGUAGE_NUMERIC_ID)) continue;
+    seen.add(c);
+    out.push(c);
+  }
+  return out;
+}
+
+/** Substitui critérios de idioma da campanha. */
+export async function applyGoogleSyncCampaignLanguageTargets(
+  projectId: string,
+  p: { campaign_id: string; languages: string[] },
+): Promise<CrResult> {
+  const c0 = await ctxForProject(projectId);
+  if ("err" in c0) return { ok: false, error: c0.err };
+  const { access, customerId, dev, login } = c0;
+  const cid = `customers/${customerId}`;
+
+  const camp = await prisma.paidAdsCampaign.findFirst({
+    where: { id: p.campaign_id, projectId, platform: "google_ads" },
+  });
+  if (!camp?.externalCampaignId) {
+    return { ok: false, error: "Campanha não publicada na Google." };
+  }
+  const extCamp = camp.externalCampaignId.replace(/\D/g, "");
+  const campaignRn = `${cid}/campaigns/${extCamp}`;
+
+  const languages = uniqueLangIsos(p.languages);
+  if (languages.length === 0) {
+    return { ok: false, error: "Seleccione pelo menos um idioma." };
+  }
+
+  const search = await runGoogleAdsSearch(
+    access,
+    customerId,
+    dev,
+    `
+    SELECT campaign_criterion.resource_name
+    FROM campaign_criterion
+    WHERE campaign.id = ${extCamp}
+      AND campaign_criterion.type = 'LANGUAGE'
+    `,
+    login,
+  );
+  if (search.error) {
+    return { ok: false, error: search.error.message ?? "Falha ao ler idiomas na Google." };
+  }
+  for (const row of search.results ?? []) {
+    const rn = criterionResourceName(row, "campaignCriterion", "campaign_criterion");
+    if (!rn) continue;
+    const m = await runGoogleAdsMutate(
+      access,
+      customerId,
+      dev,
+      "campaignCriteria",
+      { operations: [{ remove: rn }] },
+      login,
+    );
+    if (m.error?.message) return { ok: false, error: m.error.message };
+  }
+
+  for (const iso of languages) {
+    const id = GOOGLE_ADS_LANGUAGE_NUMERIC_ID[iso];
+    if (!id) continue;
+    const m = await runGoogleAdsMutate(
+      access,
+      customerId,
+      dev,
+      "campaignCriteria",
+      {
+        operations: [
+          {
+            create: {
+              campaign: campaignRn,
+              language: { languageConstant: `languageConstants/${id}` },
+            },
+          },
+        ],
+      },
+      login,
+    );
+    if (m.error?.message) return { ok: false, error: m.error.message };
+  }
+
+  await prisma.paidAdsCampaign.update({
+    where: { id: camp.id },
+    data: { languageTargets: languages },
   });
 
   return { ok: true };

@@ -1,6 +1,63 @@
 import { describe, expect, it } from "vitest";
 
-import { publishedBidStrategyHint, summarizeChangeRequestPayload } from "./paidAdsUi";
+import {
+  changeRequestCampaignIdFromPayload,
+  describeStudioChangeRequestStatus,
+  effectiveCampaignServingStatus,
+  publishedBidStrategyHint,
+  summarizeChangeRequestPayload,
+} from "./paidAdsUi";
+
+describe("describeStudioChangeRequestStatus", () => {
+  it("distingue aplicado, pendente e falha", () => {
+    expect(describeStudioChangeRequestStatus("applied").kind).toBe("applied");
+    expect(describeStudioChangeRequestStatus("pending").kind).toBe("pending");
+    expect(describeStudioChangeRequestStatus("failed").kind).toBe("failed");
+    expect(describeStudioChangeRequestStatus("pending").message).toMatch(/Aprovações/);
+  });
+});
+
+describe("changeRequestCampaignIdFromPayload", () => {
+  it("lê campaign_id string do payload", () => {
+    expect(changeRequestCampaignIdFromPayload({ campaign_id: "abc-123" })).toBe("abc-123");
+  });
+
+  it("devolve null sem campaign_id válido", () => {
+    expect(changeRequestCampaignIdFromPayload(null)).toBeNull();
+    expect(changeRequestCampaignIdFromPayload({})).toBeNull();
+    expect(changeRequestCampaignIdFromPayload({ campaign_id: 1 })).toBeNull();
+  });
+});
+
+describe("effectiveCampaignServingStatus", () => {
+  it("prefere ENABLED/PAUSED da Google ao status local", () => {
+    expect(
+      effectiveCampaignServingStatus({ local_status: "paused", google_status: "ENABLED" }),
+    ).toBe("live");
+    expect(
+      effectiveCampaignServingStatus({ local_status: "live", google_status: "PAUSED" }),
+    ).toBe("paused");
+    expect(
+      effectiveCampaignServingStatus({ local_status: "live", google_status: "SUSPENDED" }),
+    ).toBe("paused");
+  });
+
+  it("cai para local quando google_status é null ou desconhecido", () => {
+    expect(effectiveCampaignServingStatus({ local_status: "draft", google_status: null })).toBe(
+      "draft",
+    );
+    expect(effectiveCampaignServingStatus({ local_status: "live", google_status: "" })).toBe("live");
+    expect(
+      effectiveCampaignServingStatus({ local_status: "paused", google_status: "UNKNOWN" }),
+    ).toBe("paused");
+  });
+
+  it("mapeia REMOVED para archived", () => {
+    expect(
+      effectiveCampaignServingStatus({ local_status: "live", google_status: "REMOVED" }),
+    ).toBe("archived");
+  });
+});
 
 describe("summarizeChangeRequestPayload", () => {
   it("inclui modo, auto_applied e nota de licitação para Google", () => {

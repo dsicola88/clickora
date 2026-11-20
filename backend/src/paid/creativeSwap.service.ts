@@ -9,6 +9,7 @@ import type { PaidAdsChangeRequestType, PaidAdsPlatform } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 
 import { applyChangeRequestRemote } from "./change-request-apply";
+import { shouldApplyStudioChangeImmediately } from "./studio-apply-policy";
 import { workspaceAllowsApplyBeforeRemote } from "./apply-workspace-guard";
 import {
   rankCreativeVariants,
@@ -463,7 +464,14 @@ export async function applyCreativeSwap(args: {
   let status = "pending";
   let applyError: string | undefined;
 
-  if (project.paidMode === "autopilot") {
+  /** Autopilot ou dono do projecto: aplica já (mesmo padrão do estúdio Google). */
+  const applyNow = shouldApplyStudioChangeImmediately({
+    paidMode: project.paidMode,
+    projectOwnerId: project.userId,
+    requestedById: args.requestedById,
+  });
+
+  if (applyNow) {
     const now = new Date();
     const pre = await workspaceAllowsApplyBeforeRemote(args.projectId, type, payload);
     if (!pre.ok) {

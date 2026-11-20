@@ -512,6 +512,8 @@ export const paidAdsService = {
         id: string;
         name: string;
         local_status: string;
+        /** ENABLED / PAUSED da Google quando a rede respondeu. */
+        google_status?: string | null;
         external_campaign_id: string | null;
         inventory_origin?: "google" | "local_draft";
         daily_budget_micros: number | null;
@@ -658,6 +660,8 @@ export const paidAdsService = {
       name: string;
       status: string;
       published_request_id?: string;
+      /** true = Autopilot/apply-now; false = na fila; omitido se não pediu publish */
+      published_applied?: boolean;
       warnings: string[];
     }>(`/paid/projects/${projectId}/campaigns/${campaignId}/duplicate-google`, body ?? {});
   },
@@ -730,6 +734,8 @@ export const paidAdsService = {
       ok: boolean;
       added: number;
       failed: number;
+      applied?: number;
+      pending?: number;
       results: Array<{
         campaign_id: string;
         ok: boolean;
@@ -737,6 +743,7 @@ export const paidAdsService = {
         total?: number;
         error?: string;
         change_request_id?: string;
+        change_request_status?: string;
       }>;
     }>(`/paid/projects/${projectId}/google-ads/search-terms/negate-batch`, body);
   },
@@ -781,10 +788,13 @@ export const paidAdsService = {
     campaignId: string,
     terms: Array<{ text: string; match_type?: "exact" | "phrase" | "broad" }>,
   ) {
-    return apiClient.post<{ ok: true; added: number; total: number }>(
-      `/paid/projects/${projectId}/campaigns/${campaignId}/google-ads/search-terms/negate`,
-      { terms },
-    );
+    return apiClient.post<{
+      ok: true;
+      added: number;
+      total: number;
+      already_present?: boolean;
+      change_request?: { id: string; status: string };
+    }>(`/paid/projects/${projectId}/campaigns/${campaignId}/google-ads/search-terms/negate`, { terms });
   },
 
   listRemoteGoogleCampaigns(projectId: string) {

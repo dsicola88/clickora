@@ -1,5 +1,5 @@
 /**
- * Termos de pesquisa + negar na campanha (API real via Copilot/Autopilot).
+ * Termos de pesquisa + negar na campanha (API real; dono aplica já / equipa → Aprovações).
  */
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useGoogleManagerPrefs } from "@/hooks/useGoogleManagerPrefs";
 import { formatUsdFromMicros } from "@/lib/paidAdsUi";
 import { paidAdsService } from "@/services/paidAdsService";
 
@@ -34,7 +35,7 @@ export function DpilotGoogleSearchTermsPanel({
   campaignId: string;
   campaignName?: string;
 }) {
-  const [preset, setPreset] = useState("last_7");
+  const { preset, setPreset } = useGoogleManagerPrefs(projectId);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -75,7 +76,7 @@ export function DpilotGoogleSearchTermsPanel({
     if (list.length === 0) return;
     if (
       !window.confirm(
-        `Bloquear ${list.length} termo(s) nesta campanha (modo frase)?\n\nVai para Aprovações — ou aplica sozinho se o Autopilot estiver ligado.`,
+        `Bloquear ${list.length} termo(s) nesta campanha (modo frase)?\n\nComo dono, aplica já na Google. Pedidos de outros membros vão a Aprovações.`,
       )
     ) {
       return;
@@ -91,11 +92,15 @@ export function DpilotGoogleSearchTermsPanel({
       toast.error(error);
       return;
     }
-    toast.success(
-      data?.added
-        ? `${data.added} termo(s) enviados para bloquear · total ${data.total}`
-        : "Estes termos já estavam bloqueados",
-    );
+    if (!data?.added) {
+      toast.success("Estes termos já estavam bloqueados");
+    } else if (data.change_request?.status === "applied") {
+      toast.success(`${data.added} termo(s) bloqueados na Google.`);
+    } else if (data.change_request?.status === "pending") {
+      toast.message(`${data.added} termo(s) pendentes em Aprovações.`);
+    } else {
+      toast.message(`${data.added} termo(s) enviados · total ${data.total}`);
+    }
     void load();
   };
 

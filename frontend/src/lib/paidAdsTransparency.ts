@@ -192,7 +192,7 @@ export function approvalQueueTransparencyBullets(args: {
   ];
   if (args.paidMode === "copilot") {
     out.push(
-      "Confirmação humana: até «Aplicar na rede», o Google/Meta/TikTok não recebem alterações deste pedido.",
+      "Copilot: o dono aplica já pausas/orçamento/negativas no estúdio Google. Este cartão é para publicações grandes ou pedidos de outros membros — até «Aplicar na rede» a conta não muda.",
     );
   } else {
     out.push(

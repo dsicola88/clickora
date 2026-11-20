@@ -558,7 +558,14 @@ export function DpilotGoogleWizardPage() {
           description: fill(t("pages.dpilot.google.wizard.generatedDesc"), { note: planGenNote }),
         });
       }
-      navigate(`${base}/aprovacoes`);
+      /** Paridade com duplicar: Autopilot → estúdio; Copilot → fila da campanha. */
+      if (data.campaignId && data.autoApplied) {
+        navigate(`${base}/campanhas/${data.campaignId}/google`);
+      } else if (data.campaignId) {
+        navigate(`${base}/google/aprovacoes?campaign=${data.campaignId}`);
+      } else {
+        navigate(`${base}/google/aprovacoes`);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : t("pages.dpilot.common.unexpectedError");
       setError(msg);

@@ -17,6 +17,7 @@ export const CHANGE_REQUEST_TYPE_LABELS: Record<string, string> = {
   sync_ad_group_negative_keywords: "Google Ads — sincronizar palavras-chave negativas do grupo",
   replace_google_asset_extensions: "Google Ads — substituir extensões (sitelinks, destaques, snippet)",
   sync_campaign_geo_targets: "Google Ads — actualizar localizações (incluir / excluir)",
+  sync_campaign_language_targets: "Google Ads — actualizar idiomas da campanha",
   sync_campaign_device_bids: "Google Ads — ajuste de lance por dispositivo",
   sync_campaign_age_exclusions: "Google Ads — excluir faixas etárias",
   meta_create_campaign: "Meta — nova campanha",
@@ -86,6 +87,36 @@ const CAMPAIGN_STATUS_LABELS: Record<string, string> = {
 
 export function campaignStatusLabel(status: string): string {
   return CAMPAIGN_STATUS_LABELS[status] ?? status;
+}
+
+/** Preferir ENABLED/PAUSED da Google quando a rede respondeu; senão status local. */
+export function effectiveCampaignServingStatus(opts: {
+  local_status: string;
+  google_status?: string | null;
+}): "live" | "paused" | string {
+  const g = (opts.google_status ?? "").toUpperCase();
+  if (g === "ENABLED") return "live";
+  if (g === "PAUSED" || g === "SUSPENDED") return "paused";
+  if (g === "REMOVED" || g === "DELETED") return "archived";
+  return opts.local_status;
+}
+
+export function campaignStatusBadgeClass(status: string): string {
+  switch (status) {
+    case "live":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "paused":
+      return "border-amber-200 bg-amber-50 text-amber-900";
+    case "draft":
+    case "pending_publish":
+      return "border-slate-200 bg-slate-50 text-slate-700";
+    case "archived":
+      return "border-slate-200 bg-slate-100 text-slate-500";
+    case "error":
+      return "border-red-200 bg-red-50 text-red-800";
+    default:
+      return "";
+  }
 }
 
 /** Texto curto quando o backend gravou `optimizer_flags` (motor automático). */
@@ -263,6 +294,28 @@ export function friendlyGoogleAdsNetworkError(message: string | null | undefined
 export function toastGoogleAdsError(message: string | null | undefined): string {
   const raw = (message ?? "").trim() || "Operação Google Ads falhou.";
   return friendlyGoogleAdsNetworkError(raw) ?? raw;
+}
+
+/**
+ * Feedback após `postGoogleStudioActions`.
+ * Dono/autopilot → applied; equipa em copilot → pending com link a Aprovações.
+ */
+export function describeStudioChangeRequestStatus(
+  status: string | undefined | null,
+): { kind: "applied" | "pending" | "failed" | "unknown"; message: string } {
+  if (status === "applied") {
+    return { kind: "applied", message: "Aplicado na Google." };
+  }
+  if (status === "failed") {
+    return { kind: "failed", message: "Falhou na rede — veja Aprovações ou o erro do pedido." };
+  }
+  if (status === "pending") {
+    return {
+      kind: "pending",
+      message: "Pendente em Aprovações — confirme para aplicar na rede.",
+    };
+  }
+  return { kind: "unknown", message: "Pedido registado." };
 }
 
 /** `campaign_id` opcional no payload dos pedidos create_campaign / update_* . */

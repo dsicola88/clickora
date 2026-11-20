@@ -237,7 +237,7 @@ export function resolveGoogleAdsDateRange(
       return { from, to };
     }
     default:
-      return { from: iso(addDays(today, -6)), to: iso(today) };
+      return { from: iso(today), to: iso(today) };
   }
 }
 

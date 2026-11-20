@@ -1306,7 +1306,7 @@ export const paidController = {
         preset: z
           .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
           .optional()
-          .default("last_7"),
+          .default("today"),
         from: z.string().optional(),
         to: z.string().optional(),
       })
@@ -1371,7 +1371,7 @@ export const paidController = {
         preset: z
           .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
           .optional()
-          .default("last_7"),
+          .default("today"),
         from: z.string().optional(),
         to: z.string().optional(),
       })
@@ -1445,7 +1445,7 @@ export const paidController = {
         preset: z
           .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
           .optional()
-          .default("last_7"),
+          .default("today"),
         from: z.string().optional(),
         to: z.string().optional(),
         campaign_id: z.string().uuid().optional(),
@@ -1477,7 +1477,7 @@ export const paidController = {
         preset: z
           .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month"])
           .optional()
-          .default("last_7"),
+          .default("today"),
       })
       .safeParse(req.body);
     if (!body.success) return res.status(400).json({ error: "Pergunta inválida." });
@@ -1521,7 +1521,7 @@ export const paidController = {
         preset: z
           .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
           .optional()
-          .default("last_7"),
+          .default("today"),
         from: z.string().optional(),
         to: z.string().optional(),
       })
@@ -1551,7 +1551,7 @@ export const paidController = {
         preset: z
           .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
           .optional()
-          .default("last_7"),
+          .default("today"),
         from: z.string().optional(),
         to: z.string().optional(),
         campaign_id: z.string().uuid().optional(),
@@ -1605,6 +1605,7 @@ export const paidController = {
       total?: number;
       error?: string;
       change_request_id?: string;
+      change_request_status?: string;
     }> = [];
 
     for (const item of body.data.items) {
@@ -1647,15 +1648,20 @@ export const paidController = {
         added: merged.added,
         total: merged.keywords.length,
         change_request_id: out.change_request?.id,
+        change_request_status: out.change_request?.status,
       });
     }
 
     const added = results.reduce((s, r) => s + (r.added ?? 0), 0);
     const failed = results.filter((r) => !r.ok).length;
+    const applied = results.filter((r) => r.change_request_status === "applied").length;
+    const pending = results.filter((r) => r.change_request_status === "pending").length;
     return res.json({
       ok: failed === 0,
       added,
       failed,
+      applied,
+      pending,
       results,
     });
   },
@@ -1726,7 +1732,7 @@ export const paidController = {
         preset: z
           .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
           .optional()
-          .default("last_7"),
+          .default("today"),
         from: z.string().optional(),
         to: z.string().optional(),
         campaign_id: z.string().uuid().optional(),

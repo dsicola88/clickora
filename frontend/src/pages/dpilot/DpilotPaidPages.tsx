@@ -285,21 +285,9 @@ export function DpilotGooglePage() {
     async (opts?: { silent?: boolean }) => {
       setLinking(true);
       try {
-        const { data, error } = await paidAdsService.googleLinkFromIntegrations(projectId, {
-          import_campaigns: true,
-        });
-        if (error || !data) {
-          if (!opts?.silent) toast.error(toastGoogleAdsError(error || "Não foi possível sincronizar a conta."));
-          return;
-        }
-        const imp = data.import;
-        if (!opts?.silent) {
-          toast.success(
-            imp
-              ? `Conta ${data.customer_id} sincronizada · ${imp.imported} campanha(s) importada(s)`
-              : `Conta ${data.customer_id} sincronizada`,
-          );
-        }
+        const { syncGoogleAdsFromIntegrations } = await import("@/lib/googleAdsSync");
+        const result = await syncGoogleAdsFromIntegrations(projectId, { silent: opts?.silent });
+        if (!result.ok) return;
         reload();
       } finally {
         setLinking(false);
@@ -975,21 +963,21 @@ const ChangeRequestCard = memo(function ChangeRequestCard({
           {editCampaignId ? (
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm" variant="secondary" className="h-8">
-                <Link to={`/tracking/dpilot/p/${projectId}/campanhas?campaign=${editCampaignId}`}>
-                  Editar campanha (rascunho)
+                <Link to={`/tracking/dpilot/p/${projectId}/campanhas/${editCampaignId}/google`}>
+                  Abrir estúdio da campanha
                 </Link>
               </Button>
               <Button asChild size="sm" variant="outline" className="h-8">
-                <Link to={`/tracking/dpilot/p/${projectId}/visao`}>Limites e guardrails</Link>
+                <Link to={`/tracking/dpilot/p/${projectId}/google/visao`}>Visão Google</Link>
               </Button>
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm" variant="outline" className="h-8">
-                <Link to={`/tracking/dpilot/p/${projectId}/campanhas`}>Abrir Campanhas</Link>
+                <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Campanhas Google</Link>
               </Button>
               <Button asChild size="sm" variant="outline" className="h-8">
-                <Link to={`/tracking/dpilot/p/${projectId}/visao`}>Visão geral</Link>
+                <Link to={`/tracking/dpilot/p/${projectId}/google/visao`}>Visão geral</Link>
               </Button>
             </div>
           )}
@@ -1287,7 +1275,17 @@ ChangeRequestCard.displayName = "ChangeRequestCard";
 export function DpilotAprovacoesPage() {
   const { t } = useAppLocale();
   const p = useDpilotPaid();
+  const [searchParams] = useSearchParams();
+  const campaignFocus = searchParams.get("campaign")?.trim() || null;
   const sorted = useMemo(() => sortChangeRequests(p.changeRequests), [p.changeRequests]);
+  const visible = useMemo(() => {
+    if (!campaignFocus) return sorted;
+    return sorted.filter((cr) => changeRequestCampaignIdFromPayload(cr.payload) === campaignFocus);
+  }, [sorted, campaignFocus]);
+  const focusName = useMemo(() => {
+    if (!campaignFocus) return null;
+    return p.campaigns.find((c) => c.id === campaignFocus)?.name ?? null;
+  }, [campaignFocus, p.campaigns]);
   const { reviewBusyChangeRequestId, projectId, overview, campaigns, reload } = p;
 
   return (
@@ -1303,13 +1301,31 @@ export function DpilotAprovacoesPage() {
           {t("pages.dpilot.hub.approvalsFlowBody")}
         </AlertDescription>
       </Alert>
+      {campaignFocus ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+          <span>
+            A filtrar pedidos da campanha{" "}
+            <span className="font-medium text-foreground">
+              {focusName ?? campaignFocus.slice(0, 8) + "…"}
+            </span>
+            {visible.length === 0 ? " — nenhum na fila." : ` (${visible.length})`}
+          </span>
+          <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
+            <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>Ver todos</Link>
+          </Button>
+        </div>
+      ) : null}
       <Card className="mt-4">
         <CardContent className="pt-6">
-          {sorted.length === 0 ? (
-            <p className="text-sm text-muted-foreground leading-relaxed">{t("pages.dpilot.hub.approvalsEmpty")}</p>
+          {visible.length === 0 ? (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {campaignFocus
+                ? "Não há pedidos nesta campanha. Use «Ver todos» para a fila completa."
+                : t("pages.dpilot.hub.approvalsEmpty")}
+            </p>
           ) : (
             <div className="space-y-4">
-              {sorted.map((cr) => (
+              {visible.map((cr) => (
                 <ChangeRequestCard
                   key={cr.id}
                   cr={cr}

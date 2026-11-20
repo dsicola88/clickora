@@ -3093,7 +3093,7 @@ export const en = {
         noDraftTitle: "No draft to publish — use “Suggest messages” or create a variant in the wizard.",
         requestCreated: "Request created ({status}): {error}",
         queued: "Request in the approvals queue — review it in Approvals.",
-        enqueued: "Creative queued ({status}).",
+        applied: "Creative applied on Google.",
         draftsCreated: "{n} message draft(s) created — you can publish the variant.",
         noNewVariants: "No new distinct variants.",
         dismissed: "Suggestion marked as handled.",

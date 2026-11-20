@@ -3053,7 +3053,7 @@ export const es = {
         "noDraftTitle": "No hay borrador para publicar — use «Sugerir mensajes» o cree una variante en el asistente.",
         "requestCreated": "Solicitud creada ({status}): {error}",
         "queued": "Solicitud en la cola de aprobaciones — revísela en Aprobaciones.",
-        "enqueued": "Creativo en cola ({status}).",
+        "applied": "Creativo aplicado en Google.",
         "draftsCreated": "{n} borrador(es) de mensaje creados — puede publicar la variante.",
         "noNewVariants": "No hay variantes distintas nuevas.",
         "dismissed": "Sugerencia marcada como tratada.",

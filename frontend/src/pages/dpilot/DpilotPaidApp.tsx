@@ -288,6 +288,14 @@ export function DpilotPaidApp() {
           <Route path="google/automacoes" element={<LazyPage><DpilotGoogleAutomationsPage /></LazyPage>} />
           <Route path="google/assistente" element={<LazyPage><DpilotGoogleAiAssistantPage /></LazyPage>} />
           <Route path="google/historico" element={<LazyPage><DpilotGoogleHistoryPage /></LazyPage>} />
+          <Route
+            path="google/aprovacoes"
+            element={
+              <LazyPage>
+                <DpilotAprovacoesPage />
+              </LazyPage>
+            }
+          />
           <Route path="google" element={<LazyPage><DpilotGooglePage /></LazyPage>} />
           <Route path="meta/nova" element={<LazyPage><DpilotMetaWizardPage /></LazyPage>} />
           <Route path="meta/campanhas" element={<LazyPage><DpilotMetaCampanhasPage /></LazyPage>} />

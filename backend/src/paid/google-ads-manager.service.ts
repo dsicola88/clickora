@@ -14,7 +14,17 @@ import {
 import { detachStaleGoogleCampaignLinks } from "./google-ads-detach-stale";
 import { parseGoogleAdsMetrics } from "./google-ads-metric-fields";
 import { aggregateTrackingMetricsForCampaign } from "./optimizer/tracking-metrics";
+import type { PaidAdsCampaignStatus } from "@prisma/client";
 import { prisma } from "./paidPrisma";
+
+/** ENABLED/PAUSED da Google → status local do Ads Studio. */
+function mapGoogleCampaignStatus(s: string | undefined | null): PaidAdsCampaignStatus | null {
+  const u = (s ?? "").toUpperCase();
+  if (u === "ENABLED") return "live";
+  if (u === "PAUSED" || u === "SUSPENDED") return "paused";
+  if (u === "REMOVED" || u === "DELETED") return "archived";
+  return null;
+}
 
 /** Tipos em que `recommendations:apply` sem parâmetros extra costuma funcionar. */
 const APPLYABLE_RECOMMENDATION_TYPES = new Set([
@@ -277,6 +287,7 @@ export async function fetchGoogleAdsCampaignsMetrics(
 
   const ctx = await resolveGoogleAdsAccess(projectId);
   const byExternal = new Map<string, ReturnType<typeof deriveMetricRates>>();
+  const statusByExternal = new Map<string, string>();
   const budgetByExternal = new Map<
     string,
     { explicitly_shared: boolean; reference_count: number; budget_editable: boolean; amount_micros: number | null }
@@ -303,7 +314,7 @@ export async function fetchGoogleAdsCampaignsMetrics(
 
     /** Confirma quais IDs ainda existem nesta conta — órfãos voltam a rascunho local. */
     const existQ = `
-      SELECT campaign.id
+      SELECT campaign.id, campaign.status
       FROM campaign
       WHERE campaign.id IN (${ids.join(",")})
         AND campaign.status != 'REMOVED'
@@ -314,9 +325,12 @@ export async function fetchGoogleAdsCampaignsMetrics(
     }
     const alive = new Set<string>();
     for (const raw of Array.isArray(existS.results) ? existS.results : []) {
-      const row = raw as { campaign?: { id?: string } };
+      const row = raw as { campaign?: { id?: string; status?: string } };
       const id = String(row.campaign?.id ?? "").replace(/\D/g, "");
-      if (id) alive.add(id);
+      if (!id) continue;
+      alive.add(id);
+      const st = row.campaign?.status;
+      if (typeof st === "string" && st.trim()) statusByExternal.set(id, st.trim().toUpperCase());
     }
     if (alive.size < ids.length) {
       await detachStaleGoogleCampaignLinks(projectId, { keepExternalIds: alive });
@@ -404,6 +418,7 @@ export async function fetchGoogleAdsCampaignsMetrics(
       });
       if (healed.ok) {
         byExternal.clear();
+        statusByExternal.clear();
         budgetByExternal.clear();
         networkError = await pullCampaignNetwork(healed.loginCustomerId);
       }
@@ -427,6 +442,27 @@ export async function fetchGoogleAdsCampaignsMetrics(
         orderBy: { updatedAt: "desc" },
       })
     : local;
+
+  /** Alinha live/paused local ao ENABLED/PAUSED real (sem esperar re-import). */
+  if (ctx.ok && !networkError && statusByExternal.size > 0) {
+    const syncOps: Promise<unknown>[] = [];
+    for (const c of localRows) {
+      const ext = c.externalCampaignId?.replace(/\D/g, "") ?? "";
+      if (!ext) continue;
+      const mapped = mapGoogleCampaignStatus(statusByExternal.get(ext));
+      if (!mapped || mapped === "archived") continue;
+      if (mapped === c.status) continue;
+      if (c.status !== "live" && c.status !== "paused") continue;
+      c.status = mapped;
+      syncOps.push(
+        prisma.paidAdsCampaign.update({
+          where: { id: c.id },
+          data: { status: mapped },
+        }),
+      );
+    }
+    if (syncOps.length > 0) await Promise.all(syncOps);
+  }
 
   const project = await prisma.paidAdsProject.findUnique({
     where: { id: projectId },
@@ -462,6 +498,7 @@ export async function fetchGoogleAdsCampaignsMetrics(
     const ext = c.externalCampaignId?.replace(/\D/g, "") ?? null;
     const metrics = ext ? byExternal.get(ext) ?? null : null;
     const budgetMeta = ext ? budgetByExternal.get(ext) : undefined;
+    const googleStatus = ext ? statusByExternal.get(ext) ?? null : null;
     const bidding = (c.biddingConfig ?? {}) as { google?: { strategy?: string } };
     const localBudget = c.dailyBudgetMicros != null ? Number(c.dailyBudgetMicros) : null;
     const capture = computeClickCapture(metrics?.clicks ?? null, trackingByCampaign.get(c.id) ?? 0);
@@ -469,6 +506,8 @@ export async function fetchGoogleAdsCampaignsMetrics(
       id: c.id,
       name: c.name,
       local_status: c.status,
+      /** ENABLED / PAUSED / … da API — null se só local ou rede falhou. */
+      google_status: googleStatus,
       external_campaign_id: ext,
       inventory_origin: ext ? ("google" as const) : ("local_draft" as const),
       daily_budget_micros: budgetMeta?.amount_micros ?? localBudget,
@@ -671,7 +710,7 @@ export async function fetchGoogleAdsRecommendations(projectId: string) {
       apply_supported,
       dismiss_supported: Boolean(rec.resourceName),
       note: apply_supported
-        ? "Pode aplicar ou rejeitar aqui com confirmação explícita."
+        ? "Aplicar/rejeitar vai directo à Google (confirmação explícita) — não passa pela fila de Aprovações."
         : "Pode rejeitar (dismiss) aqui. Aplicar este tipo ainda requer a consola Google ou parâmetros avançados.",
     };
   });
@@ -905,7 +944,7 @@ export async function fetchGoogleAdsDevicePerformance(
 export async function buildGoogleAdsAiInsights(
   projectId: string,
   question: string,
-  preset = "last_7",
+  preset = "today",
 ) {
   const metricsPack = await fetchGoogleAdsCampaignsMetrics(projectId, preset);
   if (!metricsPack.ok) {

@@ -82,10 +82,10 @@ describe("explainOptimizerDecision", () => {
 });
 
 describe("approvalQueueTransparencyBullets", () => {
-  it("menciona Copilot e confirmação humana", () => {
+  it("menciona Copilot e Aplicar na rede", () => {
     const b = approvalQueueTransparencyBullets({ paidMode: "copilot", hasHardGuardrailBlocks: false });
     expect(b.some((x) => /Copilot/i.test(x))).toBe(true);
-    expect(b.some((x) => /aprovação|confirm/i.test(x))).toBe(true);
+    expect(b.some((x) => /Aplicar na rede/i.test(x))).toBe(true);
   });
 
   it("menciona bloqueios quando há guardrails rígidos", () => {

@@ -23,10 +23,20 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   campaignPlatformLabel,
+  campaignStatusBadgeClass,
   campaignStatusLabel,
+  changeRequestCampaignIdFromPayload,
+  describeStudioChangeRequestStatus,
+  effectiveCampaignServingStatus,
   formatUsdFromMicros,
+  toastGoogleAdsError,
 } from "@/lib/paidAdsUi";
 import { cn } from "@/lib/utils";
+import { GoogleAdsBudgetDialog } from "@/components/dpilot/GoogleAdsBudgetDialog";
+import { GoogleAdsDuplicateDialog } from "@/components/dpilot/GoogleAdsDuplicateDialog";
+import { useGoogleManagerPrefs } from "@/hooks/useGoogleManagerPrefs";
+import { googleManagerPresetLabel } from "@/lib/googleManagerPrefs";
+import { syncGoogleAdsFromIntegrations } from "@/lib/googleAdsSync";
 import { paidAdsService, type CampaignRow } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DpilotCampaignArchiveButton } from "./DpilotCampaignArchiveButton";
@@ -68,7 +78,8 @@ function manageHref(projectId: string, c: CampaignRow) {
 }
 
 export function DpilotCampaignsHub() {
-  const { campaigns, projectId, reload, overview, isConnConnected } = useDpilotPaid();
+  const { campaigns, projectId, reload, overview, isConnConnected, changeRequests } = useDpilotPaid();
+  const { preset } = useGoogleManagerPrefs(projectId);
   const [searchParams, setSearchParams] = useSearchParams();
   const campaignFocus = searchParams.get("campaign");
   const platFromUrl = searchParams.get("plat");
@@ -99,6 +110,15 @@ export function DpilotCampaignsHub() {
   };
   const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [budgetDialog, setBudgetDialog] = useState<{
+    campaignId: string;
+    currentUsd: number | null;
+  } | null>(null);
+  const [dupDialog, setDupDialog] = useState<{
+    campaignId: string;
+    name: string;
+    currentUsd: number | null;
+  } | null>(null);
   const [linking, setLinking] = useState(false);
   const [googleById, setGoogleById] = useState<Map<string, GoogleMetricsRow>>(new Map());
   const [connErr, setConnErr] = useState<string | null>(null);
@@ -107,7 +127,7 @@ export function DpilotCampaignsHub() {
   const loadMetrics = useCallback(async () => {
     setLoadingMetrics(true);
     const { data, error } = await paidAdsService.getGoogleAdsCampaignsMetrics(projectId, {
-      preset: "last_7",
+      preset,
     });
     if (error) {
       setConnErr(error);
@@ -121,7 +141,7 @@ export function DpilotCampaignsHub() {
       setGoogleById(map);
     }
     setLoadingMetrics(false);
-  }, [projectId]);
+  }, [projectId, preset]);
 
   useEffect(() => {
     void loadMetrics();
@@ -143,9 +163,32 @@ export function DpilotCampaignsHub() {
     [campaigns],
   );
 
+  const servingOf = useCallback(
+    (c: CampaignRow) => {
+      if (c.platform !== "google_ads") return c.status;
+      const g = googleById.get(c.id);
+      return effectiveCampaignServingStatus({
+        local_status: g?.local_status ?? c.status,
+        google_status: g?.google_status,
+      });
+    },
+    [googleById],
+  );
+
+  const pendingByCampaign = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const cr of changeRequests) {
+      if (cr.status !== "pending") continue;
+      const cid = changeRequestCampaignIdFromPayload(cr.payload);
+      if (!cid) continue;
+      map.set(cid, (map.get(cid) ?? 0) + 1);
+    }
+    return map;
+  }, [changeRequests]);
+
   const kpis = useMemo(() => {
-    const active = workList.filter((c) => c.status === "live").length;
-    const paused = workList.filter((c) => c.status === "paused").length;
+    const active = workList.filter((c) => servingOf(c) === "live").length;
+    const paused = workList.filter((c) => servingOf(c) === "paused").length;
     let clicks = 0;
     let costMicros = 0;
     let conversions = 0;
@@ -174,14 +217,16 @@ export function DpilotCampaignsHub() {
       roas,
       withMetrics,
     };
-  }, [workList, googleById]);
+  }, [workList, googleById, servingOf]);
 
   const filtered = useMemo(() => {
     let xs = workList;
     if (plat !== "all") xs = xs.filter((c) => c.platform === plat);
-    if (st === "live") xs = xs.filter((c) => c.status === "live");
-    else if (st === "paused") xs = xs.filter((c) => c.status === "paused");
-    else if (st === "draft") xs = xs.filter((c) => c.status === "draft" || c.status === "pending_publish");
+    if (st === "live") xs = xs.filter((c) => servingOf(c) === "live");
+    else if (st === "paused") xs = xs.filter((c) => servingOf(c) === "paused");
+    else if (st === "draft") {
+      xs = xs.filter((c) => c.status === "draft" || c.status === "pending_publish");
+    }
     const needle = q.trim().toLowerCase();
     if (needle) {
       xs = xs.filter(
@@ -191,7 +236,7 @@ export function DpilotCampaignsHub() {
       );
     }
     return xs;
-  }, [workList, plat, st, q]);
+  }, [workList, plat, st, q, servingOf]);
 
   const paidOk = isConnConnected(overview?.connection);
   const accountLabel =
@@ -203,18 +248,8 @@ export function DpilotCampaignsHub() {
   const syncAccount = async () => {
     setLinking(true);
     try {
-      const { data, error } = await paidAdsService.googleLinkFromIntegrations(projectId, {
-        import_campaigns: true,
-      });
-      if (error || !data) {
-        toast.error(error || "Ligue primeiro em Integrações → Google.");
-        return;
-      }
-      toast.success(
-        data.import
-          ? `Conta sincronizada · ${data.import.imported} campanha(s)`
-          : "Conta sincronizada",
-      );
+      const result = await syncGoogleAdsFromIntegrations(projectId);
+      if (!result.ok) return;
       reload();
       void loadMetrics();
     } finally {
@@ -226,71 +261,97 @@ export function DpilotCampaignsHub() {
     const label = action === "pause_campaign" ? "Pausar" : "Ativar";
     if (!window.confirm(`${label} esta campanha na Google Ads?`)) return;
     setBusyId(campaignId);
-    const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, { action });
+    const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, { action });
     setBusyId(null);
     if (error) toast.error(error);
     else {
-      toast.success(`${label}: pedido enviado`);
+      const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+      if (info.kind === "failed") toast.error(`${label}: ${info.message}`);
+      else if (info.kind === "applied") toast.success(`${label}: aplicado na Google.`);
+      else toast.message(`${label}: ${info.message}`);
       reload();
       void loadMetrics();
     }
   };
 
-  const onBudget = async (campaignId: string, currentMicros: number | null, editable?: boolean) => {
-    if (editable === false) {
-      toast.error("Orçamento partilhado na Google — separe na consola antes de editar aqui.");
+  const onBudget = (
+    campaignId: string,
+    currentMicros: number | null,
+    meta?: { budget_editable?: boolean; budget_reference_count?: number },
+  ) => {
+    if (meta?.budget_editable === false) {
+      toast.error(
+        `Orçamento partilhado por ${meta.budget_reference_count ?? "várias"} campanhas na Google. Separe o orçamento na consola antes de ajustar aqui.`,
+      );
       return;
     }
-    const current = currentMicros != null ? (currentMicros / 1e6).toFixed(2) : "";
-    const raw = window.prompt("Novo orçamento diário (USD):", current);
-    if (raw == null) return;
-    const usd = Number(String(raw).replace(",", "."));
-    if (!Number.isFinite(usd) || usd <= 0) {
-      toast.error("Valor inválido.");
-      return;
-    }
+    setBudgetDialog({
+      campaignId,
+      currentUsd: currentMicros != null ? currentMicros / 1e6 : null,
+    });
+  };
+
+  const confirmBudget = async (usd: number) => {
+    if (!budgetDialog) return;
+    const campaignId = budgetDialog.campaignId;
     setBusyId(campaignId);
-    const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
+    const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
       action: "update_budget_usd",
       daily_budget_usd: usd,
     });
     setBusyId(null);
     if (error) toast.error(error);
     else {
-      toast.success(`Orçamento ${usd.toFixed(2)} USD/dia — pedido enviado`);
+      const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+      if (info.kind === "failed") toast.error(info.message);
+      else if (info.kind === "applied") {
+        toast.success(`Orçamento ${usd.toFixed(2)} USD/dia aplicado na Google.`);
+      } else toast.message(`Orçamento ${usd.toFixed(2)} USD/dia — ${info.message}`);
+      setBudgetDialog(null);
       reload();
       void loadMetrics();
     }
   };
 
-  const onDuplicate = async (id: string, name: string, currentBudgetMicros: number | null) => {
-    const nextName = window.prompt("Nome da cópia:", `${name} (cópia)`);
-    if (nextName == null) return;
-    const budgetHint =
-      currentBudgetMicros != null ? (currentBudgetMicros / 1e6).toFixed(2) : "";
-    const budgetRaw = window.prompt("Orçamento diário USD (vazio = igual):", budgetHint);
-    if (budgetRaw == null) return;
-    const daily_budget_usd =
-      budgetRaw.trim() === "" ? undefined : Number(budgetRaw.replace(",", "."));
-    if (daily_budget_usd != null && (!Number.isFinite(daily_budget_usd) || daily_budget_usd <= 0)) {
-      toast.error("Orçamento inválido.");
-      return;
-    }
-    const publish = window.confirm("Enfileirar publicação na Google?\nOK = sim · Cancelar = só rascunho");
+  const onDuplicate = (id: string, name: string, currentBudgetMicros: number | null) => {
+    setDupDialog({
+      campaignId: id,
+      name,
+      currentUsd: currentBudgetMicros != null ? currentBudgetMicros / 1e6 : null,
+    });
+  };
+
+  const confirmDuplicate = async (values: {
+    name: string;
+    daily_budget_usd?: number;
+    publish: boolean;
+  }) => {
+    if (!dupDialog) return;
+    const id = dupDialog.campaignId;
     setBusyId(id);
     const { data, error } = await paidAdsService.duplicateGoogleCampaign(projectId, id, {
-      name: nextName.trim() || undefined,
-      daily_budget_usd,
-      publish,
+      name: values.name,
+      daily_budget_usd: values.daily_budget_usd,
+      publish: values.publish,
     });
     setBusyId(null);
     if (error) {
-      toast.error(error);
+      toast.error(toastGoogleAdsError(error));
       return;
     }
     toast.success(`Cópia criada: ${data?.name}`);
+    data?.warnings?.forEach((w) => toast.message(w));
+    setDupDialog(null);
     reload();
     void loadMetrics();
+    if (data?.campaign_id) {
+      const needsApprovals = values.publish && data.published_applied === false;
+      window.location.assign(
+        needsApprovals
+          ? `/tracking/dpilot/p/${projectId}/google/aprovacoes`
+          : `/tracking/dpilot/p/${projectId}/campanhas/${data.campaign_id}/google`,
+      );
+    }
   };
 
   return (
@@ -374,7 +435,7 @@ export function DpilotCampaignsHub() {
         <Kpi
           label="Investimento"
           value={kpis.withMetrics ? formatUsdFromMicros(kpis.costMicros) : "—"}
-          hint={connected ? "Últimos 7 dias" : "Sem sync Google"}
+          hint={connected ? googleManagerPresetLabel(preset) : "Sem sync Google"}
         />
         <Kpi label="Cliques" value={kpis.withMetrics ? fmtNum(kpis.clicks) : "—"} />
         <Kpi label="Conversões" value={kpis.withMetrics ? fmtNum(kpis.conversions, 1) : "—"} />
@@ -501,10 +562,16 @@ export function DpilotCampaignsHub() {
                     const g = googleById.get(c.id);
                     const m = g?.metrics;
                     const busy = busyId === c.id;
+                    const serving = servingOf(c);
+                    const pendingN = pendingByCampaign.get(c.id) ?? 0;
+                    const localDraftLinked =
+                      Boolean(c.external_campaign_id) &&
+                      (c.status === "draft" || c.status === "pending_publish") &&
+                      (serving === "live" || serving === "paused");
                     const canToggle =
                       c.platform === "google_ads" &&
                       Boolean(c.external_campaign_id) &&
-                      (c.status === "live" || c.status === "paused");
+                      (serving === "live" || serving === "paused");
                     const budgetMicros = g?.daily_budget_micros ?? c.daily_budget_micros ?? null;
                     return (
                       <TableRow
@@ -515,9 +582,9 @@ export function DpilotCampaignsHub() {
                         <TableCell>
                           {canToggle ? (
                             <Switch
-                              checked={c.status === "live"}
+                              checked={serving === "live"}
                               disabled={busy}
-                              aria-label={c.status === "live" ? "Pausar" : "Ativar"}
+                              aria-label={serving === "live" ? "Pausar" : "Ativar"}
                               onCheckedChange={(on) =>
                                 void studioAction(c.id, on ? "resume_campaign" : "pause_campaign")
                               }
@@ -527,12 +594,26 @@ export function DpilotCampaignsHub() {
                           )}
                         </TableCell>
                         <TableCell className="max-w-[16rem]">
-                          <Link
-                            to={manageHref(projectId, c)}
-                            className="font-medium text-[#1a73e8] hover:underline line-clamp-2"
-                          >
-                            {c.name}
-                          </Link>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Link
+                              to={manageHref(projectId, c)}
+                              className="font-medium text-[#1a73e8] hover:underline line-clamp-2"
+                            >
+                              {c.name}
+                            </Link>
+                            {pendingN > 0 ? (
+                              <Link
+                                to={`/tracking/dpilot/p/${projectId}/google/aprovacoes?campaign=${c.id}`}
+                                className="inline-flex"
+                                title="Pedidos pendentes em Aprovações"
+                                aria-label={`Fila de aprovações: ${pendingN} pendente(s)`}
+                              >
+                                <Badge variant="secondary" className="h-5 font-normal text-[10px] hover:bg-secondary/80">
+                                  Fila {pendingN}
+                                </Badge>
+                              </Link>
+                            ) : null}
+                          </div>
                           {g?.bidding_strategy ? (
                             <p className="mt-0.5 text-[10px] text-muted-foreground">{g.bidding_strategy}</p>
                           ) : null}
@@ -541,9 +622,24 @@ export function DpilotCampaignsHub() {
                           {campaignPlatformLabel(c.platform)}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="font-normal">
-                            {campaignStatusLabel(c.status)}
-                          </Badge>
+                          <div className="flex flex-col items-start gap-1">
+                            <Badge
+                              variant="outline"
+                              className={cn("font-normal", campaignStatusBadgeClass(serving))}
+                              title={
+                                g?.google_status
+                                  ? `Google: ${g.google_status}`
+                                  : c.platform === "google_ads" && c.external_campaign_id
+                                    ? "Estado local (rede sem status)"
+                                    : undefined
+                              }
+                            >
+                              {campaignStatusLabel(serving)}
+                            </Badge>
+                            {localDraftLinked ? (
+                              <span className="text-[10px] text-amber-800">Local ainda rascunho</span>
+                            ) : null}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {c.platform === "google_ads" && c.external_campaign_id ? (
@@ -551,7 +647,12 @@ export function DpilotCampaignsHub() {
                               type="button"
                               className="text-left text-sm hover:underline disabled:opacity-50"
                               disabled={busy || g?.budget_editable === false}
-                              onClick={() => void onBudget(c.id, budgetMicros, g?.budget_editable)}
+                              onClick={() =>
+                                void onBudget(c.id, budgetMicros, {
+                                  budget_editable: g?.budget_editable,
+                                  budget_reference_count: g?.budget_reference_count,
+                                })
+                              }
                             >
                               {budgetMicros != null ? formatUsdFromMicros(budgetMicros) : "—"}
                             </button>
@@ -587,7 +688,12 @@ export function DpilotCampaignsHub() {
                                   className="h-8"
                                   disabled={busy || !c.external_campaign_id}
                                   title="Orçamento"
-                                  onClick={() => void onBudget(c.id, budgetMicros, g?.budget_editable)}
+                                  onClick={() =>
+                                    void onBudget(c.id, budgetMicros, {
+                                      budget_editable: g?.budget_editable,
+                                      budget_reference_count: g?.budget_reference_count,
+                                    })
+                                  }
                                 >
                                   <Wallet className="h-3.5 w-3.5" />
                                 </Button>
@@ -598,7 +704,7 @@ export function DpilotCampaignsHub() {
                                   className="h-8"
                                   disabled={busy}
                                   title="Duplicar"
-                                  onClick={() => void onDuplicate(c.id, c.name, budgetMicros)}
+                                  onClick={() => onDuplicate(c.id, c.name, budgetMicros)}
                                 >
                                   <Copy className="h-3.5 w-3.5" />
                                 </Button>
@@ -621,10 +727,30 @@ export function DpilotCampaignsHub() {
 
           <p className="text-[11px] text-muted-foreground">
             Clique no nome ou em <span className="font-medium text-foreground/80">Gerir</span> para anúncios,
-            palavras-chave e configuração. Métricas Google: últimos 7 dias.
+            palavras-chave e configuração. Métricas Google: período do Campaign Manager (default hoje).
           </p>
         </CardContent>
       </Card>
+
+      <GoogleAdsBudgetDialog
+        open={budgetDialog != null}
+        onOpenChange={(open) => {
+          if (!open) setBudgetDialog(null);
+        }}
+        currentUsd={budgetDialog?.currentUsd ?? null}
+        busy={budgetDialog != null && busyId === budgetDialog.campaignId}
+        onConfirm={confirmBudget}
+      />
+      <GoogleAdsDuplicateDialog
+        open={dupDialog != null}
+        onOpenChange={(open) => {
+          if (!open) setDupDialog(null);
+        }}
+        sourceName={dupDialog?.name ?? ""}
+        currentBudgetUsd={dupDialog?.currentUsd ?? null}
+        busy={dupDialog != null && busyId === dupDialog.campaignId}
+        onConfirm={confirmDuplicate}
+      />
     </>
   );
 }

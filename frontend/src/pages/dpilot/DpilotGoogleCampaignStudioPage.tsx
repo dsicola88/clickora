@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PageHeader } from "@/components/PageHeader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Collapsible,
@@ -22,6 +21,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 import { Textarea } from "@/components/ui/textarea";
 import {
   campaignStatusLabel,
+  changeRequestCampaignIdFromPayload,
   formatUsdFromMicros,
   googleBiddingSummaryLinesFromPayload,
   googleStudioBiddingFormDefaultsFromCampaign,
@@ -67,12 +67,12 @@ type StudioSection =
   | "controlo"
   | "insights";
 
-function isoRangeDefaultLast14(): { from: string; to: string } {
+/** Alinhado ao Campaign Manager (default Hoje). */
+function isoRangeDefaultToday(): { from: string; to: string } {
   const to = new Date();
   const utcMid = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate()));
-  const from = new Date(utcMid);
-  from.setUTCDate(from.getUTCDate() - 13);
-  return { from: from.toISOString().slice(0, 10), to: utcMid.toISOString().slice(0, 10) };
+  const day = utcMid.toISOString().slice(0, 10);
+  return { from: day, to: day };
 }
 
 function firstLanguageCode(c: CampaignRow): string {
@@ -302,7 +302,11 @@ function BadgeEntityStatus({ s }: { s: string }) {
 export function DpilotGoogleCampaignStudioPage() {
   const { t } = useAppLocale();
   const { projectId, campaignId } = useParams();
-  const { overview, reload: reloadPaid } = useDpilotPaid();
+  const { overview, reload: reloadPaid, changeRequests } = useDpilotPaid();
+  const pendingApprovals = changeRequests.filter((c) => {
+    if (c.status !== "pending" || !campaignId) return false;
+    return changeRequestCampaignIdFromPayload(c.payload) === campaignId;
+  }).length;
   const lgLayout = useViewportMinWidth(VIEWPORT_LG_MIN_PX);
 
   const ok =
@@ -330,8 +334,8 @@ export function DpilotGoogleCampaignStudioPage() {
   const [bidCpaUsd, setBidCpaUsd] = useState("");
   const [bidRoas, setBidRoas] = useState("");
   const [bidMaxCpcUsd, setBidMaxCpcUsd] = useState("");
-  const [perfFrom, setPerfFrom] = useState(() => isoRangeDefaultLast14().from);
-  const [perfTo, setPerfTo] = useState(() => isoRangeDefaultLast14().to);
+  const [perfFrom, setPerfFrom] = useState(() => isoRangeDefaultToday().from);
+  const [perfTo, setPerfTo] = useState(() => isoRangeDefaultToday().to);
   const [perfLoading, setPerfLoading] = useState(false);
   const [perfErr, setPerfErr] = useState<string | null>(null);
   const [perfRows, setPerfRows] = useState<
@@ -529,7 +533,7 @@ export function DpilotGoogleCampaignStudioPage() {
         isAutopilot ? t("pages.dpilot.google.studio.appliedAuto") : t("pages.dpilot.google.studio.applied"),
       );
     } else {
-      toast.success(t("pages.dpilot.google.studio.queued"));
+      toast.message(t("pages.dpilot.google.studio.queued"));
     }
     await loadStudio();
     await reloadPaid();
@@ -572,7 +576,7 @@ export function DpilotGoogleCampaignStudioPage() {
       toast.error(t("pages.dpilot.google.studio.rsaMin"));
       return;
     }
-    const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
+    const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
       action: "update_rsa",
       rsa_id: rsa0.id,
       headlines,
@@ -583,7 +587,13 @@ export function DpilotGoogleCampaignStudioPage() {
     });
     if (error) toast.error(error);
     else {
-      toast.success(t("pages.dpilot.google.studio.adRequestSent"));
+      if (data?.change_request?.status === "applied") {
+        toast.success(
+          isAutopilot ? t("pages.dpilot.google.studio.appliedAuto") : t("pages.dpilot.google.studio.applied"),
+        );
+      } else {
+        toast.message(t("pages.dpilot.google.studio.queued"));
+      }
       await loadStudio();
       await reloadPaid();
     }
@@ -841,7 +851,7 @@ export function DpilotGoogleCampaignStudioPage() {
             : t("pages.dpilot.google.studio.requestsApplied"),
         );
       } else {
-        toast.success(t("pages.dpilot.google.studio.requestsQueued"));
+        toast.message(t("pages.dpilot.google.studio.requestsQueued"));
       }
       await loadStudio();
       await reloadPaid();
@@ -923,46 +933,55 @@ export function DpilotGoogleCampaignStudioPage() {
 
   return (
     <Gate>
-      <PageHeader
-        title={t("pages.dpilot.google.studio.pageTitle")}
-        description={
-          campaign ? (
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <span className="inline-flex items-center rounded border border-[#1a73e8]/35 bg-[#1a73e8]/08 px-2 py-0.5 text-xs font-semibold text-[#174ea6] dark:border-blue-400/40 dark:bg-blue-500/15 dark:text-blue-300">
-                {t("pages.dpilot.google.wizard.badge")}
-              </span>
-              <span>
-                {campaign.name} · {published ? t("pages.dpilot.google.studio.published") : t("pages.dpilot.google.studio.draft")} · {campaignStatusLabel(campaign.status)}
-              </span>
-            </span>
-          ) : (
-            t("common.loading")
-          )
-        }
-        actions={
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>{t("pages.dpilot.google.studio.backCampaigns")}</Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/aprovacoes`}>{t("pages.dpilot.google.studio.approvals")}</Link>
-            </Button>
+            <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+              {campaign?.name ?? t("pages.dpilot.google.studio.pageTitle")}
+            </h1>
+            {campaign ? (
+              <>
+                <Badge
+                  variant="outline"
+                  className="border-[#1a73e8]/35 bg-[#1a73e8]/08 font-normal text-[#174ea6]"
+                >
+                  {t("pages.dpilot.google.wizard.badge")}
+                </Badge>
+                <Badge variant="secondary" className="font-normal">
+                  {published
+                    ? t("pages.dpilot.google.studio.published")
+                    : t("pages.dpilot.google.studio.draft")}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {campaignStatusLabel(campaign.status)}
+                </span>
+              </>
+            ) : null}
           </div>
-        }
-      />
+          {hint ? (
+            <p className="max-w-prose text-xs leading-snug text-muted-foreground">{hint}</p>
+          ) : (
+            <p className="max-w-prose text-xs text-muted-foreground">
+              Pausar, orçamento, anúncios, keywords, segmentação e termos — no índice à esquerda.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>
+              {t("pages.dpilot.google.studio.backCampaigns")}
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>
+              {t("pages.dpilot.google.studio.approvals")}
+              {pendingApprovals > 0 ? ` (${pendingApprovals})` : ""}
+            </Link>
+          </Button>
+        </div>
+      </div>
 
-      <div className="mt-6 space-y-4">
-        {hint ? <p className="text-xs text-muted-foreground leading-snug max-w-prose">{hint}</p> : null}
-
-        <Alert variant="default" className="border-neutral-200 bg-neutral-50/80 dark:border-border dark:bg-muted/25">
-          <AlertTitle className="text-sm">{t("pages.dpilot.google.studio.studioTitle")}</AlertTitle>
-          <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
-            Aqui gere o dia a dia da Search: pausar/ativar, orçamento e CPC, anúncios, palavras-chave, segmentação
-            (locais, dispositivos, idades) e termos de pesquisa — cada um no seu sítio. Orçamento partilhado raro
-            continua a exigir a consola Google.
-          </AlertDescription>
-        </Alert>
-
+      <div className="space-y-4">
         {loading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground py-12">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

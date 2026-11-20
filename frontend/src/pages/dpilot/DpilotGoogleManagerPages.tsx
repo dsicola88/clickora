@@ -11,7 +11,6 @@ import {
   Download,
   Loader2,
   Pause,
-  Play,
   Plus,
   RefreshCw,
   Search,
@@ -32,22 +31,29 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
+  campaignStatusBadgeClass,
   campaignStatusLabel,
+  changeRequestCampaignIdFromPayload,
   changeRequestStatusLabel,
   changeRequestTypeLabel,
+  effectiveCampaignServingStatus,
   formatUsdFromMicros,
   friendlyGoogleAdsNetworkError,
   googleAdsNeedsReauth,
+  describeStudioChangeRequestStatus,
   summarizeChangeRequestPayload,
   toastGoogleAdsError,
 } from "@/lib/paidAdsUi";
+import { syncGoogleAdsFromIntegrations } from "@/lib/googleAdsSync";
+import { useGoogleManagerPrefs, GOOGLE_MANAGER_ALL_CAMPAIGNS } from "@/hooks/useGoogleManagerPrefs";
+import { googleManagerPresetLabel } from "@/lib/googleManagerPrefs";
+import { GoogleAdsBudgetDialog } from "@/components/dpilot/GoogleAdsBudgetDialog";
+import { GoogleAdsDuplicateDialog } from "@/components/dpilot/GoogleAdsDuplicateDialog";
 import {
   alignGoogleCustomers,
   conversionFunnelStatus,
   googleAdsSyncShortLabel,
   summarizeGoogleAdsSyncHealth,
-  type ConversionFunnelStatus,
-  type GoogleAdsSyncHealthSummary,
 } from "@/lib/googleAdsConversionHealth";
 import { analyticsService } from "@/services/analyticsService";
 import { integrationsService } from "@/services/integrationsService";
@@ -66,19 +72,6 @@ const PRESETS = [
   { value: "last_month", label: "Mês anterior" },
 ] as const;
 
-function MetricCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-semibold tracking-tight">{value}</p>
-        {hint ? <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p> : null}
-      </CardContent>
-    </Card>
-  );
-}
 
 function fmtPct(n: number | null | undefined) {
   if (n == null || Number.isNaN(n)) return "—";
@@ -107,359 +100,10 @@ function PeriodSelect({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
-function conversionCheckCopy(status: ConversionFunnelStatus): { ok: boolean; text: string } {
-  if (status === "ready") return { ok: true, text: "Upload de conversões pronto (mesmo ciclo)" };
-  if (status === "customer_mismatch") {
-    return { ok: false, text: "Upload activo, mas customer ≠ conta Paid" };
-  }
-  if (status === "settings_unknown") return { ok: false, text: "Estado do upload desconhecido" };
-  return { ok: false, text: "Configurar conversões (tracking)" };
-}
-
-export function DpilotGoogleOverviewPage() {
-  const { projectId, reload, campaigns, changeRequests } = useDpilotPaid();
-  const [preset, setPreset] = useState("last_7");
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<Awaited<ReturnType<typeof paidAdsService.getGoogleAdsManagerOverview>>["data"]>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [convStatus, setConvStatus] = useState<ConversionFunnelStatus>("settings_unknown");
-  const [syncHealth, setSyncHealth] = useState<GoogleAdsSyncHealthSummary | null>(null);
-  const [urlIssues, setUrlIssues] = useState<{ critical: number; warn: number } | null>(null);
-  const [funnelRiskCamps, setFunnelRiskCamps] = useState(0);
-  const [rsaCritical, setRsaCritical] = useState(0);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setErr(null);
-    const [{ data: d, error }, conv, ledger, urlAudit, campMetrics, rsaAudit] = await Promise.all([
-      paidAdsService.getGoogleAdsManagerOverview(projectId, { preset }),
-      integrationsService.getGoogleAdsSettings(),
-      analyticsService.getConversions({ limit: 40 }),
-      paidAdsService.getGoogleAdsFinalUrlAudit(projectId),
-      paidAdsService.getGoogleAdsCampaignsMetrics(projectId, { preset }),
-      paidAdsService.getGoogleAdsRsaPolicyAudit(projectId),
-    ]);
-    if (error) setErr(error);
-    else setData(d ?? null);
-
-    const paidCustomer = d?.account?.customer_id ?? null;
-    const canUpload = conv.error ? null : Boolean(conv.data?.can_upload);
-    const uploadCustomer = conv.error ? null : conv.data?.google_ads_customer_id ?? null;
-    setConvStatus(
-      conversionFunnelStatus({
-        canUpload,
-        paidCustomerId: paidCustomer,
-        uploadCustomerId: uploadCustomer,
-      }),
-    );
-    setSyncHealth(ledger.error ? null : summarizeGoogleAdsSyncHealth(ledger.data ?? []));
-    setUrlIssues(
-      urlAudit.error || !urlAudit.data
-        ? null
-        : { critical: urlAudit.data.totals.critical, warn: urlAudit.data.totals.warn },
-    );
-    setFunnelRiskCamps(campMetrics.error ? 0 : campMetrics.data?.totals?.funnel_risk ?? 0);
-    setRsaCritical(rsaAudit.error ? 0 : rsaAudit.data?.totals?.critical_campaigns ?? 0);
-    setLoading(false);
-  }, [projectId, preset]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const m = data?.metrics;
-  const googleLive = campaigns.filter((c) => c.platform === "google_ads" && c.status === "live").length;
-  const pendingCr = changeRequests.filter((c) => c.status === "pending").length;
-  const convCopy = conversionCheckCopy(convStatus);
-
-  const check = (ok: boolean, yes: string, no: string) => (
-    <li className="flex items-start gap-2">
-      <span
-        className={
-          ok
-            ? "mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-[10px] font-bold text-emerald-600 dark:text-emerald-400"
-            : "mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] text-muted-foreground"
-        }
-        aria-hidden
-      >
-        {ok ? "✓" : "·"}
-      </span>
-      <span className={ok ? "text-foreground/90" : "text-muted-foreground"}>{ok ? yes : no}</span>
-    </li>
-  );
-
-  return (
-    <Gate>
-      <div className="relative overflow-hidden rounded-xl border border-[#1a73e8]/25 bg-gradient-to-br from-[#1a73e8]/12 via-background to-background">
-        <div
-          className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[#1a73e8]/10 blur-3xl"
-          aria-hidden
-        />
-        <div className="relative p-5 sm:p-6">
-          <PageHeader
-            title={
-              <span className="flex flex-wrap items-center gap-2.5">
-                Ads Studio
-                <Badge className="border border-[#1a73e8]/30 bg-[#1a73e8]/15 font-normal text-[#1a73e8] hover:bg-[#1a73e8]/15">
-                  Google Search
-                </Badge>
-              </span>
-            }
-            description={
-              <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                Operações do afiliado num só sítio: métricas da rede, termos de pesquisa, orçamento e conversões —
-                sem depender do ads.google.com no dia-a-dia.
-              </p>
-            }
-            actions={
-              <div className="flex flex-wrap items-center gap-2">
-                <PeriodSelect value={preset} onChange={setPreset} />
-                <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  Atualizar
-                </Button>
-                <Button type="button" size="sm" asChild>
-                  <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha</Link>
-                </Button>
-              </div>
-            }
-          />
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-3 lg:grid-cols-12">
-        <Card className="border-[#1a73e8]/20 lg:col-span-4">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Estado do funil</CardTitle>
-            <CardDescription className="text-xs">Pronto para tráfego pago?</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-xs">
-              {check(Boolean(data?.connected), "Gestão de campanhas ligada", "Ligar gestão (Conta)")}
-              {check(convCopy.ok, convCopy.text, convCopy.text)}
-              {check(googleLive > 0, `${googleLive} campanha(s) live`, "Publicar primeira campanha")}
-              {check(
-                funnelRiskCamps === 0,
-                "Cliques Google → Clickora OK",
-                `${funnelRiskCamps} campanha(s) com fuga de cliques`,
-              )}
-                {check(
-                rsaCritical === 0,
-                "Anúncios sem reprovações",
-                `${rsaCritical} campanha(s) com anúncio reprovado na Google`,
-              )}
-              {check(pendingCr === 0, "Sem aprovações pendentes", `${pendingCr} aprovação(ões) à espera`)}
-            </ul>
-            {syncHealth && syncHealth.total > 0 ? (
-              <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-                Últimas {syncHealth.total} vendas: {syncHealth.ok} sync OK
-                {syncHealth.failed ? ` · ${syncHealth.failed} falha(s)` : ""}
-                {syncHealth.no_gclid ? ` · ${syncHealth.no_gclid} sem gclid` : ""}
-                {" · "}
-                <Link
-                  className="text-[#1a73e8] hover:underline"
-                  to={`/tracking/dpilot/p/${projectId}/google/conversoes`}
-                >
-                  Ver detalhe
-                </Link>
-              </p>
-            ) : (
-              <p className="mt-3 text-[11px] text-muted-foreground">
-                <Link
-                  className="text-[#1a73e8] hover:underline"
-                  to={`/tracking/dpilot/p/${projectId}/google/conversoes`}
-                >
-                  Saúde do upload de conversões
-                </Link>
-              </p>
-            )}
-            {urlIssues && urlIssues.critical + urlIssues.warn > 0 ? (
-              <p className="mt-2 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200">
-                Final URL: {urlIssues.critical} crítica(s), {urlIssues.warn} aviso(s).{" "}
-                <Link
-                  className="underline hover:no-underline"
-                  to={`/tracking/dpilot/p/${projectId}/google/campanhas`}
-                >
-                  Ver campanhas
-                </Link>
-              </p>
-            ) : null}
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-3">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Atalhos</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {!data?.connected ? (
-              <Button size="sm" asChild>
-                <Link to={`/tracking/dpilot/p/${projectId}/google`}>Ligar conta</Link>
-              </Button>
-            ) : null}
-            <Button size="sm" variant={data?.connected ? "default" : "outline"} asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/google/termos-pesquisa`}>Termos de pesquisa</Link>
-            </Button>
-            <Button size="sm" variant="outline" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Campanhas</Link>
-            </Button>
-            <Button size="sm" variant="outline" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha</Link>
-            </Button>
-            {pendingCr > 0 ? (
-              <Button size="sm" variant="secondary" asChild>
-                <Link to={`/tracking/dpilot/p/${projectId}/aprovacoes`}>Aprovações ({pendingCr})</Link>
-              </Button>
-            ) : null}
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Rotina diária</CardTitle>
-            <CardDescription className="text-xs">Ordem que o media buyer profissional usa</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2.5 text-xs leading-relaxed text-muted-foreground">
-            <p>
-              <span className="font-medium text-foreground">1 · Importar</span> — Search criada na consola Google entra
-              aqui para operar.
-            </p>
-            <p>
-              <span className="font-medium text-foreground">2 · Cortar desperdício</span> —{" "}
-              <Link className="text-[#1a73e8] hover:underline" to={`/tracking/dpilot/p/${projectId}/google/termos-pesquisa`}>
-                Termos de pesquisa
-              </Link>
-              , pausas e orçamento inline.
-            </p>
-            <p>
-              <span className="font-medium text-foreground">3 · Aprovar</span> — Copilot / RSA no estúdio antes de
-              publicar.
-            </p>
-            <p>
-              <span className="font-medium text-foreground">4 · Fechar o ciclo</span> — conversões com gclid de volta à
-              rede.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {err ? (
-        <Alert variant="destructive" className="mt-4">
-          <AlertTitle>Não foi possível carregar</AlertTitle>
-          <AlertDescription>{err}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {loading && !data ? (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full" />
-          ))}
-        </div>
-      ) : (
-        <>
-          {!data?.connected ? (
-            <Alert className="mt-4">
-              <AlertTitle>Sincronizar conta Google</AlertTitle>
-              <AlertDescription className="space-y-3">
-                <p>
-                  {data?.connection_error ||
-                    "Ligue uma vez em Integrações → Google; no Studio use Conta → sincronizar (importa as campanhas)."}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" asChild>
-                    <Link to={`/tracking/dpilot/p/${projectId}/google`}>Sincronizar em Conta</Link>
-                  </Button>
-                  <Button size="sm" variant="outline" asChild>
-                    <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Campanhas</Link>
-                  </Button>
-                  {!convCopy.ok ? (
-                    <Button size="sm" variant="outline" asChild>
-                      <Link to="/integracoes/google-ads">Integrações → Google</Link>
-                    </Button>
-                  ) : null}
-                </div>
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Conta {data.account?.account_name || data.account?.customer_id} · {data.range.from} → {data.range.to} · fonte{" "}
-              <span className="font-medium text-foreground/90">{data.source}</span>
-              {" · "}
-              <Link className="text-[#1a73e8] hover:underline" to={`/tracking/dpilot/p/${projectId}/google`}>
-                Conta
-              </Link>
-            </p>
-          )}
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard label="Campanhas (local)" value={fmtNum(data?.counts?.campaigns_total)} />
-            <MetricCard label="Activas (live)" value={fmtNum(data?.counts?.campaigns_live)} />
-            <MetricCard label="Pausadas" value={fmtNum(data?.counts?.campaigns_paused)} />
-            <MetricCard label="Rascunhos / pendentes" value={fmtNum(data?.counts?.campaigns_draft)} />
-            <MetricCard label="Impressões" value={m ? fmtNum(m.impressions) : "—"} hint={m ? undefined : "Requer OAuth"} />
-            <MetricCard label="Cliques" value={m ? fmtNum(m.clicks) : "—"} />
-            <MetricCard label="CTR" value={m ? fmtPct(m.ctr) : "—"} />
-            <MetricCard label="CPC médio" value={m ? formatUsdFromMicros(m.average_cpc_micros) : "—"} />
-            <MetricCard label="Investimento" value={m ? formatUsdFromMicros(m.cost_micros) : "—"} />
-            <MetricCard label="Conversões" value={m ? fmtNum(m.conversions, 1) : "—"} />
-            <MetricCard label="Custo / conversão" value={m ? formatUsdFromMicros(m.cost_per_conversion_micros) : "—"} />
-            <MetricCard label="ROAS" value={m ? fmtNum(m.roas, 2) : "—"} hint="Valor conv. / custo" />
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Button asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/google/termos-pesquisa`}>Termos de pesquisa</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/google/campanhas`}>Campanhas</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to={`/tracking/dpilot/p/${projectId}/campanhas/nova`}>Nova campanha Google</Link>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={async () => {
-                const { data: r, error } = await paidAdsService.reconcileCampaigns(projectId);
-                if (error) toast.error(error);
-                else {
-                  toast.success(`Sincronizado: ${r?.updated?.length ?? 0} actualizações`);
-                  reload();
-                  void load();
-                }
-              }}
-            >
-              Sincronizar estados com Google
-            </Button>
-          </div>
-
-          {data?.connected ? (
-            <Card className="mt-6 border-[#1a73e8]/25">
-              <CardHeader>
-                <CardTitle className="text-base">Trazer campanhas da conta Google</CardTitle>
-                <CardDescription>
-                  Se criou Search na consola Google, importe para gerir tudo aqui (orçamento, pausas, termos).
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DpilotGoogleImportPanel
-                  projectId={projectId}
-                  onImported={() => {
-                    reload();
-                    void load();
-                  }}
-                />
-              </CardContent>
-            </Card>
-          ) : null}
-        </>
-      )}
-    </Gate>
-  );
-}
 
 export function DpilotGoogleCampaignsManagerPage() {
-  const { projectId, reload, overview, isConnConnected } = useDpilotPaid();
-  const [preset, setPreset] = useState("last_7");
+  const { projectId, reload, overview, isConnConnected, changeRequests } = useDpilotPaid();
+  const { preset, setPreset } = useGoogleManagerPrefs(projectId);
   const [q, setQ] = useState("");
   const [st, setSt] = useState<
     "on_google" | "local_drafts" | "excluding_archived" | "live" | "paused" | "funnel_risk"
@@ -474,6 +118,15 @@ export function DpilotGoogleCampaignsManagerPage() {
   const [accountCustomerId, setAccountCustomerId] = useState<string | null>(null);
   const [connErr, setConnErr] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [budgetDialog, setBudgetDialog] = useState<{
+    campaignId: string;
+    currentUsd: number | null;
+  } | null>(null);
+  const [dupDialog, setDupDialog] = useState<{
+    campaignId: string;
+    name: string;
+    currentUsd: number | null;
+  } | null>(null);
   const [termsCampaignId, setTermsCampaignId] = useState<string | null>(null);
   const [urlAuditById, setUrlAuditById] = useState<
     Map<
@@ -556,9 +209,13 @@ export function DpilotGoogleCampaignsManagerPage() {
       xs = xs.filter((c) => !c.external_campaign_id && c.local_status !== "archived");
     } else if (st === "excluding_archived") xs = xs.filter((c) => c.local_status !== "archived");
     else if (st === "live") {
-      xs = xs.filter((c) => c.local_status === "live" && Boolean(c.external_campaign_id));
+      xs = xs.filter(
+        (c) => Boolean(c.external_campaign_id) && effectiveCampaignServingStatus(c) === "live",
+      );
     } else if (st === "paused") {
-      xs = xs.filter((c) => c.local_status === "paused" && Boolean(c.external_campaign_id));
+      xs = xs.filter(
+        (c) => Boolean(c.external_campaign_id) && effectiveCampaignServingStatus(c) === "paused",
+      );
     } else if (st === "funnel_risk") {
       xs = xs.filter(
         (c) => Boolean(c.external_campaign_id) && c.local_status !== "archived" && c.funnel_risk,
@@ -581,10 +238,21 @@ export function DpilotGoogleCampaignsManagerPage() {
     return {
       on_google: onGoogle.length,
       local_drafts: work.filter((c) => !c.external_campaign_id).length,
-      live: onGoogle.filter((c) => c.local_status === "live").length,
-      paused: onGoogle.filter((c) => c.local_status === "paused").length,
+      live: onGoogle.filter((c) => effectiveCampaignServingStatus(c) === "live").length,
+      paused: onGoogle.filter((c) => effectiveCampaignServingStatus(c) === "paused").length,
     };
   }, [rows, localOnlyInventory]);
+
+  const pendingByCampaign = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const cr of changeRequests) {
+      if (cr.status !== "pending") continue;
+      const cid = changeRequestCampaignIdFromPayload(cr.payload);
+      if (!cid) continue;
+      map.set(cid, (map.get(cid) ?? 0) + 1);
+    }
+    return map;
+  }, [changeRequests]);
 
   const paidConnected = isConnConnected(overview?.connection);
   const connMeta = overview?.connection as
@@ -595,18 +263,8 @@ export function DpilotGoogleCampaignsManagerPage() {
   const syncAccount = async () => {
     setLinking(true);
     try {
-      const { data, error } = await paidAdsService.googleLinkFromIntegrations(projectId, {
-        import_campaigns: true,
-      });
-      if (error || !data) {
-        toast.error(error || "Sincronize em Conta ou ligue em Integrações → Google.");
-        return;
-      }
-      toast.success(
-        data.import
-          ? `Conta sincronizada · ${data.import.imported} campanha(s)`
-          : "Conta sincronizada",
-      );
+      const result = await syncGoogleAdsFromIntegrations(projectId);
+      if (!result.ok) return;
       reload();
       void load();
     } finally {
@@ -614,27 +272,26 @@ export function DpilotGoogleCampaignsManagerPage() {
     }
   };
 
-  const onDuplicate = async (id: string, name: string, currentBudgetMicros: number | null) => {
-    const nextName = window.prompt("Novo nome da cópia (sem métricas da original):", `${name} (cópia)`);
-    if (nextName == null) return;
-    const budgetHint =
-      currentBudgetMicros != null ? (currentBudgetMicros / 1e6).toFixed(2) : "";
-    const budgetRaw = window.prompt("Orçamento diário USD (vazio = igual à original):", budgetHint);
-    if (budgetRaw == null) return;
-    const daily_budget_usd =
-      budgetRaw.trim() === "" ? undefined : Number(budgetRaw.replace(",", "."));
-    if (daily_budget_usd != null && (!Number.isFinite(daily_budget_usd) || daily_budget_usd <= 0)) {
-      toast.error("Orçamento inválido.");
-      return;
-    }
-    const publish = window.confirm(
-      "Enfileirar publicação na Google?\n\nOK = sim (Copilot → Aprovações / Autopilot aplica)\nCancelar = só rascunho local",
-    );
+  const onDuplicate = (id: string, name: string, currentBudgetMicros: number | null) => {
+    setDupDialog({
+      campaignId: id,
+      name,
+      currentUsd: currentBudgetMicros != null ? currentBudgetMicros / 1e6 : null,
+    });
+  };
+
+  const confirmDuplicate = async (values: {
+    name: string;
+    daily_budget_usd?: number;
+    publish: boolean;
+  }) => {
+    if (!dupDialog) return;
+    const id = dupDialog.campaignId;
     setBusyId(id);
     const { data, error } = await paidAdsService.duplicateGoogleCampaign(projectId, id, {
-      name: nextName.trim() || undefined,
-      daily_budget_usd,
-      publish,
+      name: values.name,
+      daily_budget_usd: values.daily_budget_usd,
+      publish: values.publish,
     });
     setBusyId(null);
     if (error) {
@@ -643,18 +300,20 @@ export function DpilotGoogleCampaignsManagerPage() {
     }
     toast.success(`Cópia criada: ${data?.name}`);
     data?.warnings?.forEach((w) => toast.message(w));
+    setDupDialog(null);
     reload();
     void load();
     if (data?.campaign_id) {
+      const needsApprovals = values.publish && data.published_applied === false;
       window.location.assign(
-        publish
-          ? `/tracking/dpilot/p/${projectId}/aprovacoes`
+        needsApprovals
+          ? `/tracking/dpilot/p/${projectId}/google/aprovacoes`
           : `/tracking/dpilot/p/${projectId}/campanhas/${data.campaign_id}/google`,
       );
     }
   };
 
-  const onBudget = async (
+  const onBudget = (
     campaignId: string,
     currentMicros: number | null,
     meta?: { budget_editable?: boolean; budget_reference_count?: number },
@@ -665,30 +324,32 @@ export function DpilotGoogleCampaignsManagerPage() {
       );
       return;
     }
-    const current = currentMicros != null ? (currentMicros / 1e6).toFixed(2) : "";
-    const raw = window.prompt("Novo orçamento diário (USD). Confirmação obrigatória para alterações reais na Google:", current);
-    if (raw == null) return;
-    const usd = Number(String(raw).replace(",", "."));
-    if (!Number.isFinite(usd) || usd <= 0) {
-      toast.error("Valor inválido.");
-      return;
-    }
-    if (currentMicros != null) {
-      const prev = currentMicros / 1e6;
-      const ratio = usd / prev;
-      if (ratio >= 2 || ratio <= 0.5) {
-        if (!window.confirm(`Alteração elevada: ${prev.toFixed(2)} → ${usd.toFixed(2)} USD/dia. Confirmar?`)) return;
-      }
-    }
+    setBudgetDialog({
+      campaignId,
+      currentUsd: currentMicros != null ? currentMicros / 1e6 : null,
+    });
+  };
+
+  const confirmBudget = async (usd: number) => {
+    if (!budgetDialog) return;
+    const campaignId = budgetDialog.campaignId;
     setBusyId(campaignId);
-    const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
+    const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
       action: "update_budget_usd",
       daily_budget_usd: usd,
     });
     setBusyId(null);
     if (error) toast.error(toastGoogleAdsError(error));
     else {
-      toast.success(`Orçamento ${usd.toFixed(2)} USD/dia — pedido enviado`);
+      const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+      const msg =
+        info.kind === "applied"
+          ? `Orçamento ${usd.toFixed(2)} USD/dia aplicado na Google.`
+          : `Orçamento ${usd.toFixed(2)} USD/dia — ${info.message}`;
+      if (info.kind === "failed") toast.error(msg);
+      else if (info.kind === "applied") toast.success(msg);
+      else toast.message(msg);
+      setBudgetDialog(null);
       reload();
       void load();
     }
@@ -696,13 +357,16 @@ export function DpilotGoogleCampaignsManagerPage() {
 
   const studioAction = async (campaignId: string, action: "pause_campaign" | "resume_campaign") => {
     const label = action === "pause_campaign" ? "Pausar" : "Ativar";
-    if (!window.confirm(`${label} esta campanha na Google Ads? A alteração segue Copilot/Autopilot.`)) return;
+    if (!window.confirm(`${label} esta campanha na Google Ads?`)) return;
     setBusyId(campaignId);
-    const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, { action });
+    const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, { action });
     setBusyId(null);
     if (error) toast.error(toastGoogleAdsError(error));
     else {
-      toast.success(`${label}: pedido enviado`);
+      const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+      if (info.kind === "failed") toast.error(`${label}: ${info.message}`);
+      else if (info.kind === "applied") toast.success(`${label}: aplicado na Google.`);
+      else toast.message(`${label}: ${info.message}`);
       reload();
       void load();
     }
@@ -713,7 +377,9 @@ export function DpilotGoogleCampaignsManagerPage() {
       "name",
       "id",
       "external_id",
-      "status",
+      "local_status",
+      "serving_status",
+      "google_status",
       "budget_usd",
       "impressions",
       "clicks",
@@ -731,6 +397,8 @@ export function DpilotGoogleCampaignsManagerPage() {
         c.id,
         c.external_campaign_id ?? "",
         c.local_status,
+        effectiveCampaignServingStatus(c),
+        c.google_status ?? "",
         c.daily_budget_micros != null ? (c.daily_budget_micros / 1e6).toFixed(2) : "",
         m?.impressions ?? "",
         m?.clicks ?? "",
@@ -845,6 +513,31 @@ export function DpilotGoogleCampaignsManagerPage() {
             ? ` · conta ${accountCustomerId.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3")}`
             : ""}
         </p>
+      ) : null}
+
+      {paidConnected ? (
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50/80 px-2 py-1 text-emerald-900">
+            <span className="font-semibold">Na Google</span>
+            na conta ({chipCounts.on_google}) · não implica Activa
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200/80 bg-white px-2 py-1 text-emerald-900">
+            <span className="font-semibold">Activa</span>
+            ENABLED na Google ({chipCounts.live})
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50/80 px-2 py-1 text-amber-950">
+            <span className="font-semibold">Pausada</span>
+            PAUSED na Google ({chipCounts.paused})
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700">
+            <span className="font-semibold">Só neste projecto</span>
+            rascunhos locais ({chipCounts.local_drafts})
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1">
+            <span className="font-semibold tabular-nums">—</span>
+            sem impressões/gasto no período (não é zero)
+          </span>
+        </div>
       ) : null}
 
       {(() => {
@@ -1111,9 +804,15 @@ export function DpilotGoogleCampaignsManagerPage() {
                     const m = c.metrics;
                     const busy = busyId === c.id;
                     const urlAudit = urlAuditById.get(c.id);
+                    const serving = effectiveCampaignServingStatus(c);
+                    const pendingN = pendingByCampaign.get(c.id) ?? 0;
+                    const localDraftLinked =
+                      Boolean(c.external_campaign_id) &&
+                      (c.local_status === "draft" || c.local_status === "pending_publish") &&
+                      (serving === "live" || serving === "paused");
                     const canToggle =
                       Boolean(c.external_campaign_id) &&
-                      (c.local_status === "live" || c.local_status === "paused");
+                      (serving === "live" || serving === "paused");
                     const captureTitle =
                       c.google_clicks != null
                         ? `Clickora ${fmtNum(c.tracking_clicks)} / Google ${fmtNum(c.google_clicks)}${
@@ -1123,20 +822,34 @@ export function DpilotGoogleCampaignsManagerPage() {
                     return (
                       <TableRow key={c.id} className={c.funnel_risk ? "bg-destructive/[0.03]" : undefined}>
                         <TableCell>
-                          {canToggle ? (
-                            <Switch
-                              checked={c.local_status === "live"}
-                              disabled={busy}
-                              aria-label={c.local_status === "live" ? "Pausar campanha" : "Ativar campanha"}
-                              onCheckedChange={(on) =>
-                                void studioAction(c.id, on ? "resume_campaign" : "pause_campaign")
+                          <div className="flex flex-col items-start gap-1">
+                            {canToggle ? (
+                              <Switch
+                                checked={serving === "live"}
+                                disabled={busy}
+                                aria-label={serving === "live" ? "Pausar campanha" : "Ativar campanha"}
+                                onCheckedChange={(on) =>
+                                  void studioAction(c.id, on ? "resume_campaign" : "pause_campaign")
+                                }
+                              />
+                            ) : null}
+                            <Badge
+                              variant="outline"
+                              className={cn("font-normal text-[10px]", campaignStatusBadgeClass(serving))}
+                              title={
+                                c.google_status
+                                  ? `Google: ${c.google_status}`
+                                  : c.external_campaign_id
+                                    ? "Estado local (rede sem status)"
+                                    : "Só neste projecto"
                               }
-                            />
-                          ) : (
-                            <Badge variant="outline" className="font-normal text-[10px]">
-                              {campaignStatusLabel(c.local_status)}
+                            >
+                              {campaignStatusLabel(serving)}
                             </Badge>
-                          )}
+                            {localDraftLinked ? (
+                              <span className="text-[10px] leading-tight text-amber-800">Local: rascunho</span>
+                            ) : null}
+                          </div>
                         </TableCell>
                         <TableCell className="max-w-[16rem]">
                           <div className="flex flex-wrap items-center gap-1.5">
@@ -1150,6 +863,18 @@ export function DpilotGoogleCampaignsManagerPage() {
                               <Badge variant="secondary" className="font-normal text-[10px]">
                                 Só local
                               </Badge>
+                            ) : null}
+                            {pendingN > 0 ? (
+                              <Link
+                                to={`/tracking/dpilot/p/${projectId}/google/aprovacoes?campaign=${c.id}`}
+                                className="inline-flex"
+                                title="Pedidos pendentes em Aprovações"
+                                aria-label={`Fila de aprovações: ${pendingN} pendente(s)`}
+                              >
+                                <Badge variant="secondary" className="h-5 font-normal text-[10px] hover:bg-secondary/80">
+                                  Fila {pendingN}
+                                </Badge>
+                              </Link>
                             ) : null}
                           </div>
                           {c.bidding_strategy ? (
@@ -1230,7 +955,7 @@ export function DpilotGoogleCampaignsManagerPage() {
                                 : "Alterar orçamento"
                             }
                             onClick={() =>
-                              void onBudget(c.id, c.daily_budget_micros, {
+                              onBudget(c.id, c.daily_budget_micros, {
                                 budget_editable: c.budget_editable,
                                 budget_reference_count: c.budget_reference_count,
                               })
@@ -1270,7 +995,7 @@ export function DpilotGoogleCampaignsManagerPage() {
                               className="h-8"
                               disabled={busy || c.local_status === "archived"}
                               title="Duplicar"
-                              onClick={() => void onDuplicate(c.id, c.name, c.daily_budget_micros)}
+                              onClick={() => onDuplicate(c.id, c.name, c.daily_budget_micros)}
                             >
                               <Copy className="h-3.5 w-3.5" />
                             </Button>
@@ -1330,11 +1055,30 @@ export function DpilotGoogleCampaignsManagerPage() {
           />
         </CardContent>
       </Card>
+
+      <GoogleAdsBudgetDialog
+        open={budgetDialog != null}
+        onOpenChange={(open) => {
+          if (!open) setBudgetDialog(null);
+        }}
+        currentUsd={budgetDialog?.currentUsd ?? null}
+        busy={budgetDialog != null && busyId === budgetDialog.campaignId}
+        onConfirm={confirmBudget}
+      />
+      <GoogleAdsDuplicateDialog
+        open={dupDialog != null}
+        onOpenChange={(open) => {
+          if (!open) setDupDialog(null);
+        }}
+        sourceName={dupDialog?.name ?? ""}
+        currentBudgetUsd={dupDialog?.currentUsd ?? null}
+        busy={dupDialog != null && busyId === dupDialog.campaignId}
+        onConfirm={confirmDuplicate}
+      />
     </Gate>
   );
 }
 
-const INV_ALL_CAMPAIGNS = "__all__";
 
 function InventoryTablePage({
   title,
@@ -1346,10 +1090,10 @@ function InventoryTablePage({
   kind: "ad_groups" | "ads" | "keywords" | "budgets";
 }) {
   const { projectId } = useDpilotPaid();
+  const { campaignFilter, setCampaignFilter, ensureCampaignFilterValid } = useGoogleManagerPrefs(projectId);
   const [loading, setLoading] = useState(true);
   const [inv, setInv] = useState<Awaited<ReturnType<typeof paidAdsService.getGoogleAdsInventory>>["data"]>(null);
   const [q, setQ] = useState("");
-  const [campaignFilter, setCampaignFilter] = useState(INV_ALL_CAMPAIGNS);
 
   useEffect(() => {
     void (async () => {
@@ -1374,9 +1118,14 @@ function InventoryTablePage({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [inv, kind]);
 
+  useEffect(() => {
+    if (campaignOptions.length === 0) return;
+    ensureCampaignFilterValid(campaignOptions.map((c) => c.id));
+  }, [campaignOptions, ensureCampaignFilterValid]);
+
   const rows = useMemo(() => {
     let list = (inv?.[kind] as Array<Record<string, unknown>> | undefined) ?? [];
-    if (campaignFilter !== INV_ALL_CAMPAIGNS) {
+    if (campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS) {
       list = list.filter((r) => String(r.campaign_id ?? "") === campaignFilter);
     }
     const needle = q.trim().toLowerCase();
@@ -1403,7 +1152,7 @@ function InventoryTablePage({
                 <SelectValue placeholder="Campanha" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={INV_ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
+                <SelectItem value={GOOGLE_MANAGER_ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
                 {campaignOptions.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
@@ -1418,7 +1167,7 @@ function InventoryTablePage({
           ) : rows.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Sem registos
-              {campaignFilter !== INV_ALL_CAMPAIGNS ? " nesta campanha" : ""}. Crie ou sincronize campanhas Google.
+              {campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS ? " nesta campanha" : ""}. Crie ou sincronize campanhas Google.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -1720,8 +1469,8 @@ export function DpilotGoogleAdsCreativesPage() {
 
 export function DpilotGoogleKeywordsPage() {
   const { projectId, reload } = useDpilotPaid();
-  const [preset, setPreset] = useState("last_7");
-  const [campaignFilter, setCampaignFilter] = useState(INV_ALL_CAMPAIGNS);
+  const { preset, setPreset, campaignFilter, setCampaignFilter, ensureCampaignFilterValid } =
+    useGoogleManagerPrefs(projectId);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rows, setRows] = useState<
@@ -1736,7 +1485,7 @@ export function DpilotGoogleKeywordsPage() {
     setLoading(true);
     const { data, error } = await paidAdsService.getGoogleAdsKeywordMetrics(projectId, {
       preset,
-      ...(campaignFilter !== INV_ALL_CAMPAIGNS ? { campaign_id: campaignFilter } : {}),
+      ...(campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS ? { campaign_id: campaignFilter } : {}),
     });
     if (error) {
       toast.error(toastGoogleAdsError(error));
@@ -1757,7 +1506,7 @@ export function DpilotGoogleKeywordsPage() {
           if (k.campaign_id) map.set(k.campaign_id, k.campaign_name || k.campaign_id);
         }
         setCampaignOptions((prev) => {
-          if (campaignFilter !== INV_ALL_CAMPAIGNS && prev.length > 0) return prev;
+          if (campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS && prev.length > 0) return prev;
           return [...map.entries()]
             .map(([id, name]) => ({ id, name }))
             .sort((a, b) => a.name.localeCompare(b.name));
@@ -1770,6 +1519,11 @@ export function DpilotGoogleKeywordsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (campaignOptions.length === 0) return;
+    ensureCampaignFilterValid(campaignOptions.map((c) => c.id));
+  }, [campaignOptions, ensureCampaignFilterValid]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -1785,14 +1539,17 @@ export function DpilotGoogleKeywordsPage() {
   const pauseKw = async (campaignId: string, keywordId: string) => {
     if (!window.confirm("Pausar esta palavra-chave na Google Ads?")) return;
     setBusyId(keywordId);
-    const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
+    const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
       action: "pause_keyword",
       keyword_id: keywordId,
     });
     setBusyId(null);
     if (error) toast.error(error);
     else {
-      toast.success("Pausa enfileirada");
+      const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+      if (info.kind === "failed") toast.error(info.message);
+      else if (info.kind === "applied") toast.success("Palavra-chave pausada na Google.");
+      else toast.message(info.message);
       reload();
       void load();
     }
@@ -1816,7 +1573,7 @@ export function DpilotGoogleKeywordsPage() {
                 <SelectValue placeholder="Campanha" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={INV_ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
+                <SelectItem value={GOOGLE_MANAGER_ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
                 {campaignOptions.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
@@ -1847,7 +1604,7 @@ export function DpilotGoogleKeywordsPage() {
               <p className="text-sm text-muted-foreground">
                 {q.trim()
                   ? "Nenhuma keyword corresponde ao filtro."
-                  : campaignFilter !== INV_ALL_CAMPAIGNS
+                  : campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS
                     ? "Sem palavras-chave nesta campanha."
                     : "Sem palavras-chave locais neste projecto."}
               </p>
@@ -1927,25 +1684,30 @@ export function DpilotGoogleKeywordsPage() {
 
 export function DpilotGoogleBudgetsPage() {
   const { projectId, reload } = useDpilotPaid();
+  const { preset, setPreset } = useGoogleManagerPrefs(projectId);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [budgetDialog, setBudgetDialog] = useState<{
+    campaignId: string;
+    currentUsd: number | null;
+  } | null>(null);
   const [rows, setRows] = useState<
     NonNullable<Awaited<ReturnType<typeof paidAdsService.getGoogleAdsCampaignsMetrics>>["data"]>["campaigns"]
   >([]);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await paidAdsService.getGoogleAdsCampaignsMetrics(projectId, { preset: "last_7" });
+    const { data, error } = await paidAdsService.getGoogleAdsCampaignsMetrics(projectId, { preset });
     if (error) toast.error(error);
     else setRows((data?.campaigns ?? []).filter((c) => c.local_status !== "archived"));
     setLoading(false);
-  }, [projectId]);
+  }, [projectId, preset]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const onBudget = async (
+  const onBudget = (
     campaignId: string,
     currentMicros: number | null,
     meta?: { budget_editable?: boolean; budget_reference_count?: number },
@@ -1956,26 +1718,29 @@ export function DpilotGoogleBudgetsPage() {
       );
       return;
     }
-    const current = currentMicros != null ? (currentMicros / 1e6).toFixed(2) : "";
-    const raw = window.prompt(
-      "Novo orçamento diário USD.\nSe o orçamento estiver partilhado na Google, a API bloqueia a alteração por segurança.",
-      current,
-    );
-    if (raw == null) return;
-    const usd = Number(String(raw).replace(",", "."));
-    if (!Number.isFinite(usd) || usd <= 0) {
-      toast.error("Valor inválido.");
-      return;
-    }
+    setBudgetDialog({
+      campaignId,
+      currentUsd: currentMicros != null ? currentMicros / 1e6 : null,
+    });
+  };
+
+  const confirmBudget = async (usd: number) => {
+    if (!budgetDialog) return;
+    const campaignId = budgetDialog.campaignId;
     setBusyId(campaignId);
-    const { error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
+    const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
       action: "update_budget_usd",
       daily_budget_usd: usd,
     });
     setBusyId(null);
     if (error) toast.error(error);
     else {
-      toast.success(`Orçamento ${usd.toFixed(2)} USD/dia enfileirado`);
+      const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+      if (info.kind === "failed") toast.error(info.message);
+      else if (info.kind === "applied") {
+        toast.success(`Orçamento ${usd.toFixed(2)} USD/dia aplicado na Google.`);
+      } else toast.message(`Orçamento ${usd.toFixed(2)} USD/dia — ${info.message}`);
+      setBudgetDialog(null);
       reload();
       void load();
     }
@@ -1988,13 +1753,16 @@ export function DpilotGoogleBudgetsPage() {
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
             Pré-voo de orçamento partilhado: se várias campanhas partilham o mesmo budget, o ajuste fica bloqueado
-            aqui (e na API). Compara orçamento vs custo dos últimos 7 dias.
+            aqui (e na API). Compara orçamento vs custo no período seleccionado (default: hoje).
           </p>
         }
         actions={
-          <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <PeriodSelect value={preset} onChange={setPreset} />
+            <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            </Button>
+          </div>
         }
       />
       <Card className="mt-4">
@@ -2010,7 +1778,7 @@ export function DpilotGoogleBudgetsPage() {
                   <TableHead>Campanha</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Orçamento/dia</TableHead>
-                  <TableHead>Custo 7d</TableHead>
+                  <TableHead>Custo ({googleManagerPresetLabel(preset)})</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
@@ -2021,7 +1789,22 @@ export function DpilotGoogleBudgetsPage() {
                       <span className="line-clamp-2">{c.name}</span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{campaignStatusLabel(c.local_status)}</Badge>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "font-normal",
+                          campaignStatusBadgeClass(effectiveCampaignServingStatus(c)),
+                        )}
+                        title={
+                          c.google_status
+                            ? `Google: ${c.google_status}`
+                            : c.external_campaign_id
+                              ? "Estado local (rede sem status)"
+                              : "Só neste projecto"
+                        }
+                      >
+                        {campaignStatusLabel(effectiveCampaignServingStatus(c))}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
@@ -2063,7 +1846,7 @@ export function DpilotGoogleBudgetsPage() {
                                 : "Alterar orçamento"
                             }
                             onClick={() =>
-                              void onBudget(c.id, c.daily_budget_micros, {
+                              onBudget(c.id, c.daily_budget_micros, {
                                 budget_editable: c.budget_editable,
                                 budget_reference_count: c.budget_reference_count,
                               })
@@ -2081,6 +1864,16 @@ export function DpilotGoogleBudgetsPage() {
           )}
         </CardContent>
       </Card>
+
+      <GoogleAdsBudgetDialog
+        open={budgetDialog != null}
+        onOpenChange={(open) => {
+          if (!open) setBudgetDialog(null);
+        }}
+        currentUsd={budgetDialog?.currentUsd ?? null}
+        busy={budgetDialog != null && busyId === budgetDialog.campaignId}
+        onConfirm={confirmBudget}
+      />
     </Gate>
   );
 }
@@ -2426,8 +2219,8 @@ export function DpilotGoogleConversionsPage() {
 
 export function DpilotGoogleReportsPage() {
   const { projectId, campaigns } = useDpilotPaid();
-  const [preset, setPreset] = useState("last_7");
-  const [campaignFilter, setCampaignFilter] = useState<string>("all");
+  const { preset, setPreset, campaignFilter, setCampaignFilter, ensureCampaignFilterValid } =
+    useGoogleManagerPrefs(projectId);
   const [loading, setLoading] = useState(true);
   const [devices, setDevices] = useState<
     NonNullable<Awaited<ReturnType<typeof paidAdsService.getGoogleAdsDevicePerformance>>["data"]>["devices"]
@@ -2443,7 +2236,7 @@ export function DpilotGoogleReportsPage() {
     setErr(null);
     const { data, error } = await paidAdsService.getGoogleAdsDevicePerformance(projectId, {
       preset,
-      campaign_id: campaignFilter !== "all" ? campaignFilter : undefined,
+      campaign_id: campaignFilter !== GOOGLE_MANAGER_ALL_CAMPAIGNS ? campaignFilter : undefined,
     });
     if (error) {
       setErr(error);
@@ -2470,6 +2263,11 @@ export function DpilotGoogleReportsPage() {
     [campaigns],
   );
 
+  useEffect(() => {
+    if (campaignOptions.length === 0) return;
+    ensureCampaignFilterValid(campaignOptions.map(([id]) => id));
+  }, [campaignOptions, ensureCampaignFilterValid]);
+
   const mobileShare = useMemo(() => {
     const mobile = devices.find((d) => /MOBILE/i.test(d.device));
     const totalCost = devices.reduce((s, d) => s + d.metrics.cost_micros, 0);
@@ -2495,7 +2293,7 @@ export function DpilotGoogleReportsPage() {
                 <SelectValue placeholder="Campanha" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as importadas</SelectItem>
+                <SelectItem value={GOOGLE_MANAGER_ALL_CAMPAIGNS}>Todas as importadas</SelectItem>
                 {campaignOptions.map(([id, name]) => (
                   <SelectItem key={id} value={id}>
                     {name}
@@ -2641,14 +2439,29 @@ export function DpilotGoogleReportsPage() {
   );
 }
 
+function googleCampaignIdFromResource(resource: string | null | undefined): string | null {
+  if (!resource) return null;
+  const m = /\/campaigns\/(\d+)\s*$/.exec(resource.trim());
+  return m?.[1] ?? null;
+}
+
 export function DpilotGoogleRecommendationsPage() {
-  const { projectId } = useDpilotPaid();
+  const { projectId, campaigns } = useDpilotPaid();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [recs, setRecs] = useState<
     NonNullable<Awaited<ReturnType<typeof paidAdsService.getGoogleAdsRecommendations>>["data"]>["recommendations"]
   >([]);
   const [err, setErr] = useState<string | null>(null);
+
+  const nameByExternalId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of campaigns) {
+      const ext = c.external_campaign_id?.trim();
+      if (ext) map.set(ext, c.name);
+    }
+    return map;
+  }, [campaigns]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2667,7 +2480,7 @@ export function DpilotGoogleRecommendationsPage() {
     const label = action === "apply" ? "Aplicar" : "Rejeitar";
     if (
       !window.confirm(
-        `${label} esta recomendação na conta Google Ads?\n\nSó continue se compreende o impacto. A alteração é na API oficial.`,
+        `${label} esta recomendação na conta Google Ads?\n\nIsto chama a API oficial já (não passa pela fila de Aprovações).\nSó continue se compreende o impacto.`,
       )
     ) {
       return;
@@ -2691,8 +2504,8 @@ export function DpilotGoogleRecommendationsPage() {
         title="Google Ads · Recomendações"
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            RecommendationService real. Aplicar só tipos suportados; rejeitar (dismiss) sempre disponível. Nunca em
-            silêncio.
+            RecommendationService real. Aplicar / rejeitar vai directo à conta Google (confirmação explícita) — não
+            passa pela fila de Aprovações. Só tipos suportados podem ser aplicados; dismiss está sempre disponível.
           </p>
         }
         actions={
@@ -2725,10 +2538,24 @@ export function DpilotGoogleRecommendationsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recs.map((r, i) => (
+                {recs.map((r, i) => {
+                  const extId = googleCampaignIdFromResource(r.campaign_resource);
+                  const campName = extId ? nameByExternalId.get(extId) : null;
+                  return (
                   <TableRow key={r.resource_name ?? String(i)}>
                     <TableCell className="font-medium">{r.type}</TableCell>
-                    <TableCell className="font-mono text-xs">{r.campaign_resource || "—"}</TableCell>
+                    <TableCell className="max-w-[14rem]">
+                      {campName ? (
+                        <div className="space-y-0.5">
+                          <p className="line-clamp-2 text-sm font-medium leading-snug">{campName}</p>
+                          <p className="font-mono text-[10px] text-muted-foreground">{extId}</p>
+                        </div>
+                      ) : (
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {extId || r.campaign_resource || "—"}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="max-w-md text-xs text-muted-foreground">{r.note}</TableCell>
                     <TableCell className="text-right">
                       {r.resource_name ? (
@@ -2760,7 +2587,8 @@ export function DpilotGoogleRecommendationsPage() {
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -2771,15 +2599,30 @@ export function DpilotGoogleRecommendationsPage() {
 }
 
 export function DpilotGoogleAutomationsPage() {
-  const { projectId } = useDpilotPaid();
+  const { projectId, overview } = useDpilotPaid();
+  const paidMode = overview?.project?.paid_mode ?? "copilot";
+  const modeLabel = paidMode === "autopilot" ? "Autopilot" : "Copilot";
+  const gr = overview?.guardrails ?? {};
+  const maxDailyMicros =
+    typeof gr.max_daily_budget_micros === "number" && Number.isFinite(gr.max_daily_budget_micros)
+      ? gr.max_daily_budget_micros
+      : null;
+  const maxMonthlyMicros =
+    typeof gr.max_monthly_budget_micros === "number" && Number.isFinite(gr.max_monthly_budget_micros)
+      ? gr.max_monthly_budget_micros
+      : null;
+  const countries = Array.isArray(gr.allowed_countries)
+    ? gr.allowed_countries.map((c) => String(c).trim().toUpperCase()).filter(Boolean)
+    : [];
+
   return (
     <Gate>
       <PageHeader
         title="Google Ads · Automações"
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            Regras do motor Paid (pausa por gasto sem conversão, escala ROAS, redistribuição) com modos Copilot /
-            Autopilot e guardrails. Histórico em Auditoria.
+            Estado actual do motor Paid neste projecto. Regras e histórico detalhado ficam em Auditoria — aqui só o
+            resumo para o media buyer no Campaign Manager.
           </p>
         }
         actions={
@@ -2788,11 +2631,62 @@ export function DpilotGoogleAutomationsPage() {
           </Button>
         }
       />
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Modo</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-semibold tracking-tight">{modeLabel}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {paidMode === "autopilot"
+                ? "Acções do estúdio aplicam na Google quando o motor as envia."
+                : "Dono do projecto: aplicar já no estúdio; outros pedidos vão a Aprovações."}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Teto diário</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-semibold tracking-tight">
+              {maxDailyMicros != null ? formatUsdFromMicros(maxDailyMicros) : "—"}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Guardrail max_daily_budget</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Teto mensal</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-semibold tracking-tight">
+              {maxMonthlyMicros != null ? formatUsdFromMicros(maxMonthlyMicros) : "—"}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Guardrail max_monthly_budget</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Países</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-semibold tracking-tight">
+              {countries.length > 0 ? countries.slice(0, 8).join(", ") : "—"}
+              {countries.length > 8 ? ` +${countries.length - 8}` : ""}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Fila: {overview?.pending_approvals ?? 0} pendente(s)
+            </p>
+          </CardContent>
+        </Card>
+      </div>
       <Alert className="mt-4">
-        <AlertTitle>Proteções activas</AlertTitle>
+        <AlertTitle>Não há um segundo motor aqui</AlertTitle>
         <AlertDescription>
-          Limites de orçamento diário/mensal, confirmação acima elevada e dry-run configurável no servidor (
-          <code className="text-xs">PAID_OPTIMIZER_DRY_RUN</code>).
+          Configure e reveja automações em Auditoria. Dry-run do servidor (
+          <code className="text-xs">PAID_OPTIMIZER_DRY_RUN</code>) aplica-se ao mesmo motor.
         </AlertDescription>
       </Alert>
     </Gate>
@@ -2800,11 +2694,13 @@ export function DpilotGoogleAutomationsPage() {
 }
 
 export function DpilotGoogleAiAssistantPage() {
-  const { projectId, reload } = useDpilotPaid();
+  const { projectId, reload, overview } = useDpilotPaid();
+  const { preset, setPreset } = useGoogleManagerPrefs(projectId);
+  const paidMode = overview?.project?.paid_mode ?? "copilot";
   const [question, setQuestion] = useState("Qual campanha está a gastar mais?");
-  const [preset, setPreset] = useState("last_7");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [pendingCampaignId, setPendingCampaignId] = useState<string | null>(null);
   const [out, setOut] = useState<Awaited<ReturnType<typeof paidAdsService.postGoogleAdsAiInsights>>["data"]>(null);
 
   const ask = async () => {
@@ -2822,16 +2718,30 @@ export function DpilotGoogleAiAssistantPage() {
     action: string;
   }) => {
     if (!s.campaign_id || !s.suggested_op) return;
-    if (!window.confirm(`${s.action}\n\nConfirmar envio via Copilot/Autopilot?`)) return;
+    const modeHint =
+      paidMode === "autopilot"
+        ? "Modo Autopilot: a acção tenta aplicar já na Google."
+        : "Modo Copilot: se for o dono do projecto, aplica já; senão fica em Aprovações.";
+    if (!window.confirm(`${s.action}\n\n${modeHint}\n\nContinuar?`)) {
+      return;
+    }
     setBusy(s.campaign_id);
     if (s.suggested_op === "pause_campaign") {
-      const { error } = await paidAdsService.postGoogleStudioActions(projectId, s.campaign_id, {
+      const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, s.campaign_id, {
         action: "pause_campaign",
       });
       setBusy(null);
       if (error) toast.error(error);
       else {
-        toast.success("Pausa enfileirada");
+        const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+        if (info.kind === "failed") toast.error(info.message);
+        else if (info.kind === "applied") {
+          setPendingCampaignId(null);
+          toast.success("Campanha pausada na Google.");
+        } else {
+          setPendingCampaignId(s.campaign_id);
+          toast.message(info.message);
+        }
         reload();
       }
       return;
@@ -2843,14 +2753,22 @@ export function DpilotGoogleAiAssistantPage() {
       return;
     }
     const next = Math.round(base * 1.2 * 100) / 100;
-    const { error } = await paidAdsService.postGoogleStudioActions(projectId, s.campaign_id, {
+    const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, s.campaign_id, {
       action: "update_budget_usd",
       daily_budget_usd: next,
     });
     setBusy(null);
     if (error) toast.error(error);
     else {
-      toast.success(`Orçamento → ${next.toFixed(2)} USD/dia enfileirado`);
+      const info = describeStudioChangeRequestStatus(data?.change_request?.status);
+      if (info.kind === "failed") toast.error(info.message);
+      else if (info.kind === "applied") {
+        setPendingCampaignId(null);
+        toast.success(`Orçamento → ${next.toFixed(2)} USD/dia aplicado na Google.`);
+      } else {
+        setPendingCampaignId(s.campaign_id);
+        toast.message(`Orçamento → ${next.toFixed(2)} USD/dia — ${info.message}`);
+      }
       reload();
     }
   };
@@ -2861,12 +2779,36 @@ export function DpilotGoogleAiAssistantPage() {
         title="Google Ads · Assistente IA"
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            Analisa métricas reais. Sugestões com botão de confirmação — nunca aplica sozinho.
+            Analisa métricas reais. Cada sugestão pede confirmação. Modo actual:{" "}
+            <span className="font-medium text-foreground">
+              {paidMode === "autopilot" ? "Autopilot" : "Copilot"}
+            </span>
+            {paidMode === "autopilot"
+              ? " — tenta aplicar já na Google."
+              : " — dono aplica já; outros vão a Aprovações."}
           </p>
+        }
+        actions={
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>Aprovações</Link>
+          </Button>
         }
       />
       <Card className="mt-4">
         <CardContent className="space-y-4 pt-6">
+          {pendingCampaignId ? (
+            <Alert>
+              <AlertTitle className="text-sm">Pedido na fila</AlertTitle>
+              <AlertDescription className="flex flex-wrap items-center gap-2 text-xs">
+                A última sugestão ficou em Aprovações — confirme para aplicar na Google.
+                <Button size="sm" className="h-7" asChild>
+                  <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes?campaign=${pendingCampaignId}`}>
+                    Abrir Fila
+                  </Link>
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <PeriodSelect value={preset} onChange={setPreset} />
           </div>
@@ -2961,19 +2903,38 @@ export function DpilotGoogleHistoryPage() {
         title="Google Ads · Histórico"
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            Operações pedidas pela Dclickora (change requests). Sem tokens nem segredos nos logs.
+            Pedidos da Dclickora (change requests) — não é o change history da consola Google. Sem tokens nem
+            segredos. Motor automático e decisões do optimizador ficam em Auditoria.
           </p>
         }
         actions={
-          <Button variant="outline" asChild>
-            <Link to={`/tracking/dpilot/p/${projectId}/aprovacoes`}>Aprovações</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>Aprovações</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to={`/tracking/dpilot/p/${projectId}/auditoria`}>Auditoria</Link>
+            </Button>
+          </div>
         }
       />
       <Card className="mt-4">
         <CardContent className="pt-6">
           {googleRelated.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Ainda não há operações registadas neste projecto.</p>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                Ainda não há change requests Google neste projecto. Pausas, orçamentos e publicações pedidas aqui
+                aparecem nesta lista.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" asChild>
+                  <Link to={`/tracking/dpilot/p/${projectId}/google/aprovacoes`}>Abrir Aprovações</Link>
+                </Button>
+                <Button size="sm" variant="outline" asChild>
+                  <Link to={`/tracking/dpilot/p/${projectId}/auditoria`}>Ver motor em Auditoria</Link>
+                </Button>
+              </div>
+            </div>
           ) : (
             <Table>
               <TableHeader>

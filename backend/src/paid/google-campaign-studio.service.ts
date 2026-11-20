@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { workspaceAllowsApplyBeforeRemote } from "./apply-workspace-guard";
 import { applyChangeRequestRemote } from "./change-request-apply";
+import { shouldApplyStudioChangeImmediately } from "./studio-apply-policy";
 import * as mappers from "./api-mappers";
 import {
   mergeGoogleBiddingConfigPreservingExtras,
@@ -113,6 +114,10 @@ export const googleStudioActionSchema = z.discriminatedUnion("action", [
     exclude: z.array(z.string().min(2).max(8)).max(40).default([]),
   }),
   z.object({
+    action: z.literal("sync_campaign_language_targets"),
+    languages: z.array(z.string().min(2).max(8)).min(1).max(10),
+  }),
+  z.object({
     action: z.literal("sync_campaign_device_bids"),
     device_bids: z.object({
       MOBILE: z.number().min(-100).max(900).optional(),
@@ -210,6 +215,7 @@ export const googleCampaignDraftPatchSchema = z
       .optional(),
     geo_targets: z.array(z.string().min(2).max(8)).min(1).max(40).optional(),
     geo_exclude: z.array(z.string().min(2).max(8)).max(40).optional(),
+    language_targets: z.array(z.string().min(2).max(8)).min(1).max(10).optional(),
     device_bids: z
       .object({
         MOBILE: z.number().min(-100).max(900).optional(),
@@ -371,7 +377,17 @@ async function submitGoogleStudioChangeRequest(args: {
     },
   });
 
-  if (project.paidMode === "autopilot") {
+  /**
+   * Autopilot ou o dono do projecto (solo / self-service): aplica já na Google.
+   * Copilot + outro membro da equipa → fica em Aprovações.
+   */
+  const applyNow = shouldApplyStudioChangeImmediately({
+    paidMode: project.paidMode,
+    projectOwnerId: project.userId,
+    requestedById: args.requestedById,
+  });
+
+  if (applyNow) {
     const now = new Date();
     const pre = await workspaceAllowsApplyBeforeRemote(args.projectId, args.type, payload);
     if (!pre.ok) {
@@ -608,6 +624,12 @@ export async function executeGoogleStudioAction(
         exclude: a.exclude ?? [],
       });
     }
+    case "sync_campaign_language_targets": {
+      return submit("sync_campaign_language_targets", {
+        campaign_id: campaignId,
+        languages: a.languages,
+      });
+    }
     case "sync_campaign_device_bids": {
       return submit("sync_campaign_device_bids", {
         campaign_id: campaignId,
@@ -809,6 +831,12 @@ export async function patchGoogleCampaignDraft(
             });
           }
         }
+      }
+      if (d.language_targets != null) {
+        await tx.paidAdsCampaign.update({
+          where: { id: camp.id },
+          data: { languageTargets: d.language_targets.map((x) => x.toLowerCase()) },
+        });
       }
       if (
         d.geo_targets != null ||

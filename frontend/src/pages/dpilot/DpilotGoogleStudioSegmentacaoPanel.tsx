@@ -1,16 +1,23 @@
 /**
- * Segmentação no estúdio: Localizações | Dispositivos | Idades — cada bloco separado.
+ * Segmentação no estúdio: Localizações | Idiomas | Dispositivos | Idades.
  * Só mostra / grava o que o afiliado define ou o que veio da Google — sem inventar lances.
  */
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { GoogleAdsCountriesSelect } from "@/components/dpilot/GoogleAdsTargetingSelect";
+import {
+  GoogleAdsCountriesSelect,
+  GoogleAdsLanguagesSelect,
+} from "@/components/dpilot/GoogleAdsTargetingSelect";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GOOGLE_ADS_COUNTRY_OPTIONS, countryLabel, languageLabel } from "@/lib/googleAdsTargeting";
+import {
+  GOOGLE_ADS_COUNTRY_OPTIONS,
+  GOOGLE_ADS_LANGUAGE_OPTIONS,
+  countryLabel,
+} from "@/lib/googleAdsTargeting";
 import { toastGoogleAdsError } from "@/lib/paidAdsUi";
 import { paidAdsService } from "@/services/paidAdsService";
 import { toast } from "sonner";
@@ -100,24 +107,23 @@ export function DpilotGoogleStudioSegmentacaoPanel({
 
   const [include, setInclude] = useState<string[]>(initial.include);
   const [exclude, setExclude] = useState<string[]>(initial.exclude);
+  const [languages, setLanguages] = useState<string[]>(initial.languages);
   const [devices, setDevices] = useState<DeviceBids>(initial.devices);
   const [ages, setAges] = useState<string[]>(initial.ages);
-  const [busy, setBusy] = useState<"geo" | "device" | "age" | null>(null);
+  const [busy, setBusy] = useState<"geo" | "lang" | "device" | "age" | null>(null);
 
   useEffect(() => {
     setInclude(initial.include);
     setExclude(initial.exclude);
+    setLanguages(initial.languages);
     setDevices(initial.devices);
     setAges(initial.ages);
   }, [initial]);
 
   const countryOpts = useMemo(() => GOOGLE_ADS_COUNTRY_OPTIONS, []);
-  const langSummary =
-    initial.languages.length > 0
-      ? initial.languages.map((c) => languageLabel(c)).join(", ")
-      : "Ainda não importado da Google — re-sincronize a campanha";
+  const langOpts = useMemo(() => GOOGLE_ADS_LANGUAGE_OPTIONS, []);
 
-  const runStudio = async (body: Record<string, unknown>, kind: "geo" | "device" | "age") => {
+  const runStudio = async (body: Record<string, unknown>, kind: "geo" | "lang" | "device" | "age") => {
     setBusy(kind);
     try {
       if (published) {
@@ -131,7 +137,8 @@ export function DpilotGoogleStudioSegmentacaoPanel({
           toast.error("Falhou na rede — veja Aprovações.");
           return;
         }
-        toast.success(st === "applied" ? "Aplicado na Google." : "Enviado para Aprovações.");
+        if (st === "applied") toast.success("Aplicado na Google.");
+        else toast.message("Enviado para Aprovações.");
       } else {
         const { error } = await paidAdsService.patchGoogleCampaignDraft(projectId, campaignId, body);
         if (error) {
@@ -159,6 +166,18 @@ export function DpilotGoogleStudioSegmentacaoPanel({
       );
     } else {
       void runStudio({ geo_targets: include, geo_exclude: cleanExclude }, "geo");
+    }
+  };
+
+  const saveLanguages = () => {
+    if (languages.length === 0) {
+      toast.error("Escolha pelo menos um idioma.");
+      return;
+    }
+    if (published) {
+      void runStudio({ action: "sync_campaign_language_targets", languages }, "lang");
+    } else {
+      void runStudio({ language_targets: languages }, "lang");
     }
   };
 
@@ -267,20 +286,19 @@ export function DpilotGoogleStudioSegmentacaoPanel({
   return (
     <div className="space-y-5">
       <p className="text-xs leading-relaxed text-slate-500">
-        Países e idiomas vêm da Google ao importar (país do critério, mesmo se for cidade/estado). Não inventamos
-        valores — se estiver vazio, em Campanhas use «Re-sincronizar e importar».
+        Países e idiomas vêm da Google ao importar; pode editar e aplicar aqui. Se estiver vazio, em Campanhas use
+        «Re-sincronizar e importar».
       </p>
 
       <Card className="border-slate-200/90 shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-slate-900">Localizações</CardTitle>
           <CardDescription className="text-xs">
-            Onde anuncia e o que exclui. Idiomas importados:{" "}
-            <span className="font-medium text-slate-700">{langSummary}</span>
+            Onde anuncia e o que exclui
             {initial.include.length > 0 ? (
               <>
                 {" "}
-                · Agora na conta:{" "}
+                · Agora:{" "}
                 <span className="font-medium text-slate-700">
                   {initial.include.map((c) => countryLabel(c)).join(", ")}
                 </span>
@@ -313,6 +331,33 @@ export function DpilotGoogleStudioSegmentacaoPanel({
             <Button type="button" disabled={busy === "geo"} onClick={saveGeo}>
               {busy === "geo" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {published ? "Aplicar localizações" : "Guardar no rascunho"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-slate-200/90 shadow-none">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold text-slate-900">Idiomas</CardTitle>
+          <CardDescription className="text-xs">
+            Idiomas dos anúncios na Google. Vazio após import = re-sincronize a estrutura da campanha.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <GoogleAdsLanguagesSelect
+            options={langOpts}
+            value={languages}
+            onChange={setLanguages}
+            label="Idiomas da campanha"
+            hint="Mínimo 1."
+            searchPlaceholder="Pesquisar idioma…"
+            emptyText="Sem idiomas"
+            max={10}
+          />
+          <div className="flex justify-end">
+            <Button type="button" disabled={busy === "lang"} onClick={saveLanguages}>
+              {busy === "lang" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {published ? "Aplicar idiomas" : "Guardar no rascunho"}
             </Button>
           </div>
         </CardContent>

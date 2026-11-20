@@ -43,9 +43,10 @@ export function DpilotAutopilotSimpleBanner() {
               </>
             ) : (
               <>
-                As alterações significativas chegam primeiro a{" "}
-                <strong className="font-medium text-foreground">Aprovações</strong>. Use{" "}
-                <strong className="font-medium text-foreground">Aplicar na rede</strong> apenas após rever o resumo mostrado.
+                Como dono do projecto, pausar/orçamento/segmentação no estúdio{" "}
+                <strong className="font-medium text-foreground">aplica já na Google</strong>. Pedidos de outros
+                membros e publicações grandes passam por{" "}
+                <strong className="font-medium text-foreground">Aprovações</strong>.
               </>
             )}
           </p>
@@ -67,7 +68,7 @@ export function DpilotAutopilotSimpleBanner() {
               <span className="text-muted-foreground">
                 {isAutopilot
                   ? "Com os limites bem definidos, o fluxo automatiza dentro dos guardrails."
-                  : "Abra «Aprovações» antes de usar «Aplicar na rede»."}
+                  : "A fila «Aprovações» fica no Campaign Manager (badge) quando houver pedidos pendentes."}
               </span>
             </li>
           </ul>

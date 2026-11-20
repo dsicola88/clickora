@@ -5,7 +5,7 @@ import { fill } from "@/i18n";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { Button } from "@/components/ui/button";
 import { paidAdsService, type CampaignRow } from "@/services/paidAdsService";
-import { optimizerFlagsHint } from "@/lib/paidAdsUi";
+import { describeStudioChangeRequestStatus, optimizerFlagsHint } from "@/lib/paidAdsUi";
 
 type PreviewState = {
   detail: string;
@@ -135,13 +135,17 @@ export function DpilotCreativeSwapActions({
                   loadPreview();
                   return;
                 }
-                toast.success(
-                  data?.change_request_status === "pending"
-                    ? t("pages.dpilot.creative.queued")
-                    : fill(t("pages.dpilot.creative.enqueued"), {
-                        status: data?.change_request_status ?? "ok",
-                      }),
-                );
+                {
+                  const info = describeStudioChangeRequestStatus(data?.change_request_status);
+                  if (info.kind === "failed") toast.error(info.message);
+                  else if (info.kind === "applied") {
+                    toast.success(t("pages.dpilot.creative.applied"));
+                  } else if (info.kind === "pending") {
+                    toast.message(t("pages.dpilot.creative.queued"));
+                  } else {
+                    toast.message(info.message);
+                  }
+                }
                 reload();
               })
               .finally(() => setBusy(null));

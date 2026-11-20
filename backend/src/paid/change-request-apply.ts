@@ -37,6 +37,7 @@ import {
   applyGoogleSyncCampaignAgeExclusions,
   applyGoogleSyncCampaignDeviceBids,
   applyGoogleSyncCampaignGeoTargets,
+  applyGoogleSyncCampaignLanguageTargets,
 } from "./google-ads-targeting.mutations";
 import { publishGoogleSearchCampaignFromLocal as publishGoogleCampaign } from "./google-ads.publish";
 import { publishMetaCreateCampaignFromLocal } from "./meta-ads.publish";
@@ -245,6 +246,17 @@ export async function applyChangeRequestRemote(
           campaign_id: cid,
           include,
           exclude,
+        });
+      }
+      case "sync_campaign_language_targets": {
+        const cid = getStr(p, "campaign_id");
+        const languages = getStrList(p, "languages") ?? [];
+        if (!cid || languages.length === 0) {
+          return { ok: false, error: "Payload: campaign_id e languages[] (ISO)." };
+        }
+        return await applyGoogleSyncCampaignLanguageTargets(projectId, {
+          campaign_id: cid,
+          languages,
         });
       }
       case "sync_campaign_device_bids": {
