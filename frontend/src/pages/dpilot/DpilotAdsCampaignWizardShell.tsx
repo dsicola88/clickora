@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ListTree } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { paidModeCanonicalLine } from "@/lib/paidModeCopy";
 import { cn } from "@/lib/utils";
 
@@ -74,8 +75,9 @@ export function DpilotAdsCampaignWizardShell({
   readiness,
   children,
 }: ShellProps) {
+  const { t: tr } = useAppLocale();
   const t = PLATFORM_THEME[platform];
-  const modeLine = paidModeCanonicalLine(paidMode);
+  const modeLine = paidModeCanonicalLine(paidMode, tr);
 
   return (
     <div className="pb-20">

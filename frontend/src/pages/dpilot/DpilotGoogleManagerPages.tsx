@@ -29,7 +29,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { paidModeCanonicalLine } from "@/lib/paidModeCopy";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { paidModeCanonicalLine, paidModeShortChip } from "@/lib/paidModeCopy";
 import { cn } from "@/lib/utils";
 import {
   campaignStatusBadgeClass,
@@ -2636,9 +2637,10 @@ export function DpilotGoogleRecommendationsPage() {
 }
 
 export function DpilotGoogleAutomationsPage() {
+  const { t } = useAppLocale();
   const { projectId, overview } = useDpilotPaid();
   const paidMode = overview?.project?.paid_mode ?? "copilot";
-  const modeLabel = paidMode === "autopilot" ? "Autopilot" : "Copilot";
+  const modeLabel = paidModeShortChip(paidMode, t);
   const gr = overview?.guardrails ?? {};
   const maxDailyMicros =
     typeof gr.max_daily_budget_micros === "number" && Number.isFinite(gr.max_daily_budget_micros)
@@ -2659,7 +2661,7 @@ export function DpilotGoogleAutomationsPage() {
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
             Estado actual do motor Paid neste projecto. Regras e histórico detalhado ficam em Auditoria — aqui só o
-            resumo para o media buyer no Campaign Manager.
+            resumo para o media buyer no {t("pages.dpilot.google.cm.title")}.
           </p>
         }
         actions={
@@ -2731,9 +2733,11 @@ export function DpilotGoogleAutomationsPage() {
 }
 
 export function DpilotGoogleAiAssistantPage() {
+  const { t } = useAppLocale();
   const { projectId, reload, overview } = useDpilotPaid();
   const { preset, setPreset } = useGoogleManagerPrefs(projectId);
   const paidMode = overview?.project?.paid_mode ?? "copilot";
+  const modeChip = paidModeShortChip(paidMode, t);
   const [question, setQuestion] = useState("Qual campanha está a gastar mais?");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -2755,7 +2759,7 @@ export function DpilotGoogleAiAssistantPage() {
     action: string;
   }) => {
     if (!s.campaign_id || !s.suggested_op) return;
-    const modeHint = paidModeCanonicalLine(paidMode);
+    const modeHint = paidModeCanonicalLine(paidMode, t);
     if (!window.confirm(`${s.action}\n\n${modeHint}\n\nContinuar?`)) {
       return;
     }
@@ -2814,9 +2818,7 @@ export function DpilotGoogleAiAssistantPage() {
         description={
           <p className="max-w-3xl text-sm text-muted-foreground leading-relaxed">
             Analisa métricas reais. Cada sugestão pede confirmação. Modo actual:{" "}
-            <span className="font-medium text-foreground">
-              {paidMode === "autopilot" ? "Autopilot" : "Copilot"}
-            </span>
+            <span className="font-medium text-foreground">{modeChip}</span>
             {paidMode === "autopilot"
               ? " — tenta aplicar já na Google."
               : " — dono aplica já; outros vão a Aprovações."}

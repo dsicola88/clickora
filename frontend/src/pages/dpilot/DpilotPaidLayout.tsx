@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { cn } from "@/lib/utils";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DpilotGoogleCampaignManagerLayout } from "./DpilotGoogleCampaignManagerLayout";
@@ -27,6 +28,7 @@ const navActive = "bg-primary/10 text-foreground font-medium";
  * «Nova campanha» usa chrome mínimo — o assistente precisa de largura.
  */
 export function DpilotPaidLayout() {
+  const { t } = useAppLocale();
   const location = useLocation();
   const { projectId, changeRequests } = useDpilotPaid();
   const { projectId: pid } = useParams();
@@ -55,7 +57,11 @@ export function DpilotPaidLayout() {
     : onTiktokCreate
       ? `${base}/tiktok`
       : `${base}/google/visao`;
-  const createNetworkLabel = onMetaCreate ? "Meta" : onTiktokCreate ? "TikTok" : "Campaign Manager";
+  const createNetworkLabel = onMetaCreate
+    ? "Meta"
+    : onTiktokCreate
+      ? "TikTok"
+      : t("pages.dpilot.google.cm.title");
 
   if (onGoogleManager) {
     return (
@@ -76,7 +82,7 @@ export function DpilotPaidLayout() {
               className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
-              Campanhas
+              {t("pages.dpilot.google.cm.navCampaigns")}
             </NavLink>
             <span className="hidden h-4 w-px bg-border sm:block" aria-hidden />
             <p className="text-sm font-semibold tracking-tight text-foreground">{createTitle}</p>
@@ -92,7 +98,7 @@ export function DpilotPaidLayout() {
               to={`${base}/aprovacoes`}
               className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted/60"
             >
-              Aprovações
+              {t("pages.dpilot.google.cm.navApprovals")}
               {pending > 0 ? (
                 <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
                   {pending}
@@ -112,10 +118,12 @@ export function DpilotPaidLayout() {
         <div className="mb-4 space-y-2 rounded-lg border border-[#1a73e8]/20 bg-gradient-to-br from-[#1a73e8]/10 to-transparent px-3 py-3">
           <div className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-[#1a73e8]" aria-hidden />
-            <p className="text-xs font-semibold tracking-wide text-foreground">Ads Studio</p>
+            <p className="text-xs font-semibold tracking-wide text-foreground">
+              {t("pages.dpilot.google.cm.adsStudioTitle")}
+            </p>
           </div>
           <p className="text-[11px] leading-snug text-muted-foreground">
-            Google Ads = Campaign Manager. Nova campanha = assistente Pesquisa.
+            {t("pages.dpilot.google.cm.adsStudioBlurb")}
           </p>
         </div>
         <nav className="flex flex-col gap-1">

@@ -626,7 +626,7 @@ export function DpilotGoogleWizardPage() {
               to={`${base}/google/campanhas`}
               className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
             >
-              Campaign Manager
+              {t("pages.dpilot.google.cm.title")}
             </Link>
             .
           </span>

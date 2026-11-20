@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DpilotGoogleNetworkBanner } from "@/components/dpilot/DpilotGoogleNetworkBanner";
+import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { paidModeCanonicalLine, paidModeShortChip } from "@/lib/paidModeCopy";
 import { cn } from "@/lib/utils";
 import { paidAdsService } from "@/services/paidAdsService";
@@ -67,6 +68,7 @@ function pathMatches(pathname: string, item: NavItem) {
 }
 
 export function DpilotGoogleCampaignManagerLayout() {
+  const { t } = useAppLocale();
   const location = useLocation();
   const navigate = useNavigate();
   const { projectId: pid } = useParams();
@@ -75,6 +77,8 @@ export function DpilotGoogleCampaignManagerLayout() {
   const base = `/tracking/dpilot/p/${id}`;
   const pendingApprovals = changeRequests.filter((c) => c.status === "pending").length;
   const paidMode = overview?.project?.paid_mode ?? "copilot";
+  const modeLine = paidModeCanonicalLine(paidMode, t);
+  const modeChip = paidModeShortChip(paidMode, t);
   /** Estúdio por campanha tem o próprio índice — não empilhar GESTÃO do CM. */
   const onCampaignStudio = /\/campanhas\/[^/]+\/google\/?$/.test(location.pathname);
 
@@ -112,12 +116,12 @@ export function DpilotGoogleCampaignManagerLayout() {
     conn?.account_name ||
     null;
   const badgeLabel = !connected
-    ? "Google por ligar"
+    ? t("pages.dpilot.google.cm.badgeUnlinked")
     : networkOk === false
-      ? "Sessão expirada · religar"
+      ? t("pages.dpilot.google.cm.badgeExpired")
       : networkOk === true
-        ? "Google OK"
-        : "Google ligada";
+        ? t("pages.dpilot.google.cm.badgeOk")
+        : t("pages.dpilot.google.cm.badgeLinked");
   const badgeClass = !connected
     ? "bg-amber-500/20 text-amber-100"
     : networkOk === false
@@ -126,33 +130,33 @@ export function DpilotGoogleCampaignManagerLayout() {
 
   const gestaoCritica: NavItem[] = useMemo(
     () => [
-      { to: googlePath(base, "visao"), label: "Visão geral", icon: LayoutDashboard, end: true },
-      { to: googlePath(base, "campanhas"), label: "Campanhas", icon: Megaphone, end: true },
-      { to: googlePath(base, "grupos"), label: "Grupos", icon: LayoutGrid },
-      { to: googlePath(base, "anuncios"), label: "Anúncios", icon: Type },
-      { to: googlePath(base, "palavras-chave"), label: "Palavras-chave", icon: Search },
-      { to: googlePath(base, "termos-pesquisa"), label: "Termos", icon: Ban },
-      { to: googlePath(base, "orcamentos"), label: "Orçamentos", icon: Wallet },
+      { to: googlePath(base, "visao"), label: t("pages.dpilot.google.cm.navOverview"), icon: LayoutDashboard, end: true },
+      { to: googlePath(base, "campanhas"), label: t("pages.dpilot.google.cm.navCampaigns"), icon: Megaphone, end: true },
+      { to: googlePath(base, "grupos"), label: t("pages.dpilot.google.cm.navAdGroups"), icon: LayoutGrid },
+      { to: googlePath(base, "anuncios"), label: t("pages.dpilot.google.cm.navAds"), icon: Type },
+      { to: googlePath(base, "palavras-chave"), label: t("pages.dpilot.google.cm.navKeywords"), icon: Search },
+      { to: googlePath(base, "termos-pesquisa"), label: t("pages.dpilot.google.cm.navTerms"), icon: Ban },
+      { to: googlePath(base, "orcamentos"), label: t("pages.dpilot.google.cm.navBudgets"), icon: Wallet },
     ],
-    [base],
+    [base, t],
   );
 
   const fila: NavItem[] = useMemo(
-    () => [{ to: googlePath(base, "aprovacoes"), label: "Aprovações", icon: ClipboardList }],
-    [base],
+    () => [{ to: googlePath(base, "aprovacoes"), label: t("pages.dpilot.google.cm.navApprovals"), icon: ClipboardList }],
+    [base, t],
   );
 
   const mais: NavItem[] = useMemo(
     () => [
-      { to: googlePath(base, "conversoes"), label: "Conversões", icon: Target },
-      { to: googlePath(base, "relatorios"), label: "Relatórios", icon: FileText },
-      { to: googlePath(base, "recomendacoes"), label: "Recomendações", icon: Lightbulb },
-      { to: googlePath(base, "historico"), label: "Histórico", icon: History },
-      { to: googlePath(base, "automacoes"), label: "Automações", icon: Zap },
-      { to: googlePath(base, "assistente"), label: "Assistente IA", icon: Bot },
-      { to: googlePath(base, ""), label: "Configurações", icon: Settings2, end: true },
+      { to: googlePath(base, "conversoes"), label: t("pages.dpilot.google.cm.navConversions"), icon: Target },
+      { to: googlePath(base, "relatorios"), label: t("pages.dpilot.google.cm.navReports"), icon: FileText },
+      { to: googlePath(base, "recomendacoes"), label: t("pages.dpilot.google.cm.navRecommendations"), icon: Lightbulb },
+      { to: googlePath(base, "historico"), label: t("pages.dpilot.google.cm.navHistory"), icon: History },
+      { to: googlePath(base, "automacoes"), label: t("pages.dpilot.google.cm.navAutomations"), icon: Zap },
+      { to: googlePath(base, "assistente"), label: t("pages.dpilot.google.cm.navAssistant"), icon: Bot },
+      { to: googlePath(base, ""), label: t("pages.dpilot.google.cm.navSettings"), icon: Settings2, end: true },
     ],
-    [base],
+    [base, t],
   );
 
   const allNav = useMemo(() => [...gestaoCritica, ...fila, ...mais], [gestaoCritica, fila, mais]);
@@ -188,11 +192,11 @@ export function DpilotGoogleCampaignManagerLayout() {
           </div>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-200/90">
-              dclickora
+              {t("pages.dpilot.google.cm.brandEyebrow")}
             </p>
             <p className="flex items-center gap-2 text-sm font-semibold tracking-tight sm:text-base">
               <LayoutGrid className="h-4 w-4 text-sky-300" aria-hidden />
-              Campaign Manager
+              {t("pages.dpilot.google.cm.title")}
             </p>
           </div>
         </div>
@@ -200,9 +204,9 @@ export function DpilotGoogleCampaignManagerLayout() {
           <div className="flex flex-wrap items-center justify-end gap-1.5">
             <span
               className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-100"
-              title={paidModeCanonicalLine(paidMode)}
+              title={modeLine}
             >
-              {paidModeShortChip(paidMode)}
+              {modeChip}
             </span>
             <span
               className={cn(
@@ -214,17 +218,17 @@ export function DpilotGoogleCampaignManagerLayout() {
             </span>
           </div>
           {accountLabel ? (
-            <p className="mt-1 font-mono text-[11px] text-slate-300">Conta: {accountLabel}</p>
+            <p className="mt-1 font-mono text-[11px] text-slate-300">
+              {t("pages.dpilot.google.cm.accountPrefix")} {accountLabel}
+            </p>
           ) : (
             <p className="mt-1 text-[11px] text-slate-400">
               <NavLink className="underline hover:text-white" to={`${base}/google`}>
-                Abrir configurações
+                {t("pages.dpilot.google.cm.openSettings")}
               </NavLink>
             </p>
           )}
-          <p className="mt-1 max-w-[22rem] text-[10px] leading-snug text-slate-400">
-            {paidModeCanonicalLine(paidMode)}
-          </p>
+          <p className="mt-1 max-w-[22rem] text-[10px] leading-snug text-slate-400">{modeLine}</p>
         </div>
       </header>
 
@@ -237,12 +241,15 @@ export function DpilotGoogleCampaignManagerLayout() {
                 value={activeTo ?? undefined}
                 onValueChange={(to) => navigate(to)}
               >
-                <SelectTrigger className="h-9 bg-white text-sm" aria-label="Secção do Campaign Manager">
-                  <SelectValue placeholder="Secção" />
+                <SelectTrigger
+                  className="h-9 bg-white text-sm"
+                  aria-label={t("pages.dpilot.google.cm.sectionSelectAria")}
+                >
+                  <SelectValue placeholder={t("pages.dpilot.google.cm.navGroupGestao")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Gestão</SelectLabel>
+                    <SelectLabel>{t("pages.dpilot.google.cm.navGroupGestao")}</SelectLabel>
                     {gestaoCritica.map((item) => (
                       <SelectItem key={item.to} value={item.to}>
                         {item.label}
@@ -250,7 +257,7 @@ export function DpilotGoogleCampaignManagerLayout() {
                     ))}
                   </SelectGroup>
                   <SelectGroup>
-                    <SelectLabel>Fila</SelectLabel>
+                    <SelectLabel>{t("pages.dpilot.google.cm.navGroupFila")}</SelectLabel>
                     {fila.map((item) => (
                       <SelectItem key={item.to} value={item.to}>
                         {item.label}
@@ -261,7 +268,7 @@ export function DpilotGoogleCampaignManagerLayout() {
                     ))}
                   </SelectGroup>
                   <SelectGroup>
-                    <SelectLabel>Mais</SelectLabel>
+                    <SelectLabel>{t("pages.dpilot.google.cm.navGroupMais")}</SelectLabel>
                     {mais.map((item) => (
                       <SelectItem key={item.to} value={item.to}>
                         {item.label}
@@ -293,7 +300,7 @@ export function DpilotGoogleCampaignManagerLayout() {
                   )}
                 >
                   <ClipboardList className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
-                  Aprovações
+                  {t("pages.dpilot.google.cm.navApprovals")}
                   {pendingApprovals > 0 ? (
                     <span className="rounded-md bg-amber-500/20 px-1 text-[10px] text-amber-900">
                       {pendingApprovals}
@@ -308,7 +315,7 @@ export function DpilotGoogleCampaignManagerLayout() {
               <nav className="flex h-full flex-col gap-4 p-3 sm:p-4">
                 <div>
                   <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Gestão
+                    {t("pages.dpilot.google.cm.navGroupGestao")}
                   </p>
                   <div className="flex flex-col gap-0.5">
                     {gestaoCritica.map((item) => renderNavLink(item))}
@@ -316,13 +323,13 @@ export function DpilotGoogleCampaignManagerLayout() {
                 </div>
                 <div>
                   <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Fila
+                    {t("pages.dpilot.google.cm.navGroupFila")}
                   </p>
                   {renderNavLink(fila[0], { badge: pendingApprovals })}
                 </div>
                 <div>
                   <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Mais
+                    {t("pages.dpilot.google.cm.navGroupMais")}
                   </p>
                   <div className="flex flex-col gap-0.5">
                     {mais.map((item) => renderNavLink(item))}
@@ -332,7 +339,7 @@ export function DpilotGoogleCampaignManagerLayout() {
                   to={`${base}/campanhas`}
                   className="mt-auto px-3 text-[11px] text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline"
                 >
-                  ← Ads Studio (todas as redes)
+                  {t("pages.dpilot.google.cm.backAdsStudio")}
                 </NavLink>
               </nav>
             </aside>
