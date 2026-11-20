@@ -173,9 +173,14 @@ export function DpilotGoogleSearchTermsPanel({
       {loading ? (
         <Skeleton className="h-40 w-full" />
       ) : terms.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Sem pesquisas neste período (ou a campanha ainda não teve visualizações).
-        </p>
+        <Alert>
+          <AlertTitle className="text-sm">Sem termos neste período</AlertTitle>
+          <AlertDescription className="text-xs leading-relaxed">
+            A Google ainda não devolveu pesquisas (poucas impressões/cliques, ou o período está vazio).
+            Mude para «Últimos 7 dias» / «Últimos 30 dias» ou espere a campanha acumular tráfego — depois
+            pode marcar e bloquear desperdício daqui.
+          </AlertDescription>
+        </Alert>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
           <Table>

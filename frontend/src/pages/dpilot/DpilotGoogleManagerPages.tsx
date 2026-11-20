@@ -2,7 +2,7 @@
  * Hub de gestão Google Ads (Paid) — overview, inventário, orçamentos, recomendações, IA, histórico.
  * Dados via API oficial; sem métricas inventadas.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -130,6 +130,7 @@ export function DpilotGoogleCampaignsManagerPage() {
     currentUsd: number | null;
   } | null>(null);
   const [termsCampaignId, setTermsCampaignId] = useState<string | null>(null);
+  const termsPanelRef = useRef<HTMLDivElement | null>(null);
   const [urlAuditById, setUrlAuditById] = useState<
     Map<
       string,
@@ -144,6 +145,27 @@ export function DpilotGoogleCampaignsManagerPage() {
   } | null>(null);
   const [funnelRiskCount, setFunnelRiskCount] = useState(0);
   const [repairingUrls, setRepairingUrls] = useState(false);
+
+  const scrollTermsPanelIntoView = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      termsPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+
+  const openSearchTerms = useCallback(
+    (campaignId: string, campaignName: string) => {
+      setTermsCampaignId(campaignId);
+      toast.message(`Termos de pesquisa · ${campaignName}`);
+      // Re-clique na mesma campanha: estado igual → force scroll
+      scrollTermsPanelIntoView();
+    },
+    [scrollTermsPanelIntoView],
+  );
+
+  useEffect(() => {
+    if (!termsCampaignId) return;
+    scrollTermsPanelIntoView();
+  }, [termsCampaignId, scrollTermsPanelIntoView]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -980,30 +1002,34 @@ export function DpilotGoogleCampaignsManagerPage() {
                           </button>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex flex-wrap justify-end gap-1">
+                          <div className="flex flex-nowrap items-center justify-end gap-1">
                             {c.external_campaign_id ? (
                               <Button
                                 type="button"
-                                variant="outline"
+                                variant={termsCampaignId === c.id ? "default" : "outline"}
                                 size="sm"
-                                className="h-8"
+                                className="h-8 gap-1 px-2"
                                 disabled={busy}
+                                aria-label={`Termos de pesquisa · ${c.name}`}
                                 title="Termos de pesquisa"
-                                onClick={() => setTermsCampaignId(c.id)}
+                                onClick={() => openSearchTerms(c.id, c.name)}
                               >
-                                <Search className="h-3.5 w-3.5" />
+                                <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                                <span className="hidden sm:inline text-xs">Termos</span>
                               </Button>
                             ) : null}
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="h-8"
+                              className="h-8 gap-1 px-2"
                               disabled={busy || c.local_status === "archived"}
-                              title="Duplicar"
+                              aria-label={`Duplicar · ${c.name}`}
+                              title="Duplicar campanha"
                               onClick={() => onDuplicate(c.id, c.name, c.daily_budget_micros)}
                             >
-                              <Copy className="h-3.5 w-3.5" />
+                              <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                              <span className="hidden sm:inline text-xs">Duplicar</span>
                             </Button>
                           </div>
                         </TableCell>
@@ -1018,7 +1044,12 @@ export function DpilotGoogleCampaignsManagerPage() {
       </Card>
 
       {termsCampaignId ? (
-        <Card className="mt-4 border-[#1a73e8]/30">
+        <Card
+          ref={termsPanelRef}
+          id="campanhas-termos-painel"
+          tabIndex={-1}
+          className="mt-4 scroll-mt-4 border-[#1a73e8]/40 shadow-sm outline-none ring-2 ring-[#1a73e8]/25"
+        >
           <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
             <div>
               <CardTitle className="text-base">Termos de pesquisa</CardTitle>
@@ -1040,7 +1071,7 @@ export function DpilotGoogleCampaignsManagerPage() {
         </Card>
       ) : (
         <p className="mt-3 text-xs text-muted-foreground">
-          Dica: no ícone de pesquisa de uma campanha publicada abre os search terms e pode negar desperdício aqui.
+          Dica: em Acções → Termos numa campanha na Google abre as pesquisas reais e pode bloquear desperdício aqui.
         </p>
       )}
 
