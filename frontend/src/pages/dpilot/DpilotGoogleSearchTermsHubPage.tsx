@@ -35,9 +35,12 @@ function rowKey(t: Pick<TermRow, "campaign_id" | "search_term">) {
   return `${t.campaign_id}::${t.search_term}`;
 }
 
+const ALL_CAMPAIGNS = "__all__";
+
 export function DpilotGoogleSearchTermsHubPage() {
   const { projectId } = useDpilotPaid();
   const [preset, setPreset] = useState("last_7");
+  const [campaignFilter, setCampaignFilter] = useState<string>(ALL_CAMPAIGNS);
   const [wasteOnly, setWasteOnly] = useState(false);
   const [matchType, setMatchType] = useState<"exact" | "phrase" | "broad">("phrase");
   const [loading, setLoading] = useState(true);
@@ -45,6 +48,7 @@ export function DpilotGoogleSearchTermsHubPage() {
   const [err, setErr] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [terms, setTerms] = useState<TermRow[]>([]);
+  const [campaignOptions, setCampaignOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [totals, setTotals] = useState<{
     rows: number;
     waste: number;
@@ -60,6 +64,7 @@ export function DpilotGoogleSearchTermsHubPage() {
     const { data, error } = await paidAdsService.getGoogleAdsProjectSearchTerms(projectId, {
       preset,
       waste_only: wasteOnly,
+      ...(campaignFilter !== ALL_CAMPAIGNS ? { campaign_id: campaignFilter } : {}),
     });
     if (error) {
       setErr(error);
@@ -71,10 +76,13 @@ export function DpilotGoogleSearchTermsHubPage() {
       setTotals(data?.totals ?? null);
       setRange(data?.range ?? null);
       setNote(data?.note ?? null);
+      setCampaignOptions(
+        (data?.campaigns ?? []).map((c) => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name)),
+      );
       setSelected(new Set());
     }
     setLoading(false);
-  }, [projectId, preset, wasteOnly]);
+  }, [projectId, preset, wasteOnly, campaignFilter]);
 
   useEffect(() => {
     void load();
@@ -161,12 +169,25 @@ export function DpilotGoogleSearchTermsHubPage() {
           }
           description={
             <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              O que as pessoas pesquisaram antes de clicar no anúncio. Marque o que gasta e não vende e
-              bloqueie em lote — sem abrir o Google Ads. A lander (Final URL) não muda.
+              O que as pessoas pesquisaram antes de clicar. Escolha uma campanha no filtro (ou «Todas»),
+              marque o que gasta mal e bloqueie — sem abrir o Google Ads. A lander não muda.
             </p>
           }
           actions={
             <div className="flex flex-wrap items-center gap-2">
+              <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+                <SelectTrigger className="w-[220px]" aria-label="Filtrar por campanha">
+                  <SelectValue placeholder="Campanha" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
+                  {campaignOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={preset} onValueChange={setPreset}>
                 <SelectTrigger className="w-[170px]" aria-label="Período">
                   <SelectValue />
@@ -303,6 +324,7 @@ export function DpilotGoogleSearchTermsHubPage() {
           ) : terms.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Sem pesquisas neste período
+              {campaignFilter !== ALL_CAMPAIGNS ? " nesta campanha" : ""}
               {wasteOnly ? " no filtro «só o que gasta mal»" : ""}.
             </p>
           ) : (

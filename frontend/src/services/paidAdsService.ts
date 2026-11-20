@@ -664,7 +664,15 @@ export const paidAdsService = {
 
   getGoogleAdsProjectSearchTerms(
     projectId: string,
-    opts?: { preset?: string; from?: string; to?: string; waste_only?: boolean; limit?: number },
+    opts?: {
+      preset?: string;
+      from?: string;
+      to?: string;
+      waste_only?: boolean;
+      limit?: number;
+      /** UUID local da campanha — filtra na Google, não só no ecrã. */
+      campaign_id?: string;
+    },
   ) {
     const q = new URLSearchParams();
     if (opts?.preset) q.set("preset", opts.preset);
@@ -672,12 +680,15 @@ export const paidAdsService = {
     if (opts?.to) q.set("to", opts.to);
     if (opts?.waste_only) q.set("waste_only", "1");
     if (opts?.limit) q.set("limit", String(opts.limit));
+    if (opts?.campaign_id) q.set("campaign_id", opts.campaign_id);
     const qs = q.toString() ? `?${q}` : "";
     return apiClient.get<{
       ok: true;
       connected: boolean;
       connection_error: string | null;
       range: { from: string; to: string };
+      filter_campaign_id: string | null;
+      campaigns: Array<{ id: string; name: string; external_campaign_id: string }>;
       terms: Array<{
         campaign_id: string;
         campaign_name: string;

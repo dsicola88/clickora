@@ -126,18 +126,20 @@ export function collectNegativeKeywordTexts(input: {
 }
 
 /**
- * Termos de pesquisa em todas as campanhas Google publicadas do projecto (uma GAQL).
- * Ordenado por custo; útil para o afiliado cortar desperdício sem abrir cada campanha.
+ * Termos de pesquisa nas campanhas Google publicadas do projecto (uma GAQL).
+ * Opcional: `campaign_id` local — filtra na query (não só no browser).
  */
 export async function fetchGoogleAdsProjectSearchTerms(
   projectId: string,
   preset: string,
   customFrom?: string,
   customTo?: string,
-  opts?: { waste_only?: boolean; limit?: number },
+  opts?: { waste_only?: boolean; limit?: number; campaign_id?: string },
 ) {
   const range = resolveGoogleAdsDateRange(preset, customFrom, customTo);
   if ("error" in range) return { ok: false as const, error: range.error, code: "invalid_range" };
+
+  const filterLocalId = opts?.campaign_id?.trim() || null;
 
   const camps = await prisma.paidAdsCampaign.findMany({
     where: {
@@ -145,6 +147,7 @@ export async function fetchGoogleAdsProjectSearchTerms(
       platform: "google_ads",
       status: { not: "archived" },
       externalCampaignId: { not: null },
+      ...(filterLocalId ? { id: filterLocalId } : {}),
     },
     select: {
       id: true,
@@ -155,8 +158,39 @@ export async function fetchGoogleAdsProjectSearchTerms(
       adGroups: { select: { negativeKeywords: { select: { text: true } } } },
     },
     orderBy: { updatedAt: "desc" },
-    take: 80,
+    take: filterLocalId ? 1 : 80,
   });
+
+  /** Lista para o select do hub — sempre todas as publicadas do projecto. */
+  const allPublished = filterLocalId
+    ? await prisma.paidAdsCampaign.findMany({
+        where: {
+          projectId,
+          platform: "google_ads",
+          status: { not: "archived" },
+          externalCampaignId: { not: null },
+        },
+        select: { id: true, name: true, externalCampaignId: true },
+        orderBy: { name: "asc" },
+        take: 80,
+      })
+    : camps.map((c) => ({
+        id: c.id,
+        name: c.name,
+        externalCampaignId: c.externalCampaignId,
+      }));
+
+  const campaignOptions = allPublished
+    .map((c) => {
+      const ext = (c.externalCampaignId ?? "").replace(/\D/g, "");
+      if (!ext) return null;
+      return { id: c.id, name: c.name, external_campaign_id: ext };
+    })
+    .filter((c): c is NonNullable<typeof c> => c != null);
+
+  if (filterLocalId && camps.length === 0) {
+    return { ok: false as const, error: "Campanha não encontrada neste projecto.", code: "not_found" };
+  }
 
   if (camps.length === 0) {
     return {
@@ -164,6 +198,8 @@ export async function fetchGoogleAdsProjectSearchTerms(
       connected: false,
       connection_error: null as string | null,
       range,
+      filter_campaign_id: null as string | null,
+      campaigns: [] as Array<{ id: string; name: string; external_campaign_id: string }>,
       terms: [] as Array<{
         campaign_id: string;
         campaign_name: string;
@@ -203,6 +239,14 @@ export async function fetchGoogleAdsProjectSearchTerms(
     });
   }
 
+  if (filterLocalId && byExt.size === 0) {
+    return {
+      ok: false as const,
+      error: "Campanha ainda sem ID Google — publique ou importe primeiro.",
+      code: "not_published",
+    };
+  }
+
   const ctx = await resolveGoogleAdsAccess(projectId);
   if (!ctx.ok) {
     return {
@@ -213,6 +257,13 @@ export async function fetchGoogleAdsProjectSearchTerms(
   }
 
   const limit = Math.min(Math.max(opts?.limit ?? 400, 50), 500);
+  const scopedExtIds = [...byExt.keys()];
+  const campaignClause =
+    scopedExtIds.length === 1
+      ? `campaign.id = ${scopedExtIds[0]}`
+      : scopedExtIds.length > 1 && scopedExtIds.length <= 25
+        ? `campaign.id IN (${scopedExtIds.join(",")})`
+        : null;
   const q = `
     SELECT
       campaign.id,
@@ -226,6 +277,7 @@ export async function fetchGoogleAdsProjectSearchTerms(
       metrics.conversions_value
     FROM search_term_view
     WHERE segments.date BETWEEN '${range.from}' AND '${range.to}'
+      ${campaignClause ? `AND ${campaignClause}` : ""}
     ORDER BY metrics.cost_micros DESC
     LIMIT ${limit}
   `;
@@ -278,12 +330,14 @@ export async function fetchGoogleAdsProjectSearchTerms(
     connected: true,
     connection_error: null as string | null,
     range,
+    filter_campaign_id: filterLocalId,
+    campaigns: campaignOptions,
     terms,
     totals: {
       rows: terms.length,
       waste: wasteCount,
       campaigns_with_terms: campaignsTouched.size,
-      published_campaigns: byExt.size,
+      published_campaigns: campaignOptions.length,
     },
     source: "google_ads_api" as const,
     note: null as string | null,

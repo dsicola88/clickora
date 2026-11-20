@@ -1554,6 +1554,7 @@ export const paidController = {
           .default("last_7"),
         from: z.string().optional(),
         to: z.string().optional(),
+        campaign_id: z.string().uuid().optional(),
         waste_only: z
           .union([z.literal("1"), z.literal("true"), z.literal("0"), z.literal("false")])
           .optional(),
@@ -1567,7 +1568,7 @@ export const paidController = {
       q.data.preset,
       q.data.from,
       q.data.to,
-      { waste_only: wasteOnly, limit: q.data.limit },
+      { waste_only: wasteOnly, limit: q.data.limit, campaign_id: q.data.campaign_id },
     );
     if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
     return res.json(out);
