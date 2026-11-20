@@ -1334,6 +1334,8 @@ export function DpilotGoogleCampaignsManagerPage() {
   );
 }
 
+const INV_ALL_CAMPAIGNS = "__all__";
+
 function InventoryTablePage({
   title,
   description,
@@ -1347,23 +1349,40 @@ function InventoryTablePage({
   const [loading, setLoading] = useState(true);
   const [inv, setInv] = useState<Awaited<ReturnType<typeof paidAdsService.getGoogleAdsInventory>>["data"]>(null);
   const [q, setQ] = useState("");
+  const [campaignFilter, setCampaignFilter] = useState(INV_ALL_CAMPAIGNS);
 
   useEffect(() => {
     void (async () => {
       setLoading(true);
       const { data, error } = await paidAdsService.getGoogleAdsInventory(projectId);
-      if (error) toast.error(error);
+      if (error) toast.error(toastGoogleAdsError(error));
       else setInv(data ?? null);
       setLoading(false);
     })();
   }, [projectId]);
 
-  const rows = useMemo(() => {
+  const campaignOptions = useMemo(() => {
+    const map = new Map<string, string>();
     const list = (inv?.[kind] as Array<Record<string, unknown>> | undefined) ?? [];
+    for (const r of list) {
+      const id = String(r.campaign_id ?? "").trim();
+      const name = String(r.campaign_name ?? "").trim();
+      if (id) map.set(id, name || id);
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [inv, kind]);
+
+  const rows = useMemo(() => {
+    let list = (inv?.[kind] as Array<Record<string, unknown>> | undefined) ?? [];
+    if (campaignFilter !== INV_ALL_CAMPAIGNS) {
+      list = list.filter((r) => String(r.campaign_id ?? "") === campaignFilter);
+    }
     const needle = q.trim().toLowerCase();
     if (!needle) return list;
     return list.filter((r) => JSON.stringify(r).toLowerCase().includes(needle));
-  }, [inv, kind, q]);
+  }, [inv, kind, q, campaignFilter]);
 
   return (
     <Gate>
@@ -1378,11 +1397,29 @@ function InventoryTablePage({
       />
       <Card className="mt-4">
         <CardContent className="space-y-4 pt-6">
-          <Input placeholder="Filtrar…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+              <SelectTrigger className="w-[220px]" aria-label="Filtrar por campanha">
+                <SelectValue placeholder="Campanha" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={INV_ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
+                {campaignOptions.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input placeholder="Filtrar…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
+          </div>
           {loading ? (
             <Skeleton className="h-32 w-full" />
           ) : rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem registos. Crie ou sincronize campanhas Google.</p>
+            <p className="text-sm text-muted-foreground">
+              Sem registos
+              {campaignFilter !== INV_ALL_CAMPAIGNS ? " nesta campanha" : ""}. Crie ou sincronize campanhas Google.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -1684,28 +1721,51 @@ export function DpilotGoogleAdsCreativesPage() {
 export function DpilotGoogleKeywordsPage() {
   const { projectId, reload } = useDpilotPaid();
   const [preset, setPreset] = useState("last_7");
+  const [campaignFilter, setCampaignFilter] = useState(INV_ALL_CAMPAIGNS);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rows, setRows] = useState<
     NonNullable<Awaited<ReturnType<typeof paidAdsService.getGoogleAdsKeywordMetrics>>["data"]>["keywords"]
   >([]);
+  const [campaignOptions, setCampaignOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [q, setQ] = useState("");
   const [connErr, setConnErr] = useState<string | null>(null);
   const [kwSource, setKwSource] = useState<string>("");
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await paidAdsService.getGoogleAdsKeywordMetrics(projectId, { preset });
+    const { data, error } = await paidAdsService.getGoogleAdsKeywordMetrics(projectId, {
+      preset,
+      ...(campaignFilter !== INV_ALL_CAMPAIGNS ? { campaign_id: campaignFilter } : {}),
+    });
     if (error) {
       toast.error(toastGoogleAdsError(error));
       setConnErr(toastGoogleAdsError(error));
     } else {
-      setRows(data?.keywords ?? []);
+      const kws = data?.keywords ?? [];
+      setRows(kws);
       setConnErr(data?.connection_error ?? null);
       setKwSource(data?.source ?? "");
+      const fromApi = (data as { campaigns?: Array<{ id: string; name: string }> } | undefined)?.campaigns;
+      if (fromApi && fromApi.length > 0) {
+        setCampaignOptions(
+          [...fromApi].sort((a, b) => a.name.localeCompare(b.name)),
+        );
+      } else {
+        const map = new Map<string, string>();
+        for (const k of kws) {
+          if (k.campaign_id) map.set(k.campaign_id, k.campaign_name || k.campaign_id);
+        }
+        setCampaignOptions((prev) => {
+          if (campaignFilter !== INV_ALL_CAMPAIGNS && prev.length > 0) return prev;
+          return [...map.entries()]
+            .map(([id, name]) => ({ id, name }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+        });
+      }
     }
     setLoading(false);
-  }, [projectId, preset]);
+  }, [projectId, preset, campaignFilter]);
 
   useEffect(() => {
     void load();
@@ -1751,6 +1811,19 @@ export function DpilotGoogleKeywordsPage() {
         }
         actions={
           <div className="flex flex-wrap gap-2">
+            <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+              <SelectTrigger className="w-[220px]" aria-label="Filtrar por campanha">
+                <SelectValue placeholder="Campanha" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={INV_ALL_CAMPAIGNS}>Todas as campanhas</SelectItem>
+                {campaignOptions.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <PeriodSelect value={preset} onChange={setPreset} />
             <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -1766,7 +1839,7 @@ export function DpilotGoogleKeywordsPage() {
       ) : null}
       <Card className="mt-4">
         <CardContent className="space-y-4 pt-6">
-          <Input className="max-w-sm" placeholder="Filtrar keyword / campanha…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input className="max-w-sm" placeholder="Filtrar keyword…" value={q} onChange={(e) => setQ(e.target.value)} />
           {loading ? (
             <Skeleton className="h-32 w-full" />
           ) : filtered.length === 0 ? (
@@ -1774,7 +1847,9 @@ export function DpilotGoogleKeywordsPage() {
               <p className="text-sm text-muted-foreground">
                 {q.trim()
                   ? "Nenhuma keyword corresponde ao filtro."
-                  : "Sem palavras-chave locais neste projecto."}
+                  : campaignFilter !== INV_ALL_CAMPAIGNS
+                    ? "Sem palavras-chave nesta campanha."
+                    : "Sem palavras-chave locais neste projecto."}
               </p>
               {!q.trim() ? (
                 <p className="text-xs text-muted-foreground leading-relaxed">

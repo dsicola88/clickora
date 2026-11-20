@@ -267,8 +267,8 @@ export function DpilotGoogleStudioSegmentacaoPanel({
   return (
     <div className="space-y-5">
       <p className="text-xs leading-relaxed text-slate-500">
-        Dados de países e idiomas vêm da Google ao importar. Não inventamos segmentação — se estiver vazio,
-        re-sincronize a campanha em Campanhas.
+        Países e idiomas vêm da Google ao importar (país do critério, mesmo se for cidade/estado). Não inventamos
+        valores — se estiver vazio, em Campanhas use «Re-sincronizar e importar».
       </p>
 
       <Card className="border-slate-200/90 shadow-none">

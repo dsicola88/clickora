@@ -575,6 +575,8 @@ async function pullStructureIntoLocalCampaign(
   const geoInclude: string[] = [];
   const geoExclude: string[] = [];
   const languages: string[] = [];
+  /** geoTargetConstants/{id} ainda por resolver → country_code (cidades/estados). */
+  const unresolvedGeo: Array<{ id: string; negative: boolean }> = [];
   const locQ = `
     SELECT
       campaign_criterion.negative,
@@ -604,6 +606,7 @@ async function pullStructureIntoLocalCampaign(
       const langRaw = lang?.languageConstant ?? lang?.language_constant;
       if (type === "LOCATION" || gtcRaw) {
         const id = String(gtcRaw ?? "").split("/").pop() ?? "";
+        if (!id) continue;
         const iso = isoFromGoogleGeoCriterionId(id);
         if (iso) {
           if (crit.negative) {
@@ -611,12 +614,56 @@ async function pullStructureIntoLocalCampaign(
           } else if (!geoInclude.includes(iso)) {
             geoInclude.push(iso);
           }
+        } else {
+          unresolvedGeo.push({ id, negative: Boolean(crit.negative) });
         }
       }
       if (type === "LANGUAGE" || langRaw) {
         const id = String(langRaw ?? "").split("/").pop() ?? "";
         const iso = isoFromGoogleLanguageConstantId(id);
         if (iso && !languages.includes(iso)) languages.push(iso);
+      }
+    }
+  }
+
+  /** Resolver país de regiões/cidades via country_code oficial (não inventar ISO). */
+  if (unresolvedGeo.length > 0) {
+    const ids = [...new Set(unresolvedGeo.map((g) => g.id.replace(/\D/g, "")).filter(Boolean))].slice(0, 80);
+    if (ids.length > 0) {
+      const geoQ = `
+        SELECT
+          geo_target_constant.id,
+          geo_target_constant.country_code,
+          geo_target_constant.target_type
+        FROM geo_target_constant
+        WHERE geo_target_constant.id IN (${ids.join(",")})
+        LIMIT 200
+      `;
+      const geoS = await runGoogleAdsSearch(ctx.access, ctx.customerId, ctx.dev, geoQ, ctx.loginCustomerId);
+      if (!geoS.error) {
+        const countryById = new Map<string, string>();
+        for (const raw of Array.isArray(geoS.results) ? geoS.results : []) {
+          const row = raw as Record<string, unknown>;
+          const gtc = (row.geoTargetConstant ?? row.geo_target_constant ?? {}) as {
+            id?: string | number;
+            countryCode?: string;
+            country_code?: string;
+          };
+          const gid = String(gtc.id ?? "").replace(/\D/g, "");
+          const cc = String(gtc.countryCode ?? gtc.country_code ?? "")
+            .trim()
+            .toUpperCase();
+          if (gid && /^[A-Z]{2}$/.test(cc)) countryById.set(gid, cc);
+        }
+        for (const g of unresolvedGeo) {
+          const cc = countryById.get(g.id.replace(/\D/g, ""));
+          if (!cc) continue;
+          if (g.negative) {
+            if (!geoExclude.includes(cc) && !geoInclude.includes(cc)) geoExclude.push(cc);
+          } else if (!geoInclude.includes(cc)) {
+            geoInclude.push(cc);
+          }
+        }
       }
     }
   }
@@ -639,12 +686,14 @@ async function pullStructureIntoLocalCampaign(
     ...prevTargeting,
     geo_exclude: geoExclude,
   };
+  prevBc.imported_geo_languages_at = new Date().toISOString();
 
   await prisma.paidAdsCampaign.update({
     where: { id: localId },
     data: {
-      ...(geoInclude.length ? { geoTargets: geoInclude } : {}),
-      ...(languages.length ? { languageTargets: languages } : {}),
+      /** Sempre gravar o que a Google devolveu nesta sync (lista vazia = sem país mapeado). */
+      geoTargets: geoInclude,
+      languageTargets: languages,
       biddingConfig: prevBc as Prisma.InputJsonValue,
     },
   });

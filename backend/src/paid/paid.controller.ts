@@ -1729,6 +1729,7 @@ export const paidController = {
           .default("last_7"),
         from: z.string().optional(),
         to: z.string().optional(),
+        campaign_id: z.string().uuid().optional(),
       })
       .safeParse(req.query);
     if (!q.success) return res.status(400).json({ error: "Período inválido." });
@@ -1737,6 +1738,7 @@ export const paidController = {
       q.data.preset,
       q.data.from,
       q.data.to,
+      { campaign_id: q.data.campaign_id },
     );
     if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
     return res.json(out);

@@ -871,12 +871,13 @@ export const paidAdsService = {
 
   getGoogleAdsKeywordMetrics(
     projectId: string,
-    opts?: { preset?: string; from?: string; to?: string },
+    opts?: { preset?: string; from?: string; to?: string; campaign_id?: string },
   ) {
     const q = new URLSearchParams();
     if (opts?.preset) q.set("preset", opts.preset);
     if (opts?.from) q.set("from", opts.from);
     if (opts?.to) q.set("to", opts.to);
+    if (opts?.campaign_id) q.set("campaign_id", opts.campaign_id);
     const qs = q.toString() ? `?${q}` : "";
     return apiClient.get<{
       ok: true;

@@ -359,12 +359,19 @@ export async function fetchGoogleAdsKeywordMetrics(
   preset: string,
   customFrom?: string,
   customTo?: string,
+  opts?: { campaign_id?: string },
 ) {
   const range = resolveGoogleAdsDateRange(preset, customFrom, customTo);
   if ("error" in range) return { ok: false as const, error: range.error, code: "invalid_range" };
 
+  const filterCampaignId = opts?.campaign_id?.trim() || null;
   const local = await prisma.paidAdsCampaign.findMany({
-    where: { projectId, platform: "google_ads", status: { not: "archived" } },
+    where: {
+      projectId,
+      platform: "google_ads",
+      status: { not: "archived" },
+      ...(filterCampaignId ? { id: filterCampaignId } : {}),
+    },
     include: {
       adGroups: { include: { keywords: true } },
     },
@@ -454,11 +461,32 @@ export async function fetchGoogleAdsKeywordMetrics(
     ),
   );
 
+  const allCampsForSelect = filterCampaignId
+    ? await prisma.paidAdsCampaign.findMany({
+        where: { projectId, platform: "google_ads", status: { not: "archived" } },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+        take: 80,
+      })
+    : null;
+  const campaignOptions = (
+    allCampsForSelect ??
+    [
+      ...new Map(
+        keywords.map((k) => [k.campaign_id, { id: k.campaign_id, name: k.campaign_name }]),
+      ).values(),
+    ]
+  )
+    .map((c) => ({ id: c.id, name: c.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   return {
     ok: true as const,
     connected: ctx.ok,
     connection_error: ctx.ok ? metricsError : ctx.error,
     range,
+    filter_campaign_id: filterCampaignId,
+    campaigns: campaignOptions,
     keywords,
     /** Só «google_ads_api» depois de GAQL real — lista local sem critério ≠ inventário Google. */
     source: gaqlRan ? ("google_ads_api" as const) : ("local_only" as const),
