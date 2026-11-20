@@ -2892,6 +2892,15 @@ export const en = {
           backAdsStudio: "← Ads Studio (all networks)",
           adsStudioBlurb: "Google Ads = Campaign Manager. New campaign = Search wizard.",
           adsStudioTitle: "Ads Studio",
+          bannerReauthTitle: "Reconnect the Google account",
+          bannerMismatchTitle: "Local list ≠ Google account",
+          bannerReauthDetail:
+            "The Google connection expired. In Integrations → Google, use “Switch account”, accept access, and come back — Ads Studio syncs on its own.",
+          bannerHint:
+            "“On Google” = campaigns already pulled from the account. “Only in this project” = local drafts, not on the network yet. In Integrations confirm the same ads account number and use “Re-sync and import”.",
+          bannerSwitchAccount: "Integrations → Switch account",
+          bannerOpenCampaigns: "Open Campaigns / import",
+          bannerResync: "Re-sync and import",
           presetToday: "Today",
           presetYesterday: "Yesterday",
           presetLast7: "Last 7 days",

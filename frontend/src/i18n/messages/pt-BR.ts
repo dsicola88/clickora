@@ -2852,6 +2852,15 @@ export const ptBR = {
           "backAdsStudio": "← Ads Studio (todas as redes)",
           "adsStudioBlurb": "Google Ads = Gerenciador de campanhas. Nova campanha = assistente Pesquisa.",
           "adsStudioTitle": "Ads Studio",
+          "bannerReauthTitle": "Conectar de novo a conta Google",
+          "bannerMismatchTitle": "Lista local ≠ conta Google",
+          "bannerReauthDetail":
+            "A conexão Google expirou. Em Integrações → Google, use «Mudar de conta», aceite o acesso e volte — o Ads Studio sincroniza sozinho.",
+          "bannerHint":
+            "«Na Google» = campanhas já trazidas da conta. «Só neste projeto» = rascunhos locais, ainda não na rede. Em Integrações confirme o mesmo número de conta dos anúncios e use «Re-sincronizar e importar».",
+          "bannerSwitchAccount": "Integrações → Mudar de conta",
+          "bannerOpenCampaigns": "Abrir Campanhas / importar",
+          "bannerResync": "Re-sincronizar e importar",
           "presetToday": "Hoje",
           "presetYesterday": "Ontem",
           "presetLast7": "Últimos 7 dias",
