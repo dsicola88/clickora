@@ -4,14 +4,46 @@ import { resolveResponsive } from "./store";
 
 export type CookieButtonLayout = "row" | "stack";
 
+function parseHexColor(hex: string): { r: number; g: number; b: number } | null {
+  const h = hex.trim().replace(/^#/, "");
+  if (h.length === 3) {
+    return {
+      r: parseInt(h[0] + h[0], 16),
+      g: parseInt(h[1] + h[1], 16),
+      b: parseInt(h[2] + h[2], 16),
+    };
+  }
+  if (h.length === 6 && /^[0-9a-f]+$/i.test(h)) {
+    return {
+      r: parseInt(h.slice(0, 2), 16),
+      g: parseInt(h.slice(2, 4), 16),
+      b: parseInt(h.slice(4, 6), 16),
+    };
+  }
+  return null;
+}
+
+/** Escurece/clareia hex (#RGB ou #RRGGBB); devolve o original se não for hex simples. */
+export function adjustHexColor(hex: string, delta: number): string {
+  const rgb = parseHexColor(hex);
+  if (!rgb) return hex;
+  const clamp = (n: number) => Math.min(255, Math.max(0, Math.round(n)));
+  const r = clamp(rgb.r + delta);
+  const g = clamp(rgb.g + delta);
+  const b = clamp(rgb.b + delta);
+  return `#${[r, g, b].map((x) => x.toString(16).padStart(2, "0")).join("")}`;
+}
+
 export type CookieBannerStyleContent = {
   /** Cor do botão Aceitar (legado: accentColor). */
   accentColor?: string;
   allowBg?: string;
   allowTextColor?: string;
+  allowHoverBg?: string;
   declineBg?: string;
   declineTextColor?: string;
   declineBorderColor?: string;
+  declineHoverBg?: string;
   /** 0–32; default 10 (não pill). */
   buttonRadius?: number;
   buttonFontWeight?: number;
@@ -21,7 +53,10 @@ export type CookieBannerStyleContent = {
   titleColor?: string;
   bodyColor?: string;
   policyLinkColor?: string;
+  policyLinkHoverColor?: string;
   footerColor?: string;
+  stylePreset?: string;
+  useEditorVariantOnPublic?: boolean;
   /** Número legado ou responsivo por dispositivo. */
   maxWidthPx?: number | ResponsiveValue<number>;
   buttonLayout?: CookieButtonLayout | ResponsiveValue<CookieButtonLayout>;
@@ -102,6 +137,14 @@ export function resolveCookieBannerVisual(
   const titleColor = (c.titleColor ?? "#0f172a").trim() || "#0f172a";
   const bodyColor = (c.bodyColor ?? "#475569").trim() || "#475569";
   const policyLinkColor = (c.policyLinkColor ?? allowBg).trim() || allowBg;
+  const allowHoverBg =
+    (c.allowHoverBg ?? adjustHexColor(allowBg, -22)).trim() || adjustHexColor(allowBg, -22);
+  const declineHoverBg =
+    (c.declineHoverBg ?? adjustHexColor(declineBg === "transparent" ? "#f8fafc" : declineBg, -8)).trim() ||
+    declineBg;
+  const policyLinkHoverColor =
+    (c.policyLinkHoverColor ?? adjustHexColor(policyLinkColor, -28)).trim() ||
+    policyLinkColor;
   const footerColor = (c.footerColor ?? "#94a3b8").trim() || "#94a3b8";
 
   const maxWidthFallback = variant === "corner" ? 340 : 420;
@@ -192,6 +235,9 @@ export function resolveCookieBannerVisual(
 
   return {
     allowBg,
+    allowHoverBg,
+    declineHoverBg,
+    policyLinkHoverColor,
     allowStyle,
     declineStyle,
     buttonGap,

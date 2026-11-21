@@ -178,9 +178,9 @@ describe("landing widget coverage", () => {
     expect(pop.animation).toBe("fadeUp");
     expect(typeof pop.delayMs).toBe("number");
     const cookie = cw("cookieBanner");
-    expect(cookie.content.variant).toBe("modal");
+    expect(cookie.content.variant).toBe("bar");
     expect(cookie.content.animation).toBe("fadeUp");
-    expect(cookie.content.position).toBe("center");
+    expect(cookie.content.position).toBe("bottom");
     const btn = cw("button");
     expect(btn.interactions === undefined || Array.isArray(btn.interactions)).toBe(true);
   });

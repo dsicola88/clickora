@@ -60,6 +60,7 @@ import {
 } from "@/lib/publicPresellOrigin";
 import { setPageBuilderStorageKey, useBuilder } from "@/page-builder/store";
 import { identityFromPresellContent } from "@/page-builder/pageIdentity";
+import { ensurePresellPageDocumentTitles } from "@/lib/presellPageDocumentTitles";
 import { PRESELL_CREATION_LANGUAGES, normalizePresellLocale, type PresellLocaleKey } from "@/lib/presellUiStrings";
 import { PresellPublicLocaleProvider } from "@/lib/presellPublicLocale";
 import { presellService } from "@/services/presellService";
@@ -277,6 +278,7 @@ export default function PresellManualBuilderPage() {
         navigate("/presells", { replace: true });
         return;
       }
+      doc = ensurePresellPageDocumentTitles(doc, c, data.title);
       useBuilder.getState().hydrateDocument(doc, {
         identity: identityFromPresellContent(c, doc, data.title),
       });

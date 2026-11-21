@@ -66,6 +66,27 @@ describe("título público da presell", () => {
     expect(resolvePublicPresellDocumentTitle(p)).toBe("Melara Max");
   });
 
+  it("ignora nome default do builder e usa produto / espelho", () => {
+    const mirror = `<!DOCTYPE html><html><head><title>Trimoryn — Daily Metabolism Support</title></head><body></body></html>`;
+    const p = page({
+      language: "en",
+      content: {
+        generationNiche: "white",
+        productName: "Trimoryn",
+        importMirrorSrcDoc: mirror,
+        pageDocument: {
+          id: "p1",
+          name: "Página sem título",
+          sections: [{ id: "s1", columns: [{ id: "c1", widgets: [] }] }],
+          settings: {},
+          seo: { title: "Página sem título" },
+          updatedAt: 1,
+        },
+      },
+    });
+    expect(getPresellSeoPrimaryTitle(p)).toBe("Trimoryn — Daily Metabolism Support");
+  });
+
   it("white: mantém título oficial da origem quando não é sales agressivo", () => {
     const p = page({
       language: "en",

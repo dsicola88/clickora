@@ -13,6 +13,12 @@ import {
   setCookieResponsiveNumber,
   type CookieButtonLayout,
 } from "../cookieBannerStyle";
+import {
+  COOKIE_BANNER_PRESET_ORDER,
+  getCookieBannerPresetPatch,
+  isCookieBannerPresetId,
+  type CookieBannerPresetId,
+} from "../cookieBannerPresets";
 import { usePresellPublicLocale } from "@/lib/presellPublicLocale";
 import { useBuilder } from "../store";
 import type { ResponsiveValue } from "../types";
@@ -75,6 +81,15 @@ export function CookieBannerContentEditor({
     { value: "slideUp", label: t("pages.pageBuilder.popups.animSlideUp") },
     { value: "slideDown", label: t("pages.pageBuilder.popups.animSlideDown") },
   ];
+  const presetValue = isCookieBannerPresetId(c.stylePreset) ? (c.stylePreset as CookieBannerPresetId) : "custom";
+  const presetOptions = [
+    { value: "custom", label: t("pages.pageBuilder.widgets.cookie.presetCustom") },
+    ...COOKIE_BANNER_PRESET_ORDER.map((id) => ({
+      value: id,
+      label: t(`pages.pageBuilder.widgets.cookie.preset_${id}`),
+    })),
+  ];
+
   return (
     <>
       <div className="border-b border-editor-border bg-editor-panel-2/60 px-3 py-2">
@@ -82,6 +97,39 @@ export function CookieBannerContentEditor({
           {t("pages.pageBuilder.widgets.cookie.deviceHint").replace("{device}", deviceLabel)}
         </p>
       </div>
+
+      <Section title={t("pages.pageBuilder.widgets.cookie.presets")}>
+        <SelectField
+          label={t("pages.pageBuilder.widgets.cookie.presetPick")}
+          value={presetValue}
+          options={presetOptions}
+          onChange={(v) => {
+            if (v === "custom") {
+              setContent({ stylePreset: "custom" });
+              return;
+            }
+            if (isCookieBannerPresetId(v)) {
+              setContent(getCookieBannerPresetPatch(v));
+            }
+          }}
+        />
+        <SelectField
+          label={t("pages.pageBuilder.widgets.cookie.publishLayout")}
+          value={c.useEditorVariantOnPublic === true ? "editor" : "legacyBar"}
+          options={[
+            { value: "legacyBar", label: t("pages.pageBuilder.widgets.cookie.publishLayoutLegacy") },
+            { value: "editor", label: t("pages.pageBuilder.widgets.cookie.publishLayoutEditor") },
+          ]}
+          onChange={(v) =>
+            setContent({
+              useEditorVariantOnPublic: v === "editor",
+            })
+          }
+        />
+        <p className="text-[10px] leading-relaxed text-editor-fg-muted -mt-1">
+          {t("pages.pageBuilder.widgets.cookie.publishLayoutHint")}
+        </p>
+      </Section>
 
       <Section title={t("pages.pageBuilder.widgets.cookie.buttons")}>
         <TextField
@@ -121,6 +169,18 @@ export function CookieBannerContentEditor({
           value={(c.declineBorderColor as string) || "#cbd5e1"}
           onChange={(v) => setContent({ declineBorderColor: v })}
         />
+        <div className="grid grid-cols-2 gap-2">
+          <ColorField
+            label={t("pages.pageBuilder.widgets.cookie.acceptHoverBg")}
+            value={(c.allowHoverBg as string) || visual.allowHoverBg}
+            onChange={(v) => setContent({ allowHoverBg: v, stylePreset: "custom" })}
+          />
+          <ColorField
+            label={t("pages.pageBuilder.widgets.cookie.declineHoverBg")}
+            value={(c.declineHoverBg as string) || visual.declineHoverBg}
+            onChange={(v) => setContent({ declineHoverBg: v, stylePreset: "custom" })}
+          />
+        </div>
         <SelectField
           label={`${t("pages.pageBuilder.widgets.cookie.buttonLayout")} (${deviceLabel})`}
           value={visual.buttonLayoutResolved}
@@ -214,7 +274,11 @@ export function CookieBannerContentEditor({
             { value: "bar", label: t("pages.pageBuilder.widgets.opt.barEnds") },
           ]}
           onChange={(v) => {
-            const patch: Record<string, unknown> = { variant: v };
+            const patch: Record<string, unknown> = {
+              variant: v,
+              stylePreset: "custom",
+              useEditorVariantOnPublic: true,
+            };
             if (v === "modal") patch.position = "center";
             if (v === "bar" && c.position !== "top" && c.position !== "bottom") patch.position = "bottom";
             if (v === "corner" && (c.position === "center" || c.position === "top" || c.position === "bottom")) {
@@ -407,11 +471,18 @@ export function CookieBannerContentEditor({
             max={20}
           />
         </div>
-        <ColorField
-          label={t("pages.pageBuilder.widgets.cookie.policyLinkColor")}
-          value={(c.policyLinkColor as string) || visual.policyLinkColor}
-          onChange={(v) => setContent({ policyLinkColor: v })}
-        />
+        <div className="grid grid-cols-2 gap-2">
+          <ColorField
+            label={t("pages.pageBuilder.widgets.cookie.policyLinkColor")}
+            value={(c.policyLinkColor as string) || visual.policyLinkColor}
+            onChange={(v) => setContent({ policyLinkColor: v, stylePreset: "custom" })}
+          />
+          <ColorField
+            label={t("pages.pageBuilder.widgets.cookie.policyLinkHover")}
+            value={(c.policyLinkHoverColor as string) || visual.policyLinkHoverColor}
+            onChange={(v) => setContent({ policyLinkHoverColor: v, stylePreset: "custom" })}
+          />
+        </div>
         <ColorField
           label={t("pages.pageBuilder.widgets.cookie.footerColor")}
           value={(c.footerColor as string) || visual.footerColor || "#94a3b8"}

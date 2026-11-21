@@ -41,6 +41,16 @@ describe("cookieBannerStyle", () => {
     expect(mobile.maxWidthPx).toBe(400);
   });
 
+  it("computes hover backgrounds from main colors", () => {
+    const v = resolveCookieBannerVisual(
+      { allowBg: "#16a34a", policyLinkColor: "#16a34a" },
+      "desktop",
+      "bar",
+    );
+    expect(v.allowHoverBg).not.toBe(v.allowBg);
+    expect(v.policyLinkHoverColor).toMatch(/^#/);
+  });
+
   it("keeps legacy accentColor as allow background", () => {
     const v = resolveCookieBannerVisual({ accentColor: "#16a34a" }, "desktop", "modal");
     expect(v.allowBg).toBe("#16a34a");

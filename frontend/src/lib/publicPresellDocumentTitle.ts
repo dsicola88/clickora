@@ -2,6 +2,10 @@ import type { Presell } from "@/types/api";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
+import {
+  collectPresellMirrorHtml,
+  looksLikePlaceholderPageTitle,
+} from "@/lib/presellPageDocumentTitles";
 
 /** Alinhar com `frontend/index.html` — valor ao sair da página pública. */
 export const DEFAULT_BROWSER_TAB_TITLE =
@@ -48,14 +52,14 @@ export function getPresellProductLabel(page: Presell): string {
   const fromImport = clampLabel(plainTextFromMaybeHtml(String(c.productName ?? c.product_name ?? "")));
   if (fromImport) return fromImport;
   const pageName = clampLabel(String(page.title ?? ""));
-  if (pageName) return pageName;
+  if (pageName && !looksLikePlaceholderPageTitle(pageName)) return pageName;
   return "Página";
 }
 
 function firstUsableSeoTitle(candidates: string[]): string {
   for (const raw of candidates) {
     const t = clampSeoTitle(plainTextFromMaybeHtml(raw));
-    if (!t || looksLikeAppBrandTitle(t)) continue;
+    if (!t || looksLikeAppBrandTitle(t) || looksLikePlaceholderPageTitle(t)) continue;
     return t;
   }
   return "";
@@ -81,12 +85,7 @@ function titleFromImportedHtml(html: string): string {
 export function getPresellSeoPrimaryTitle(page: Presell): string {
   const c = (page.content || {}) as Record<string, unknown>;
   const doc = page.type === "builder" || c.pageDocument ? parsePresellBuilderPageDocument(page.content) : null;
-  const mirror =
-    typeof c.importMirrorSrcDoc === "string"
-      ? c.importMirrorSrcDoc
-      : typeof c.import_mirror_src_doc === "string"
-        ? c.import_mirror_src_doc
-        : "";
+  const mirror = collectPresellMirrorHtml(c, doc);
   const sourceTitle = String(c.sourcePageTitle ?? c.source_page_title ?? "").trim();
   const niche = resolvePresellGenerationNiche(c);
   const sourceOk =

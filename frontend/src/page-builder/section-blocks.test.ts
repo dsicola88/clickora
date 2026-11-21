@@ -42,10 +42,11 @@ describe("blocos do zero", () => {
     expect(labels).toContain("4");
   });
 
-  it("cookie modal block usa variant modal", () => {
+  it("bloco cookie usa barra inferior (CTAs visíveis)", () => {
     const block = SECTION_BLOCKS.find((b) => b.id === "block-cookie-modal");
     const widget = block!.build()[0].columns[0].widgets[0];
     expect(widget.type).toBe("cookieBanner");
-    expect(widget.content.variant).toBe("modal");
+    expect(widget.content.variant).toBe("bar");
+    expect(widget.content.position).toBe("bottom");
   });
 });

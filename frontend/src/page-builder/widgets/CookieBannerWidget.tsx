@@ -11,12 +11,15 @@ import {
 } from "../cookieBannerCopy";
 import { resolveCookieBannerVisual, type CookieBannerStyleContent } from "../cookieBannerStyle";
 import {
+  resolveCookieBannerPosition,
+  resolveCookieVariant,
+  shouldHonorCookieVariantOnPublic,
+} from "../cookieBannerVariant";
+import {
   buildOverlayEntranceAnimation,
   overlayCardWidthStyle,
   overlayHostStyle,
-  resolveOverlayPosition,
   type OverlayAnimation,
-  type OverlayPosition,
 } from "../overlay-placement";
 import { usePresellPublicLocale } from "@/lib/presellPublicLocale";
 import { useInlineEdit } from "../inline-edit";
@@ -65,6 +68,11 @@ export interface CookieBannerContent extends CookieBannerStyleContent {
   showCloseButton?: boolean;
   maxWidthPx?: number | ResponsiveValue<number>;
   buttonLayout?: CookieButtonLayout | ResponsiveValue<CookieButtonLayout>;
+  useEditorVariantOnPublic?: boolean;
+  stylePreset?: string;
+  allowHoverBg?: string;
+  declineHoverBg?: string;
+  policyLinkHoverColor?: string;
 }
 
 function readDismissed(key: string): boolean {
@@ -104,19 +112,6 @@ function CookieText({
   );
 }
 
-function resolveCookieVariant(raw: unknown, forceExpandedBar: boolean): "modal" | "corner" | "bar" {
-  /** Pública: sempre barra expandida em baixo — canto/minimizado esconde Aceitar (redirect). */
-  if (forceExpandedBar) return "bar";
-  if (raw === "corner" || raw === "bar" || raw === "modal") return raw;
-  return "bar";
-}
-
-function defaultPositionForVariant(variant: "modal" | "corner" | "bar"): OverlayPosition {
-  if (variant === "modal") return "center";
-  if (variant === "bar") return "bottom";
-  return "bottom-right";
-}
-
 export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; device: DeviceType }) {
   const t = usePageBuilderT();
   const c = widget.content as Partial<CookieBannerContent>;
@@ -130,12 +125,17 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const policyLabel = copy.policyLabel;
   const footerNote = copy.footerNote;
   const inBuilder = useBuilderSurface();
-  /** Pública / redirect: barra expandida; no builder o editor pode pré-visualizar outros layouts. */
-  const variant = resolveCookieVariant(c.variant, !inBuilder);
+  const honorEditorVariant = shouldHonorCookieVariantOnPublic(c);
+  /** Live legado = barra; com «igual ao editor» respeita modal/canto/barra. */
+  const variant = resolveCookieVariant(c.variant, { inBuilder, honorEditorVariant });
   const visual = resolveCookieBannerVisual(c, device, variant);
-  const position = (
-    !inBuilder ? "bottom" : resolveOverlayPosition(c.position, defaultPositionForVariant(variant))
-  ) as CookieBannerContent["position"];
+  const position = resolveCookieBannerPosition({
+    position: c.position,
+    variant,
+    inBuilder,
+    honorEditorVariant,
+  }) as CookieBannerContent["position"];
+  const scopeId = `ck-${widget.id.replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const backdrop = c.backdrop !== false;
   const overlayOpacity = clampCookieOverlayOpacity(c.overlayOpacity);
   const overlayBlur = clampCookieOverlayBlur(c.overlayBlur);
@@ -200,12 +200,20 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
 
   const allowClass: CSSProperties = {
     ...visual.allowStyle,
-    cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
+    cursor: inBuilder && commit ? "text" : "pointer",
+    transition: "background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease",
   };
   const closeClass: CSSProperties = {
     ...visual.declineStyle,
-    cursor: inBuilder ? (commit ? "text" : "default") : "pointer",
+    cursor: inBuilder && commit ? "text" : "pointer",
+    transition: "background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease",
   };
+  const hoverCss = `
+    #${scopeId} .cookie-allow-btn:hover { background: ${visual.allowHoverBg} !important; }
+    #${scopeId} .cookie-decline-btn:hover { background: ${visual.declineHoverBg} !important; }
+    #${scopeId} .cookie-policy-link:hover { color: ${visual.policyLinkHoverColor} !important; }
+    #${scopeId} .cookie-allow-btn, #${scopeId} .cookie-decline-btn, #${scopeId} .cookie-policy-link { cursor: pointer; }
+  `;
 
   const saveCopy = (field: string, next: string) => {
     if (!commit) return;
@@ -235,6 +243,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       data-variant={variant}
       data-position={position}
       data-button-layout={visual.layout}
+      id={scopeId}
       style={{
         position: "relative",
         zIndex: 2,
@@ -262,6 +271,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       }}
     >
       {anim ? <style>{anim.keyframes}</style> : null}
+      <style>{hoverCss}</style>
       {showCloseX && !inBuilder ? (
         <button
           type="button"
@@ -351,7 +361,12 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
               <CookieText
                 field="policyLabel"
                 value={policyLabel}
-                style={{ color: visual.policyLinkColor, textDecoration: "underline", fontWeight: 500 }}
+                style={{
+                  color: visual.policyLinkColor,
+                  textDecoration: "underline",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
               />
             ) : (
               <button
@@ -361,6 +376,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
                   e.stopPropagation();
                   setPolicyOpen(true);
                 }}
+                className="cookie-policy-link"
                 style={{
                   color: visual.policyLinkColor,
                   textDecoration: "underline",
@@ -398,7 +414,14 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
               href={offerNav.url}
               data-testid="presell-cookie-allow-offer"
               data-clickora-cookie-allow-offer="1"
-              style={{ ...allowClass, textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              className="cookie-allow-btn"
+              style={{
+                ...allowClass,
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
               onClick={(e) => {
                 if (inBuilder) {
                   e.preventDefault();
@@ -420,6 +443,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
               type="button"
               data-testid="presell-cookie-allow"
               onClick={inBuilder ? undefined : () => dismiss("all")}
+              className="cookie-allow-btn"
               style={allowClass}
             >
               {commit ? (
@@ -437,6 +461,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
             type="button"
             data-testid="presell-cookie-close"
             onClick={inBuilder ? undefined : () => dismiss("essential")}
+            className="cookie-decline-btn"
             style={closeClass}
           >
             {commit ? <CookieText field="declineLabel" value={declineLabel} /> : declineLabel}
