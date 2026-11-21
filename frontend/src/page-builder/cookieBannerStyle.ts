@@ -145,6 +145,7 @@ export function resolveCookieBannerVisual(
     resolveResponsive(asResponsiveNumber(c.bodyFontSize, variant === "bar" ? 13 : 14), device) ??
     14;
 
+  const touchMin = 44;
   const allowStyle: CSSProperties = {
     flex: layout === "row" ? 1 : undefined,
     width: layout === "stack" ? "100%" : undefined,
@@ -156,12 +157,15 @@ export function resolveCookieBannerVisual(
     color: allowText,
     fontWeight: Math.min(800, Math.max(500, Math.round(c.buttonFontWeight ?? 600))),
     fontSize: buttonFontSize,
-    padding: `${buttonPaddingY}px ${buttonPaddingX}px`,
+    padding: `${Math.max(buttonPaddingY, 11)}px ${buttonPaddingX}px`,
+    minHeight: touchMin,
+    minWidth: touchMin,
     borderRadius: buttonRadius,
     textDecoration: "none",
     boxSizing: "border-box",
     letterSpacing: 0.01,
     lineHeight: 1.2,
+    touchAction: "manipulation",
   };
 
   const declineStyle: CSSProperties = {
@@ -174,13 +178,16 @@ export function resolveCookieBannerVisual(
     color: declineText,
     fontWeight: Math.min(800, Math.max(500, Math.round((c.buttonFontWeight ?? 600) - 50))),
     fontSize: buttonFontSize,
-    padding: `${buttonPaddingY}px ${buttonPaddingX}px`,
+    padding: `${Math.max(buttonPaddingY, 11)}px ${buttonPaddingX}px`,
+    minHeight: touchMin,
+    minWidth: touchMin,
     borderRadius: buttonRadius,
     border: `1px solid ${declineBorder}`,
     textDecoration: "none",
     boxSizing: "border-box",
     letterSpacing: 0.01,
     lineHeight: 1.2,
+    touchAction: "manipulation",
   };
 
   return {

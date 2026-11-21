@@ -14,6 +14,36 @@ export type ClassifiedPresellImport = {
 const MIRROR_MIN_CHARS = 800;
 const SOURCE_TEXT_MIN = 180;
 
+const AFFILIATE_HOP_HOST_MARKERS = [
+  "buygoods",
+  "clickbank.net",
+  "clickbank.com",
+  "digistore",
+  "checkout-ds24",
+  "hotmart",
+  "kiwify",
+  "mwebkivo.com",
+  "mwebinsight.com",
+  "maxweb",
+  "monetizze",
+  "braip",
+  "ev.braip.com",
+] as const;
+
+/** Hoplink válido (MaxWeb, BuyGoods…) conta como oferta mesmo se o fetch da sales page falhar. */
+export function looksLikeAffiliateCommerceHop(url: string | undefined): boolean {
+  const raw = (url || "").trim();
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    const host = u.hostname.replace(/^www\./i, "").toLowerCase();
+    return AFFILIATE_HOP_HOST_MARKERS.some((m) => host === m || host.endsWith(`.${m}`) || host.includes(m));
+  } catch {
+    return false;
+  }
+}
+
 const GENERIC_TITLE =
   /^(example domain|just a moment\.{0,3}|checking the site\.{0,3}|attention required!?|access denied|403 forbidden|404( not found)?|page not found|untitled( document)?|loading\.{0,3}|enable javascript|please wait|document|home|welcome|new (page|presell)|nova presell|oficial|official( site)?|pv\s*v?\d*|get started|text presentation)$/i;
 
@@ -48,6 +78,8 @@ export function classifyPresellImport(args: {
   hasPrice?: boolean;
   hasSourceCta?: boolean;
   generationNiche?: PresellGenerationNiche;
+  /** Hoplink da rede — suficiente para publicar modelo editável se a sales page vier vazia. */
+  affiliateHopLink?: string;
 }): ClassifiedPresellImport {
   const notes: string[] = [];
   const niche = args.generationNiche ?? "black";
@@ -90,7 +122,13 @@ export function classifyPresellImport(args: {
   } else {
     notes.push("White: copy e políticas alinhadas ao produtor; tipos agressivos ocultos no assistente.");
   }
-  const hasOfferSignal = Boolean(args.hasPrice || args.hasSourceCta || hasCopy || hasMirror);
+  const hasAffiliateHop = looksLikeAffiliateCommerceHop(args.affiliateHopLink);
+  const hasOfferSignal = Boolean(args.hasPrice || args.hasSourceCta || hasCopy || hasMirror || hasAffiliateHop);
+  if (hasAffiliateHop && !hasMirror && !hasCopy) {
+    notes.push(
+      "Hoplink de afiliado reconhecido. A sales page pode bloquear robots — a presell usa modelo + espelho quando disponível.",
+    );
+  }
   if (titleOk && (hasImages || hasOfferSignal)) {
     notes.push("Presell própria, com os dados lidos na origem. Não é um clone da página do vendedor.");
     return { mode: "template", publishable: true, notes };

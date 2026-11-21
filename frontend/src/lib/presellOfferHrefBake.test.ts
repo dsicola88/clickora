@@ -73,6 +73,13 @@ describe("bakeHtmlOfferHrefs", () => {
     expect(hrefLooksLikeOfferLink("https://shop.example/privacy")).toBe(false);
   });
 
+  it("segunda passagem pega hoplink cru sem classe de botão", () => {
+    const html = `<div><a data-track="x" href="https://mwebkivo.com/13026/4926/2/?">go</a></div>`;
+    const out = bakeHtmlOfferHrefs(html, "https://app.example/track/r/x", "https://mwebkivo.com/13026/4926/2/?");
+    expect(out).toContain("https://app.example/track/r/x");
+    expect(out).not.toContain("mwebkivo.com");
+  });
+
   it("Get Started (button Funnelish) e Contact errado no marcador → track só nos CTAs", () => {
     const html = `
       <base href="https://tryvisivra.com/pv-v2?aff_id=1">

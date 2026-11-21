@@ -1,6 +1,8 @@
 import { CheckCircle2, Circle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { hrefLooksLikeOfferLink } from "@/lib/presellOfferHrefBake";
+import { cn } from "@/lib/utils";
+import type { PageDocument } from "@/page-builder/types";
 
 export type PublishReadinessItem = {
   id: string;
@@ -67,6 +69,35 @@ export function countUntrackedOfferHrefs(html: string, affiliateHref = ""): numb
   return n;
 }
 
+/** HTML relevante para gate de CTAs (espelho + blocos do page builder). */
+export function collectOfferTrackingHtmlFromContent(content: Record<string, unknown>): string {
+  const parts: string[] = [];
+  const mirror = content.importMirrorSrcDoc ?? content.import_mirror_src_doc;
+  if (typeof mirror === "string" && mirror.length > 0) parts.push(mirror);
+  const doc =
+    parsePresellBuilderPageDocument(content) ||
+    (content.pageDocument as PageDocument | undefined) ||
+    (content.page_document as PageDocument | undefined);
+  if (doc && Array.isArray(doc.sections)) {
+    for (const section of doc.sections) {
+      for (const column of section.columns) {
+        for (const widget of column.widgets) {
+          if (widget.type === "html" && typeof widget.content.code === "string") {
+            parts.push(widget.content.code);
+          }
+          if (widget.type === "button" && typeof widget.content.href === "string") {
+            const href = widget.content.href.trim();
+            if (href && href !== "#") {
+              parts.push(`<a href="${href.replace(/"/g, "&quot;")}">cta</a>`);
+            }
+          }
+        }
+      }
+    }
+  }
+  return parts.join("\n");
+}
+
 /** Hoplink efectivo: content.affiliateLink ou tracking.offerUrl (wizard antigo). */
 export function resolvePresellAffiliateLink(page: {
   content?: Record<string, unknown> | null;
@@ -84,13 +115,16 @@ export function buildPublishReadinessFromPresell(input: {
   status?: string | null;
   affiliateLink?: string | null;
   mirrorHtml?: string | null;
+  content?: Record<string, unknown> | null;
   customDomainId?: string | null;
   publicUrl?: string | null;
   /** Domínio Vercel ainda sem HTTPS pronto — não use em Final URL. */
   customDomainHttpsPending?: boolean;
 }): PublishReadinessItem[] {
   const link = (input.affiliateLink || "").trim();
-  const html = input.mirrorHtml || "";
+  const html =
+    input.mirrorHtml ||
+    (input.content ? collectOfferTrackingHtmlFromContent(input.content) : "");
   const hasTrackMarker =
     /\/api\/track\/r\//i.test(html) ||
     /clickora_click_id|\/track\/r\//i.test(html);

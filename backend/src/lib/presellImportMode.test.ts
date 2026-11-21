@@ -88,6 +88,19 @@ describe("classifyPresellImport", () => {
     assert.equal(out.publishable, true);
   });
 
+  it("publica com hoplink MaxWeb mesmo sem texto/imagem na origem", () => {
+    const out = classifyPresellImport({
+      mirrorChars: 0,
+      imageCount: 0,
+      salesChars: 0,
+      title: "Neotonics",
+      browser: "failed",
+      affiliateHopLink: "https://mwebkivo.com/13026/4926/2/?",
+    });
+    assert.equal(out.publishable, true);
+    assert.match(out.notes.join(" "), /Hoplink de afiliado/i);
+  });
+
   it("marca importação incompleta sem título útil nem imagem", () => {
     const out = classifyPresellImport({
       mirrorChars: 40,

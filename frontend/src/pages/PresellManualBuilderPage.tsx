@@ -36,7 +36,11 @@ import {
   parsePresellEditorWorkingDocument,
   pickPresellEditorDocument,
 } from "@/lib/presellBuilderContent";
-import { buildEditablePageDocument, pointOfferButtonsAt } from "@/lib/presellVisualEdit";
+import {
+  applyPresellPageLanguageToCookieWidgets,
+  buildEditablePageDocument,
+  pointOfferButtonsAt,
+} from "@/lib/presellVisualEdit";
 import {
   expandMonolithicHtmlDocument,
   isMonolithicHtmlFold,
@@ -130,6 +134,7 @@ export default function PresellManualBuilderPage() {
   const [lastCloudSavedAt, setLastCloudSavedAt] = useState<number | null>(null);
   const draftBootstrapRef = useRef(false);
   const cloudInflightRef = useRef(false);
+  const prevLanguageRef = useRef<PresellLocaleKey | null>(null);
 
   const { data: customDomains = [] } = useQuery({
     queryKey: ["custom-domain", tenantKey],
@@ -299,6 +304,22 @@ export default function PresellManualBuilderPage() {
     if (!hasVerifiedCustomDomain) return;
     setCustomDomainId((prev) => prev || resolveDefaultCustomDomainIdForAccount(customDomains) || "");
   }, [routeId, hasVerifiedCustomDomain, customDomains]);
+
+  /** Idioma da barra → widgets cookies com «seguir página» (pré-visualização + gravação). */
+  useEffect(() => {
+    if (!editorReady) return;
+    if (prevLanguageRef.current === null) {
+      prevLanguageRef.current = language;
+      return;
+    }
+    if (prevLanguageRef.current === language) return;
+    prevLanguageRef.current = language;
+    const state = useBuilder.getState();
+    const next = applyPresellPageLanguageToCookieWidgets(state.doc, language);
+    if (JSON.stringify(next) !== JSON.stringify(state.doc)) {
+      state.hydrateDocument(next, { identity: state.pageIdentity });
+    }
+  }, [language, editorReady]);
 
   const buildSettingsPayload = useCallback((): PresellConfigSettings => {
     return {

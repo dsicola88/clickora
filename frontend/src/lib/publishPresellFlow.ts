@@ -1,9 +1,12 @@
-import { bakeMirrorOfferHrefsForPresell } from "@/lib/presellCtaBake";
+import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
+import { bakeMirrorOfferHrefsForPresell, trackHrefForPresell } from "@/lib/presellCtaBake";
 import {
   buildPublishReadinessFromPresell,
+  collectOfferTrackingHtmlFromContent,
   publishBlockedByReadiness,
   type PublishReadinessItem,
 } from "@/components/PresellPublishReadiness";
+import { bakePublicOfferHrefs } from "@/lib/presellVisualEdit";
 import { presellService } from "@/services/presellService";
 import type { Presell } from "@/types/api";
 
@@ -43,10 +46,22 @@ export async function bakeAndMaybePublishPresell(args: {
     };
   }
 
+  const pageDoc = parsePresellBuilderPageDocument(content);
+  if (pageDoc && affiliate) {
+    const track = trackHrefForPresell(args.page.id, affiliate, args.trackApiBase);
+    const baked = bakePublicOfferHrefs(pageDoc, track, affiliate, "", {
+      unlockCookieOnly: true,
+      cookieRedirectToOffer: false,
+    });
+    content = { ...content, pageDocument: baked, editorWorkingDocument: baked };
+  }
+
+  const trackingHtml = collectOfferTrackingHtmlFromContent(content);
   const readinessPreview = buildPublishReadinessFromPresell({
     status: "draft",
     affiliateLink: affiliate,
-    mirrorHtml: typeof content.importMirrorSrcDoc === "string" ? content.importMirrorSrcDoc : null,
+    mirrorHtml: trackingHtml || null,
+    content,
     customDomainId: args.page.custom_domain_id || null,
     publicUrl: args.publicUrl || null,
     customDomainHttpsPending: args.customDomainHttpsPending,
@@ -67,7 +82,8 @@ export async function bakeAndMaybePublishPresell(args: {
   const readiness = buildPublishReadinessFromPresell({
     status: live.status,
     affiliateLink: affiliate,
-    mirrorHtml: typeof content.importMirrorSrcDoc === "string" ? content.importMirrorSrcDoc : null,
+    mirrorHtml: trackingHtml || null,
+    content,
     customDomainId: live.custom_domain_id || null,
     publicUrl: args.publicUrl || null,
     customDomainHttpsPending: args.customDomainHttpsPending,

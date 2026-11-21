@@ -1978,6 +1978,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     title: productName,
     browser: browserStatus,
     generationNiche,
+    affiliateHopLink: preservedAffiliate || input.affiliateLink || finalUrl,
   });
   const import_notes = browserDetail ? [...classified.notes, browserDetail] : classified.notes;
 

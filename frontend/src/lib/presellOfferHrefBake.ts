@@ -188,6 +188,21 @@ export function bakeHtmlOfferHrefs(code: string, trackHref: string, affiliateHre
     return `${attr}=${q}${track}${q}`;
   });
 
+  /** Segunda passagem: ofertas cruas que escaparam (classe/atributos atípicos no espelho). */
+  out = out.replace(/<a\b([^>]*)\bhref\s*=\s*(["'])([\s\S]*?)\2/gi, (full, attrs: string, _q: string, href: string) => {
+    const h = (href || "").trim();
+    if (!h || isTrackOrMarkerHref(h) || isSoftNavHref(h)) return full;
+    if (!hrefLooksLikeOfferLink(h, affiliateHref)) return full;
+    const innerMatch = full.match(/>([\s\S]*?)<\/a>/i);
+    const inner = innerMatch?.[1] || "";
+    if (isSoftNavLabel(inner) && !isCtaLabel(inner)) return full;
+    let next = upsertAttr(attrs, "href", track);
+    next = upsertAttr(next, "data-clickora-offer", "1");
+    next = upsertAttr(next, "target", "_top");
+    next = upsertAttr(next, "rel", "noopener noreferrer");
+    return `<a${next}>${inner}</a>`;
+  });
+
   // `<button>` de compra (ex. Get Started / anchor_to_product) — âncora com hoplink rastreado.
   out = out.replace(/<button\b([^>]*)>([\s\S]*?)<\/button>/gi, (full, attrs: string, inner: string) => {
     const type = (htmlTagAttr(attrs, "type") || "submit").toLowerCase();

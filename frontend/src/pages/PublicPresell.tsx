@@ -1231,7 +1231,7 @@ export default function PublicPresell() {
   /** Só White espelha a sales page. Black (promessas fortes) não clona claims — artigo informativo. */
   const showImportedMirror = mirrorEligible && !isGhostPage && generationNiche === "white";
   /** White espelho: sem chrome WL no rodapé (ex. nome da conta «… Super Admin»). */
-  const showTenantBrandChrome = Boolean(tenantBranding) && !showImportedMirror;
+  const showTenantBrandChrome = Boolean(tenantBranding) && !showImportedMirror && showTrustFooter;
 
   const darkNav = darkStorefrontNavLabels(uiLang);
   const productNameRaw = plainTextFromMaybeHtml(

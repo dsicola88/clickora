@@ -12,6 +12,10 @@ import {
 import { getPresellTypeTheme } from "@/lib/presellTypeTheme";
 import { resolveHealthArticle, salesTextMismatchesLocale } from "@/lib/presellHealthArticle";
 import { getPresellUiStrings } from "@/lib/presellUiStrings";
+import {
+  cookieBannerFollowsPageLanguage,
+  type CookieBannerCopyInput,
+} from "@/page-builder/cookieBannerCopy";
 import { isPresellDecorImage, rankPresellProductImages } from "@/lib/presellProductImagesRank";
 import { resolvePresellPortalBrandName } from "@/lib/presellDisplayName";
 function asString(v: unknown): string {
@@ -654,6 +658,38 @@ function foldCopy(html: string): WidgetNode {
     };
   }
   return text;
+}
+
+/** Sincroniza textos do widget cookies quando o idioma da página muda (builder manual). */
+export function applyPresellPageLanguageToCookieWidgets(
+  doc: PageDocument,
+  language: string,
+): PageDocument {
+  const clone = JSON.parse(JSON.stringify(doc)) as PageDocument;
+  const L = getPresellUiStrings(language);
+  let changed = false;
+  for (const section of clone.sections) {
+    for (const column of section.columns) {
+      for (const widget of column.widgets) {
+        if (widget.type !== "cookieBanner") continue;
+        const raw = widget.content as CookieBannerCopyInput & Record<string, unknown>;
+        if (raw.followLanguage === false) continue;
+        if (!cookieBannerFollowsPageLanguage(raw)) continue;
+        widget.content = {
+          ...raw,
+          followLanguage: true,
+          title: L.cookieTitle,
+          body: L.cookieBody,
+          allowLabel: L.cookieAllow,
+          declineLabel: L.cookieClose,
+          policyLabel: L.cookiePolicy,
+          footerNote: L.cookieFooter,
+        };
+        changed = true;
+      }
+    }
+  }
+  return changed ? clone : doc;
 }
 
 function offerCookie(_offer: string, policyHref: string, language?: string | null): WidgetNode {
