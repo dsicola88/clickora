@@ -14,8 +14,11 @@
  * - `meta_update_budget` (Meta): { meta_adset_id, daily_budget_cents }
  * - `meta_publish_creative` (Meta): { creative_id }
  * - `meta_pause_entity` (Meta): { level: campaign|adset|ad, id: uuid local }
+ * - `meta_resume_entity` (Meta): { level: campaign|adset|ad, id: uuid local }
  * - `tiktok_update_budget` (TikTok): { level: campaign|adgroup, campaign_id, daily_budget_micros }
  * - `tiktok_pause_entity` (TikTok): { level: campaign|adgroup, campaign_id }
+ * - `tiktok_resume_entity` (TikTok): { level: campaign|adgroup, campaign_id }
+ * - `tiktok_publish_creative` (TikTok): { campaign_id, landing_url, video_asset_path|video_url|… }
  */
 import type { PaidAdsChangeRequestType as ChangeRequestType } from "@prisma/client";
 
@@ -45,9 +48,15 @@ import {
   applyMetaAdsetDailyBudget,
   applyMetaPauseEntity,
   applyMetaPublishCreative,
+  applyMetaResumeEntity,
 } from "./meta-ads.mutations";
 import { publishTikTokCreateCampaignFromLocal } from "./tiktok-ads.publish";
-import { applyTiktokPauseEntity, applyTiktokUpdateBudget } from "./tiktok-ads.mutations";
+import {
+  applyTiktokPauseEntity,
+  applyTiktokPublishCreative,
+  applyTiktokResumeEntity,
+  applyTiktokUpdateBudget,
+} from "./tiktok-ads.mutations";
 
 export type ApplyCrResult = { ok: true } | { ok: false; error: string };
 
@@ -313,6 +322,15 @@ export async function applyChangeRequestRemote(
         if (!id) return { ok: false, error: "Payload: id em falta." };
         return await applyMetaPauseEntity(projectId, { level, id });
       }
+      case "meta_resume_entity": {
+        const level = p.level;
+        const id = getStr(p, "id");
+        if (level !== "campaign" && level !== "adset" && level !== "ad") {
+          return { ok: false, error: "Payload: level (campaign|adset|ad) e id." };
+        }
+        if (!id) return { ok: false, error: "Payload: id em falta." };
+        return await applyMetaResumeEntity(projectId, { level, id });
+      }
       case "tiktok_create_campaign": {
         const id = getStr(p, "campaign_id");
         if (!id) return { ok: false, error: "Payload: campaign_id em falta." };
@@ -344,6 +362,22 @@ export async function applyChangeRequestRemote(
           level: level as "campaign" | "adgroup",
           campaign_id: cid,
         });
+      }
+      case "tiktok_resume_entity": {
+        const level = p.level;
+        const cid = getStr(p, "campaign_id");
+        if ((level !== "campaign" && level !== "adgroup") || !cid) {
+          return { ok: false, error: "Payload: level (campaign|adgroup) e campaign_id." };
+        }
+        return await applyTiktokResumeEntity(projectId, {
+          level: level as "campaign" | "adgroup",
+          campaign_id: cid,
+        });
+      }
+      case "tiktok_publish_creative": {
+        const cid = getStr(p, "campaign_id");
+        if (!cid) return { ok: false, error: "Payload: campaign_id." };
+        return await applyTiktokPublishCreative(projectId, { ...p, campaign_id: cid });
       }
       default:
         return { ok: false, error: `Tipo de pedido desconhecido: ${String(type)}` };

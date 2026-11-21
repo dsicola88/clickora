@@ -96,6 +96,12 @@ export function DpilotProjectHealthCard({ projectId }: { projectId: string }) {
             hint="Campanhas sem gasto da API"
           />
         </div>
+        {t.by_platform ? (
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            Por rede: Google {t.by_platform.google_ads ?? 0} · Meta {t.by_platform.meta_ads ?? 0} ·
+            TikTok {t.by_platform.tiktok_ads ?? 0}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

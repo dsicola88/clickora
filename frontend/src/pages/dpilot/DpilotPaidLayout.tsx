@@ -17,6 +17,7 @@ import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { cn } from "@/lib/utils";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DpilotGoogleCampaignManagerLayout } from "./DpilotGoogleCampaignManagerLayout";
+import { DpilotNetworkManagerLayout } from "./DpilotNetworkManagerLayout";
 
 const navItem =
   "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted/80 hover:text-foreground";
@@ -38,6 +39,12 @@ export function DpilotPaidLayout() {
   const onGoogleManager =
     location.pathname.startsWith(`${base}/google`) ||
     /\/campanhas\/[^/]+\/google\/?$/.test(location.pathname);
+  const onMetaManager =
+    location.pathname.startsWith(`${base}/meta/`) &&
+    !/\/meta\/nova\/?$/.test(location.pathname);
+  const onTiktokManager =
+    location.pathname.startsWith(`${base}/tiktok/`) &&
+    !/\/tiktok\/nova\/?$/.test(location.pathname);
   const onGoogleCreate = /\/campanhas\/nova\/?$/.test(location.pathname);
   const onMetaCreate = /\/meta\/nova\/?$/.test(location.pathname);
   const onTiktokCreate = /\/tiktok\/nova\/?$/.test(location.pathname);
@@ -67,6 +74,22 @@ export function DpilotPaidLayout() {
     return (
       <div className="px-2 py-4 lg:px-4">
         <DpilotGoogleCampaignManagerLayout />
+      </div>
+    );
+  }
+
+  if (onMetaManager) {
+    return (
+      <div className="px-2 py-4 lg:px-4">
+        <DpilotNetworkManagerLayout network="meta" />
+      </div>
+    );
+  }
+
+  if (onTiktokManager) {
+    return (
+      <div className="px-2 py-4 lg:px-4">
+        <DpilotNetworkManagerLayout network="tiktok" />
       </div>
     );
   }
@@ -140,11 +163,21 @@ export function DpilotPaidLayout() {
             <BarChart3 className="h-4 w-4 shrink-0 text-[#1a73e8]" />
             Google Ads
           </NavLink>
-          <NavLink to={`${base}/meta`} className={({ isActive }) => cn(navItem, isActive && navActive)}>
+          <NavLink
+            to={`${base}/meta/visao`}
+            className={({ isActive }) =>
+              cn(navItem, (isActive || location.pathname.startsWith(`${base}/meta`)) && navActive)
+            }
+          >
             <Facebook className="h-4 w-4 shrink-0 text-indigo-600" />
             Meta Ads
           </NavLink>
-          <NavLink to={`${base}/tiktok`} className={({ isActive }) => cn(navItem, isActive && navActive)}>
+          <NavLink
+            to={`${base}/tiktok/visao`}
+            className={({ isActive }) =>
+              cn(navItem, (isActive || location.pathname.startsWith(`${base}/tiktok`)) && navActive)
+            }
+          >
             <Music2 className="h-4 w-4 shrink-0 text-rose-600" />
             TikTok Ads
           </NavLink>

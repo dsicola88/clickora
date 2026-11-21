@@ -50,6 +50,7 @@ import { DpilotWeeklyMotorDigestCard } from "./DpilotWeeklyMotorDigestCard";
 import { DpilotTransparencyPrinciplesCard } from "./DpilotTransparencyPrinciplesCard";
 import { DpilotAutopilotSimpleBanner } from "./DpilotAutopilotSimpleBanner";
 import { DpilotProjectHealthCard } from "./DpilotProjectHealthCard";
+import { DpilotNetworksReadinessCard } from "./DpilotNetworksReadinessCard";
 import { DpilotCreativeSwapActions } from "./DpilotCreativeSwapActions";
 
 export function Gate({ children }: { children: React.ReactNode }) {
@@ -110,23 +111,65 @@ export function DpilotVisaoPage() {
       />
       <Card className="mt-4 border-[#1a73e8]/25 bg-gradient-to-br from-[#1a73e8]/10 to-transparent">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Ads Studio · Campanhas</CardTitle>
+          <CardTitle className="text-base">Ads Studio · Multi-rede</CardTitle>
           <CardDescription>
-            KPIs, pausar/ativar, orçamento, duplicar e gestão — sem abrir a consola Google.
+            Google Search, Meta e TikTok: KPIs, pausar/activar, orçamento, import e gestão no mesmo
+            funil Clickora (presell → /track/r/).
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <Button size="sm" asChild>
-            <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas`}>Painel de campanhas</Link>
+            <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas`}>Todas as campanhas</Link>
           </Button>
           <Button size="sm" variant="outline" asChild>
-            <Link to={`/tracking/dpilot/p/${p.projectId}/campanhas/nova`}>Nova campanha</Link>
+            <Link to={`/tracking/dpilot/p/${p.projectId}/google/visao`}>Google</Link>
           </Button>
           <Button size="sm" variant="outline" asChild>
-            <Link to={`/tracking/dpilot/p/${p.projectId}/google/termos-pesquisa`}>Termos de pesquisa</Link>
+            <Link to={`/tracking/dpilot/p/${p.projectId}/meta/visao`}>Meta</Link>
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <Link to={`/tracking/dpilot/p/${p.projectId}/tiktok/visao`}>TikTok</Link>
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <Link to={`/tracking/dpilot/p/${p.projectId}/google/termos-pesquisa`}>Termos Search</Link>
           </Button>
         </CardContent>
       </Card>
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <Card className="border-border/70 shadow-none">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Google Ads</CardTitle>
+            <CardDescription className="text-xs">Search · termos · Final URL</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button size="sm" className="w-full" asChild>
+              <Link to={`/tracking/dpilot/p/${p.projectId}/google/campanhas`}>Gerir Google</Link>
+            </Button>
+          </CardContent>
+        </Card>
+        <Card className="border-border/70 shadow-none">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Meta Ads</CardTitle>
+            <CardDescription className="text-xs">Visão · pause/budget · import</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button size="sm" className="w-full" variant="secondary" asChild>
+              <Link to={`/tracking/dpilot/p/${p.projectId}/meta/campanhas`}>Gerir Meta</Link>
+            </Button>
+          </CardContent>
+        </Card>
+        <Card className="border-border/70 shadow-none">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">TikTok Ads</CardTitle>
+            <CardDescription className="text-xs">Visão · pause/budget · import</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button size="sm" className="w-full" variant="secondary" asChild>
+              <Link to={`/tracking/dpilot/p/${p.projectId}/tiktok/campanhas`}>Gerir TikTok</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
       <div className="mt-4">
         <DpilotAutopilotSimpleBanner />
       </div>
@@ -191,6 +234,7 @@ export function DpilotVisaoPage() {
       </Card>
 
       <div className="mt-4 space-y-4">
+        <DpilotNetworksReadinessCard projectId={p.projectId} />
         <DpilotProjectHealthCard projectId={p.projectId} />
         <DpilotTransparencyPrinciplesCard />
         <DpilotTransparencyMotorCard projectId={p.projectId} />

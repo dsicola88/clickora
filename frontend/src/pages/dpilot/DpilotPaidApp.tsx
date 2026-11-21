@@ -34,17 +34,16 @@ const DpilotLigacoesPage = lazy(() =>
 const DpilotGooglePage = lazy(() =>
   import("./DpilotPaidPages").then((m) => ({ default: m.DpilotGooglePage })),
 );
-const DpilotMetaPage = lazy(() =>
-  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotMetaPage })),
+const DpilotNetworkVisaoPage = lazy(() =>
+  import("./DpilotNetworkManagerPages").then((m) => ({ default: m.DpilotNetworkVisaoPage })),
 );
-const DpilotMetaCampanhasPage = lazy(() =>
-  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotMetaCampanhasPage })),
+const DpilotNetworkCampaignsManagerPage = lazy(() =>
+  import("./DpilotNetworkManagerPages").then((m) => ({
+    default: m.DpilotNetworkCampaignsManagerPage,
+  })),
 );
-const DpilotTiktokPage = lazy(() =>
-  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotTiktokPage })),
-);
-const DpilotTiktokCampanhasPage = lazy(() =>
-  import("./DpilotPaidPages").then((m) => ({ default: m.DpilotTiktokCampanhasPage })),
+const DpilotNetworkImportPage = lazy(() =>
+  import("./DpilotNetworkManagerPages").then((m) => ({ default: m.DpilotNetworkImportPage })),
 );
 const DpilotCampanhasPage = lazy(() =>
   import("./DpilotPaidPages").then((m) => ({ default: m.DpilotCampanhasPage })),
@@ -116,6 +115,11 @@ function RedirectToCampaignsHub({ plat }: { plat?: "google_ads" | "meta_ads" | "
   const { projectId } = useParams();
   const q = plat ? `?plat=${plat}` : "";
   return <Navigate to={`/tracking/dpilot/p/${projectId}/campanhas${q}`} replace />;
+}
+
+function RedirectNetworkVisao({ network }: { network: "meta" | "tiktok" }) {
+  const { projectId } = useParams();
+  return <Navigate to={`/tracking/dpilot/p/${projectId}/${network}/visao`} replace />;
 }
 
 function DpilotIndexRedirect() {
@@ -298,11 +302,57 @@ export function DpilotPaidApp() {
           />
           <Route path="google" element={<LazyPage><DpilotGooglePage /></LazyPage>} />
           <Route path="meta/nova" element={<LazyPage><DpilotMetaWizardPage /></LazyPage>} />
-          <Route path="meta/campanhas" element={<LazyPage><DpilotMetaCampanhasPage /></LazyPage>} />
-          <Route path="meta" element={<LazyPage><DpilotMetaPage /></LazyPage>} />
+          <Route
+            path="meta/visao"
+            element={
+              <LazyPage>
+                <DpilotNetworkVisaoPage network="meta" />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="meta/campanhas"
+            element={
+              <LazyPage>
+                <DpilotNetworkCampaignsManagerPage network="meta" />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="meta/importar"
+            element={
+              <LazyPage>
+                <DpilotNetworkImportPage network="meta" />
+              </LazyPage>
+            }
+          />
+          <Route path="meta" element={<RedirectNetworkVisao network="meta" />} />
           <Route path="tiktok/nova" element={<LazyPage><DpilotTiktokWizardPage /></LazyPage>} />
-          <Route path="tiktok" element={<LazyPage><DpilotTiktokPage /></LazyPage>} />
-          <Route path="tiktok/campanhas" element={<LazyPage><DpilotTiktokCampanhasPage /></LazyPage>} />
+          <Route
+            path="tiktok/visao"
+            element={
+              <LazyPage>
+                <DpilotNetworkVisaoPage network="tiktok" />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="tiktok/campanhas"
+            element={
+              <LazyPage>
+                <DpilotNetworkCampaignsManagerPage network="tiktok" />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="tiktok/importar"
+            element={
+              <LazyPage>
+                <DpilotNetworkImportPage network="tiktok" />
+              </LazyPage>
+            }
+          />
+          <Route path="tiktok" element={<RedirectNetworkVisao network="tiktok" />} />
           <Route path="campanhas/nova" element={<LazyPage><DpilotGoogleWizardPage /></LazyPage>} />
           <Route
             path="campanhas/:campaignId/google"

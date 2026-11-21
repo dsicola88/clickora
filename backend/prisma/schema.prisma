@@ -1023,9 +1023,12 @@ enum PaidAdsChangeRequestType {
   meta_update_budget
   meta_publish_creative
   meta_pause_entity
+  meta_resume_entity
   tiktok_create_campaign
   tiktok_update_budget
   tiktok_pause_entity
+  tiktok_resume_entity
+  tiktok_publish_creative
 }
 
 enum PaidAdsChangeRequestStatus {

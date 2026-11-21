@@ -75,9 +75,12 @@ export const CHANGE_REQUEST_TYPE_LABELS: Record<string, string> = {
   meta_update_budget: "Meta — alteração de orçamento",
   meta_publish_creative: "Meta — publicar criativo",
   meta_pause_entity: "Meta — pausar elemento",
+  meta_resume_entity: "Meta — reactivar elemento",
   tiktok_create_campaign: "TikTok — nova campanha",
   tiktok_update_budget: "TikTok — alteração de orçamento",
   tiktok_pause_entity: "TikTok — pausar elemento",
+  tiktok_resume_entity: "TikTok — reactivar elemento",
+  tiktok_publish_creative: "TikTok — publicar anúncio (vídeo/imagem)",
 };
 
 export function changeRequestTypeLabel(type: string, t?: Translator): string {

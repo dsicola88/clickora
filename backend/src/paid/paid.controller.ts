@@ -53,8 +53,25 @@ import {
 } from "./google-keyword-decision";
 import { fetchKeywordPlannerMetrics } from "./google-keyword-planner";
 import { listMetaPagesForProject } from "./meta-ads.creative";
+import { importMetaCampaigns } from "./meta-ads-import.service";
+import {
+  fetchMetaAdsAccountOverview,
+  fetchMetaAdsCampaignsMetrics,
+  fetchMetaAdsProjectInventory,
+  listRemoteMetaCampaigns,
+} from "./meta-ads-manager.service";
 import { metaCampaignPlanInputSchema, runMetaCampaignPlan } from "./meta-campaign-plan";
+import { executeMetaStudioAction } from "./meta-network-studio.service";
+import { fetchNetworksReadiness } from "./networks-readiness.service";
 import { reconcileProjectCampaigns } from "./reconcile-campaigns";
+import { importTikTokCampaigns } from "./tiktok-ads-import.service";
+import {
+  fetchTikTokAdsAccountOverview,
+  fetchTikTokAdsCampaignsMetrics,
+  fetchTikTokAdsProjectInventory,
+  listRemoteTikTokCampaigns,
+} from "./tiktok-ads-manager.service";
+import { executeTiktokStudioAction } from "./tiktok-network-studio.service";
 import { runTiktokCampaignPlan, tiktokCampaignPlanInputSchema } from "./tiktok-campaign-plan";
 import { canAccessProject, canAdminProject, canWriteProject, getPaidActor } from "./permissions";
 import { collectCampaignMetricsBundle } from "./optimizer/metrics.service";
@@ -365,6 +382,12 @@ export const paidController = {
     const roas =
       spendR > 0 ? Math.round((revenueR / spendR) * 100) / 100 : null;
 
+    const byPlatform = {
+      google_ads: campaign_rows.filter((c) => c.platform === "google_ads").length,
+      meta_ads: campaign_rows.filter((c) => c.platform === "meta_ads").length,
+      tiktok_ads: campaign_rows.filter((c) => c.platform === "tiktok_ads").length,
+    };
+
     return res.json({
       project_id: project.id,
       project_name: project.name,
@@ -381,10 +404,23 @@ export const paidController = {
         spend_unknown_campaigns,
         roas,
         decisions_total_7d,
+        by_platform: byPlatform,
       },
       decisions_7d,
       campaigns: campaign_rows,
     });
+  },
+
+  async networksReadiness(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const out = await fetchNetworksReadiness(parsed.data.projectId);
+    return res.json(out);
   },
 
   async listChangeRequests(req: Request, res: Response) {
@@ -1258,6 +1294,48 @@ export const paidController = {
     return res.json({ ok: true as const, change_request: out.change_request });
   },
 
+  async postMetaCampaignStudioActions(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const { projectId, campaignId } = parsed.data;
+    if (!(await canWriteProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para gerir esta campanha." });
+    }
+    const out = await executeMetaStudioAction(projectId, campaignId, req.body, a.userId);
+    if (!out.ok) {
+      return res.status(400).json({
+        error: out.error,
+        ...(out.change_request_id ? { change_request_id: out.change_request_id } : {}),
+      });
+    }
+    return res.json({ ok: true as const, change_request: out.change_request });
+  },
+
+  async postTiktokCampaignStudioActions(req: Request, res: Response) {
+    const parsed = z
+      .object({ projectId: z.string().uuid(), campaignId: z.string().uuid() })
+      .safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    const { projectId, campaignId } = parsed.data;
+    if (!(await canWriteProject(projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para gerir esta campanha." });
+    }
+    const out = await executeTiktokStudioAction(projectId, campaignId, req.body, a.userId);
+    if (!out.ok) {
+      return res.status(400).json({
+        error: out.error,
+        ...(out.change_request_id ? { change_request_id: out.change_request_id } : {}),
+      });
+    }
+    return res.json({ ok: true as const, change_request: out.change_request });
+  },
+
   /** Edição directa de rascunho (sem IDs externos Google). */
   async patchGoogleCampaignDraft(req: Request, res: Response) {
     const parsed = z
@@ -1820,6 +1898,226 @@ export const paidController = {
     }
     const out = await fetchGoogleRsaPolicyProjectAudit(parsed.data.projectId);
     if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  /** ——— Meta Campaign Manager ——— */
+  async metaAdsManagerOverview(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const q = z
+      .object({
+        preset: z
+          .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
+          .optional()
+          .default("last_7"),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success) return res.status(400).json({ error: "Parâmetros de período inválidos." });
+    const out = await fetchMetaAdsAccountOverview(
+      parsed.data.projectId,
+      q.data.preset,
+      q.data.from,
+      q.data.to,
+    );
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async metaAdsManagerCampaignsMetrics(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const q = z
+      .object({
+        preset: z
+          .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
+          .optional()
+          .default("last_7"),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success) return res.status(400).json({ error: "Parâmetros de período inválidos." });
+    const out = await fetchMetaAdsCampaignsMetrics(
+      parsed.data.projectId,
+      q.data.preset,
+      q.data.from,
+      q.data.to,
+    );
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async metaAdsManagerInventory(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const out = await fetchMetaAdsProjectInventory(parsed.data.projectId);
+    return res.json(out);
+  },
+
+  async metaAdsListRemoteCampaigns(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const out = await listRemoteMetaCampaigns(parsed.data.projectId);
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async metaAdsImportCampaigns(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para importar campanhas." });
+    }
+    const body = z
+      .object({
+        external_campaign_ids: z.array(z.string().min(1)).min(1).max(25),
+        refresh_existing: z.boolean().optional().default(false),
+        landing_url: z.string().url().max(2000).optional().nullable(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Dados de importação inválidos." });
+    const out = await importMetaCampaigns(parsed.data.projectId, body.data);
+    if (!out.ok) {
+      return res.status(400).json({
+        error: out.error,
+        ...("code" in out && out.code ? { code: out.code } : {}),
+      });
+    }
+    return res.json(out);
+  },
+
+  /** ——— TikTok Campaign Manager ——— */
+  async tiktokAdsManagerOverview(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const q = z
+      .object({
+        preset: z
+          .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
+          .optional()
+          .default("last_7"),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success) return res.status(400).json({ error: "Parâmetros de período inválidos." });
+    const out = await fetchTikTokAdsAccountOverview(
+      parsed.data.projectId,
+      q.data.preset,
+      q.data.from,
+      q.data.to,
+    );
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async tiktokAdsManagerCampaignsMetrics(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const q = z
+      .object({
+        preset: z
+          .enum(["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "custom"])
+          .optional()
+          .default("last_7"),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success) return res.status(400).json({ error: "Parâmetros de período inválidos." });
+    const out = await fetchTikTokAdsCampaignsMetrics(
+      parsed.data.projectId,
+      q.data.preset,
+      q.data.from,
+      q.data.to,
+    );
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async tiktokAdsManagerInventory(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const out = await fetchTikTokAdsProjectInventory(parsed.data.projectId);
+    return res.json(out);
+  },
+
+  async tiktokAdsListRemoteCampaigns(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canAccessProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem acesso ao projeto." });
+    }
+    const out = await listRemoteTikTokCampaigns(parsed.data.projectId);
+    if (!out.ok) return res.status(400).json({ error: out.error, code: out.code });
+    return res.json(out);
+  },
+
+  async tiktokAdsImportCampaigns(req: Request, res: Response) {
+    const parsed = projectIdParam.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "projectId inválido." });
+    const a = getPaidActor(req);
+    if (!a) return res.status(401).json({ error: "Não autenticado." });
+    if (!(await canWriteProject(parsed.data.projectId, a.userId, a.tenantUserId))) {
+      return res.status(403).json({ error: "Sem permissão para importar campanhas." });
+    }
+    const body = z
+      .object({
+        external_campaign_ids: z.array(z.string().min(1)).min(1).max(25),
+        refresh_existing: z.boolean().optional().default(false),
+        landing_url: z.string().url().max(2000).optional().nullable(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: "Dados de importação inválidos." });
+    const out = await importTikTokCampaigns(parsed.data.projectId, body.data);
+    if (!out.ok) {
+      return res.status(400).json({
+        error: out.error,
+        ...("code" in out && out.code ? { code: out.code } : {}),
+      });
+    }
     return res.json(out);
   },
 };

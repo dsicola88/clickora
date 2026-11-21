@@ -43,9 +43,25 @@ import { paidAdsService, type CampaignRow } from "@/services/paidAdsService";
 import { useDpilotPaid } from "./DpilotPaidContext";
 import { DpilotCampaignArchiveButton } from "./DpilotCampaignArchiveButton";
 
-type GoogleMetricsRow = NonNullable<
-  Awaited<ReturnType<typeof paidAdsService.getGoogleAdsCampaignsMetrics>>["data"]
->["campaigns"][number];
+type HubMetricsRow = {
+  id: string;
+  daily_budget_micros?: number | null;
+  bidding_strategy?: string | null;
+  google_status?: string | null;
+  local_status?: string | null;
+  budget_editable?: boolean;
+  budget_reference_count?: number;
+  metrics: {
+    impressions: number;
+    clicks: number;
+    cost_micros: number;
+    conversions: number;
+    conversions_value?: number;
+    ctr?: number;
+    roas?: number;
+    cost_per_conversion_micros?: number;
+  } | null;
+};
 
 function Kpi({
   label,
@@ -74,9 +90,15 @@ function fmtNum(n: number | null | undefined, digits = 0) {
 
 function manageHref(projectId: string, c: CampaignRow) {
   if (c.platform === "google_ads") return `/tracking/dpilot/p/${projectId}/campanhas/${c.id}/google`;
-  if (c.platform === "meta_ads") return `/tracking/dpilot/p/${projectId}/meta`;
-  if (c.platform === "tiktok_ads") return `/tracking/dpilot/p/${projectId}/tiktok`;
+  if (c.platform === "meta_ads") return `/tracking/dpilot/p/${projectId}/meta/campanhas`;
+  if (c.platform === "tiktok_ads") return `/tracking/dpilot/p/${projectId}/tiktok/campanhas`;
   return `/tracking/dpilot/p/${projectId}/campanhas`;
+}
+
+function networkLabel(platform: CampaignRow["platform"]) {
+  if (platform === "meta_ads") return "Meta";
+  if (platform === "tiktok_ads") return "TikTok";
+  return "Google Ads";
 }
 
 export function DpilotCampaignsHub() {
@@ -115,6 +137,7 @@ export function DpilotCampaignsHub() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [budgetDialog, setBudgetDialog] = useState<{
     campaignId: string;
+    platform: CampaignRow["platform"];
     currentUsd: number | null;
   } | null>(null);
   const [dupDialog, setDupDialog] = useState<{
@@ -123,28 +146,86 @@ export function DpilotCampaignsHub() {
     currentUsd: number | null;
   } | null>(null);
   const [linking, setLinking] = useState(false);
-  const [googleById, setGoogleById] = useState<Map<string, GoogleMetricsRow>>(new Map());
+  const [metricsById, setMetricsById] = useState<Map<string, HubMetricsRow>>(new Map());
   const [connErr, setConnErr] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
 
   const loadMetrics = useCallback(async () => {
     setLoadingMetrics(true);
-    const { data, error } = await paidAdsService.getGoogleAdsCampaignsMetrics(projectId, {
-      preset,
-    });
-    if (error) {
-      setConnErr(error);
-      setConnected(false);
-      setGoogleById(new Map());
-    } else {
-      setConnected(Boolean(data?.connected));
-      setConnErr(data?.connection_error ?? null);
-      const map = new Map<string, GoogleMetricsRow>();
-      for (const row of data?.campaigns ?? []) map.set(row.id, row);
-      setGoogleById(map);
+    const map = new Map<string, HubMetricsRow>();
+    let anyConnected = false;
+    let firstErr: string | null = null;
+
+    const ingest = (
+      rows: HubMetricsRow[] | undefined,
+      ok: boolean | undefined,
+      err: string | null | undefined,
+    ) => {
+      if (ok) anyConnected = true;
+      if (err && !firstErr) firstErr = err;
+      for (const row of rows ?? []) map.set(row.id, row);
+    };
+
+    const wantGoogle = plat === "all" || plat === "google_ads";
+    const wantMeta = plat === "all" || plat === "meta_ads";
+    const wantTiktok = plat === "all" || plat === "tiktok_ads";
+
+    if (wantGoogle) {
+      const { data, error } = await paidAdsService.getGoogleAdsCampaignsMetrics(projectId, { preset });
+      if (error) firstErr = firstErr ?? error;
+      else {
+        ingest(
+          (data?.campaigns ?? []).map((r) => ({
+            id: r.id,
+            daily_budget_micros: r.daily_budget_micros,
+            bidding_strategy: r.bidding_strategy ?? null,
+            google_status: r.google_status ?? null,
+            local_status: r.local_status ?? null,
+            budget_editable: r.budget_editable,
+            budget_reference_count: r.budget_reference_count,
+            metrics: r.metrics,
+          })),
+          data?.connected,
+          data?.connection_error ?? null,
+        );
+      }
     }
+    if (wantMeta) {
+      const { data, error } = await paidAdsService.getMetaAdsCampaignsMetrics(projectId, { preset });
+      if (error) firstErr = firstErr ?? error;
+      else {
+        ingest(
+          (data?.campaigns ?? []).map((r) => ({
+            id: r.id,
+            daily_budget_micros: r.daily_budget_micros,
+            metrics: r.metrics,
+          })),
+          data?.connected,
+          data?.network_error ?? null,
+        );
+      }
+    }
+    if (wantTiktok) {
+      const { data, error } = await paidAdsService.getTiktokAdsCampaignsMetrics(projectId, { preset });
+      if (error) firstErr = firstErr ?? error;
+      else {
+        ingest(
+          (data?.campaigns ?? []).map((r) => ({
+            id: r.id,
+            daily_budget_micros: r.daily_budget_micros,
+            metrics: r.metrics,
+          })),
+          data?.connected,
+          data?.network_error ?? null,
+        );
+      }
+    }
+
+    setConnected(anyConnected);
+    setConnErr(firstErr);
+    setMetricsById(map);
     setLoadingMetrics(false);
-  }, [projectId, preset]);
+  }, [projectId, preset, plat]);
 
   useEffect(() => {
     void loadMetrics();
@@ -169,13 +250,13 @@ export function DpilotCampaignsHub() {
   const servingOf = useCallback(
     (c: CampaignRow) => {
       if (c.platform !== "google_ads") return c.status;
-      const g = googleById.get(c.id);
+      const g = metricsById.get(c.id);
       return effectiveCampaignServingStatus({
         local_status: g?.local_status ?? c.status,
         google_status: g?.google_status,
       });
     },
-    [googleById],
+    [metricsById],
   );
 
   const pendingByCampaign = useMemo(() => {
@@ -197,13 +278,13 @@ export function DpilotCampaignsHub() {
     let conversions = 0;
     let conversionsValue = 0;
     let withMetrics = 0;
-    for (const row of googleById.values()) {
+    for (const row of metricsById.values()) {
       if (!row.metrics) continue;
       withMetrics += 1;
       clicks += row.metrics.clicks;
       costMicros += row.metrics.cost_micros;
       conversions += row.metrics.conversions;
-      conversionsValue += row.metrics.conversions_value;
+      conversionsValue += row.metrics.conversions_value ?? 0;
     }
     const cpaMicros = conversions > 0 ? costMicros / conversions : null;
     const costUsd = costMicros / 1e6;
@@ -220,7 +301,7 @@ export function DpilotCampaignsHub() {
       roas,
       withMetrics,
     };
-  }, [workList, googleById, servingOf]);
+  }, [workList, metricsById, servingOf]);
 
   const filtered = useMemo(() => {
     let xs = workList;
@@ -260,17 +341,32 @@ export function DpilotCampaignsHub() {
     }
   };
 
-  const studioAction = async (campaignId: string, action: "pause_campaign" | "resume_campaign") => {
+  const postStudio = (
+    platform: CampaignRow["platform"],
+    campaignId: string,
+    body: Record<string, unknown>,
+  ) => {
+    if (platform === "meta_ads") return paidAdsService.postMetaStudioActions(projectId, campaignId, body);
+    if (platform === "tiktok_ads") return paidAdsService.postTiktokStudioActions(projectId, campaignId, body);
+    return paidAdsService.postGoogleStudioActions(projectId, campaignId, body);
+  };
+
+  const studioAction = async (
+    campaignId: string,
+    platform: CampaignRow["platform"],
+    action: "pause_campaign" | "resume_campaign",
+  ) => {
     const label = action === "pause_campaign" ? "Pausar" : "Ativar";
-    if (!window.confirm(`${label} esta campanha na Google Ads?`)) return;
+    const net = networkLabel(platform);
+    if (!window.confirm(`${label} esta campanha na ${net}?`)) return;
     setBusyId(campaignId);
-    const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, { action });
+    const { data, error } = await postStudio(platform, campaignId, { action });
     setBusyId(null);
     if (error) toast.error(error);
     else {
       const info = describeStudioChangeRequestStatus(data?.change_request?.status);
       if (info.kind === "failed") toast.error(`${label}: ${info.message}`);
-      else if (info.kind === "applied") toast.success(`${label}: aplicado na Google.`);
+      else if (info.kind === "applied") toast.success(`${label}: aplicado na ${net}.`);
       else toast.message(`${label}: ${info.message}`);
       reload();
       void loadMetrics();
@@ -279,6 +375,7 @@ export function DpilotCampaignsHub() {
 
   const onBudget = (
     campaignId: string,
+    platform: CampaignRow["platform"],
     currentMicros: number | null,
     meta?: { budget_editable?: boolean; budget_reference_count?: number },
   ) => {
@@ -290,15 +387,17 @@ export function DpilotCampaignsHub() {
     }
     setBudgetDialog({
       campaignId,
+      platform,
       currentUsd: currentMicros != null ? currentMicros / 1e6 : null,
     });
   };
 
   const confirmBudget = async (usd: number) => {
     if (!budgetDialog) return;
-    const campaignId = budgetDialog.campaignId;
+    const { campaignId, platform } = budgetDialog;
+    const net = networkLabel(platform);
     setBusyId(campaignId);
-    const { data, error } = await paidAdsService.postGoogleStudioActions(projectId, campaignId, {
+    const { data, error } = await postStudio(platform, campaignId, {
       action: "update_budget_usd",
       daily_budget_usd: usd,
     });
@@ -308,7 +407,7 @@ export function DpilotCampaignsHub() {
       const info = describeStudioChangeRequestStatus(data?.change_request?.status);
       if (info.kind === "failed") toast.error(info.message);
       else if (info.kind === "applied") {
-        toast.success(`Orçamento ${usd.toFixed(2)} USD/dia aplicado na Google.`);
+        toast.success(`Orçamento ${usd.toFixed(2)} USD/dia aplicado na ${net}.`);
       } else toast.message(`Orçamento ${usd.toFixed(2)} USD/dia — ${info.message}`);
       setBudgetDialog(null);
       reload();
@@ -540,7 +639,7 @@ export function DpilotCampaignsHub() {
             </div>
           </div>
 
-          {loadingMetrics && googleById.size === 0 && workList.length === 0 ? (
+          {loadingMetrics && metricsById.size === 0 && workList.length === 0 ? (
             <Skeleton className="h-40 w-full" />
           ) : filtered.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border/80 px-4 py-10 text-center">
@@ -568,7 +667,7 @@ export function DpilotCampaignsHub() {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((c) => {
-                    const g = googleById.get(c.id);
+                    const g = metricsById.get(c.id);
                     const m = g?.metrics;
                     const busy = busyId === c.id;
                     const serving = servingOf(c);
@@ -578,7 +677,9 @@ export function DpilotCampaignsHub() {
                       (c.status === "draft" || c.status === "pending_publish") &&
                       (serving === "live" || serving === "paused");
                     const canToggle =
-                      c.platform === "google_ads" &&
+                      (c.platform === "google_ads" ||
+                        c.platform === "meta_ads" ||
+                        c.platform === "tiktok_ads") &&
                       Boolean(c.external_campaign_id) &&
                       (serving === "live" || serving === "paused");
                     const budgetMicros = g?.daily_budget_micros ?? c.daily_budget_micros ?? null;
@@ -595,7 +696,11 @@ export function DpilotCampaignsHub() {
                               disabled={busy}
                               aria-label={serving === "live" ? "Pausar" : "Ativar"}
                               onCheckedChange={(on) =>
-                                void studioAction(c.id, on ? "resume_campaign" : "pause_campaign")
+                                void studioAction(
+                                  c.id,
+                                  c.platform,
+                                  on ? "resume_campaign" : "pause_campaign",
+                                )
                               }
                             />
                           ) : (
@@ -653,13 +758,16 @@ export function DpilotCampaignsHub() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {c.platform === "google_ads" && c.external_campaign_id ? (
+                          {c.external_campaign_id &&
+                          (c.platform === "google_ads" ||
+                            c.platform === "meta_ads" ||
+                            c.platform === "tiktok_ads") ? (
                             <button
                               type="button"
                               className="text-left text-sm hover:underline disabled:opacity-50"
                               disabled={busy || g?.budget_editable === false}
                               onClick={() =>
-                                void onBudget(c.id, budgetMicros, {
+                                void onBudget(c.id, c.platform, budgetMicros, {
                                   budget_editable: g?.budget_editable,
                                   budget_reference_count: g?.budget_reference_count,
                                 })
@@ -690,36 +798,39 @@ export function DpilotCampaignsHub() {
                             <Button variant="secondary" size="sm" className="h-8" asChild>
                               <Link to={manageHref(projectId, c)}>Gerir</Link>
                             </Button>
+                            {c.status !== "archived" &&
+                            (c.platform === "google_ads" ||
+                              c.platform === "meta_ads" ||
+                              c.platform === "tiktok_ads") ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8"
+                                disabled={busy || !c.external_campaign_id}
+                                title="Orçamento"
+                                onClick={() =>
+                                  void onBudget(c.id, c.platform, budgetMicros, {
+                                    budget_editable: g?.budget_editable,
+                                    budget_reference_count: g?.budget_reference_count,
+                                  })
+                                }
+                              >
+                                <Wallet className="h-3.5 w-3.5" />
+                              </Button>
+                            ) : null}
                             {c.platform === "google_ads" && c.status !== "archived" ? (
-                              <>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8"
-                                  disabled={busy || !c.external_campaign_id}
-                                  title="Orçamento"
-                                  onClick={() =>
-                                    void onBudget(c.id, budgetMicros, {
-                                      budget_editable: g?.budget_editable,
-                                      budget_reference_count: g?.budget_reference_count,
-                                    })
-                                  }
-                                >
-                                  <Wallet className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8"
-                                  disabled={busy}
-                                  title="Duplicar"
-                                  onClick={() => onDuplicate(c.id, c.name, budgetMicros)}
-                                >
-                                  <Copy className="h-3.5 w-3.5" />
-                                </Button>
-                              </>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8"
+                                disabled={busy}
+                                title="Duplicar"
+                                onClick={() => onDuplicate(c.id, c.name, budgetMicros)}
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </Button>
                             ) : null}
                             <DpilotCampaignArchiveButton
                               projectId={projectId}

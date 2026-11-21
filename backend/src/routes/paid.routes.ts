@@ -93,6 +93,14 @@ paidRouter.post(
   asyncRoute((req, res) => paidController.postGoogleCampaignStudioActions(req, res)),
 );
 paidRouter.post(
+  "/projects/:projectId/campaigns/:campaignId/meta-studio-actions",
+  asyncRoute((req, res) => paidController.postMetaCampaignStudioActions(req, res)),
+);
+paidRouter.post(
+  "/projects/:projectId/campaigns/:campaignId/tiktok-studio-actions",
+  asyncRoute((req, res) => paidController.postTiktokCampaignStudioActions(req, res)),
+);
+paidRouter.post(
   "/projects/:projectId/campaigns/:campaignId/snap-daily-budget-to-guardrail",
   asyncRoute((req, res) => paidController.snapCampaignDailyBudgetToGuardrailCeiling(req, res)),
 );
@@ -115,6 +123,10 @@ paidRouter.get(
 paidRouter.get(
   "/projects/:projectId/health-summary",
   asyncRoute((req, res) => paidController.getProjectHealthSummary(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/networks-readiness",
+  asyncRoute((req, res) => paidController.networksReadiness(req, res)),
 );
 paidRouter.get(
   "/projects/:projectId/change-requests",
@@ -238,6 +250,48 @@ paidRouter.get(
 paidRouter.post(
   "/projects/:projectId/google-ads/import-campaigns",
   asyncRoute((req, res) => paidController.googleAdsImportCampaigns(req, res)),
+);
+/** Gestor Meta Ads — overview, métricas, import (sem Search Terms / RSA) */
+paidRouter.get(
+  "/projects/:projectId/meta-ads/overview",
+  asyncRoute((req, res) => paidController.metaAdsManagerOverview(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/meta-ads/campaigns-metrics",
+  asyncRoute((req, res) => paidController.metaAdsManagerCampaignsMetrics(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/meta-ads/inventory",
+  asyncRoute((req, res) => paidController.metaAdsManagerInventory(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/meta-ads/remote-campaigns",
+  asyncRoute((req, res) => paidController.metaAdsListRemoteCampaigns(req, res)),
+);
+paidRouter.post(
+  "/projects/:projectId/meta-ads/import-campaigns",
+  asyncRoute((req, res) => paidController.metaAdsImportCampaigns(req, res)),
+);
+/** Gestor TikTok Ads */
+paidRouter.get(
+  "/projects/:projectId/tiktok-ads/overview",
+  asyncRoute((req, res) => paidController.tiktokAdsManagerOverview(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/tiktok-ads/campaigns-metrics",
+  asyncRoute((req, res) => paidController.tiktokAdsManagerCampaignsMetrics(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/tiktok-ads/inventory",
+  asyncRoute((req, res) => paidController.tiktokAdsManagerInventory(req, res)),
+);
+paidRouter.get(
+  "/projects/:projectId/tiktok-ads/remote-campaigns",
+  asyncRoute((req, res) => paidController.tiktokAdsListRemoteCampaigns(req, res)),
+);
+paidRouter.post(
+  "/projects/:projectId/tiktok-ads/import-campaigns",
+  asyncRoute((req, res) => paidController.tiktokAdsImportCampaigns(req, res)),
 );
 paidRouter.get(
   "/projects/:projectId/google-ads/rsa-policy-audit",

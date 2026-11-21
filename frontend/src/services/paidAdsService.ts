@@ -294,6 +294,11 @@ export const paidAdsService = {
         spend_unknown_campaigns: number;
         roas: number | null;
         decisions_total_7d: number;
+        by_platform?: {
+          google_ads: number;
+          meta_ads: number;
+          tiktok_ads: number;
+        };
       };
       decisions_7d: Record<string, number>;
       campaigns: Array<{
@@ -1102,6 +1107,283 @@ export const paidAdsService = {
       `/paid/projects/${projectId}/campaigns/${campaignId}/google-studio-actions`,
       body,
     );
+  },
+
+  postMetaStudioActions(projectId: string, campaignId: string, body: Record<string, unknown>) {
+    return apiClient.post<{ ok: true; change_request: { id: string; status: string } }>(
+      `/paid/projects/${projectId}/campaigns/${campaignId}/meta-studio-actions`,
+      body,
+    );
+  },
+
+  postTiktokStudioActions(projectId: string, campaignId: string, body: Record<string, unknown>) {
+    return apiClient.post<{ ok: true; change_request: { id: string; status: string } }>(
+      `/paid/projects/${projectId}/campaigns/${campaignId}/tiktok-studio-actions`,
+      body,
+    );
+  },
+
+  getNetworksReadiness(projectId: string) {
+    return apiClient.get<{
+      ok: true;
+      google: {
+        connected: boolean;
+        campaigns: number;
+        linked: number;
+        live: number;
+        manager_ready: boolean;
+      };
+      meta: {
+        connected: boolean;
+        campaigns: number;
+        linked: number;
+        live: number;
+        missing_landing: number;
+        manager_ready: boolean;
+      };
+      tiktok: {
+        connected: boolean;
+        campaigns: number;
+        linked: number;
+        live: number;
+        with_ad: number;
+        missing_ad: number;
+        missing_landing: number;
+        manager_ready: boolean;
+      };
+      optimizer: {
+        enabled: boolean;
+        dry_run: boolean;
+        rules_phase: string;
+        covers: string[];
+        note: string;
+      };
+      score: { value: number };
+    }>(`/paid/projects/${projectId}/networks-readiness`);
+  },
+
+  getMetaAdsOverview(projectId: string, opts?: { preset?: string; from?: string; to?: string }) {
+    const q = new URLSearchParams();
+    if (opts?.preset) q.set("preset", opts.preset);
+    if (opts?.from) q.set("from", opts.from);
+    if (opts?.to) q.set("to", opts.to);
+    const qs = q.toString();
+    return apiClient.get<{
+      ok: true;
+      connected: boolean;
+      range: { from: string; to: string };
+      counts: Record<string, number>;
+      metrics: {
+        impressions: number;
+        clicks: number;
+        cost_micros: number;
+        conversions: number;
+        conversions_value?: number;
+        ctr: number;
+        average_cpc_micros: number;
+        roas: number;
+      } | null;
+      source: string;
+      connection_error?: string;
+    }>(`/paid/projects/${projectId}/meta-ads/overview${qs ? `?${qs}` : ""}`);
+  },
+
+  getMetaAdsCampaignsMetrics(projectId: string, opts?: { preset?: string; from?: string; to?: string }) {
+    const q = new URLSearchParams();
+    if (opts?.preset) q.set("preset", opts.preset);
+    if (opts?.from) q.set("from", opts.from);
+    if (opts?.to) q.set("to", opts.to);
+    const qs = q.toString();
+    return apiClient.get<{
+      ok: true;
+      connected: boolean;
+      range: { from: string; to: string };
+      network_error: string | null;
+      campaigns: Array<{
+        id: string;
+        name: string;
+        status: string;
+        external_campaign_id: string | null;
+        daily_budget_micros: number | null;
+        metrics: {
+          impressions: number;
+          clicks: number;
+          cost_micros: number;
+          conversions: number;
+          ctr: number;
+          roas: number;
+        } | null;
+      }>;
+    }>(`/paid/projects/${projectId}/meta-ads/campaigns-metrics${qs ? `?${qs}` : ""}`);
+  },
+
+  getMetaAdsInventory(projectId: string) {
+    return apiClient.get<{
+      ok: true;
+      campaigns: Array<{
+        id: string;
+        name: string;
+        status: string;
+        external_campaign_id: string | null;
+        adsets_count: number;
+        landing_url: string | null;
+      }>;
+      adsets: Array<{
+        id: string;
+        campaign_id: string;
+        campaign_name: string;
+        name: string;
+        status: string;
+        external_id: string | null;
+        daily_budget_cents: number | null;
+        creatives_count: number;
+        ads_count: number;
+      }>;
+      totals: {
+        campaigns: number;
+        adsets: number;
+        creatives: number;
+        ads: number;
+        linked: number;
+      };
+    }>(`/paid/projects/${projectId}/meta-ads/inventory`);
+  },
+
+  listRemoteMetaCampaigns(projectId: string) {
+    return apiClient.get<{
+      ok: true;
+      campaigns: Array<{
+        external_campaign_id: string;
+        name: string;
+        status: string;
+        objective: string | null;
+        daily_budget_cents: number | null;
+        budget_editable: boolean;
+        already_imported: boolean;
+        local_campaign_id: string | null;
+      }>;
+      totals: { remote: number; imported: number; new: number };
+    }>(`/paid/projects/${projectId}/meta-ads/remote-campaigns`);
+  },
+
+  importMetaCampaigns(
+    projectId: string,
+    body: { external_campaign_ids: string[]; refresh_existing?: boolean; landing_url?: string | null },
+  ) {
+    return apiClient.post<{
+      ok: true;
+      imported: Array<{ local_campaign_id: string; external_campaign_id: string; created: boolean }>;
+      skipped: Array<{ external_campaign_id: string; reason: string }>;
+      landing_url_stored: boolean;
+      note: string;
+    }>(`/paid/projects/${projectId}/meta-ads/import-campaigns`, body);
+  },
+
+  getTiktokAdsOverview(projectId: string, opts?: { preset?: string; from?: string; to?: string }) {
+    const q = new URLSearchParams();
+    if (opts?.preset) q.set("preset", opts.preset);
+    if (opts?.from) q.set("from", opts.from);
+    if (opts?.to) q.set("to", opts.to);
+    const qs = q.toString();
+    return apiClient.get<{
+      ok: true;
+      connected: boolean;
+      range: { from: string; to: string };
+      counts: Record<string, number>;
+      metrics: {
+        impressions: number;
+        clicks: number;
+        cost_micros: number;
+        conversions: number;
+        conversions_value?: number;
+        ctr: number;
+        average_cpc_micros: number;
+        roas: number;
+      } | null;
+      source: string;
+      connection_error?: string;
+    }>(`/paid/projects/${projectId}/tiktok-ads/overview${qs ? `?${qs}` : ""}`);
+  },
+
+  getTiktokAdsCampaignsMetrics(projectId: string, opts?: { preset?: string; from?: string; to?: string }) {
+    const q = new URLSearchParams();
+    if (opts?.preset) q.set("preset", opts.preset);
+    if (opts?.from) q.set("from", opts.from);
+    if (opts?.to) q.set("to", opts.to);
+    const qs = q.toString();
+    return apiClient.get<{
+      ok: true;
+      connected: boolean;
+      range: { from: string; to: string };
+      network_error: string | null;
+      campaigns: Array<{
+        id: string;
+        name: string;
+        status: string;
+        external_campaign_id: string | null;
+        daily_budget_micros: number | null;
+        metrics: {
+          impressions: number;
+          clicks: number;
+          cost_micros: number;
+          conversions: number;
+          ctr: number;
+          roas: number;
+        } | null;
+      }>;
+    }>(`/paid/projects/${projectId}/tiktok-ads/campaigns-metrics${qs ? `?${qs}` : ""}`);
+  },
+
+  getTiktokAdsInventory(projectId: string) {
+    return apiClient.get<{
+      ok: true;
+      campaigns: Array<{
+        id: string;
+        name: string;
+        status: string;
+        external_campaign_id: string | null;
+        tiktok_ad_group_id: string | null;
+        tiktok_ad_id: string | null;
+        daily_budget_micros: number | null;
+        landing_url: string | null;
+      }>;
+      totals: {
+        campaigns: number;
+        linked: number;
+        with_ad_group: number;
+        with_ad: number;
+      };
+    }>(`/paid/projects/${projectId}/tiktok-ads/inventory`);
+  },
+
+  listRemoteTiktokCampaigns(projectId: string) {
+    return apiClient.get<{
+      ok: true;
+      campaigns: Array<{
+        external_campaign_id: string;
+        name: string;
+        status: string;
+        objective: string | null;
+        daily_budget_micros: number | null;
+        budget_editable: boolean;
+        already_imported: boolean;
+        local_campaign_id: string | null;
+      }>;
+      totals: { remote: number; imported: number; new: number };
+    }>(`/paid/projects/${projectId}/tiktok-ads/remote-campaigns`);
+  },
+
+  importTiktokCampaigns(
+    projectId: string,
+    body: { external_campaign_ids: string[]; refresh_existing?: boolean; landing_url?: string | null },
+  ) {
+    return apiClient.post<{
+      ok: true;
+      imported: Array<{ local_campaign_id: string; external_campaign_id: string; created: boolean }>;
+      skipped: Array<{ external_campaign_id: string; reason: string }>;
+      landing_url_stored: boolean;
+      note: string;
+    }>(`/paid/projects/${projectId}/tiktok-ads/import-campaigns`, body);
   },
 
   patchGoogleCampaignDraft(projectId: string, campaignId: string, body: Record<string, unknown>) {

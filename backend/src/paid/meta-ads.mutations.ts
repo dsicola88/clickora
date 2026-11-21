@@ -138,6 +138,61 @@ export async function applyMetaPauseEntity(
   return { ok: true };
 }
 
+export async function applyMetaResumeEntity(
+  projectId: string,
+  p: { level: "campaign" | "adset" | "ad"; id: string },
+): Promise<CrResult> {
+  const t0 = await getMetaToken(projectId);
+  if ("err" in t0) return { ok: false, error: t0.err };
+
+  let ext: string | null = null;
+  if (p.level === "campaign") {
+    const c = await prisma.paidAdsCampaign.findFirst({
+      where: { id: p.id, projectId, platform: "meta_ads" },
+    });
+    if (!c) return { ok: false, error: "Campanha Meta não encontrada." };
+    ext = c.externalCampaignId ?? null;
+    if (ext) {
+      try {
+        await graphNodePost(ext, t0.token, { status: "ACTIVE" });
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : "Ativar campanha" };
+      }
+      await prisma.paidAdsCampaign.update({ where: { id: c.id }, data: { status: "live" } });
+    }
+  } else if (p.level === "adset") {
+    const a = await prisma.paidAdsMetaAdset.findFirst({
+      where: { id: p.id, campaign: { projectId, platform: "meta_ads" } },
+    });
+    if (!a) return { ok: false, error: "Ad set não encontrado." };
+    ext = a.externalId ?? null;
+    if (ext) {
+      try {
+        await graphNodePost(ext, t0.token, { status: "ACTIVE" });
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : "Ativar ad set" };
+      }
+      await prisma.paidAdsMetaAdset.update({ where: { id: a.id }, data: { status: "live" } });
+    }
+  } else {
+    const ad = await prisma.paidAdsMetaAd.findFirst({
+      where: { id: p.id, adset: { campaign: { projectId, platform: "meta_ads" } } },
+    });
+    if (!ad) return { ok: false, error: "Anúncio Meta não encontrado." };
+    ext = ad.externalAdId ?? null;
+    if (ext) {
+      try {
+        await graphNodePost(ext, t0.token, { status: "ACTIVE" });
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : "Ativar anúncio" };
+      }
+      await prisma.paidAdsMetaAd.update({ where: { id: ad.id }, data: { status: "live" } });
+    }
+  }
+  if (!ext) return { ok: false, error: "Entidade sem ID remoto no Meta." };
+  return { ok: true };
+}
+
 /** Se o criativo ainda não tiver anúncio no Meta, cria (requer Página; mesmas regras que create). */
 export async function applyMetaPublishCreative(
   projectId: string,
@@ -238,6 +293,15 @@ export async function applyMetaPublishCreative(
 
 export function isMetaMutationType(
   t: ChangeRequestType,
-): t is "meta_update_budget" | "meta_publish_creative" | "meta_pause_entity" {
-  return t === "meta_update_budget" || t === "meta_publish_creative" || t === "meta_pause_entity";
+): t is
+  | "meta_update_budget"
+  | "meta_publish_creative"
+  | "meta_pause_entity"
+  | "meta_resume_entity" {
+  return (
+    t === "meta_update_budget" ||
+    t === "meta_publish_creative" ||
+    t === "meta_pause_entity" ||
+    t === "meta_resume_entity"
+  );
 }

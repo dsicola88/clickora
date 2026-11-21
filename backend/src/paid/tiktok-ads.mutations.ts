@@ -1,9 +1,10 @@
 /**
- * Mutações TikTok: orçamento, pausar campanha/ad group.
+ * Mutações TikTok: orçamento, pausar/retomar, anexar anúncio (vídeo/imagem).
  */
 import type { PaidAdsChangeRequestType as ChangeRequestType } from "@prisma/client";
 
 import { prisma } from "./paidPrisma";
+import { publishTikTokCreateCampaignFromLocal } from "./tiktok-ads.publish";
 import { tiktokApiPostWithTokenRetry } from "./tiktok-oauth.api";
 
 type Env<T = unknown> = { code: number; message: string; data?: T; request_id?: string };
@@ -105,8 +106,86 @@ export async function applyTiktokPauseEntity(
   return { ok: true };
 }
 
+export async function applyTiktokResumeEntity(
+  projectId: string,
+  p: { level: "campaign" | "adgroup"; campaign_id: string },
+): Promise<CrResult> {
+  const conn = await prisma.paidAdsTikTokConnection.findUnique({ where: { projectId } });
+  if (!conn || conn.status !== "connected" || !conn.advertiserId) {
+    return { ok: false, error: "Ligue a conta TikTok (OAuth) e o advertiser." };
+  }
+  const c = await prisma.paidAdsCampaign.findFirst({
+    where: { id: p.campaign_id, projectId, platform: "tiktok_ads" },
+  });
+  if (!c) return { ok: false, error: "Campanha TikTok não encontrada." };
+
+  if (p.level === "campaign") {
+    if (!c.externalCampaignId) {
+      return { ok: false, error: "Campanha sem ID TikTok remoto." };
+    }
+    const r = (await tiktokApiPostWithTokenRetry(projectId, "campaign/update/", {
+      advertiser_id: conn.advertiserId,
+      campaign_id: c.externalCampaignId,
+      operation_status: "ENABLE",
+    })) as Env;
+    if (r.code !== 0) {
+      return { ok: false, error: r.message || "Ativar campanha TikTok" };
+    }
+    await prisma.paidAdsCampaign.update({ where: { id: c.id }, data: { status: "live" } });
+    return { ok: true };
+  }
+  if (!c.tiktokAdGroupId) {
+    return { ok: false, error: "Sem ad group remoto; publique a criação da campanha + ad group." };
+  }
+  const r2 = (await tiktokApiPostWithTokenRetry(projectId, "adgroup/update/", {
+    advertiser_id: conn.advertiserId,
+    adgroup_id: c.tiktokAdGroupId,
+    operation_status: "ENABLE",
+  })) as Env;
+  if (r2.code !== 0) {
+    return { ok: false, error: r2.message || "Ativar ad group TikTok" };
+  }
+  await prisma.paidAdsCampaign.update({ where: { id: c.id }, data: { status: "live" } });
+  return { ok: true };
+}
+
+/**
+ * Anexa anúncio (vídeo/imagem) a campanha já com campaign+ad group remotos.
+ * Payload: landing_url + material (video_asset_path | video_url | video_id | image_*).
+ */
+export async function applyTiktokPublishCreative(
+  projectId: string,
+  p: Record<string, unknown> & { campaign_id: string },
+): Promise<CrResult> {
+  const camp = await prisma.paidAdsCampaign.findFirst({
+    where: { id: p.campaign_id, projectId, platform: "tiktok_ads" },
+  });
+  if (!camp) return { ok: false, error: "Campanha TikTok não encontrada." };
+  if (!camp.externalCampaignId || !camp.tiktokAdGroupId) {
+    return {
+      ok: false,
+      error: "Publique primeiro a campanha + ad group; depois anexe o anúncio com material.",
+    };
+  }
+  if (camp.tiktokAdId) {
+    return { ok: true };
+  }
+  const out = await publishTikTokCreateCampaignFromLocal(projectId, camp.id, p);
+  if (!out.ok) return { ok: false, error: out.error };
+  return { ok: true };
+}
+
 export function isTiktokMutationType(
   t: ChangeRequestType,
-): t is "tiktok_update_budget" | "tiktok_pause_entity" {
-  return t === "tiktok_update_budget" || t === "tiktok_pause_entity";
+): t is
+  | "tiktok_update_budget"
+  | "tiktok_pause_entity"
+  | "tiktok_resume_entity"
+  | "tiktok_publish_creative" {
+  return (
+    t === "tiktok_update_budget" ||
+    t === "tiktok_pause_entity" ||
+    t === "tiktok_resume_entity" ||
+    t === "tiktok_publish_creative"
+  );
 }

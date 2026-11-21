@@ -77,6 +77,7 @@ Orientação rápida para equipa/comunicação honesta (**não são percentagens
 |---|--------------------------|----------|------------|
 | **Ligação de conta** | OAuth + Customer ID gravados na ligação | OAuth + seleção/referência ao Ad Account | OAuth + advertiser em contexto |
 | **Rascunho / plano** | IA ou fallback RSA + grupos/chaves (assistido) | IA ou fallback Meta (campanha, conjunto, criativos texto) | Plano TikTok gravado como campanha local |
+| **Campaign Manager (ops day-to-day)** | Visão, inventário Search, search terms, Final URL repair, studio | Visão + campanhas + import remoto + pause/resume/budget (`meta-studio-actions`, `meta-ads/*`) | Visão + campanhas + import remoto + pause/resume/budget (`tiktok-studio-actions`, `tiktok-ads/*`) |
 | **Publicação pela API quando Autopilot passa guardrails** | `google-ads.publish`: cria recurso Search (campanha, grupo, RSA, conforme modelo) (`GOOGLE_ADS_DEVELOPER_TOKEN` exigido) | `meta-ads.publish`: cria campanha ACTIVE + conjunto + anúncios Graph **se** página Facebook (`META_PROMOTED_PAGE_ID` / `META_PAGE_ID` ou `page_id`) estiver configurada | `tiktok-ads.publish`: **cria apenas campanha + ad group** remoto (`advertiser_id`); **Anúncios em vídeo** na API TikTok ficam como passos posteriores (o ficheiro de publish não faz upload criativo vídeo aqui — ver código) |
 | **Guardrails que bloqueiem autopublish** | Orçamentos, geo, keywords bloqueadas, etc., por projeto | Idem onde aplicável (conforme rotas Meta) | Idem TikTok onde implementado |
 

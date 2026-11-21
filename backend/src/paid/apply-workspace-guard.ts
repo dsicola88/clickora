@@ -72,7 +72,8 @@ export async function workspaceAllowsApplyBeforeRemote(
         message: `Não é possível aplicar na rede até corrigir estes pontos: ${msgs.join(" ")} Depois volte aqui e use novamente «Aplicar na rede».`,
       };
     }
-    case "update_budget": {
+    case "update_budget":
+    case "tiktok_update_budget": {
       const cid = getStr(p, "campaign_id");
       const m = getNum(p, "daily_budget_micros");
       if (!cid || m == null) return { ok: true };
@@ -85,6 +86,29 @@ export async function workspaceAllowsApplyBeforeRemote(
       const keywordTexts = campaign.adGroups.flatMap((ag) => ag.keywords.map((k) => k.text));
       const msgs = blockingViolationMessagesForApply(limits, {
         dailyBudgetMicros: m,
+        geoTargets,
+        keywordTexts,
+      });
+      if (msgs.length === 0) return { ok: true };
+      return {
+        ok: false,
+        message: `Não é possível aplicar na rede até corrigir estes pontos: ${msgs.join(" ")} Depois volte aqui e use novamente «Aplicar na rede».`,
+      };
+    }
+    case "meta_update_budget": {
+      const cents = getNum(p, "daily_budget_cents");
+      const adsetId = getStr(p, "meta_adset_id");
+      if (cents == null || !adsetId) return { ok: true };
+      const adset = await prisma.paidAdsMetaAdset.findFirst({
+        where: { id: adsetId, campaign: { projectId } },
+        include: { campaign: { include: { adGroups: { include: { keywords: true } } } } },
+      });
+      if (!adset) return { ok: true };
+      const micros = Math.round(cents * 10_000);
+      const geoTargets = parseGeoTargets(adset.campaign.geoTargets);
+      const keywordTexts = adset.campaign.adGroups.flatMap((ag) => ag.keywords.map((k) => k.text));
+      const msgs = blockingViolationMessagesForApply(limits, {
+        dailyBudgetMicros: micros,
         geoTargets,
         keywordTexts,
       });

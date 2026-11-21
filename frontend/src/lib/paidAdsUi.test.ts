@@ -2,12 +2,21 @@ import { describe, expect, it } from "vitest";
 
 import {
   changeRequestCampaignIdFromPayload,
+  changeRequestTypeLabel,
   describeStudioChangeRequestStatus,
   effectiveCampaignServingStatus,
   googleBiddingStrategyLabel,
   publishedBidStrategyHint,
   summarizeChangeRequestPayload,
 } from "./paidAdsUi";
+
+describe("changeRequestTypeLabel meta/tiktok resume", () => {
+  it("etiqueta resume Meta e TikTok", () => {
+    expect(changeRequestTypeLabel("meta_resume_entity")).toMatch(/Meta/i);
+    expect(changeRequestTypeLabel("tiktok_resume_entity")).toMatch(/TikTok/i);
+    expect(changeRequestTypeLabel("meta_pause_entity")).toMatch(/pausar/i);
+  });
+});
 
 describe("googleBiddingStrategyLabel", () => {
   it("traduz códigos Google para rótulo humano", () => {

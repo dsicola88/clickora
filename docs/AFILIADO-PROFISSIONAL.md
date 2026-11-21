@@ -2,9 +2,9 @@
 
 ## Resposta honesta
 
-Para **Google Ads + BuyGoods / Digistore / SmartAdv**, a dclickora cobre o funil de um media buyer sério: atribuição, P&L histórico, refunds, pending→aprovado, Automizer de keywords e anti-fraude básico.
+Para **Google Ads + Meta + TikTok + BuyGoods / Digistore / SmartAdv**, a dclickora cobre o funil de um media buyer sério ponta a ponta: atribuição, P&L, refunds, Campaign Manager nas 3 redes (pause/resume/budget/import/métricas), anexar anúncio TikTok, cockpit de prontidão multi-rede, Autopilot (pause/scale nas 3 redes; dry-run por defeito), Automizer keywords (Search) e anti-fraude no hop.
 
-Não é Voluum enterprise (sem Automizer multi-tráfego global). É o stack certo para quem escala Search + redes de postback.
+Fora de escopo Voluum-global: PoP mundial multi-edge e Automizer genérico fora do funil Clickora. Dentro do job «Search + paid social + postback», o produto está operacionalmente completo.
 
 ## Checklist
 
