@@ -820,7 +820,7 @@ export const ptBR = {
       "draftBannerStrong": "rascunho",
       "draftBannerAfter": ". O link do anúncio só abre depois de publicá-la em Presells.",
       "finalUrlTitle": "URL final para o Google Ads",
-      "finalUrlBefore": "Link da presell com UTMs e ValueTrack — copie e cole no campo",
+      "finalUrlBefore": "Copie em dois passos: URL final (só lander) e sufixo (UTMs + ValueTrack). Não junte tudo num campo.",
       "finalUrlStrong": "URL final",
       "finalUrlAfter": "do anúncio. Não acrescente gclid=… à mão — o Google injeta com auto-tagging.",
       "urlCopied": "URL copiada",
