@@ -156,8 +156,12 @@ export default function PresellManualBuilderPage() {
 
   const publicPresellTestUrl = useMemo(() => {
     if (!routeId) return null;
-    return getPublicPresellFullUrl(customDomains, customDomainId || null, { id: routeId });
-  }, [routeId, customDomains, customDomainId]);
+    return getPublicPresellFullUrl(customDomains, customDomainId || null, {
+      id: routeId,
+      slug: slugDraft,
+      type: pageTypeRef.current || "builder",
+    });
+  }, [routeId, customDomains, customDomainId, slugDraft]);
 
   const trackingEmbedScript = useMemo(() => {
     const uid = user?.id;
@@ -461,10 +465,14 @@ export default function PresellManualBuilderPage() {
         toast.success(t("pages.manualBuilder.published"));
         return;
       }
+      if (saved.slug) {
+        setSlugDraft(saved.slug);
+        lastSlugRef.current = saved.slug;
+      }
       const publicUrl = getPublicPresellFullUrl(
         customDomains,
         saved.custom_domain_id ?? customDomainId ?? null,
-        { id: saved.id },
+        saved,
       );
       toast.success(t("pages.manualBuilder.publishedReady"), {
         description: publicUrl,

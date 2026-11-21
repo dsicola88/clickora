@@ -793,10 +793,18 @@ export const presellController = {
       data.contentFingerprint = null;
     }
 
-    let updated = await systemPrisma.presellPage.update({
-      where: { id: page.id },
-      data: data as Prisma.PresellPageUpdateInput,
-    });
+    let updated: PresellPage;
+    try {
+      updated = await systemPrisma.presellPage.update({
+        where: { id: page.id },
+        data: data as Prisma.PresellPageUpdateInput,
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        return res.status(409).json({ error: "Já existe uma página com esse slug." });
+      }
+      throw error;
+    }
 
     if (req.body.custom_domain_id !== undefined) {
       const oldId = page.customDomainId;

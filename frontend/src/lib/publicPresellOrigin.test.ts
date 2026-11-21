@@ -64,6 +64,23 @@ describe("publicPresellOrigin hosting vs tracking", () => {
     );
   });
 
+  it("usa slug no domínio personalizado (manual /p/)", () => {
+    const domains = [domain({ id: "www", hostname: "truefindlab.blog", purpose: "hosting", is_default: true })];
+    const url = getPublicPresellFullUrl(domains, "www", {
+      id: "11df2eb9-63d3-4d8e-9f99-0e19906bd2f1",
+      slug: "trimoryn",
+      type: "builder",
+    });
+    expect(url).toBe("https://truefindlab.blog/p/trimoryn");
+  });
+
+  it("mantém UUID em origem dclickora mesmo com slug definido", () => {
+    const uuid = "11df2eb9-63d3-4d8e-9f99-0e19906bd2f1";
+    const url = getPublicPresellFullUrl(null, null, { id: uuid, slug: "trimoryn", type: "builder" });
+    expect(url).toContain(`/p/${uuid}`);
+    expect(url).not.toContain("trimoryn");
+  });
+
   it("com SSL pending não grava localhost se houver hostname verificado", () => {
     const domains = [
       domain({

@@ -161,16 +161,57 @@ export function isPresellLitePathEligible(type: string | null | undefined): bool
   return !LITE_BLOCKED_TYPES.has(t);
 }
 
+const MAIN_PLATFORM_HOSTS = new Set([
+  "dclickora.com",
+  "www.dclickora.com",
+  "clickora.com",
+  "www.clickora.com",
+]);
+
+/**
+ * Origem dclickora / preview / dev — slug no path da SPA não é suportado (API exige UUID).
+ */
+export function isMainPlatformPresellOrigin(origin: string): boolean {
+  if (isLocalDevOrigin(origin)) return true;
+  try {
+    const h = new URL(origin.includes("://") ? origin : `https://${origin}`).hostname.toLowerCase();
+    if (MAIN_PLATFORM_HOSTS.has(h)) return true;
+    if (h.endsWith(".dclickora.com") || h.endsWith(".vercel.app")) return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Segmento do path público: slug no domínio personalizado; UUID em dclickora.dev e `/l/` (LCP).
+ */
+export function resolvePublicPresellPath(
+  page: { id: string; slug?: string | null; type?: string | null },
+  origin: string,
+): string {
+  const slug = (page.slug ?? "").trim();
+  const onCustomLander = !isMainPlatformPresellOrigin(origin);
+  const canUseSlug = onCustomLander && slug.length > 0 && !isPresellUuidParam(slug);
+
+  const lite = isPresellLitePathEligible(page.type);
+  if (lite && !canUseSlug) {
+    return `/l/${page.id}`;
+  }
+  const segment = canUseSlug ? slug : page.id;
+  return `/p/${segment}`;
+}
+
 /**
  * URL completo para anúncios e cópia: domínio escolhido + `/l/<uuid>` (LCP)
- * quando elegível; senão `/p/<uuid>` (SPA / gates).
+ * quando elegível; senão `/p/<uuid>` ou `/p/<slug>` no domínio verificado.
  */
 export function getPublicPresellFullUrl(
   domains: CustomDomainDto[] | null | undefined,
   presellCustomDomainId: string | null | undefined,
-  page: { id: string; type?: string | null },
+  page: { id: string; slug?: string | null; type?: string | null },
 ): string {
   const origin = getPublicPresellOriginForPresell(domains, presellCustomDomainId).replace(/\/+$/, "");
-  const path = isPresellLitePathEligible(page.type) ? `/l/${page.id}` : `/p/${page.id}`;
+  const path = resolvePublicPresellPath(page, origin);
   return `${origin}${path}`;
 }
