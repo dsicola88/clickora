@@ -32,6 +32,7 @@
     "test:affiliate-dns": "tsx scripts/test-custom-domain-flow.ts",
     "test:presell-multitenant": "tsx scripts/test-presell-multitenant-flow.ts",
     "test:e2e-presell-flow": "tsx scripts/e2e-presell-flow-audit.ts",
+    "test:google-ads-url-seed-audit": "tsx scripts/e2e-google-ads-url-seed-audit.ts",
     "test:dual-pillar-gate": "tsx scripts/e2e-dual-pillar-release-gate.ts",
     "test:e2e-sync-health": "tsx scripts/e2e-sync-health-contract.ts",
     "test:e2e-paid-creative-swap": "tsx scripts/e2e-paid-creative-swap-contract.ts",

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronLeft, ChevronRight, Copy } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,9 @@ import {
 } from "@/components/ui/select";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { cn } from "@/lib/utils";
-import { campaignsService, buildTrackedPresellUrl } from "@/services/campaignsService";
+import { campaignsService } from "@/services/campaignsService";
+import { GoogleAdsPresellUrlBlock } from "@/components/tracking/GoogleAdsPresellUrlBlock";
+import { buildGoogleAdsPresellUrlParts } from "@/lib/googleAdsPresellUrl";
 import { presellService } from "@/services/presellService";
 import { useCustomDomains } from "@/hooks/useCustomDomains";
 import { trafficRotatorsService } from "@/services/trafficRotatorsService";
@@ -135,7 +137,6 @@ export default function CreatePresellWizardPage() {
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
   const [reviewVariant, setReviewVariant] = useState<"a" | "b">("a");
   const [rotatorAdUrl, setRotatorAdUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [genPhase, setGenPhase] = useState<"idle" | "import" | "publish" | "ab" | "rotator">("idle");
   const [mirrorFidelityOk, setMirrorFidelityOk] = useState(true);
   const [wizardReadiness, setWizardReadiness] = useState<PublishReadinessItem[]>([]);
@@ -738,25 +739,13 @@ export default function CreatePresellWizardPage() {
     },
   });
 
-  const trackedSingle =
-    publicUrl && campaignName
-      ? buildTrackedPresellUrl(publicUrl, campaignName, trafficSource)
-      : publicUrl;
-  const tracked = rotatorAdUrl || trackedSingle;
-
-  const copy = async () => {
-    if (!tracked) return;
-    await navigator.clipboard.writeText(tracked);
-    setCopied(true);
-    toast.success(
-      rotatorAdUrl
-        ? enableTriplePack
-          ? t("pages.createPresell.copyRotatorTriple")
-          : t("pages.createPresell.copyRotatorAb")
-        : t("pages.createPresell.copyAdUrl"),
-    );
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const adsLandingBase = rotatorAdUrl || publicUrl;
+  const adsFinalUrlForDpilot = useMemo(() => {
+    const base = adsLandingBase?.trim();
+    const name = campaignName.trim();
+    if (!base || !name) return "";
+    return buildGoogleAdsPresellUrlParts(base, name, trafficSource).finalUrl;
+  }, [adsLandingBase, campaignName, trafficSource]);
 
   const steps = [
     { n: 1 as const, label: t("pages.createPresell.stepOffer") },
@@ -1334,7 +1323,7 @@ export default function CreatePresellWizardPage() {
             </div>
           ) : null}
 
-          {tracked ? (
+          {adsLandingBase && campaignName.trim() ? (
             <div
               className="rounded-xl border border-emerald-600/30 bg-emerald-600/5 p-4 space-y-3"
               data-testid="presell-final-ads-url"
@@ -1346,22 +1335,20 @@ export default function CreatePresellWizardPage() {
                   <strong className="text-foreground/90">{t("pages.createPresell.finalUrlStrong")}</strong>{" "}
                   {t("pages.createPresell.finalUrlAfter")}
                 </p>
+                {rotatorAdUrl ? (
+                  <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed">
+                    {enableTriplePack
+                      ? t("pages.createPresell.rotatorTripleAdsHint")
+                      : t("pages.createPresell.rotatorAbAdsHint")}
+                  </p>
+                ) : null}
               </div>
-              <div className="rounded-lg border border-border/60 bg-background px-3 py-2.5">
-                <p className="break-all font-mono text-[11px] sm:text-xs leading-relaxed text-foreground/90 select-all">
-                  {tracked}
-                </p>
-              </div>
-              <Button
-                type="button"
-                className="w-full sm:w-auto gap-2"
-                size="lg"
+              <GoogleAdsPresellUrlBlock
+                basePresellUrl={adsLandingBase}
+                campaignName={campaignName.trim()}
+                trafficSource={trafficSource}
                 disabled={!mirrorFidelityOk}
-                onClick={() => void copy()}
-              >
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                {copied ? t("pages.createPresell.urlCopied") : t("pages.createPresell.copyFullUrl")}
-              </Button>
+              />
               {!mirrorFidelityOk ? (
                 <p className="text-[11px] text-amber-800 dark:text-amber-200">
                   {t("pages.createPresell.publishFirst")}
@@ -1465,11 +1452,11 @@ export default function CreatePresellWizardPage() {
             <Button className="w-full sm:w-auto" onClick={() => setStep(5)}>
               {t("pages.createPresell.continueReview")}
             </Button>
-            {mirrorFidelityOk && tracked && canAdvertiseDpilot ? (
+            {mirrorFidelityOk && adsFinalUrlForDpilot && canAdvertiseDpilot ? (
               <Button
                 variant="secondary"
                 className="w-full sm:w-auto"
-                onClick={() => navigate(dpilotAdsHandoffHref(tracked))}
+                onClick={() => navigate(dpilotAdsHandoffHref(adsFinalUrlForDpilot))}
               >
                 {t("pages.createPresell.advertiseGoogle")}
               </Button>
@@ -1485,13 +1472,13 @@ export default function CreatePresellWizardPage() {
           variant={reviewVariant}
           onVariant={setReviewVariant}
           published={mirrorFidelityOk}
-          adUrl={tracked}
-          copied={copied}
-          onCopy={() => void copy()}
+          basePresellUrl={adsLandingBase}
+          campaignName={campaignName.trim() || "campanha"}
+          trafficSource={trafficSource}
           onEdit={() => navigate(`/presell/builder/${reviewVariant === "b" && presellIdB ? presellIdB : presellId}`)}
           onAdvertise={
-            mirrorFidelityOk && tracked && canAdvertiseDpilot
-              ? () => navigate(dpilotAdsHandoffHref(tracked))
+            mirrorFidelityOk && adsFinalUrlForDpilot && canAdvertiseDpilot
+              ? () => navigate(dpilotAdsHandoffHref(adsFinalUrlForDpilot))
               : undefined
           }
           onClose={() => navigate("/presells")}

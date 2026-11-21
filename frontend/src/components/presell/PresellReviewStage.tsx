@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Check, Copy, Megaphone, Monitor, Pencil, Smartphone, Tablet, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Megaphone, Monitor, Pencil, Smartphone, Tablet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { presellService } from "@/services/presellService";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
@@ -11,6 +11,8 @@ import {
   clearEditorChromeThemeAttr,
   readStoredEditorChromeTheme,
 } from "@/page-builder/editorChromeTheme";
+import { GoogleAdsPresellUrlBlock } from "@/components/tracking/GoogleAdsPresellUrlBlock";
+import { buildGoogleAdsPresellUrlParts } from "@/lib/googleAdsPresellUrl";
 
 type Device = "desktop" | "tablet" | "mobile";
 
@@ -32,9 +34,10 @@ type Props = {
   variant: "a" | "b";
   onVariant: (v: "a" | "b") => void;
   published: boolean;
-  adUrl?: string | null;
-  copied: boolean;
-  onCopy: () => void;
+  /** Lander ou URL do rotador A/B — sem query na Final URL do Google. */
+  basePresellUrl?: string | null;
+  campaignName: string;
+  trafficSource?: string;
   onEdit: () => void;
   onAdvertise?: () => void;
   onClose: () => void;
@@ -50,9 +53,9 @@ export function PresellReviewStage({
   variant,
   onVariant,
   published,
-  adUrl,
-  copied,
-  onCopy,
+  basePresellUrl,
+  campaignName,
+  trafficSource = "Google Ads",
   onEdit,
   onAdvertise,
   onClose,
@@ -63,6 +66,14 @@ export function PresellReviewStage({
   const [scale, setScale] = useState(1);
   const activeId = variant === "b" && pageIdB ? pageIdB : pageId;
   const frame = FRAME[device];
+
+  const adsParts = useMemo(
+    () =>
+      basePresellUrl?.trim()
+        ? buildGoogleAdsPresellUrlParts(basePresellUrl.trim(), campaignName, trafficSource)
+        : null,
+    [basePresellUrl, campaignName, trafficSource],
+  );
 
   useEffect(() => {
     if (published) {
@@ -174,16 +185,6 @@ export function PresellReviewStage({
         >
           {published ? "Publicada" : "Rascunho"}
         </span>
-        <button
-          type="button"
-          onClick={onCopy}
-          disabled={!published || !adUrl}
-          title={adUrl || undefined}
-          className="flex h-8 max-w-[min(100%,14rem)] items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/15 px-2.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-500/25 disabled:opacity-40"
-        >
-          {copied ? <Check className="h-3.5 w-3.5 shrink-0" /> : <Copy className="h-3.5 w-3.5 shrink-0" />}
-          <span className="truncate">{copied ? "URL copiada" : "Copiar URL para o Ads"}</span>
-        </button>
         {onAdvertise ? (
           <button
             type="button"
@@ -204,25 +205,15 @@ export function PresellReviewStage({
         </button>
       </header>
 
-      {adUrl ? (
-        <div className="flex shrink-0 flex-col gap-2 border-b border-editor-border bg-editor-panel px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-editor-fg-muted">
-              URL final (presell + rastreamento)
-            </p>
-            <p className="mt-0.5 truncate font-mono text-[11px] text-editor-fg" title={adUrl}>
-              {adUrl}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onCopy}
+      {adsParts?.finalUrl && published ? (
+        <div className="shrink-0 border-b border-editor-border bg-editor-panel px-3 py-3">
+          <GoogleAdsPresellUrlBlock
+            basePresellUrl={basePresellUrl!.trim()}
+            campaignName={campaignName}
+            trafficSource={trafficSource}
+            editorChrome
             disabled={!published}
-            className="flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-40"
-          >
-            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? "Copiada" : "Copiar URL completa"}
-          </button>
+          />
         </div>
       ) : null}
 
@@ -247,7 +238,7 @@ export function PresellReviewStage({
                     <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
                     <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
                     <div className="ml-2 min-w-0 flex-1 truncate rounded-md bg-white px-2 py-0.5 text-[11px] text-zinc-500">
-                      {published ? adUrl || `/p/${activeId}` : "Rascunho — ainda não está no ar"}
+                      {published ? adsParts?.finalUrl || `/p/${activeId}` : "Rascunho — ainda não está no ar"}
                     </div>
                   </div>
                 ) : (

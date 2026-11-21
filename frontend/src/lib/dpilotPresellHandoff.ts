@@ -1,27 +1,11 @@
+import { cleanPresellUrlForGoogleFinalBase } from "@/lib/googleAdsPresellUrl";
+
 /** Query `?landing=` — a URL pública da presell segue até o assistente Google Ads. */
 export const DPILOT_LANDING_QUERY = "landing";
 
-/**
- * Final URL do Google Ads não deve levar ValueTrack (`{keyword}`, `{gclid}`, …).
- * Esses parâmetros ficam no sufixo / tracking template; a Final URL é a lander limpa.
- */
+/** Final URL limpa (sem query) para o assistente Google Ads / RSA. */
 export function sanitizeLandingUrlForAdsFinal(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return "";
-  try {
-    const u = new URL(trimmed);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
-    const dropKeys = new Set(["gclid", "gbraid", "wbraid", "msclkid", "fbclid", "ttclid"]);
-    for (const key of [...u.searchParams.keys()]) {
-      const v = u.searchParams.get(key) ?? "";
-      if (dropKeys.has(key.toLowerCase()) || /\{[a-z0-9_.]+\}/i.test(v)) {
-        u.searchParams.delete(key);
-      }
-    }
-    return u.toString();
-  } catch {
-    return "";
-  }
+  return cleanPresellUrlForGoogleFinalBase(raw);
 }
 
 export function parseDpilotLandingQuery(search: string | URLSearchParams): string {

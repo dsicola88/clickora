@@ -53,7 +53,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
-import { buildTrackedPresellUrl } from "@/services/campaignsService";
+import { buildGoogleAdsPresellUrlParts } from "@/lib/googleAdsPresellUrl";
 import {
   defaultMarketForLanguage,
   GRINGA_AFFILIATE_PLATFORMS,
@@ -836,11 +836,11 @@ export default function KeywordsPage() {
                     <Button type="button" size="sm" variant="outline" asChild>
                       <Link
                         to={dpilotAdsHandoffHref(
-                          buildTrackedPresellUrl(
+                          buildGoogleAdsPresellUrlParts(
                             finalUrl.trim(),
                             research?.product || "pesquisa",
                             "Google Ads",
-                          ),
+                          ).finalUrl,
                         )}
                         className="gap-1.5"
                       >

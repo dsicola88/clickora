@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { PRO_PAGE_SHELL, ProPageHeader } from "@/components/enterprise/ProShell";
 import { getUrlBuilderPlatformList } from "@/lib/marketingPlatforms";
+import { cleanPresellUrlForGoogleFinalBase } from "@/lib/googleAdsPresellUrl";
 import { orderedAdNetworkTokenSections } from "@/lib/adNetworkDynamicTokens";
 import { UrlBuilderTokenModalBody } from "@/components/tracking/UrlBuilderTokenModalBody";
 import { AdNetworkTokensReferenceDialog } from "@/components/tracking/AdNetworkTokensReferenceDialog";
@@ -291,7 +292,14 @@ type ParamRow = {
   valuePlaceholder?: string;
 };
 
-/** Query string (sem `?`) — valores com `{macro}` não são encodeados (Google ValueTrack). */
+/** Google / Microsoft Ads: sufixo sem click IDs (auto-tagging). */
+export function filterClickIdsFromParamRows(rows: ParamRow[]): ParamRow[] {
+  return rows.filter((p) => {
+    const k = p.key.trim().toLowerCase();
+    return k && !CLICK_ID_QUERY_KEYS.has(k);
+  });
+}
+
 function buildTrackingQueryString(rows: ParamRow[]): string {
   const valid = rows.filter((p) => p.key.trim());
   if (valid.length === 0) return "";
@@ -322,6 +330,7 @@ export default function UrlBuilder() {
   const [baseUrl, setBaseUrl] = useState("");
   const [params, setParams] = useState<ParamRow[]>([]);
   const [copied, setCopied] = useState(false);
+  const [copiedAdsFinal, setCopiedAdsFinal] = useState(false);
   const [copiedGoogleSuffix, setCopiedGoogleSuffix] = useState(false);
   const [tokenDialog, setTokenDialog] = useState<{ open: boolean; rowIndex: number }>({ open: false, rowIndex: -1 });
   const [macrosReferenceOpen, setMacrosReferenceOpen] = useState(false);
@@ -398,32 +407,73 @@ export default function UrlBuilder() {
     setTokenDialog({ open: false, rowIndex: -1 });
   };
 
+  const usesSearchAdsUrlSplit = platform === "Google Ads" || platform === "Bing Ads";
+
   const trackingQueryString = useMemo(() => buildTrackingQueryString(params), [params]);
 
+  const adsSuffixQueryString = useMemo(
+    () => buildTrackingQueryString(filterClickIdsFromParamRows(params)),
+    [params],
+  );
+
+  const adsFinalBase = useMemo(() => {
+    const raw = baseUrl.trim();
+    if (!raw || !isAbsoluteHttpUrl(raw)) return "";
+    return cleanPresellUrlForGoogleFinalBase(raw);
+  }, [baseUrl]);
+
   const generatedUrl = useMemo(() => {
-    if (!baseUrl) return "";
-    if (!trackingQueryString) return baseUrl;
-    const separator = baseUrl.includes("?") ? "&" : "?";
-    return `${baseUrl}${separator}${trackingQueryString}`;
-  }, [baseUrl, trackingQueryString]);
+    const landing = usesSearchAdsUrlSplit && adsFinalBase ? adsFinalBase : baseUrl.trim();
+    if (!landing) return "";
+    const qs = usesSearchAdsUrlSplit ? adsSuffixQueryString : trackingQueryString;
+    if (!qs) return landing;
+    const separator = landing.includes("?") ? "&" : "?";
+    return `${landing}${separator}${qs}`;
+  }, [baseUrl, adsFinalBase, trackingQueryString, adsSuffixQueryString, usesSearchAdsUrlSplit]);
 
   const handleCopy = () => {
-    if (!generatedUrl) { toast.error(t("pages.urlBuilder.needUrl")); return; }
+    if (usesSearchAdsUrlSplit) {
+      if (!adsFinalBase) {
+        toast.error(t("pages.urlBuilder.needUrl"));
+        return;
+      }
+      navigator.clipboard.writeText(adsFinalBase);
+      setCopiedAdsFinal(true);
+      toast.success(t("pages.createPresell.copyFinalUrlDone"));
+      setTimeout(() => setCopiedAdsFinal(false), 2000);
+      return;
+    }
+    if (!generatedUrl) {
+      toast.error(t("pages.urlBuilder.needUrl"));
+      return;
+    }
     navigator.clipboard.writeText(generatedUrl);
     setCopied(true);
     toast.success(t("pages.urlBuilder.copied"));
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleCopyGoogleAdsSuffix = () => {
-    if (!trackingQueryString) {
+  const handleCopyAdsSuffix = () => {
+    const qs = usesSearchAdsUrlSplit ? adsSuffixQueryString : trackingQueryString;
+    if (!qs) {
       toast.error(t("pages.urlBuilder.needSuffix"));
       return;
     }
-    navigator.clipboard.writeText(trackingQueryString);
+    navigator.clipboard.writeText(qs);
     setCopiedGoogleSuffix(true);
-    toast.success(t("pages.urlBuilder.suffixCopied"));
+    toast.success(t("pages.createPresell.copySuffixDone"));
     setTimeout(() => setCopiedGoogleSuffix(false), 2000);
+  };
+
+  const handleCopyCombinedPreview = () => {
+    if (!generatedUrl) {
+      toast.error(t("pages.urlBuilder.needUrl"));
+      return;
+    }
+    navigator.clipboard.writeText(generatedUrl);
+    setCopied(true);
+    toast.success(t("pages.urlBuilder.previewCopied"));
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const tokenSectionsOrdered = useMemo(() => orderedAdNetworkTokenSections(platform), [platform]);
@@ -708,36 +758,56 @@ export default function UrlBuilder() {
             </TabsContent>
 
             <TabsContent value="result" className="mt-5 space-y-6 outline-none">
-              {platform === "Google Ads" && trackingQueryString ? (
-                <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.06] px-4 py-4 space-y-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-foreground">{t("pages.urlBuilder.suffixTitle")}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{t("pages.urlBuilder.finalUrlBody")}</p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
-                    <div
-                      className="flex min-h-[4.5rem] flex-1 rounded-md border border-input bg-background px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground break-all shadow-sm"
-                      role="status"
-                    >
-                      {trackingQueryString}
+              {usesSearchAdsUrlSplit && adsFinalBase ? (
+                <div className="rounded-xl border border-emerald-600/25 bg-emerald-600/[0.06] px-4 py-4 space-y-4">
+                  <p className="text-xs text-muted-foreground leading-relaxed">{t("pages.urlBuilder.finalUrlBody")}</p>
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-foreground">{t("pages.createPresell.finalUrlFieldLabel")}</p>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
+                      <div
+                        className="flex min-h-[3rem] flex-1 rounded-md border border-input bg-background px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground break-all shadow-sm"
+                        role="status"
+                      >
+                        {adsFinalBase}
+                      </div>
+                      <Button type="button" variant="secondary" className="shrink-0 gap-2 sm:self-start" onClick={handleCopy}>
+                        {copiedAdsFinal ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                        {copiedAdsFinal ? t("common.copied") : t("pages.createPresell.copyFinalUrl")}
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="shrink-0 gap-2 sm:self-start"
-                      onClick={handleCopyGoogleAdsSuffix}
-                    >
-                      {copiedGoogleSuffix ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                      {copiedGoogleSuffix ? t("common.copied") : t("common.copy")}
-                    </Button>
                   </div>
+                  {adsSuffixQueryString ? (
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-foreground">{t("pages.createPresell.finalUrlSuffixFieldLabel")}</p>
+                      <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
+                        <div
+                          className="flex min-h-[4.5rem] flex-1 rounded-md border border-input bg-background px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground break-all shadow-sm"
+                          role="status"
+                        >
+                          {adsSuffixQueryString}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="shrink-0 gap-2 sm:self-start"
+                          onClick={handleCopyAdsSuffix}
+                        >
+                          {copiedGoogleSuffix ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                          {copiedGoogleSuffix ? t("common.copied") : t("pages.createPresell.copyUrlSuffix")}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground">
-                  {t("pages.urlBuilder.generatedUrl")}
+                  {usesSearchAdsUrlSplit ? t("pages.urlBuilder.previewCombined") : t("pages.urlBuilder.generatedUrl")}
                 </Label>
+                {usesSearchAdsUrlSplit ? (
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">{t("pages.urlBuilder.previewCombinedHint")}</p>
+                ) : null}
                 <div className="flex items-stretch gap-2">
                   <div
                     role="status"
@@ -760,9 +830,21 @@ export default function UrlBuilder() {
                       </a>
                     </Button>
                   ) : null}
-                  <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" onClick={handleCopy} title={t("pages.urlBuilder.copyUrl")}>
-                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                  </Button>
+                  {usesSearchAdsUrlSplit ? (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 h-10 w-10"
+                      onClick={handleCopyCombinedPreview}
+                      title={t("pages.urlBuilder.copyPreview")}
+                    >
+                      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" onClick={handleCopy} title={t("pages.urlBuilder.copyUrl")}>
+                      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  )}
                 </div>
               </div>
             </TabsContent>

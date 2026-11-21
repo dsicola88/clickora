@@ -31,6 +31,7 @@ import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { computePresellTrackingHealth } from "@/lib/presellTrackingHealth";
+import { buildGoogleAdsPresellUrlParts, presellAdsCampaignName } from "@/lib/googleAdsPresellUrl";
 import {
   parsePresellBuilderPageDocument,
   parsePresellEditorWorkingDocument,
@@ -155,6 +156,8 @@ export default function PresellManualBuilderPage() {
   const verifiedHostingDomains = listVerifiedHostingDomains(customDomains);
   const hasVerifiedCustomDomain = verifiedHostingDomains.length > 0;
 
+  const builderPageName = useBuilder((s) => s.doc.name);
+
   const publicPresellTestUrl = useMemo(() => {
     if (!routeId) return null;
     return getPublicPresellFullUrl(customDomains, customDomainId || null, {
@@ -163,6 +166,11 @@ export default function PresellManualBuilderPage() {
       type: pageTypeRef.current || "builder",
     });
   }, [routeId, customDomains, customDomainId, slugDraft]);
+
+  const adsCampaignName = useMemo(
+    () => presellAdsCampaignName(builderPageName, slugDraft),
+    [builderPageName, slugDraft],
+  );
 
   const trackingEmbedScript = useMemo(() => {
     const uid = user?.id;
@@ -476,12 +484,17 @@ export default function PresellManualBuilderPage() {
         saved.custom_domain_id ?? customDomainId ?? null,
         saved,
       );
+      const { finalUrl } = buildGoogleAdsPresellUrlParts(
+        publicUrl,
+        presellAdsCampaignName(saved.title, saved.slug),
+        "Google Ads",
+      );
       toast.success(t("pages.manualBuilder.publishedReady"), {
-        description: publicUrl,
+        description: finalUrl,
         duration: 8000,
       });
       try {
-        await navigator.clipboard.writeText(publicUrl);
+        await navigator.clipboard.writeText(finalUrl);
       } catch {
         /* ignore */
       }
@@ -885,6 +898,7 @@ export default function PresellManualBuilderPage() {
                     affiliateLink={affiliateDraft}
                     publishedPageId={routeId ?? null}
                     publicPageUrl={publicPresellTestUrl}
+                    campaignName={adsCampaignName}
                     isEditor
                   />
                   <PresellAdvancedTrackingCollapsible

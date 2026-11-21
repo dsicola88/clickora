@@ -137,7 +137,7 @@ export function computePresellTrackingHealth(input: {
     label: "URL final do Google Ads",
     status: "info",
     detail:
-      "Cola a URL gerada pela Clickora (UTMs + ValueTrack). Não ponhas gclid=… à mão — a Google injecta o ID no clique (auto-tagging).",
+      "Copia URL final e sufixo (dois campos no Google Ads). Não ponhas gclid=… à mão — auto-tagging injecta o ID no clique.",
   });
   items.push({
     id: "e2e-smoke",

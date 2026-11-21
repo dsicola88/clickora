@@ -8,12 +8,12 @@ import {
 } from "./dpilotPresellHandoff";
 
 describe("dpilotPresellHandoff", () => {
-  it("sanitize remove ValueTrack da Final URL e mantém UTMs estáticos", () => {
+  it("sanitize deixa só lander HTTPS (UTMs no sufixo Google)", () => {
     expect(
       sanitizeLandingUrlForAdsFinal(
         "https://www.marca.com/p/abc?utm_source=Google_Ads&utm_campaign=oferta&utm_term={keyword}&gclid={gclid}",
       ),
-    ).toBe("https://www.marca.com/p/abc?utm_source=Google_Ads&utm_campaign=oferta");
+    ).toBe("https://www.marca.com/p/abc");
   });
 
   it("aceita só http(s) absoluto e limpa macros ValueTrack no handoff", () => {
@@ -23,9 +23,7 @@ describe("dpilotPresellHandoff", () => {
     const encoded = new URLSearchParams({
       landing: "https://www.dclickora.com/p/abc?gclid={gclid}&utm_term={keyword}&utm_campaign=x",
     }).toString();
-    expect(parseDpilotLandingQuery(encoded)).toBe(
-      "https://www.dclickora.com/p/abc?utm_campaign=x",
-    );
+    expect(parseDpilotLandingQuery(encoded)).toBe("https://www.dclickora.com/p/abc");
     expect(parseDpilotLandingQuery("landing=/p/abc")).toBe("");
     expect(parseDpilotLandingQuery("landing=javascript:alert(1)")).toBe("");
   });

@@ -2,7 +2,7 @@ import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { fill, numberLocaleFor } from "@/i18n";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, ExternalLink, ChevronDown } from "lucide-react";
+import { ExternalLink, ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,8 @@ import { ErrorState } from "@/components/ErrorState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
-import { buildTrackedPresellUrl, campaignsService } from "@/services/campaignsService";
+import { campaignsService } from "@/services/campaignsService";
+import { GoogleAdsPresellUrlBlock } from "@/components/tracking/GoogleAdsPresellUrlBlock";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
 import { useCustomDomains } from "@/hooks/useCustomDomains";
 import { rangeLast14Days } from "@/lib/dateRangePresets";
@@ -46,7 +47,6 @@ export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [copied, setCopied] = useState(false);
   const [advOpen, setAdvOpen] = useState(false);
   const [spendDraft, setSpendDraft] = useState<string | null>(null);
   const initial = useMemo(() => rangeLast14Days(), []);
@@ -112,21 +112,7 @@ export default function CampaignDetailPage() {
           { id: campaign.presell_id },
         )
       : null;
-  const trackedUrl =
-    publicBase && campaign.name
-      ? buildTrackedPresellUrl(publicBase, campaign.name, campaign.traffic_source)
-      : null;
-
-  const copyLink = async () => {
-    if (!trackedUrl) {
-      toast.error(t("pages.campaignDetail.needPresell"));
-      return;
-    }
-    await navigator.clipboard.writeText(trackedUrl);
-    setCopied(true);
-    toast.success(t("pages.campaignDetail.linkCopied"));
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const showAdsUrls = Boolean(publicBase && campaign.name);
 
   const spendValue =
     spendDraft !== null
@@ -177,16 +163,6 @@ export default function CampaignDetailPage() {
             {t("pages.campaignDetail.activate")}
           </Button>
         ) : null}
-        <Button
-          variant="secondary"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => void copyLink()}
-          disabled={!trackedUrl}
-        >
-          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-          {t("pages.campaignDetail.copyAdLink")}
-        </Button>
       </ProToolbar>
 
       <ProKpiGrid>
@@ -235,10 +211,12 @@ export default function CampaignDetailPage() {
                 ) : (
                   <p className="text-xs text-amber-600">{t("pages.campaignDetail.noOfferUrl")}</p>
                 )}
-                {trackedUrl ? (
-                  <p className="text-[11px] font-mono text-muted-foreground break-all rounded-md border border-border/50 bg-muted/30 p-3">
-                    {trackedUrl}
-                  </p>
+                {showAdsUrls ? (
+                  <GoogleAdsPresellUrlBlock
+                    basePresellUrl={publicBase!}
+                    campaignName={campaign.name}
+                    trafficSource={campaign.traffic_source}
+                  />
                 ) : (
                   <p className="text-xs text-muted-foreground">{t("pages.campaignDetail.needPublished")}</p>
                 )}

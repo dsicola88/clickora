@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/PageHeader";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
+import { buildGoogleAdsPresellUrlParts } from "@/lib/googleAdsPresellUrl";
 import { useAuth } from "@/contexts/AuthContext";
 import { presellService } from "@/services/presellService";
 import {
@@ -348,6 +349,7 @@ export default function Rotadores() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TrafficRotatorDto | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [suffixCopiedId, setSuffixCopiedId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -551,11 +553,31 @@ export default function Rotadores() {
     }
   };
 
-  const copyUrl = async (url: string, id: string) => {
-    await navigator.clipboard.writeText(url);
-    setCopiedId(id);
-    toast.success(t("pages.rotators.toastCopied"));
+  const copyAdsFinalUrl = async (rotator: { id: string; name: string; public_click_url: string }) => {
+    const { finalUrl } = buildGoogleAdsPresellUrlParts(
+      rotator.public_click_url,
+      rotator.name,
+      "Google Ads",
+    );
+    await navigator.clipboard.writeText(finalUrl);
+    setCopiedId(rotator.id);
+    setSuffixCopiedId(null);
+    toast.success(t("pages.createPresell.copyFinalUrlDone"));
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const copyAdsSuffix = async (rotator: { id: string; name: string; public_click_url: string }) => {
+    const { finalUrlSuffix } = buildGoogleAdsPresellUrlParts(
+      rotator.public_click_url,
+      rotator.name,
+      "Google Ads",
+    );
+    if (!finalUrlSuffix) return;
+    await navigator.clipboard.writeText(finalUrlSuffix);
+    setSuffixCopiedId(rotator.id);
+    setCopiedId(null);
+    toast.success(t("pages.createPresell.copySuffixDone"));
+    setTimeout(() => setSuffixCopiedId(null), 2000);
   };
 
   const busy = createMut.isPending || updateMut.isPending;
@@ -648,10 +670,20 @@ export default function Rotadores() {
                   variant="outline"
                   size="sm"
                   className="h-8 text-xs gap-1"
-                  onClick={() => copyUrl(r.public_click_url, r.id)}
+                  onClick={() => void copyAdsFinalUrl(r)}
                 >
                   {copiedId === r.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  {t("pages.rotators.copyLink")}
+                  {t("pages.createPresell.copyFinalUrl")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs gap-1"
+                  onClick={() => void copyAdsSuffix(r)}
+                >
+                  {suffixCopiedId === r.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {t("pages.createPresell.copyUrlSuffix")}
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" asChild>
                   <a href={r.public_click_url} target="_blank" rel="noopener noreferrer">

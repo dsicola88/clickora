@@ -1,4 +1,9 @@
 import { apiClient } from "@/lib/apiClient";
+import {
+  buildGoogleAdsPresellUrlParts,
+  campaignUtmSlug,
+  type GoogleAdsPresellUrlParts,
+} from "@/lib/googleAdsPresellUrl";
 
 export type CampaignStats = {
   clicks: number;
@@ -76,64 +81,12 @@ export const campaignsService = {
   },
 };
 
-/** Slug curto para utm_campaign a partir do nome. */
-export function campaignUtmSlug(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 64) || "campanha";
-}
+export { campaignUtmSlug, buildGoogleAdsPresellUrlParts, type GoogleAdsPresellUrlParts };
 
 /**
- * URL para colar no anúncio: UTMs + ValueTrack reais da rede.
- * - `utm_campaign` = nome da campanha (slug)
- * - Google/Bing: `utm_term={keyword}` (a rede substitui no clique)
- * - Google: `utm_content={adgroupid}` — macros NÃO podem ir encodeadas (%7B…%7D)
- * - NÃO injectar gclid/gbraid/wbraid/fbclid/ttclid/msclkid: a rede acrescenta o ID
- *   com auto-tagging. `gclid={gclid}` é macro falsa → clique sem ID real → venda
- *   nunca sobe ao Google Ads.
+ * Lander + query numa string (QA / simular clique na lander).
+ * No Google Ads use `buildGoogleAdsPresellUrlParts` → `finalUrl` + `finalUrlSuffix`.
  */
 export function buildTrackedPresellUrl(basePresellUrl: string, campaignName: string, trafficSource: string): string {
-  try {
-    const u = new URL(basePresellUrl);
-    const slug = campaignUtmSlug(campaignName);
-    const src = trafficSource.toLowerCase();
-    const isGoogle = src.includes("google");
-    const isBing = src.includes("bing") || src.includes("microsoft");
-
-    const overrides: Record<string, string> = {};
-    if (!u.searchParams.has("utm_source")) {
-      overrides.utm_source = src.replace(/\s+/g, "_") || "ads";
-    }
-    if (!u.searchParams.has("utm_medium")) overrides.utm_medium = "cpc";
-    // Sempre o nome da campanha (slug) — identifica campanha nos Relatórios.
-    overrides.utm_campaign = slug;
-    if ((isGoogle || isBing) && !u.searchParams.has("utm_term")) {
-      overrides.utm_term = "{keyword}";
-    }
-    if (isGoogle && !u.searchParams.has("utm_content")) {
-      /** ValueTrack: ID do ad group — alinha com costSync entityKey. */
-      overrides.utm_content = "{adgroupid}";
-    }
-    if (isBing && !u.searchParams.has("utm_content")) {
-      overrides.utm_content = "{AdGroupId}";
-    }
-
-    const encVal = (v: string) => (v.includes("{") ? v : encodeURIComponent(v));
-    const parts: string[] = [];
-    u.searchParams.forEach((v, k) => {
-      if (Object.prototype.hasOwnProperty.call(overrides, k)) return;
-      parts.push(`${encodeURIComponent(k)}=${encVal(v)}`);
-    });
-    for (const [k, v] of Object.entries(overrides)) {
-      parts.push(`${encodeURIComponent(k)}=${encVal(v)}`);
-    }
-    u.search = parts.length ? `?${parts.join("&")}` : "";
-    return u.toString();
-  } catch {
-    return basePresellUrl;
-  }
+  return buildGoogleAdsPresellUrlParts(basePresellUrl, campaignName, trafficSource).combinedTrackingUrl;
 }

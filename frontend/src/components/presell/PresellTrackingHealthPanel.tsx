@@ -8,10 +8,9 @@ import {
   type TrackingHealthItem,
 } from "@/lib/presellTrackingHealth";
 import { MEDIA_BUYER_E2E_CHECKLIST } from "@/lib/mediaBuyerE2eChecklist";
-import { buildTrackedPresellUrl } from "@/services/campaignsService";
+import { GoogleAdsPresellUrlBlock } from "@/components/tracking/GoogleAdsPresellUrlBlock";
 import type { PresellConfigSettings } from "@/lib/presellConfigDefaults";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
 type Props = {
@@ -20,6 +19,9 @@ type Props = {
   affiliateLink: string;
   publishedPageId?: string | null;
   publicPageUrl?: string | null;
+  /** Título da presell/campanha — alimenta o sufixo UTMs (default genérico). */
+  campaignName?: string;
+  trafficSource?: string;
   isEditor?: boolean;
   /** No editor manual: permite ocultar o painel inteiro (mais espaço para o canvas). */
   onRequestHide?: () => void;
@@ -40,6 +42,8 @@ export function PresellTrackingHealthPanel({
   affiliateLink,
   publishedPageId,
   publicPageUrl,
+  campaignName = "campanha",
+  trafficSource = "Google Ads",
   isEditor,
   onRequestHide,
 }: Props) {
@@ -61,21 +65,7 @@ export function PresellTrackingHealthPanel({
     [publicPageUrl],
   );
 
-  /** URL final limpa para colar no anúncio (sem gclid manual — auto-tagging). */
-  const adsFinalUrl = useMemo(() => {
-    if (!publicPageUrl?.trim()) return null;
-    try {
-      return buildTrackedPresellUrl(publicPageUrl.trim(), "campanha", "Google Ads");
-    } catch {
-      return null;
-    }
-  }, [publicPageUrl]);
-
-  const copyAdsFinalUrl = () => {
-    if (!adsFinalUrl) return;
-    void navigator.clipboard.writeText(adsFinalUrl);
-    toast.success(t("pages.presells.toastAdsUrlCopied"));
-  };
+  const showGoogleAdsUrls = Boolean(publicPageUrl?.trim());
 
   return (
     <div
@@ -161,7 +151,7 @@ export function PresellTrackingHealthPanel({
         ))}
       </ul>
 
-      {testUrl || adsFinalUrl ? (
+      {testUrl || showGoogleAdsUrls ? (
         <div
           className={cn(
             "flex flex-col gap-2 pt-1 border-t border-dashed",
@@ -171,22 +161,15 @@ export function PresellTrackingHealthPanel({
           <span className={cn("text-[11px]", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
             Media buyer: copia a URL final para o anúncio; usa o teste Ads para validar CTA → rede (não substitui 1 clique pago real).
           </span>
+          {showGoogleAdsUrls ? (
+            <GoogleAdsPresellUrlBlock
+              basePresellUrl={publicPageUrl!.trim()}
+              campaignName={campaignName}
+              trafficSource={trafficSource}
+              editorChrome={isEditor}
+            />
+          ) : null}
           <div className="flex flex-wrap gap-2">
-            {adsFinalUrl ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "gap-1.5 shrink-0",
-                  isEditor && "border-editor-border bg-editor-panel text-editor-fg hover:bg-editor-border/80",
-                )}
-                onClick={copyAdsFinalUrl}
-              >
-                <Link2 className="h-3.5 w-3.5" />
-                {t("pages.createPresell.copyFullUrl")}
-              </Button>
-            ) : null}
             {testUrl ? (
               <Button
                 type="button"
