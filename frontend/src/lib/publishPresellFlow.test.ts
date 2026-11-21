@@ -68,6 +68,8 @@ describe("bakeAndMaybePublishPresell", () => {
     });
 
     expect(result.published).toBe(false);
+    expect(result.readinessBlocked).toBe(false);
+    expect(result.complianceBlocked).toBe(false);
     expect(result.block?.id).toBe("offer");
     expect(presellService.update).toHaveBeenCalledWith(
       "p1",

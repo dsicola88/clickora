@@ -28,7 +28,10 @@ export async function bakeAndMaybePublishPresell(args: {
   page: Presell;
   readiness: PublishReadinessItem[];
   published: boolean;
+  /** Gate `assertPublishAllowed` (DT/OC/CL…) — não confundir com CTAs sem track. */
   complianceBlocked: boolean;
+  /** Tentou publicar mas ficou rascunho por readiness (hoplink / CTAs) sem gate de conformidade. */
+  readinessBlocked: boolean;
   block: PublishReadinessItem | null;
 }> {
   const affiliate = args.affiliateLink.trim();
@@ -76,9 +79,8 @@ export async function bakeAndMaybePublishPresell(args: {
   if (error && !updated) throw new Error(error);
 
   const live = (updated ?? args.page) as Presell & { compliance_blocked?: boolean };
-  const complianceBlocked = Boolean(
-    live.compliance_blocked || (tryPublish && live.status !== "published"),
-  );
+  const complianceBlocked = Boolean(live.compliance_blocked);
+  const readinessBlocked = Boolean(tryPublish && !complianceBlocked && live.status !== "published");
   const readiness = buildPublishReadinessFromPresell({
     status: live.status,
     affiliateLink: affiliate,
@@ -94,6 +96,7 @@ export async function bakeAndMaybePublishPresell(args: {
     readiness,
     published: live.status === "published" && !complianceBlocked,
     complianceBlocked,
+    readinessBlocked,
     block,
   };
 }

@@ -445,6 +445,7 @@ export default function CreatePresellWizardPage() {
       });
       const pageALive = pubA.page;
       const complianceBlocked = pubA.complianceBlocked;
+      const readinessBlocked = pubA.readinessBlocked;
       if (pubA.block && a.mirrorOk) {
         toast.warning(fill(t("pages.createPresell.toastDraftBlock"), { label: pubA.block.label, hint: pubA.block.hint || "" }).trim(), {
           duration: 8000,
@@ -646,6 +647,7 @@ export default function CreatePresellWizardPage() {
         mirrorOk: pubA.published,
         importPublishable: a.mirrorOk,
         complianceBlocked,
+        readinessBlocked,
         rotatorUrl,
         importNotes: imported.data?.import_notes ?? [],
         readinessItems: pubA.readiness,
@@ -660,6 +662,7 @@ export default function CreatePresellWizardPage() {
         mirrorOk,
         importPublishable,
         complianceBlocked,
+        readinessBlocked,
         rotatorUrl,
         importNotes,
         readinessItems,
@@ -715,6 +718,8 @@ export default function CreatePresellWizardPage() {
           t("pages.createPresell.toastComplianceDraft"),
           { duration: 10000 },
         );
+      } else if (readinessBlocked) {
+        toast.warning(t("pages.createPresell.toastStillDraft"), { duration: 10000 });
       } else if (importNotes.length > 0) {
         toast.warning(importNotes.join(" "));
       } else if (importPublishable) {

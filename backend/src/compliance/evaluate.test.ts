@@ -189,6 +189,28 @@ describe("presell compliance engine", () => {
     assert.equal(result("CL-004", ev).status, "FAIL");
   });
 
+  it("9a. hop HTTPS que redireciona para sales HTTP → DT-001 WARNING (MaxWeb/mwebkivo)", () => {
+    const signals = baseSignals({
+      affiliateLink: "https://mwebkivo.com/13026/4926/2/?",
+    });
+    const ev = evaluateCompliance({
+      signals,
+      destination: destOk({
+        https: false,
+        ok: true,
+        statusCode: 200,
+        redirectCount: 1,
+        domainChanged: true,
+        initialHost: "mwebkivo.com",
+        finalHost: "merchant.example.com",
+        finalUrl: "http://merchant.example.com/offer",
+        hops: ["https://mwebkivo.com/13026/4926/2/?", "http://merchant.example.com/offer"],
+      }),
+    });
+    assert.equal(result("DT-001", ev).status, "WARNING");
+    assert.equal(canPublishForAds(ev.gate), true);
+  });
+
   it("9. broken destination FAILs DT-002", () => {
     const ev = evaluateCompliance({
       signals: baseSignals(),

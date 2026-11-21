@@ -447,7 +447,10 @@ const RULES = [
     sourceIds: ["gads-destination-requirements", "msads-pilot-policy-cn"],
     sourceReviewedAt: "2026-10-15",
     run: ({ destination, signals }) => {
-      if (!signals.affiliateLink && !destination?.attempted) {
+      const hop = (signals.affiliateLink || "").trim();
+      const hopHttps = /^https:\/\//i.test(hop);
+
+      if (!hop && !destination?.attempted) {
         return {
           status: "NOT_CHECKED",
           confidence: 0,
@@ -456,6 +459,17 @@ const RULES = [
         };
       }
       if (!destination?.attempted) {
+        if (hopHttps) {
+          return {
+            status: "PASS",
+            confidence: 0.75,
+            evidence: {
+              summary: "Hop da oferta configurado em HTTPS (probe de destino não executado).",
+              details: [hop],
+            },
+            remediation: "A Final URL do anúncio deve ser a presell Clickora em HTTPS.",
+          };
+        }
         return {
           status: "NOT_CHECKED",
           confidence: 0,
@@ -469,6 +483,50 @@ const RULES = [
           confidence: 0.95,
           evidence: { summary: "Destino em HTTPS.", details: destination.finalUrl ? [destination.finalUrl] : undefined },
           remediation: "Mantenha certificado válido.",
+        };
+      }
+      /**
+       * Hop MaxWeb/BuyGoods em HTTPS que redireciona para sales page HTTP (ex. mwebkivo → merchant).
+       * Não bloqueia publicar: no Ads a Final URL é a presell; o visitante segue /track/r/ → hop HTTPS.
+       */
+      if (
+        hopHttps &&
+        destination.ok &&
+        (destination.redirectCount ?? 0) > 0 &&
+        (destination.hops?.[0] || "").trim().toLowerCase().startsWith("https:")
+      ) {
+        return {
+          status: "WARNING",
+          confidence: 0.8,
+          evidence: {
+            summary:
+              "A rede redireciona para uma página de venda em HTTP. O hop que configurou está em HTTPS — não impede anunciar a presell.",
+            details: [
+              hop,
+              destination.finalUrl ? `final=${destination.finalUrl}` : "",
+            ].filter(Boolean),
+          },
+          remediation:
+            "Confirme a oferta no browser. A conformidade da landing do produtor é responsabilidade deles; anuncie a URL HTTPS da Clickora.",
+        };
+      }
+      if (hopHttps && destination.ok && (destination.redirectCount ?? 0) === 0) {
+        return {
+          status: "PASS",
+          confidence: 0.7,
+          evidence: {
+            summary: "Hop da oferta em HTTPS; resposta alcançável.",
+            details: destination.finalUrl ? [destination.finalUrl] : [hop],
+          },
+          remediation: "Mantenha o hoplink em HTTPS.",
+        };
+      }
+      if (!hopHttps && hop) {
+        return {
+          status: "FAIL",
+          confidence: 0.95,
+          evidence: { summary: "O link da oferta deve começar com https://." },
+          remediation: "Cole o hoplink HTTPS da rede (BuyGoods, MaxWeb, etc.).",
         };
       }
       return {
