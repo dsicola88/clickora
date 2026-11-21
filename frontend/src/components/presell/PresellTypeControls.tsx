@@ -121,9 +121,9 @@ export function CookieConsentModal({
   };
 
   const allowClass =
-    "inline-flex h-11 min-h-[44px] flex-1 items-center justify-center rounded-xl border-0 bg-slate-900 px-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-800";
+    "inline-flex h-11 min-h-[44px] flex-1 cursor-pointer items-center justify-center rounded-xl border-0 bg-slate-900 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800";
   const closeClass =
-    "inline-flex h-11 min-h-[44px] flex-1 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50";
+    "inline-flex h-11 min-h-[44px] flex-1 cursor-pointer items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50";
 
   return (
     <>
@@ -145,7 +145,7 @@ export function CookieConsentModal({
             {cookieBody}{" "}
             <button
               type="button"
-              className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700"
+              className="cursor-pointer font-medium text-blue-600 underline underline-offset-2 transition-colors hover:text-blue-700"
               data-testid="presell-cookie-policy-open"
               onClick={(e) => {
                 e.stopPropagation();

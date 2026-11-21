@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import type { DeviceType, WidgetNode } from "../types";
 import { stylesToCssWidgetContent } from "../style-utils";
@@ -151,6 +151,9 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const [dismissed, setDismissed] = useState(false);
   const [policyOpen, setPolicyOpen] = useState(false);
   const [delayReady, setDelayReady] = useState(() => !c.delayMs || c.delayMs <= 0 || inBuilder);
+  const [hoverAllow, setHoverAllow] = useState(false);
+  const [hoverDecline, setHoverDecline] = useState(false);
+  const [hoverPolicy, setHoverPolicy] = useState(false);
 
   useEffect(() => {
     /** Após qualquer escolha o banner some; clearCookieConsentChoice volta a mostrá-lo. */
@@ -198,22 +201,40 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
     setDismissed(true);
   };
 
+  const pointerHover = {
+    allow: {
+      onMouseEnter: (e: MouseEvent) => {
+        e.stopPropagation();
+        setHoverAllow(true);
+      },
+      onMouseLeave: () => setHoverAllow(false),
+    },
+    decline: {
+      onMouseEnter: (e: MouseEvent) => {
+        e.stopPropagation();
+        setHoverDecline(true);
+      },
+      onMouseLeave: () => setHoverDecline(false),
+    },
+    policy: {
+      onMouseEnter: () => setHoverPolicy(true),
+      onMouseLeave: () => setHoverPolicy(false),
+    },
+  };
+
   const allowClass: CSSProperties = {
     ...visual.allowStyle,
-    cursor: inBuilder && commit ? "text" : "pointer",
-    transition: "background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease",
+    cursor: "pointer",
+    background: hoverAllow ? visual.allowHoverBg : visual.allowBg,
+    transition: "background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, filter 0.16s ease",
+    filter: hoverAllow ? "brightness(1.03)" : undefined,
   };
   const closeClass: CSSProperties = {
     ...visual.declineStyle,
-    cursor: inBuilder && commit ? "text" : "pointer",
+    cursor: "pointer",
+    background: hoverDecline ? visual.declineHoverBg : visual.declineStyle.background,
     transition: "background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease",
   };
-  const hoverCss = `
-    #${scopeId} .cookie-allow-btn:hover { background: ${visual.allowHoverBg} !important; }
-    #${scopeId} .cookie-decline-btn:hover { background: ${visual.declineHoverBg} !important; }
-    #${scopeId} .cookie-policy-link:hover { color: ${visual.policyLinkHoverColor} !important; }
-    #${scopeId} .cookie-allow-btn, #${scopeId} .cookie-decline-btn, #${scopeId} .cookie-policy-link { cursor: pointer; }
-  `;
 
   const saveCopy = (field: string, next: string) => {
     if (!commit) return;
@@ -271,7 +292,6 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
       }}
     >
       {anim ? <style>{anim.keyframes}</style> : null}
-      <style>{hoverCss}</style>
       {showCloseX && !inBuilder ? (
         <button
           type="button"
@@ -378,7 +398,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
                 }}
                 className="cookie-policy-link"
                 style={{
-                  color: visual.policyLinkColor,
+                  color: hoverPolicy ? visual.policyLinkHoverColor : visual.policyLinkColor,
                   textDecoration: "underline",
                   fontWeight: 500,
                   background: "none",
@@ -386,7 +406,9 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
                   padding: 0,
                   cursor: "pointer",
                   font: "inherit",
+                  transition: "color 0.16s ease",
                 }}
+                {...pointerHover.policy}
               >
                 {policyLabel}
               </button>
@@ -422,6 +444,7 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
                 alignItems: "center",
                 justifyContent: "center",
               }}
+              {...pointerHover.allow}
               onClick={(e) => {
                 if (inBuilder) {
                   e.preventDefault();
@@ -445,12 +468,13 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
               onClick={inBuilder ? undefined : () => dismiss("all")}
               className="cookie-allow-btn"
               style={allowClass}
+              {...pointerHover.allow}
             >
               {commit ? (
                 <CookieText
                   field="allowLabel"
                   value={allowLabel}
-                  style={{ color: "#ffffff", fontWeight: 700 }}
+                  style={{ color: allowClass.color, fontWeight: 700, cursor: "text" }}
                 />
               ) : (
                 allowLabel
@@ -463,8 +487,17 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
             onClick={inBuilder ? undefined : () => dismiss("essential")}
             className="cookie-decline-btn"
             style={closeClass}
+            {...pointerHover.decline}
           >
-            {commit ? <CookieText field="declineLabel" value={declineLabel} /> : declineLabel}
+            {commit ? (
+              <CookieText
+                field="declineLabel"
+                value={declineLabel}
+                style={{ cursor: "text" }}
+              />
+            ) : (
+              declineLabel
+            )}
           </button>
         </div>
       </div>

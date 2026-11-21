@@ -763,7 +763,8 @@ function WidgetContentTab({
                 {(foldSelection.kind === "heading" ||
                   foldSelection.kind === "text" ||
                   foldSelection.kind === "button" ||
-                  foldSelection.kind === "link") && (
+                  foldSelection.kind === "link" ||
+                  (foldSelection.kind === "block" && foldSelection.text.trim().length > 0)) && (
                   <TextareaField
                     label={t("pages.pageBuilder.widgets.fields.text")}
                     value={foldSelection.text}

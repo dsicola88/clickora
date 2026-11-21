@@ -68,6 +68,19 @@ export function classifyHtmlFoldElement(el: Element): HtmlFoldInnerKind | null {
   if (tag === "BUTTON" || el.getAttribute("role") === "button") return "button";
   if (tag === "P" || tag === "LI" || tag === "SPAN" || tag === "LABEL") return "text";
   if (tag === "DIV" || tag === "SECTION" || tag === "ARTICLE" || tag === "HEADER" || tag === "FOOTER" || tag === "TD") {
+    const text = (el.textContent || "").replace(/\s+/g, " ").trim();
+    const meta = `${el.getAttribute("class") || ""} ${el.getAttribute("id") || ""} ${el.getAttribute("role") || ""}`.toLowerCase();
+    const looksTitle =
+      el.getAttribute("role") === "heading" ||
+      /title|headline|heading|hero|product-?name|brand/.test(meta);
+    if (looksTitle && text.length > 0 && text.length <= 220) return "heading";
+    if (
+      text.length > 0 &&
+      text.length <= 280 &&
+      !el.querySelector("img,picture,video,iframe,table,form,button,a")
+    ) {
+      return "text";
+    }
     return "block";
   }
   return "block";
@@ -236,7 +249,10 @@ export function applyHtmlFoldPatchToElement(el: Element, patch: HtmlFoldPatch): 
 }
 
 export function enableTextFieldsInRoot(root: ParentNode) {
-  root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,span,a,button").forEach((el) => {
+  const nodes = root.querySelectorAll(
+    "h1,h2,h3,h4,h5,h6,p,li,span,a,button,[role=heading]",
+  );
+  nodes.forEach((el) => {
     if (el.closest("script,style")) return;
     if (el.querySelector("img,picture,video,iframe,table")) return;
     (el as HTMLElement).setAttribute(EDITABLE_ATTR, "1");

@@ -138,7 +138,7 @@ export function resolveCookieBannerVisual(
   const bodyColor = (c.bodyColor ?? "#475569").trim() || "#475569";
   const policyLinkColor = (c.policyLinkColor ?? allowBg).trim() || allowBg;
   const allowHoverBg =
-    (c.allowHoverBg ?? adjustHexColor(allowBg, -22)).trim() || adjustHexColor(allowBg, -22);
+    (c.allowHoverBg ?? adjustHexColor(allowBg, -32)).trim() || adjustHexColor(allowBg, -32);
   const declineHoverBg =
     (c.declineHoverBg ?? adjustHexColor(declineBg === "transparent" ? "#f8fafc" : declineBg, -8)).trim() ||
     declineBg;

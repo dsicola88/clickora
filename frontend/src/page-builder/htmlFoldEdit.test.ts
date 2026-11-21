@@ -56,6 +56,18 @@ describe("htmlFoldEdit", () => {
     expect(stripHtmlFoldEditorChrome(html)).toBe(html);
   });
 
+  it("títulos em div/section editáveis como heading ou texto", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `
+      <div class="product-title">Trimoryn</div>
+      <section class="hero-headline">Daily support headline</section>
+      <section>Short body copy only</section>
+    `;
+    expect(classifyHtmlFoldElement(root.querySelector(".product-title")!)).toBe("heading");
+    expect(classifyHtmlFoldElement(root.querySelector(".hero-headline")!)).toBe("heading");
+    expect(classifyHtmlFoldElement(root.querySelectorAll("section")[1]!)).toBe("text");
+  });
+
   it("cria snapshot para o painel", () => {
     const img = document.createElement("img");
     img.src = "https://cdn.example/p.png";
