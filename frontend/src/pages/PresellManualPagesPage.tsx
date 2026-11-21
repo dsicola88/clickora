@@ -511,7 +511,7 @@ export default function PresellManualPagesPage() {
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-end gap-1 flex-wrap">
                             <a
-                              href={publicUrl}
+                              href={parts.finalUrl}
                               target="_blank"
                               rel="noreferrer"
                               className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground inline-flex"

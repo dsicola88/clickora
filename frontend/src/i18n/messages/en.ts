@@ -847,6 +847,8 @@ export const en = {
       copyUrlSuffix: "Copy suffix",
       copyFinalUrlDone: "Final URL copied",
       copySuffixDone: "Suffix copied — paste in Google Ads without a leading ?",
+      finalUrlBody:
+        "In the final URL use only the presell (e.g. https://…/p/…) with no query. Paste the line below in Final URL suffix — with no ? at the start.",
       publishFirst: "Publish the page first — in draft the link is not live yet.",
       rowAdClicks: "Ad clicks",
       rowAdClicksVal: "Already on the ad link (Google IDs + UTMs) — no extra pixel",

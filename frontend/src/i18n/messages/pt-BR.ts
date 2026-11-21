@@ -832,6 +832,7 @@ export const ptBR = {
       "copyUrlSuffix": "Copiar sufixo",
       "copyFinalUrlDone": "URL final copiada",
       "copySuffixDone": "Sufixo copiado — cole no Google sem ? no início",
+      "finalUrlBody": "Na URL final use só a presell (ex. https://…/p/…) sem query. No sufixo da URL final cole a linha abaixo — sem ? no início.",
       "publishFirst": "Publique a página primeiro — em rascunho o link ainda não está no ar.",
       "rowAdClicks": "Cliques no anúncio",
       "rowAdClicksVal": "Já no link do anúncio (IDs Google + UTMs) — sem pixel extra",

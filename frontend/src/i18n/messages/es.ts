@@ -832,6 +832,7 @@ export const es = {
       "copyUrlSuffix": "Copiar sufijo",
       "copyFinalUrlDone": "URL final copiada",
       "copySuffixDone": "Sufijo copiado — pegue en Google sin ? al inicio",
+      "finalUrlBody": "En la URL final usa solo la presell (p. ej. https://…/p/…) sin query. En el sufijo de la URL final pega la línea de abajo — sin ? al principio.",
       "publishFirst": "Publica la página primero — en borrador el enlace aún no está en línea.",
       "rowAdClicks": "Clics en el anuncio",
       "rowAdClicksVal": "Ya en el enlace del anuncio (IDs de Google + UTMs) — sin píxel extra",
