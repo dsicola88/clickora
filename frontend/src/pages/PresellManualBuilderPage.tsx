@@ -129,6 +129,9 @@ export default function PresellManualBuilderPage() {
   const pageStatusRef = useRef<string>("draft");
   const lastCloudDocJsonRef = useRef("");
   const lastCloudSettingsJsonRef = useRef("");
+  const lastSlugRef = useRef("");
+  const lastCategoryRef = useRef("sem");
+  const lastCustomDomainRef = useRef("");
   const [cloudAutosaveStatus, setCloudAutosaveStatus] = useState<
     "idle" | "pending" | "saving" | "saved" | "error"
   >("idle");
@@ -285,11 +288,14 @@ export default function PresellManualBuilderPage() {
       lastCloudDocJsonRef.current = JSON.stringify(useBuilder.getState().doc);
       const hydrated = hydratePresellConfigSettings(data.settings as Record<string, unknown>);
       setSlugDraft(data.slug);
+      lastSlugRef.current = data.slug || "";
       setCategory(data.category || "sem");
+      lastCategoryRef.current = data.category || "sem";
       setLanguage(normalizePresellLocale(data.language));
       setAffiliateDraft(String(c.affiliateLink ?? ""));
       loadedOfferRef.current = String(c.affiliateLink ?? "");
       setCustomDomainId(data.custom_domain_id ?? "");
+      lastCustomDomainRef.current = data.custom_domain_id ?? "";
       setConfigSettings(hydrated);
       lastCloudSettingsJsonRef.current = JSON.stringify(hydrated);
       setEditorReady(true);
@@ -494,9 +500,15 @@ export default function PresellManualBuilderPage() {
     const snapshot = JSON.stringify(doc);
     const settingsPayload = buildSettingsPayloadRef.current();
     const settingsSnap = JSON.stringify(settingsPayload);
+    const slug = sanitizeSlug(slugDraftRef.current || useBuilder.getState().doc.name);
+    const categorySnap = categoryRef.current;
+    const domainSnap = customDomainIdRef.current;
     if (
       snapshot === lastCloudDocJsonRef.current &&
-      settingsSnap === lastCloudSettingsJsonRef.current
+      settingsSnap === lastCloudSettingsJsonRef.current &&
+      slug === lastSlugRef.current &&
+      categorySnap === lastCategoryRef.current &&
+      domainSnap === lastCustomDomainRef.current
     ) {
       return true;
     }
@@ -512,6 +524,11 @@ export default function PresellManualBuilderPage() {
       content,
       language: languageRef.current,
       settings: settingsPayload,
+      slug,
+      category: categorySnap,
+      ...(hasVerifiedCustomDomain
+        ? { custom_domain_id: domainSnap || null }
+        : {}),
     });
     if (error) {
       setCloudAutosaveStatus("error");
@@ -519,6 +536,9 @@ export default function PresellManualBuilderPage() {
     }
     lastCloudDocJsonRef.current = snapshot;
     lastCloudSettingsJsonRef.current = settingsSnap;
+    lastSlugRef.current = slug;
+    lastCategoryRef.current = categorySnap;
+    lastCustomDomainRef.current = domainSnap;
     contentRef.current = content;
     setLastCloudSavedAt(Date.now());
     setCloudAutosaveStatus("saved");
@@ -530,7 +550,7 @@ export default function PresellManualBuilderPage() {
       setAwaitingVisualPublish(true);
     }
     return true;
-  }, []);
+  }, [hasVerifiedCustomDomain]);
 
   const bootstrapDraftInCloud = useCallback(async (doc: PageDocument) => {
     if (draftBootstrapRef.current || cloudInflightRef.current) return;
@@ -635,6 +655,31 @@ export default function PresellManualBuilderPage() {
       document.removeEventListener("visibilitychange", onHidden);
     };
   }, [editorReady, routeId, canSaveToAccount, pushWorkingToCloud, bootstrapDraftInCloud]);
+
+  /** Slug / categoria / domínio — autosave (antes só iam no Publicar). */
+  useEffect(() => {
+    if (!editorReady || !routeId || !canSaveToAccount) return;
+    const slug = sanitizeSlug(slugDraft);
+    if (
+      slug === lastSlugRef.current &&
+      category === lastCategoryRef.current &&
+      customDomainId === lastCustomDomainRef.current
+    ) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void pushWorkingToCloud(routeId, useBuilder.getState().doc);
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [
+    slugDraft,
+    category,
+    customDomainId,
+    editorReady,
+    routeId,
+    canSaveToAccount,
+    pushWorkingToCloud,
+  ]);
 
   /** Autosave pixels/settings mesmo sem alterar o canvas. */
   useEffect(() => {

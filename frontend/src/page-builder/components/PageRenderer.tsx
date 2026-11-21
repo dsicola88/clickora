@@ -75,7 +75,16 @@ export function PageRenderer({
   );
 }
 
+function sectionHasFaithfulMirror(section: SectionNode): boolean {
+  return section.columns.some((col) =>
+    col.widgets.some(
+      (w) => w.type === "html" && (w.content as { fromMirror?: boolean }).fromMirror === true,
+    ),
+  );
+}
+
 function SectionRender({ section, device }: { section: SectionNode; device: DeviceType }) {
+  const mirrorFaithful = sectionHasFaithfulMirror(section);
   const sectionStyle = stylesToCss(section.styles, device);
   const gap = resolveResponsive(section.columnGap, device) ?? 20;
   const widths = section.columns.map((c) => resolveResponsive(c.widthPercent, device) ?? 100);
@@ -92,12 +101,22 @@ function SectionRender({ section, device }: { section: SectionNode; device: Devi
   return (
     <section
       data-pb-id={section.id}
+      data-pb-mirror-faithful={mirrorFaithful ? "1" : undefined}
       data-stack={section.columns.length > 1 ? "1" : "0"}
       data-header={isStickyOrFixed ? "1" : undefined}
       style={{
         ...sectionStyle,
         maxWidth: "100%",
         boxSizing: "border-box",
+        ...(mirrorFaithful
+          ? {
+              paddingTop: 0,
+              paddingBottom: 0,
+              paddingLeft: 0,
+              paddingRight: 0,
+              overflow: "visible",
+            }
+          : {}),
         ...(needsChrome && !isStickyOrFixed
           ? {
               position:
@@ -126,13 +145,17 @@ function SectionRender({ section, device }: { section: SectionNode; device: Devi
         style={{
           position: "relative",
           zIndex: 2,
-          maxWidth: section.layout === "boxed" ? `${section.contentWidth}px` : "100%",
+          maxWidth: mirrorFaithful
+            ? "100%"
+            : section.layout === "boxed"
+              ? `${section.contentWidth}px`
+              : "100%",
           width: "100%",
-          marginLeft: "auto",
-          marginRight: "auto",
+          marginLeft: mirrorFaithful ? 0 : "auto",
+          marginRight: mirrorFaithful ? 0 : "auto",
           boxSizing: "border-box",
-          paddingLeft: device === "mobile" ? 0 : undefined,
-          paddingRight: device === "mobile" ? 0 : undefined,
+          paddingLeft: mirrorFaithful || device === "mobile" ? 0 : undefined,
+          paddingRight: mirrorFaithful || device === "mobile" ? 0 : undefined,
           ...sectionColumnsGrid(widths, device, gap, {
             direction,
             justify: resolveResponsive(section.flex?.justify, device),

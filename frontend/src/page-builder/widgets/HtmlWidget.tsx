@@ -103,6 +103,7 @@ export function HtmlWidget({ widget, device }: { widget: WidgetNode; device: Dev
   const commitRef = useRef(commit);
   commitRef.current = commit;
   const hostStyle = stylesToCssWidgetContent(widget.styles, device);
+  const fromMirror = Boolean((widget.content as { fromMirror?: boolean }).fromMirror);
   const setSelection = useHtmlFoldEdit((s) => s.setSelection);
   const setApplyPatch = useHtmlFoldEdit((s) => s.setApplyPatch);
   const clearFold = useHtmlFoldEdit((s) => s.clear);
@@ -218,7 +219,20 @@ export function HtmlWidget({ widget, device }: { widget: WidgetNode; device: Dev
   return (
     <div
       ref={hostRef}
-      style={{ ...hostStyle, width: "100%" }}
+      style={{
+        ...hostStyle,
+        width: "100%",
+        maxWidth: "100%",
+        ...(fromMirror
+          ? {
+              font: "initial",
+              letterSpacing: "initial",
+              lineHeight: "initial",
+              textAlign: "initial",
+              color: "initial",
+            }
+          : {}),
+      }}
       data-presell-html-fold="1"
       data-presell-html-editable={commit ? "1" : undefined}
       data-presell-html-fidelity="1"

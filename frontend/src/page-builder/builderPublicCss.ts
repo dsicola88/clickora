@@ -39,6 +39,31 @@ export const BUILDER_PUBLIC_RESPONSIVE_CSS = `
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+[data-presell-html-fidelity="1"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font: initial;
+  letter-spacing: initial;
+  line-height: initial;
+  text-align: initial;
+  color: initial;
+}
+[data-pb-mirror-faithful="1"] {
+  overflow: visible !important;
+  max-width: 100% !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+[data-pb-mirror-faithful="1"] [data-pb-columns] {
+  max-width: 100% !important;
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
 /* Alinhado a sectionDirectionFor: tablet + mobile empilham multi-coluna. */
 @media (max-width: ${BUILDER_TABLET_MAX_PX}px) {
   [data-pb-columns][data-pb-stackable="1"] {

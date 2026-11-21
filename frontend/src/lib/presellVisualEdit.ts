@@ -784,7 +784,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
       htmlW.content = { ...htmlW.content, code: mirrorFold, fromMirror: true };
       const fold = createSection(1);
       fold.layout = "full";
-      fold.contentWidth = 1200;
+      fold.contentWidth = 1440;
       fold.columnGap = { desktop: 0, tablet: 0, mobile: 0 };
       fold.styles = {
         ...fold.styles,
@@ -921,7 +921,7 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
     sections,
     settings: {
       background: mirrorFold.length > 80 || productFold || white ? "#ffffff" : "#f8fafc",
-      maxContentWidth: mirrorFold.length > 80 || productFold ? 1200 : white ? 860 : 720,
+      maxContentWidth: mirrorFold.length > 80 || productFold ? 1440 : white ? 860 : 720,
       ...(mirrorFoldMode ? { htmlFoldMode: mirrorFoldMode } : {}),
     },
     seo: {
@@ -1014,9 +1014,11 @@ export function bakePublicOfferHrefs(
         }
         if (widget.type === "cookieBanner") {
           const next: Record<string, unknown> = { ...widget.content };
-          /** Pública: barra expandida — canto esconde Aceitar (crítico com redirect). */
-          next.variant = "bar";
-          next.position = "bottom";
+          /** Legado: barra expandida. Com `useEditorVariantOnPublic` o widget respeita o editor. */
+          if (next.useEditorVariantOnPublic !== true) {
+            next.variant = "bar";
+            next.position = "bottom";
+          }
           /**
            * Política só in-page (CookiePolicyInlineSheet). Não bakear URL merchant/SaaS —
            * “abrir noutra aba” era fuga da Final URL.
