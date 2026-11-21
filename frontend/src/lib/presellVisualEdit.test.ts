@@ -6,6 +6,7 @@ import {
   mirrorSrcDocToEditableHtml,
   pointOfferButtonsAt,
   resolvePresellPageDocument,
+  stripFaithfulMirrorHtmlSections,
 } from "./presellVisualEdit";
 
 describe("buildEditablePageDocument", () => {
@@ -338,6 +339,24 @@ describe("buildEditablePageDocument", () => {
     );
     expect(bakedHtml).toContain("track/r/x");
     expect(bakedHtml).not.toContain(CLICKORA_MIRROR_TRACK_MARKER);
+  });
+
+  it("stripFaithfulMirrorHtmlSections remove só dobras fromMirror", () => {
+    const doc = buildEditablePageDocument({
+      title: "Trimoryn",
+      type: "cookies",
+      content: {
+        generationNiche: "white",
+        affiliateLink: "https://mwebkivo.com/13026/4926/2/?",
+        importMirrorSrcDoc: `<!DOCTYPE html><html><head></head><body>${"x".repeat(900)}</body></html>`,
+      },
+    });
+    const stripped = stripFaithfulMirrorHtmlSections(doc);
+    expect(stripped.sections.flatMap((s) => s.columns.flatMap((c) => c.widgets)).some((w) => w.type === "html"))
+      .toBe(false);
+    expect(
+      stripped.sections.flatMap((s) => s.columns.flatMap((c) => c.widgets)).some((w) => w.type === "cookieBanner"),
+    ).toBe(true);
   });
 
   it("white: reusa o documento guardado em vez de inventar outra dobra", () => {

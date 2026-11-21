@@ -66,6 +66,45 @@ describe("título público da presell", () => {
     expect(resolvePublicPresellDocumentTitle(p)).toBe("Melara Max");
   });
 
+  it("manual builder: usa H1/H2 do canvas quando o espelho não tem <title>", () => {
+    const p = page({
+      type: "builder",
+      title: "Página sem título",
+      content: {
+        generationNiche: "white",
+        pageDocument: {
+          id: "p1",
+          name: "Página sem título",
+          sections: [
+            {
+              id: "s1",
+              layout: "full",
+              contentWidth: 1440,
+              columns: [
+                {
+                  id: "c1",
+                  widthPercent: { desktop: 100 },
+                  widgets: [
+                    {
+                      id: "w1",
+                      type: "heading",
+                      content: { text: "Trimoryn", tag: "h1" },
+                      styles: {},
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+          settings: {},
+          seo: { title: "Página sem título" },
+          updatedAt: 1,
+        },
+      },
+    });
+    expect(getPresellSeoPrimaryTitle(p)).toBe("Trimoryn");
+  });
+
   it("ignora nome default do builder e usa produto / espelho", () => {
     const mirror = `<!DOCTYPE html><html><head><title>Trimoryn — Daily Metabolism Support</title></head><body></body></html>`;
     const p = page({

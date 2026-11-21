@@ -938,6 +938,24 @@ export function buildEditablePageDocument(source: EditablePresellSource): PageDo
  * White / builder / edição manual publicada: reutiliza `pageDocument`.
  * Black sem edição manual: regenera o artigo limpo (layouts antigos desalinhados).
  */
+/** Remove dobras HTML `fromMirror` — a página pública usa `ImportedPageMirrorIframe` (documento completo). */
+export function stripFaithfulMirrorHtmlSections(doc: PageDocument): PageDocument {
+  const clone = JSON.parse(JSON.stringify(doc)) as PageDocument;
+  clone.sections = clone.sections
+    .map((section) => ({
+      ...section,
+      columns: section.columns.map((column) => ({
+        ...column,
+        widgets: column.widgets.filter((widget) => {
+          if (widget.type !== "html") return true;
+          return (widget.content as { fromMirror?: boolean }).fromMirror !== true;
+        }),
+      })),
+    }))
+    .filter((section) => section.columns.some((c) => c.widgets.length > 0));
+  return clone;
+}
+
 export function resolvePresellPageDocument(
   stored: unknown,
   source: EditablePresellSource,

@@ -39,7 +39,11 @@ import {
   isVslOnlyPresellType,
 } from "@/lib/presellTypeMeta";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
-import { bakePublicOfferHrefs, resolvePresellPageDocument } from "@/lib/presellVisualEdit";
+import {
+  bakePublicOfferHrefs,
+  resolvePresellPageDocument,
+  stripFaithfulMirrorHtmlSections,
+} from "@/lib/presellVisualEdit";
 import {
   clearCookieConsentChoice,
   COOKIE_CONSENT_EVENT,
@@ -1381,6 +1385,12 @@ export default function PublicPresell() {
     const suppressMirrorChrome = generationNiche === "white" || mirrorHtmlFold;
     const offerUrl =
       affiliateLink.trim() && affiliateLink.trim() !== "#" ? affiliateLink.trim() : undefined;
+    const docWithoutMirrorIframe = showImportedMirror
+      ? stripFaithfulMirrorHtmlSections(visualDoc)
+      : visualDoc;
+    const hasNonMirrorBuilderUi = docWithoutMirrorIframe.sections.some((s) =>
+      s.columns.some((c) => c.widgets.length > 0),
+    );
     const inner = (
       <>
         {interactiveKind ? (
@@ -1410,16 +1420,27 @@ export default function PublicPresell() {
             className={isDiscount ? "top-[5.25rem]" : undefined}
           />
         ) : null}
-        <Suspense fallback={null}>
-          <PublicBuilderPresellView
-            doc={visualDoc}
-            trackOfferHref={href || undefined}
-            offerUrl={offerUrl}
+        {showImportedMirror && mirrorSrcDoc ? (
+          <ImportedPageMirrorIframe
+            srcDoc={mirrorSrcDoc}
+            title={primarySeoLabel}
+            offerHref={href || undefined}
+            affiliateHref={affiliateLink.trim()}
             interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
-            marketingAllowed={marketingAllowed}
-            gateMarketingUntilAccept={gateKind === "cookies"}
           />
-        </Suspense>
+        ) : null}
+        {hasNonMirrorBuilderUi ? (
+          <Suspense fallback={null}>
+            <PublicBuilderPresellView
+              doc={docWithoutMirrorIframe}
+              trackOfferHref={href || undefined}
+              offerUrl={offerUrl}
+              interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
+              marketingAllowed={marketingAllowed}
+              gateMarketingUntilAccept={gateKind === "cookies"}
+            />
+          </Suspense>
+        ) : null}
         {showTrustFooter ? (
           <PresellTrustFooter
             language={complianceLang}

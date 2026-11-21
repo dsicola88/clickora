@@ -839,11 +839,34 @@ export function finalizeMirrorSrcDocForImport(
   }
   out = out.replace(/<style\b[^>]*data-clickora="cta-readability"[^>]*>[\s\S]*?<\/style>/gi, "");
 
+  out = normalizeBrokenViewportMetaInHtml(out);
+
   if (out.length > MAX_MIRROR_CHARS) {
     out = truncateMirrorHtmlToLimit(out, MAX_MIRROR_CHARS);
   }
 
   return out.length > 200 ? out : null;
+}
+
+const MIRROR_VIEWPORT_META =
+  '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">';
+
+function normalizeBrokenViewportMetaInHtml(html: string): string {
+  let out = html.replace(/<meta\b[^>]*name\s*=\s*["']viewport["'][^>]*>/gi, (tag) => {
+    if (/\bcontent\s*=/i.test(tag)) return tag;
+    return MIRROR_VIEWPORT_META;
+  });
+  let keptViewport = false;
+  out = out.replace(/<meta\b[^>]*name\s*=\s*["']viewport["'][^>]*>/gi, (tag) => {
+    if (!/\bcontent\s*=/i.test(tag)) return "";
+    if (keptViewport) return "";
+    keptViewport = true;
+    return tag;
+  });
+  if (!keptViewport && /<head\b/i.test(out)) {
+    out = out.replace(/<head\b[^>]*>/i, (m) => `${m}${MIRROR_VIEWPORT_META}`);
+  }
+  return out;
 }
 
 /**

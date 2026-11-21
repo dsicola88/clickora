@@ -41,6 +41,7 @@ import {
   buildEditablePageDocument,
   pointOfferButtonsAt,
 } from "@/lib/presellVisualEdit";
+import { ensurePresellPageDocumentTitles } from "@/lib/presellPageDocumentTitles";
 import {
   expandMonolithicHtmlDocument,
   isMonolithicHtmlFold,
@@ -356,7 +357,8 @@ export default function PresellManualBuilderPage() {
       } catch {
         throw new Error(t("pages.manualBuilder.offerInvalid"));
       }
-      const doc = pointOfferButtonsAt(useBuilder.getState().doc, affiliate, loadedOfferRef.current);
+      let doc = pointOfferButtonsAt(useBuilder.getState().doc, affiliate, loadedOfferRef.current);
+      doc = ensurePresellPageDocumentTitles(doc, contentRef.current, useBuilder.getState().doc.name);
       const currentIdentity = useBuilder.getState().pageIdentity;
       useBuilder.getState().hydrateDocument(doc, {
         identity: {
@@ -528,7 +530,7 @@ export default function PresellManualBuilderPage() {
       affiliateLink: affiliate || contentRef.current.affiliateLink,
     };
     setCloudAutosaveStatus("saving");
-    const { error } = await presellService.update(presellId, {
+    const { data, error } = await presellService.update(presellId, {
       content,
       language: languageRef.current,
       settings: settingsPayload,
@@ -540,11 +542,17 @@ export default function PresellManualBuilderPage() {
     });
     if (error) {
       setCloudAutosaveStatus("error");
+      if (/slug/i.test(error)) toast.error(error);
       return false;
     }
+    const slugLive = (data?.slug || slug).trim();
+    if (slugLive && slugLive !== slugDraftRef.current) {
+      setSlugDraft(slugLive);
+    }
+    queryClient.invalidateQueries({ queryKey: ["presells"] });
     lastCloudDocJsonRef.current = snapshot;
     lastCloudSettingsJsonRef.current = settingsSnap;
-    lastSlugRef.current = slug;
+    lastSlugRef.current = slugLive || slug;
     lastCategoryRef.current = categorySnap;
     lastCustomDomainRef.current = domainSnap;
     contentRef.current = content;
@@ -558,7 +566,7 @@ export default function PresellManualBuilderPage() {
       setAwaitingVisualPublish(true);
     }
     return true;
-  }, [hasVerifiedCustomDomain]);
+  }, [hasVerifiedCustomDomain, queryClient]);
 
   const bootstrapDraftInCloud = useCallback(async (doc: PageDocument) => {
     if (draftBootstrapRef.current || cloudInflightRef.current) return;
@@ -754,10 +762,22 @@ export default function PresellManualBuilderPage() {
           <Input
             value={slugDraft}
             onChange={(e) => setSlugDraft(e.target.value)}
+            onBlur={() => {
+              const next = sanitizeSlug(slugDraft);
+              if (next && next !== slugDraft) setSlugDraft(next);
+            }}
             aria-label={t("pages.manualBuilder.slugAria")}
             className="h-8 w-36 shrink-0 border-editor-border bg-editor-bg text-xs text-editor-fg sm:w-44"
             placeholder={t("pages.manualBuilder.slugPlaceholder")}
           />
+          {publicPresellTestUrl ? (
+            <code
+              className="hidden max-w-[min(28vw,14rem)] truncate rounded border border-editor-border bg-editor-bg px-2 py-1 text-[10px] text-editor-fg-muted lg:inline"
+              title={publicPresellTestUrl}
+            >
+              {publicPresellTestUrl.replace(/^https?:\/\//, "")}
+            </code>
+          ) : null}
           <Input
             value={affiliateDraft}
             onChange={(e) => setAffiliateDraft(e.target.value)}

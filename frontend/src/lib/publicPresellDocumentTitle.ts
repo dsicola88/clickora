@@ -4,6 +4,7 @@ import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
 import {
   collectPresellMirrorHtml,
+  firstProminentHeadingFromPageDocument,
   looksLikePlaceholderPageTitle,
 } from "@/lib/presellPageDocumentTitles";
 
@@ -75,7 +76,16 @@ function titleFromImportedHtml(html: string): string {
     /<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["']og:title["']/i,
   );
   const titleTag = t.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  return firstUsableSeoTitle([og?.[1] || "", ogRev?.[1] || "", titleTag?.[1] || ""]);
+  const fromMeta = firstUsableSeoTitle([og?.[1] || "", ogRev?.[1] || "", titleTag?.[1] || ""]);
+  if (fromMeta) return fromMeta;
+  const h =
+    t.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || t.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+  if (h?.[1]) {
+    const plain = plainTextFromMaybeHtml(h[1]);
+    const picked = firstUsableSeoTitle([plain]);
+    if (picked) return picked;
+  }
+  return "";
 }
 
 /**
@@ -108,6 +118,7 @@ export function getPresellSeoPrimaryTitle(page: Presell): string {
           String(doc?.seo?.title ?? ""),
           sourceOk ? sourceTitle : "",
           titleFromImportedHtml(mirror),
+          firstProminentHeadingFromPageDocument(doc),
           String(c.productName ?? c.product_name ?? ""),
           String(c.title ?? ""),
           String(doc?.name ?? ""),

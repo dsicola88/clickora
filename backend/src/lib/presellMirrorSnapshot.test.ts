@@ -92,6 +92,14 @@ describe("sanitizeMirrorSrcDocFromEditor", () => {
 });
 
 describe("finalizeMirrorSrcDocForImport (onclick → href)", () => {
+  it("repara meta viewport partida na importação", () => {
+    const html = `<!DOCTYPE html><html><head><meta name="viewport" c><title>T</title></head><body><p>X</p></body></html>`;
+    const out = finalizeMirrorSrcDocForImport(html, "https://offer.example/land", "https://offer.example/buy");
+    assert.ok(out);
+    assert.match(out!, /name="viewport"\s+content="width=device-width/i);
+    assert.ok(!out!.includes('<meta name="viewport" c>'));
+  });
+
   it("turns button with location.href onclick into track link", () => {
     const html = `<!DOCTYPE html><html><head></head><body>
 <button type="button" class="cta" onclick="location.href='https://offer.example/buy?x=1'">Buy</button>

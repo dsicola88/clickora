@@ -43,6 +43,31 @@ export function collectPresellMirrorHtml(
  * Corrige `doc.name` / `seo.title` guardados como default do builder («Página sem título»)
  * quando a importação já tem nome de produto ou título da sales page.
  */
+/** Primeiro H1/H2 do canvas manual — tab do browser quando o espelho não traz `<title>`. */
+export function firstProminentHeadingFromPageDocument(doc: PageDocument | null | undefined): string {
+  if (!doc?.sections?.length) return "";
+  for (const section of doc.sections) {
+    for (const col of section.columns ?? []) {
+      for (const w of col.widgets ?? []) {
+        if (w.type === "heading") {
+          const text = asString((w.content as { text?: unknown })?.text);
+          if (text && !looksLikePlaceholderPageTitle(text)) return text;
+        }
+        if (w.type === "html") {
+          const code = asString((w.content as { code?: unknown })?.code);
+          const m =
+            code.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || code.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+          if (m?.[1]) {
+            const t = m[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+            if (t && !looksLikePlaceholderPageTitle(t)) return t;
+          }
+        }
+      }
+    }
+  }
+  return "";
+}
+
 export function ensurePresellPageDocumentTitles(
   doc: PageDocument,
   content: Record<string, unknown>,
