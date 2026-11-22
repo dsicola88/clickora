@@ -11,12 +11,11 @@ import {
 } from "../lib/customDomainDns";
 import { buildPendingDnsPayload } from "../lib/customDomainDnsPayload";
 import { refreshCustomDomainCache } from "../lib/customDomainCache";
+import { probeCustomDomainLiveSsl } from "../lib/customDomainLiveSsl";
 import {
   isVercelConfigured,
-  probeHostnameHttps,
   vercelAddProjectDomain,
   vercelCnameHint,
-  vercelGetProjectDomain,
   vercelRemoveProjectDomain,
   vercelVerifyProjectDomain,
   type VercelVerificationChallenge,
@@ -97,21 +96,7 @@ async function liveSslForDomain(row: {
   hostname: string;
   vercelDomainRegistered: boolean;
 }): Promise<CustomDomainSslLive | null> {
-  if (row.status !== "verified" || !row.vercelDomainRegistered || !isVercelConfigured()) {
-    return null;
-  }
-  const [v, httpsReachable] = await Promise.all([
-    vercelGetProjectDomain(row.hostname),
-    probeHostnameHttps(row.hostname),
-  ]);
-  if (!v.ok) {
-    return { httpsReachable, vercelVerified: null, vercelMisconfigured: null };
-  }
-  return {
-    vercelVerified: v.verified,
-    vercelMisconfigured: v.misconfigured,
-    httpsReachable,
-  };
+  return probeCustomDomainLiveSsl(row);
 }
 
 async function persistSslProbeCache(

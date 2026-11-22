@@ -104,6 +104,29 @@ export function CustomDomainSettings() {
     onError: () => toast.error(t("pages.settings.verifyFailed")),
   });
 
+  const goLiveMutation = useMutation({
+    mutationFn: (id: string) => customDomainService.goLive(id),
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      const row = res.data;
+      if (row) {
+        queryClient.setQueryData<CustomDomainDto[]>(["custom-domain", tenantKey], (old) =>
+          (old ?? []).map((x) => (x.id === row.id ? { ...x, ...row } : x)),
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      if (row?.https_ready) {
+        toast.success(t("pages.settings.sslReady"));
+      } else {
+        toast.message(t("pages.settings.sslStillProvisioning"));
+      }
+    },
+    onError: () => toast.error(t("pages.settings.sslCheckFailed")),
+  });
+
   const defaultMutation = useMutation({
     mutationFn: (id: string) => customDomainService.setDefault(id),
     onSuccess: (res) => {
@@ -374,6 +397,18 @@ export function CustomDomainSettings() {
                         {t("pages.settings.verifyNow")}
                       </Button>
                     )}
+                    {normalizeDomainStatus(d.status) === "verified" && shouldPollCustomDomainSsl(d) ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="text-xs"
+                        disabled={goLiveMutation.isPending}
+                        onClick={() => goLiveMutation.mutate(d.id)}
+                      >
+                        {t("pages.settings.refreshSecurity")}
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="ghost"

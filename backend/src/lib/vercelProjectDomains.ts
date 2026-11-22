@@ -302,14 +302,17 @@ export async function vercelVerifyProjectDomain(hostname: string): Promise<
     const aborted = e instanceof Error && e.name === "AbortError";
     return { ok: false, error: aborted ? "Pedido à Vercel expirou (timeout). Tente de novo." : String(e) };
   }
-  const data = (await res.json().catch(() => ({}))) as {
-    verified?: boolean;
-    error?: { message?: string };
-  };
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    return { ok: false, error: data.error?.message || `Vercel HTTP ${res.status}` };
+    const err = data as { error?: { message?: string } };
+    return { ok: false, error: err.error?.message || `Vercel HTTP ${res.status}` };
   }
-  return { ok: true, verified: Boolean(data.verified) };
+  const parsed = parseProjectDomainBody(data);
+  if (parsed) {
+    return { ok: true, verified: parsed.verified };
+  }
+  const flat = data as { verified?: boolean };
+  return { ok: true, verified: Boolean(flat.verified) };
 }
 
 /** Remove o domínio do projeto (quando o utilizador remove no dclickora). */

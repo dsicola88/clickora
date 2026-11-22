@@ -2014,6 +2014,11 @@ export const en = {
       setDefaultLander: "Default lander",
       setDefaultTracking: "Default tracking",
       verifyNow: "Verify now",
+      refreshSecurity: "Refresh security",
+      sslReady: "HTTPS is ready — you can use this domain in ads.",
+      sslStillProvisioning:
+        "SSL is still provisioning. Confirm the A record (@) → 76.76.21.21 on the exact hostname you added here and wait 1–5 minutes.",
+      sslCheckFailed: "Could not check HTTPS. Try again.",
       removeConfirm: "Remove {host}?",
       dnsPasteTitle: "Values to paste on the domain",
       dnsPasteNote: "Paste these values in the panel where you bought the domain.",
