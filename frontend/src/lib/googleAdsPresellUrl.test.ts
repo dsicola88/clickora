@@ -32,6 +32,26 @@ describe("googleAdsPresellUrl", () => {
     expect(finalUrlSuffix).not.toMatch(/gclid/i);
   });
 
+  it("modo simples (combined) alinhado Google — sem click IDs, macros ValueTrack intactas", () => {
+    const polluted = `${base}?gclid=bad&gbraid=x&gad_source=1&gad_campaignid=99&utm_source=keep`;
+    const parts = buildGoogleAdsPresellUrlParts(polluted, "Offer DE", "Google Ads");
+    expect(parts.finalUrl).toBe(base);
+    expect(parts.finalUrl).not.toMatch(/[?#]/);
+    expect(parts.finalUrlSuffix).not.toMatch(/gclid|gbraid|wbraid|gad_source|gad_campaignid/i);
+    expect(parts.finalUrlSuffix).toContain("utm_term={keyword}");
+    expect(parts.finalUrlSuffix).toContain("utm_content={adgroupid}");
+    expect(parts.combinedTrackingUrl).toBe(`${parts.finalUrl}?${parts.finalUrlSuffix}`);
+    expect(parts.combinedTrackingUrl).not.toMatch(/gclid|gad_source/i);
+    const u = new URL(parts.combinedTrackingUrl);
+    expect(u.searchParams.get("utm_source")).toBe("keep");
+  });
+
+  it("sufixo sem ? inicial (campo Google)", () => {
+    const { finalUrlSuffix } = buildGoogleAdsPresellUrlParts(base, "x", "Google Ads");
+    expect(finalUrlSuffix.startsWith("?")).toBe(false);
+    expect(finalUrlSuffix.startsWith("&")).toBe(false);
+  });
+
   it("URL do rotador sem query na Final URL", () => {
     const rotator = "https://app.example.com/r/visivra-ab";
     const { finalUrl, finalUrlSuffix } = buildGoogleAdsPresellUrlParts(rotator, "VISIVRA AB", "Google Ads");

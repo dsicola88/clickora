@@ -79,7 +79,11 @@ async function main() {
     const title = String(published.title || published.slug || "campanha");
     const publicUrl = publicPresellUrlFromRow(published);
     const polluted = `${publicUrl}?utm_source=x&gclid=should-strip`;
-    const { finalUrl, finalUrlSuffix } = buildGoogleAdsPresellUrlParts(publicUrl, title, "Google Ads");
+    const { finalUrl, finalUrlSuffix, combinedTrackingUrl } = buildGoogleAdsPresellUrlParts(
+      publicUrl,
+      title,
+      "Google Ads",
+    );
     check("final_url_no_query", !finalUrl.includes("?"), finalUrl.slice(0, 80));
     check(
       "final_url_clean_base",
@@ -89,6 +93,16 @@ async function main() {
     check("suffix_no_leading_q", !finalUrlSuffix.startsWith("?"), finalUrlSuffix.slice(0, 60));
     check("suffix_has_utm", /utm_source=/.test(finalUrlSuffix), "utm_source");
     check("suffix_no_gclid", !/gclid/i.test(finalUrlSuffix), "sem gclid manual");
+    check(
+      "combined_no_click_ids",
+      !/gclid|gad_source|gbraid/i.test(combinedTrackingUrl),
+      "modo simples",
+    );
+    check(
+      "combined_matches_split",
+      combinedTrackingUrl === `${finalUrl}?${finalUrlSuffix}`,
+      "final+sufixo",
+    );
     check("suffix_valuetrack", /\{keyword\}/.test(finalUrlSuffix), "utm_term");
 
     const pub = await json(`/public/presells/id/${published.id}`);

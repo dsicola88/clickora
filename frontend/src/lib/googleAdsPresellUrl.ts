@@ -1,12 +1,24 @@
-/** Espelha `CLICK_ID_KEYS` / política Final URL Google Ads (lander limpa). */
-const CLICK_ID_KEYS = new Set(["gclid", "gbraid", "wbraid", "msclkid", "fbclid", "ttclid"]);
+/**
+ * Parâmetros que o Google injeta no clique — nunca no sufixo nem na URL final gerada
+ * (auto-tagging; evita rejeição / URL fixa errada no anúncio).
+ */
+const GOOGLE_ADS_STRIP_FROM_TEMPLATE = new Set([
+  "gclid",
+  "gbraid",
+  "wbraid",
+  "gad_source",
+  "gad_campaignid",
+  "msclkid",
+  "fbclid",
+  "ttclid",
+]);
 
 export type GoogleAdsPresellUrlParts = {
   /** Campo «URL final» — sem query. */
   finalUrl: string;
   /** Campo «Sufixo da URL final» — sem `?` no início. */
   finalUrlSuffix: string;
-  /** Legado: uma só string (evitar colar na Final URL; usar só para testes/QA lander). */
+  /** Modo simples: lander + UTMs/ValueTrack — colar só no campo URL final (sufixo vazio). */
   combinedTrackingUrl: string;
 };
 
@@ -95,7 +107,7 @@ export function buildGoogleAdsFinalUrlSuffix(
       const u = new URL(basePresellUrl.trim());
       for (const [k, v] of u.searchParams.entries()) {
         const lk = k.toLowerCase();
-        if (CLICK_ID_KEYS.has(lk) || hasUnreplacedMacro(v) || hasUnreplacedMacro(k)) continue;
+        if (GOOGLE_ADS_STRIP_FROM_TEMPLATE.has(lk) || hasUnreplacedMacro(v) || hasUnreplacedMacro(k)) continue;
         existing.set(k, v);
       }
     } catch {

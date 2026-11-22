@@ -85,7 +85,7 @@ export { campaignUtmSlug, buildGoogleAdsPresellUrlParts, type GoogleAdsPresellUr
 
 /**
  * Lander + query numa string (QA / simular clique na lander).
- * No Google Ads use `buildGoogleAdsPresellUrlParts` → `finalUrl` + `finalUrlSuffix`.
+ * Google Ads: `finalUrl` + `finalUrlSuffix` (dois campos) ou `combinedTrackingUrl` (modo simples).
  */
 export function buildTrackedPresellUrl(basePresellUrl: string, campaignName: string, trafficSource: string): string {
   return buildGoogleAdsPresellUrlParts(basePresellUrl, campaignName, trafficSource).combinedTrackingUrl;

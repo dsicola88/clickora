@@ -845,6 +845,11 @@ export const en = {
       finalUrlSuffixFieldLabel: "Final URL suffix",
       copyFinalUrl: "Copy Final URL",
       copyUrlSuffix: "Copy suffix",
+      combinedUrlFieldLabel: "Full URL (simple mode)",
+      combinedUrlHint:
+        "Same as the old flow: paste only in the ad Final URL field and leave Final URL suffix empty. Tracking (UTMs + auto gclid) matches the two-field setup.",
+      copyCombinedUrl: "Copy full URL",
+      copyCombinedUrlDone: "Full URL copied — paste in Google Ads Final URL field",
       copyFinalUrlDone: "Final URL copied",
       copySuffixDone: "Suffix copied — paste in Google Ads without a leading ?",
       finalUrlBody:
