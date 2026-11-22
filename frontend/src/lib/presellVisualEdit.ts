@@ -707,6 +707,10 @@ function offerCookie(_offer: string, policyHref: string, language?: string | nul
     followLanguage: true,
     overlayOpacity: 8,
     overlayBlur: 0,
+    backdrop: false,
+    variant: "bar",
+    /** Público: barra fixa profissional — não modal GDPR salvo opt-in explícito no editor. */
+    useEditorVariantOnPublic: false,
     /** Política só in-page (CookiePolicyInlineSheet) — nunca bakear /aviso-cookies (fuga). */
     policyUrl: "",
   };
@@ -950,6 +954,21 @@ export function stripFaithfulMirrorHtmlSections(doc: PageDocument): PageDocument
           if (widget.type !== "html") return true;
           return (widget.content as { fromMirror?: boolean }).fromMirror !== true;
         }),
+      })),
+    }))
+    .filter((section) => section.columns.some((c) => c.widgets.length > 0));
+  return clone;
+}
+
+/** Tipo cookies na SPA usa `CookieConsentModal` — evita banner duplicado no builder. */
+export function stripCookieBannerWidgets(doc: PageDocument): PageDocument {
+  const clone = JSON.parse(JSON.stringify(doc)) as PageDocument;
+  clone.sections = clone.sections
+    .map((section) => ({
+      ...section,
+      columns: section.columns.map((column) => ({
+        ...column,
+        widgets: column.widgets.filter((widget) => widget.type !== "cookieBanner"),
       })),
     }))
     .filter((section) => section.columns.some((c) => c.widgets.length > 0));

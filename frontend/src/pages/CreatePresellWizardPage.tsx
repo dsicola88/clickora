@@ -43,6 +43,7 @@ import {
   type PresellGenerationNiche,
 } from "@/lib/presellGenerationNiche";
 import { buildEditablePageDocument } from "@/lib/presellVisualEdit";
+import { defaultPresellLanguageForAdCountry } from "@/lib/presellCampaignLanguage";
 import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
 import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
@@ -110,7 +111,9 @@ export default function CreatePresellWizardPage() {
   const [campaignName, setCampaignName] = useState("");
   const [trafficSource, setTrafficSource] = useState("Google Ads");
   const [country, setCountry] = useState("US");
-  const [language, setLanguage] = useState<PresellLocaleKey>("pt-BR");
+  const [language, setLanguage] = useState<PresellLocaleKey>(
+    () => defaultPresellLanguageForAdCountry("US") ?? "en",
+  );
   const [generationNiche, setGenerationNiche] = useState<PresellGenerationNiche>("black");
   const [presellType, setPresellType] = useState("cookies");
   const [enableAbTest, setEnableAbTest] = useState(false);
@@ -142,6 +145,11 @@ export default function CreatePresellWizardPage() {
   const [wizardReadiness, setWizardReadiness] = useState<PublishReadinessItem[]>([]);
   const [importedImageCount, setImportedImageCount] = useState(0);
   const [lastMirrorHtmlLen, setLastMirrorHtmlLen] = useState(0);
+
+  useEffect(() => {
+    const next = defaultPresellLanguageForAdCountry(country);
+    if (next) setLanguage(next);
+  }, [country]);
 
   useEffect(() => {
     if (!user) return;

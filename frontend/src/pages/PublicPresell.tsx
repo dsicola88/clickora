@@ -42,6 +42,7 @@ import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import {
   bakePublicOfferHrefs,
   resolvePresellPageDocument,
+  stripCookieBannerWidgets,
   stripFaithfulMirrorHtmlSections,
 } from "@/lib/presellVisualEdit";
 import {
@@ -1145,6 +1146,11 @@ export default function PublicPresell() {
   const gateKind = getPresellGateKind(page.type);
   const interactiveKind = getInteractiveGateKind(page.type);
   const isReviewPage = isReviewPresellType(page.type);
+  const sourceUrlRaw = typeof content.sourceUrl === "string" ? content.sourceUrl.trim() : "";
+  const cookieConsentFallbackHref =
+    affiliateLink.trim() && affiliateLink.trim() !== "#"
+      ? affiliateLink.trim()
+      : sourceUrlRaw;
 
   const titleRaw = plainTextFromMaybeHtml((content.title as string) || page.title);
   const subtitleRaw = plainTextFromMaybeHtml((content.subtitle as string) || "");
@@ -1390,7 +1396,10 @@ export default function PublicPresell() {
     const docWithoutMirrorIframe = showImportedMirror
       ? stripFaithfulMirrorHtmlSections(visualDoc)
       : visualDoc;
-    const hasNonMirrorBuilderUi = docWithoutMirrorIframe.sections.some((s) =>
+    /** Barra única `CookieConsentModal` — sem widget duplicado em baixo do espelho. */
+    const docForPublicBuilder =
+      gateKind === "cookies" ? stripCookieBannerWidgets(docWithoutMirrorIframe) : docWithoutMirrorIframe;
+    const hasNonMirrorBuilderUi = docForPublicBuilder.sections.some((s) =>
       s.columns.some((c) => c.widgets.length > 0),
     );
     const inner = (
@@ -1434,7 +1443,7 @@ export default function PublicPresell() {
         {hasNonMirrorBuilderUi ? (
           <Suspense fallback={null}>
             <PublicBuilderPresellView
-              doc={docWithoutMirrorIframe}
+              doc={docForPublicBuilder}
               trackOfferHref={href || undefined}
               offerUrl={offerUrl}
               interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
@@ -1490,8 +1499,20 @@ export default function PublicPresell() {
             settings={settings}
             trackHref={href}
             language={uiLang}
-            suppressWhileCookieGate={gateKind === "cookies" || gateKind === "segmentation"}
+            suppressWhileCookieGate={showCookieModal || showSegmentationModal}
           />
+          {gateKind === "cookies" && showCookieModal ? (
+            <CookieConsentModal
+              language={complianceLang}
+              policyUrl={cookiePolicyUrl}
+              redirectHref={href}
+              fallbackHref={cookieConsentFallbackHref}
+              accepted={cookieAccepted}
+              navigateOnAccept={isCookieRedirectToOfferEnabled(settings)}
+              onAccept={() => setCookieConsent("all")}
+              onDismiss={() => setCookieConsent("essential")}
+            />
+          ) : null}
           {gateKind === "cookies" && cookieAccepted ? (
             <CookieSettingsChip language={complianceLang} onClick={reopenCookieSettings} />
           ) : null}
@@ -1533,12 +1554,6 @@ export default function PublicPresell() {
       </PresellPublicLocaleProvider>
     );
   }
-
-  const sourceUrlRaw = typeof content.sourceUrl === "string" ? content.sourceUrl.trim() : "";
-  const cookieConsentFallbackHref =
-    affiliateLink.trim() && affiliateLink.trim() !== "#"
-      ? affiliateLink.trim()
-      : sourceUrlRaw;
 
   const pageBody = (
     <>

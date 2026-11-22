@@ -6,8 +6,35 @@ import {
   mirrorSrcDocToEditableHtml,
   pointOfferButtonsAt,
   resolvePresellPageDocument,
+  stripCookieBannerWidgets,
   stripFaithfulMirrorHtmlSections,
 } from "./presellVisualEdit";
+
+describe("stripCookieBannerWidgets", () => {
+  it("remove cookieBanner para o CookieConsentModal único na SPA", () => {
+    const doc = buildEditablePageDocument({
+      title: "T",
+      type: "cookies",
+      language: "en",
+      content: {
+        title: "P",
+        salesText: "Body copy long enough for editorial sections in test.",
+        ctaText: "Buy",
+        affiliateLink: "https://offer.example/buy",
+        generationNiche: "white",
+      },
+    });
+    expect(
+      doc.sections.some((s) => s.columns.some((c) => c.widgets.some((w) => w.type === "cookieBanner"))),
+    ).toBe(true);
+    const stripped = stripCookieBannerWidgets(doc);
+    expect(
+      stripped.sections.some((s) =>
+        s.columns.some((c) => c.widgets.some((w) => w.type === "cookieBanner")),
+      ),
+    ).toBe(false);
+  });
+});
 
 describe("buildEditablePageDocument", () => {
   it("white cookies: dobra produto + CTA explícito; cookie só desbloqueia", () => {
