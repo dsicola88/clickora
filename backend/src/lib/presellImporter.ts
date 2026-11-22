@@ -14,6 +14,7 @@ import {
   sourceHasCommercialCta,
   type PresellImportMode,
 } from "./presellImportMode";
+import { normalizePresellLocaleKey, resolveImportLanguage } from "./presellSourceLanguageDetect";
 import {
   affiliateHopResolveFailedMessage,
   brandFromSalesHostname,
@@ -113,6 +114,10 @@ export type ImportPresellResult = {
   source_page_title?: string;
   /** Favicon / apple-touch absoluto da origem. */
   favicon_url?: string;
+  /** Idioma inferido da sales page (html lang, og:locale ou texto). */
+  detected_language?: string;
+  detected_language_confidence?: "high" | "medium" | "low";
+  detected_language_source?: "html-lang" | "og-locale" | "text-heuristic" | "fallback";
 };
 
 const DEFAULT_UA =
@@ -1608,9 +1613,9 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     );
   }
 
-  const language = input.language || "pt-BR";
+  const requestedLanguage = input.language || "pt-BR";
   const generationNiche = normalizePresellGenerationNiche(input.generationNiche);
-  const acceptLang = acceptLanguageForPresellImport(language);
+  const acceptLang = acceptLanguageForPresellImport(requestedLanguage);
   /** Knownwalk/SmartAdv: igual BuyGoods — hop fica no affiliate; browser segue até à sales page. */
   const hopOnlyInput = looksLikeAffiliateHopOnlyUrl(input.productUrl);
   const preservedAffiliate =
@@ -1861,6 +1866,8 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     finalUrl = mirrorBaseUrl;
   }
 
+  const { language, detection: languageDetection } = resolveImportLanguage(requestedLanguage, html);
+
   const locale = localePack(language);
 
   const pageHost = new URL(finalUrl).hostname;
@@ -1980,7 +1987,16 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     generationNiche,
     affiliateHopLink: preservedAffiliate || input.affiliateLink || finalUrl,
   });
-  const import_notes = browserDetail ? [...classified.notes, browserDetail] : classified.notes;
+  let import_notes = browserDetail ? [...classified.notes, browserDetail] : classified.notes;
+  if (
+    languageDetection.confidence !== "low" &&
+    normalizePresellLocaleKey(requestedLanguage) !== language
+  ) {
+    import_notes = [
+      ...import_notes,
+      `Idioma da página detectado como «${languageDetection.locale}» (${languageDetection.source}, confiança ${languageDetection.confidence}); copy e CMP alinhados a esse idioma.`,
+    ];
+  }
 
   const foldSampleForTheme = foldHtml.slice(0, 48_000);
   const tintedLightBgHits = countTintedLightBackgroundHits(foldSampleForTheme);
@@ -2015,5 +2031,12 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
     ...(source_page_title ? { source_page_title } : {}),
     ...(favicon_url ? { favicon_url } : {}),
     ...(import_mirror_src_doc ? { import_mirror_src_doc } : {}),
+    ...(languageDetection.confidence !== "low"
+      ? {
+          detected_language: languageDetection.locale,
+          detected_language_confidence: languageDetection.confidence,
+          detected_language_source: languageDetection.source,
+        }
+      : {}),
   };
 }

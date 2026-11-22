@@ -112,6 +112,7 @@ import { buildMirrorSrcDocWithTrackHref } from "@/lib/presellMirrorMarkers";
 import { bakeHtmlOfferHrefs } from "@/lib/presellOfferHrefBake";
 import { preserveNavHashCtaAppearance } from "@/lib/presellMirrorPreserveNav";
 import { unlockMirrorHtmlForSandboxIframe } from "@/lib/presellMirrorNoScriptDisplay";
+import { trimMirrorTrailingSpacersInHtml } from "@/lib/presellMirrorTailTrim";
 import { alignMirrorAssetUrlsToCaptureBase } from "@/lib/presellMirrorAssetHosts";
 import { cn } from "@/lib/utils";
 import { PresellProductHero, PresellSecondaryImage } from "@/components/presell/PresellProductHero";
@@ -1037,7 +1038,8 @@ export default function PublicPresell() {
       affiliateLink.trim() ||
       "";
     const assetsAligned = alignMirrorAssetUrlsToCaptureBase(appeared, pageBase);
-    const unlocked = unlockMirrorHtmlForSandboxIframe(assetsAligned);
+    const tailTrimmed = trimMirrorTrailingSpacersInHtml(assetsAligned);
+    const unlocked = unlockMirrorHtmlForSandboxIframe(tailTrimmed);
     /** Cookies sem Aceitar: strip scripts/handlers (sandbox já bloqueia; defesa extra). */
     const cookieGate = getPresellGateKind(page?.type || "") === "cookies";
     if (cookieGate && !marketingAllowed) {
@@ -1408,6 +1410,8 @@ export default function PublicPresell() {
     const hasNonMirrorBuilderUi = docForPublicBuilder.sections.some((s) =>
       s.columns.some((c) => c.widgets.length > 0),
     );
+    const mirrorOnlyWhite =
+      generationNiche === "white" && showImportedMirror && !hasNonMirrorBuilderUi;
     const inner = (
       <>
         {interactiveKind ? (
@@ -1490,12 +1494,14 @@ export default function PublicPresell() {
     return (
       <PresellPublicLocaleProvider language={uiLang}>
         <div
-          className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden pb-0 ${
+          className={`${mirrorOnlyWhite ? "min-h-0" : "min-h-screen"} w-full max-w-[100vw] overflow-x-hidden pb-0 ${
             generationNiche === "black" && isVslLayout
               ? "bg-slate-950 text-slate-100"
               : generationNiche === "black"
                 ? "bg-slate-50"
-                : "bg-white pb-12"
+                : mirrorOnlyWhite
+                  ? "bg-white"
+                  : "bg-white pb-12"
           }`}
           data-tenant-wl={tenantBranding ? "1" : undefined}
           style={tenantCssVars}

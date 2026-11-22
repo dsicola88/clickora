@@ -146,6 +146,9 @@ export const presellService = {
       source_contact_email?: string;
       source_page_title?: string;
       favicon_url?: string;
+      detected_language?: string;
+      detected_language_confidence?: "high" | "medium" | "low";
+      detected_language_source?: "html-lang" | "og-locale" | "text-heuristic" | "fallback";
     }>("/presells/import-from-url", payload);
   },
 

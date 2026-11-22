@@ -4,6 +4,7 @@ import { bindMirrorOfferClickCapture } from "@/lib/presellMirrorOfferClick";
 import {
   CLICKORA_OFFER_NAV_MESSAGE,
 } from "@/lib/presellMirrorOfferNavigate";
+import { measureMirrorDocumentContentHeight } from "@/lib/presellMirrorTailTrim";
 
 type Props = {
   srcDoc: string;
@@ -47,9 +48,9 @@ export function ImportedPageMirrorIframe({
     const el = ref.current;
     if (!el) return;
     try {
-      const b = el.contentDocument?.body;
-      const contentH = Math.max(b?.scrollHeight ?? 0, b?.offsetHeight ?? 0, 480);
-      const next = Math.min(48_000, Math.ceil(contentH + 8));
+      const doc = el.contentDocument;
+      const contentH = doc ? measureMirrorDocumentContentHeight(doc) : 480;
+      const next = Math.min(48_000, Math.max(480, Math.ceil(contentH)));
       setHeight((prev) => (Math.abs(prev - next) <= 2 ? prev : next));
     } catch {
       setHeight(2600);
@@ -192,7 +193,8 @@ export function ImportedPageMirrorIframe({
         src={blobFrameSrc}
         onLoad={onLoad}
         className={cn(
-          "w-full max-w-full border-0 block bg-white min-h-[min(72vh,520px)]",
+          "w-full max-w-full border-0 block bg-white",
+          height < 520 ? "min-h-[min(72vh,520px)]" : "min-h-0",
           interactionLocked && "pointer-events-none select-none",
         )}
         style={{ height, width: "100%", maxWidth: "100%" }}

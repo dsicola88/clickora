@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PRESELL_CREATION_LANGUAGES, normalizePresellLocale } from "@/lib/presellUiStrings";
+import { presellLanguageFromImport } from "@/lib/presellCampaignLanguage";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { presellService } from "@/services/presellService";
@@ -804,6 +805,16 @@ export default function PresellDashboard() {
         return;
       }
 
+      const syncedLanguage = presellLanguageFromImport(
+        normalizePresellLocale(formData.language),
+        data.detected_language,
+        data.detected_language_confidence,
+      );
+      if (syncedLanguage !== formData.language) {
+        updateField("language", syncedLanguage);
+        toast.message(`Idioma alinhado à sales page: ${syncedLanguage}`, { duration: 5000 });
+      }
+
       const isVsl = formData.presellType === "vsl" || formData.presellType === "vsl_tsl";
       const manualYt = typeOptions.manualYoutubeUrl.trim();
       let video_url: string | undefined;
@@ -826,7 +837,7 @@ export default function PresellDashboard() {
         slug,
         type: formData.presellType,
         category: "sem",
-        language: formData.language,
+        language: syncedLanguage,
         video_url,
         ...(hasVerifiedCustomDomain && formData.customDomainId
           ? { custom_domain_id: formData.customDomainId }
@@ -1544,6 +1555,15 @@ export default function PresellDashboard() {
                     if (mirror.length < 200) {
                       toast.warning(t("pages.presells.toastReimportNoMirror"));
                       return;
+                    }
+                    const lang = presellLanguageFromImport(
+                      normalizePresellLocale(formData.language),
+                      data.detected_language,
+                      data.detected_language_confidence,
+                    );
+                    if (lang !== formData.language) {
+                      updateField("language", lang);
+                      toast.message(`Idioma da página: ${lang}`, { duration: 4000 });
                     }
                     setMirrorHtmlDraft(mirror);
                     toast.success(t("pages.presells.toastMirrorUpdated"));

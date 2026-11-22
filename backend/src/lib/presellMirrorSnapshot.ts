@@ -1,4 +1,5 @@
 import { type HTMLElement, parse } from "node-html-parser";
+import { injectMirrorTailHeightStyle, trimMirrorTrailingSpacerNodes } from "./presellMirrorTailTrim";
 
 /** Substituído no cliente pelo href real de tracking (evita dados sensíveis no HTML guardado). */
 export const CLICKORA_MIRROR_TRACK_MARKER = "https://clickora.invalid/__TRACK_OFFER__";
@@ -862,6 +863,9 @@ export function finalizeMirrorSrcDocForImport(
   rewriteOnclickNavigatorsForMirror(root, base, hosts);
   ensureMirrorOfferAnchorLabels(root);
 
+  const mirrorBody = root.querySelector("body");
+  if (mirrorBody) trimMirrorTrailingSpacerNodes(mirrorBody);
+
   let out = root.toString();
   // Tailwind `class="…[22px]…"` parte o parser em alguns nós — regex cobre o resto.
   out = absolutizeRelativeAssetUrlsInHtmlString(out, base);
@@ -879,6 +883,7 @@ export function finalizeMirrorSrcDocForImport(
 
   out = normalizeBrokenViewportMetaInHtml(out);
   out = unlockMirrorHtmlForSandboxIframe(out);
+  out = injectMirrorTailHeightStyle(out);
 
   if (out.length > MAX_MIRROR_CHARS) {
     out = truncateMirrorHtmlToLimit(out, MAX_MIRROR_CHARS);

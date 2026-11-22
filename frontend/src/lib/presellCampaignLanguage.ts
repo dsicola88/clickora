@@ -1,4 +1,5 @@
 import type { PresellLocaleKey } from "@/lib/presellUiStrings.types";
+import { normalizePresellLocale, PRESHELL_LOCALE_KEYS } from "@/lib/presellUiStrings";
 
 const COUNTRY_TO_LANGUAGE: Record<string, PresellLocaleKey> = {
   US: "en",
@@ -34,4 +35,20 @@ export function defaultPresellLanguageForAdCountry(country: string): PresellLoca
   const code = country.trim().toUpperCase().slice(0, 2);
   if (!code) return null;
   return COUNTRY_TO_LANGUAGE[code] ?? null;
+}
+
+type ImportLanguageConfidence = "high" | "medium" | "low";
+
+/** Aplica idioma devolvido pelo import-from-url quando a detecção não é «low». */
+export function presellLanguageFromImport(
+  selected: PresellLocaleKey,
+  detected?: string,
+  confidence?: ImportLanguageConfidence,
+): PresellLocaleKey {
+  if (!detected || confidence === "low") return selected;
+  const norm = normalizePresellLocale(detected);
+  if (!(PRESHELL_LOCALE_KEYS as readonly string[]).includes(norm)) return selected;
+  if (confidence === "high") return norm;
+  if (confidence === "medium" && norm !== selected) return norm;
+  return selected;
 }

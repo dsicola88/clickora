@@ -43,7 +43,10 @@ import {
   type PresellGenerationNiche,
 } from "@/lib/presellGenerationNiche";
 import { buildEditablePageDocument } from "@/lib/presellVisualEdit";
-import { defaultPresellLanguageForAdCountry } from "@/lib/presellCampaignLanguage";
+import {
+  defaultPresellLanguageForAdCountry,
+  presellLanguageFromImport,
+} from "@/lib/presellCampaignLanguage";
 import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
 import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
@@ -222,6 +225,20 @@ export default function CreatePresellWizardPage() {
         );
       }
 
+      const importLanguage = presellLanguageFromImport(
+        language,
+        imported.data.detected_language,
+        imported.data.detected_language_confidence,
+      );
+      if (importLanguage !== language) {
+        setLanguage(importLanguage);
+        const conf = imported.data.detected_language_confidence ?? "medium";
+        toast.message(
+          `Idioma da sales page: ${importLanguage} (detecção ${conf}). CMP e textos gerados nesse idioma.`,
+          { duration: 6000 },
+        );
+      }
+
       /** Hop afiliado → sales page: preenche o 2.º campo para white/espelho nas próximas criações. */
       const resolvedSource = String(imported.data.source_url || "").trim();
       if (
@@ -302,7 +319,7 @@ export default function CreatePresellWizardPage() {
           title: pageTitle,
           type: typeForPage,
           videoUrl: video_url,
-          language,
+          language: importLanguage,
           content,
         });
 
@@ -391,7 +408,7 @@ export default function CreatePresellWizardPage() {
             : {}),
           showAffiliateTrustFooter,
           ...(showAffiliateTrustFooter
-            ? { affiliateDisclosure: defaultAffiliateDisclosureSetting(language) }
+            ? { affiliateDisclosure: defaultAffiliateDisclosureSetting(importLanguage) }
             : {}),
           minAge: minAge.trim() || "18",
           ...(type === "cookies" ? { cookieRedirectToOffer } : {}),
@@ -426,7 +443,7 @@ export default function CreatePresellWizardPage() {
         title: a.pageTitle,
         slug,
         type,
-        language,
+        language: importLanguage,
         status: "draft",
         video_url: a.video_url,
         tracking: {
@@ -584,7 +601,7 @@ export default function CreatePresellWizardPage() {
           title: `${a.pageTitle} (B)`,
           slug: slugB,
           type: typeB,
-          language,
+          language: importLanguage,
           status: "draft",
           video_url: b.video_url,
           tracking: {
