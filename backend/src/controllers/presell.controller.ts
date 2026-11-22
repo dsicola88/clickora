@@ -60,6 +60,8 @@ import {
 } from "../lib/createStageMetrics";
 import { enqueuePresellDraftAudit } from "../lib/complianceAuditQueue";
 import { buildPresellLiteHtml, isPresellLiteHtmlEligible } from "../lib/presellLiteHtml";
+import { PRESSELL_LITE_HTML_CSP } from "../lib/sanitizeMirrorEmbedForLiteHtml";
+import { buildLiteImpressionPixelUrl } from "../lib/buildLiteImpressionPixelUrl";
 import { invalidateTrackEdgeDest } from "../lib/trackEdgeDestCache";
 import { publicSpaPresellUrl } from "../lib/publicSpaOrigin";
 import { isPublicSafeTenantBrandName } from "../lib/tenantBrandingPublic";
@@ -292,6 +294,7 @@ export const presellController = {
     }
 
     const trackBase = await trackApiBaseForUser(req, page.userId);
+    const trackApiBase = trackBase || publicApiBaseFromRequest(req);
     const built = buildPresellLiteHtml({
       id: page.id,
       title: page.title,
@@ -299,8 +302,9 @@ export const presellController = {
       language: page.language,
       content: page.content,
       tracking: page.tracking,
-      trackApiBase: trackBase || publicApiBaseFromRequest(req),
+      trackApiBase,
       spaPath: spaUrl,
+      impressionPixelUrl: buildLiteImpressionPixelUrl(trackApiBase, page.id, req),
     });
     if (!built.ok) {
       res.setHeader("Cache-Control", "private, no-store");
@@ -310,6 +314,8 @@ export const presellController = {
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=120, stale-while-revalidate=600");
+    res.setHeader("Content-Security-Policy", PRESSELL_LITE_HTML_CSP);
+    res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Clickora-Lite", "1");
     res.setHeader("X-Robots-Tag", "noindex, nofollow");
     return res.status(200).send(built.html);

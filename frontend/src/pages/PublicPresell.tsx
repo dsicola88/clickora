@@ -64,6 +64,7 @@ import {
 } from "@/lib/consentMarketPolicy";
 import { presellHasConfiguredGoogleTags } from "@/lib/presellHasGoogleTags";
 import { stripHtmlMarketingExecutors } from "@/lib/stripHtmlMarketingExecutors";
+import { sanitizeMirrorEmbedForPublic } from "@/lib/sanitizeMirrorEmbedForPublic";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
 import {
   policyUrlsFromPresellContent,
@@ -1040,12 +1041,13 @@ export default function PublicPresell() {
     const assetsAligned = alignMirrorAssetUrlsToCaptureBase(appeared, pageBase);
     const tailTrimmed = trimMirrorTrailingSpacersInHtml(assetsAligned);
     const unlocked = unlockMirrorHtmlForSandboxIframe(tailTrimmed);
+    const hardened = sanitizeMirrorEmbedForPublic(unlocked);
     /** Cookies sem Aceitar: strip scripts/handlers (sandbox já bloqueia; defesa extra). */
     const cookieGate = getPresellGateKind(page?.type || "") === "cookies";
     if (cookieGate && !marketingAllowed) {
-      return stripHtmlMarketingExecutors(unlocked);
+      return stripHtmlMarketingExecutors(hardened);
     }
-    return unlocked;
+    return hardened;
   }, [importMirrorSrcDocRaw, href, affiliateLink, page?.type, marketingAllowed]);
 
   const [mirrorUseTemplateFallback, setMirrorUseTemplateFallback] = useState(false);

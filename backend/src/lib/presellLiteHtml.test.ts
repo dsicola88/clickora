@@ -43,6 +43,31 @@ describe("presellLiteHtml", () => {
     assert.match(built.html, /Como avaliar Produto X/);
   });
 
+  it("embute pixel 1×1 sem script quando impressionPixelUrl definido", () => {
+    const built = buildPresellLiteHtml({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Produto X",
+      type: "review",
+      language: "pt",
+      content: {
+        affiliate_link: "https://offer.example/buy",
+        article: {
+          headline: "H",
+          intro: "Texto introdutório longo " + "x".repeat(50),
+          cta_label: "Ver oferta",
+        },
+      },
+      tracking: {},
+      trackApiBase: "https://go.example.com/api",
+      impressionPixelUrl:
+        "https://go.example.com/api/track/pixel/11111111-1111-4111-8111-111111111111.gif?utm_source=ads",
+    });
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+    assert.match(built.html, /track\/pixel\/11111111/);
+    assert.doesNotMatch(built.html, /<script/i);
+  });
+
   it("recusa sem oferta", () => {
     const built = buildPresellLiteHtml({
       id: "11111111-1111-4111-8111-111111111111",
@@ -79,7 +104,58 @@ describe("presellLiteHtml", () => {
     assert.match(built.html, /VISIVRA REVIEW PAGE/);
     assert.match(built.html, /class="mirror"/);
     assert.match(built.html, /go\.example\.com\/api\/track\/r\/11111111/);
+    const withPixel = buildPresellLiteHtml({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Produto X",
+      type: "review",
+      language: "pt",
+      content: {
+        affiliate_link: "https://offer.example/buy",
+        article: {
+          headline: "H",
+          intro: "Texto introdutório longo " + "x".repeat(50),
+          cta_label: "Ver oferta",
+        },
+      },
+      tracking: {},
+      trackApiBase: "https://go.example.com/api",
+      impressionPixelUrl: "https://go.example.com/api/track/pixel/11111111-1111-4111-8111-111111111111.gif?utm_source=ads",
+    });
+    assert.equal(withPixel.ok, true);
+    if (withPixel.ok) {
+      assert.match(withPixel.html, /track\/pixel\/11111111/);
+      assert.doesNotMatch(withPixel.html, /<script/i);
+    }
     assert.doesNotMatch(built.html, /How to review the Tryvisivra offer with transparency/);
+  });
+
+  it("lite remove scripts e on* do espelho antes de embutir (AdsBot)", () => {
+    const built = buildPresellLiteHtml({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "T",
+      type: "review",
+      language: "pt",
+      content: {
+        generationNiche: "white",
+        affiliateLink: "https://offer.example/buy",
+        importMirrorSrcDoc: `<!DOCTYPE html><html><head><base href="https://evil.example/"><meta http-equiv="refresh" content="0;url=https://evil.example"/></head><body><script>window.bad=1</script><img src="x" onerror="alert(1)"><iframe src="https://unknown-tracker.example/x"></iframe><h1>Safe headline</h1>${"y".repeat(250)}</body></html>`,
+        article: {
+          headline: "H",
+          intro: "intro longa " + "a".repeat(50),
+          cta_label: "CTA",
+        },
+      },
+      tracking: {},
+      trackApiBase: "https://go.example.com/api",
+    });
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+    assert.doesNotMatch(built.html, /<script/i);
+    assert.doesNotMatch(built.html, /\son\w+\s*=/i);
+    assert.doesNotMatch(built.html, /<base\b/i);
+    assert.doesNotMatch(built.html, /http-equiv\s*=\s*["']?refresh/i);
+    assert.doesNotMatch(built.html, /unknown-tracker\.example/);
+    assert.match(built.html, /Safe headline/);
   });
 
   it("black niche nunca embute espelho no lite", () => {

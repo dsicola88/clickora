@@ -3,6 +3,7 @@
  * Tipos com gate interativo ficam na SPA `/p/:id`.
  */
 import { affiliateLinkFromPresellPage } from "./trackOfferRedirectGuard";
+import { sanitizeMirrorEmbedForLiteHtml } from "./sanitizeMirrorEmbedForLiteHtml";
 
 /** Gates / builder / overlays — não servem como HTML lite por defeito. */
 const LITE_BLOCKED_TYPES = new Set([
@@ -157,6 +158,8 @@ export type PresellLiteHtmlInput = {
   trackApiBase: string;
   /** Fallback SPA se o visitante precisar da experiência completa */
   spaPath?: string;
+  /** Pixel 1×1 (impressão) — sem JS; opcional se ausente. */
+  impressionPixelUrl?: string | null;
 };
 
 export type PresellLiteHtmlResult =
@@ -186,18 +189,18 @@ export function buildPresellLiteHtml(input: PresellLiteHtmlInput): PresellLiteHt
   const spa = input.spaPath || `/p/${input.id}`;
   // Espelho só no nicho white — black fica no portal editorial (igual à SPA).
   const mirrorRaw = isWhiteNiche(content) ? extractMirrorHtml(content) : "";
-  const mirror =
+  const mirrorSanitized =
     mirrorRaw.length > 200 && mirrorRaw.length < 450_000
-      ? rewriteMirrorTrackHrefs(mirrorRaw, trackHref)
+      ? sanitizeMirrorEmbedForLiteHtml(rewriteMirrorTrackHrefs(mirrorRaw, trackHref))
       : "";
-  const useMirror = mirror.length > 200;
+  const useMirror = mirrorSanitized.length > 200;
 
   const hero = img
     ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(headline)}" width="1200" height="630" fetchpriority="high" decoding="async" style="width:100%;max-height:420px;object-fit:cover;border-radius:12px" />`
     : "";
 
   const body = useMirror
-    ? `<div class="mirror">${mirror}</div>
+    ? `<div class="mirror">${mirrorSanitized}</div>
        <p style="text-align:center;margin:24px 0">
          <a class="cta" href="${escapeHtml(trackHref)}">${escapeHtml(cta)}</a>
        </p>`
@@ -207,6 +210,12 @@ export function buildPresellLiteHtml(input: PresellLiteHtmlInput): PresellLiteHt
          ${intro ? `<p class="intro">${escapeHtml(intro)}</p>` : ""}
          <p><a class="cta" href="${escapeHtml(trackHref)}">${escapeHtml(cta)}</a></p>
        </article>`;
+
+  const impressionPixel = str(input.impressionPixelUrl, 4000);
+  const impressionImg =
+    impressionPixel && /^https?:\/\//i.test(impressionPixel)
+      ? `<img src="${escapeHtml(impressionPixel)}" width="1" height="1" alt="" decoding="async" fetchpriority="low" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" aria-hidden="true" />`
+      : "";
 
   const html = `<!DOCTYPE html>
 <html lang="${escapeHtml(lang)}">
@@ -233,6 +242,7 @@ ${img ? `<link rel="preload" as="image" href="${escapeHtml(img)}"/>` : ""}
 <main>
 ${body}
 <p class="spa"><a href="${escapeHtml(spa)}">Versão completa</a></p>
+${impressionImg}
 </main>
 </body>
 </html>`;
