@@ -840,6 +840,7 @@ export function finalizeMirrorSrcDocForImport(
   out = out.replace(/<style\b[^>]*data-clickora="cta-readability"[^>]*>[\s\S]*?<\/style>/gi, "");
 
   out = normalizeBrokenViewportMetaInHtml(out);
+  out = unlockMirrorHtmlForSandboxIframe(out);
 
   if (out.length > MAX_MIRROR_CHARS) {
     out = truncateMirrorHtmlToLimit(out, MAX_MIRROR_CHARS);
@@ -850,6 +851,48 @@ export function finalizeMirrorSrcDocForImport(
 
 const MIRROR_VIEWPORT_META =
   '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">';
+
+const MIRROR_NO_SCRIPT_UNLOCK_STYLE =
+  '<style data-clickora-mirror-unlock="1">' +
+  "html,body,.async-hide,.wf-loading,.js-loading,.loading-state{opacity:1!important;visibility:visible!important;display:block!important}" +
+  "</style>";
+
+const FOUC_CLASS_NAMES = new Set([
+  "async-hide",
+  "wf-loading",
+  "js-loading",
+  "loading-state",
+  "hold-transition",
+  "page-loading",
+]);
+
+/** Sales pages que escondem o DOM até JS (async-hide) — o iframe público não executa scripts. */
+export function unlockMirrorHtmlForSandboxIframe(html: string): string {
+  if (!html || html.length < 40) return html;
+  let out = html;
+  out = out.replace(/\.async-hide\s*\{[^}]*\}/gi, (rule) => {
+    if (!/opacity\s*:\s*0|visibility\s*:\s*hidden/i.test(rule)) return rule;
+    return ".async-hide{opacity:1!important;visibility:visible!important}";
+  });
+  out = out.replace(/<html\b([^>]*)>/i, (_full, attrs: string) => {
+    if (!/\bclass\s*=/i.test(attrs)) return `<html${attrs}>`;
+    const nextAttrs = attrs.replace(/\bclass\s*=\s*(["'])([\s\S]*?)\1/i, (_m, q: string, cls: string) => {
+      const tokens = cls
+        .split(/\s+/)
+        .filter((t) => t && !FOUC_CLASS_NAMES.has(t.toLowerCase()));
+      return tokens.length ? ` class=${q}${tokens.join(" ")}${q}` : "";
+    });
+    return `<html${nextAttrs}>`;
+  });
+  if (!out.includes('data-clickora-mirror-unlock="1"')) {
+    if (/<head[\s>]/i.test(out)) {
+      out = out.replace(/<head(\s[^>]*)?>/i, (m) => `${m}${MIRROR_NO_SCRIPT_UNLOCK_STYLE}`);
+    } else {
+      out = MIRROR_NO_SCRIPT_UNLOCK_STYLE + out;
+    }
+  }
+  return out;
+}
 
 function normalizeBrokenViewportMetaInHtml(html: string): string {
   let out = html.replace(/<meta\b[^>]*name\s*=\s*["']viewport["'][^>]*>/gi, (tag) => {

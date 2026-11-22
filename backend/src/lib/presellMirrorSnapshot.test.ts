@@ -7,6 +7,7 @@ import {
   mirrorUrlShouldUseTrackMarker,
   sanitizeMirrorSrcDocFromEditor,
   tryExtractUrlFromInlineHandler,
+  unlockMirrorHtmlForSandboxIframe,
 } from "./presellMirrorSnapshot";
 
 describe("mirrorUrlShouldUseTrackMarker", () => {
@@ -210,6 +211,16 @@ describe("finalizeMirrorSrcDocForImport (onclick → href)", () => {
     assert.match(baked, /src="https:\/\/melaramax\.com\/assets\/images\/logo\.svg"/);
     assert.match(baked, /href="https:\/\/melaramax\.com\/assets\/css\/theme\.css"/);
     assert.doesNotMatch(baked, /src="\.\/assets\//);
+  });
+});
+
+describe("unlockMirrorHtmlForSandboxIframe", () => {
+  it("remove FOUC async-hide que deixa iframe em branco", () => {
+    const html = `<!DOCTYPE html><html class="async-hide"><head><style>.async-hide { opacity: 0 !important}</style></head><body><h1>Offer</h1></body></html>`;
+    const out = unlockMirrorHtmlForSandboxIframe(html);
+    assert.match(out, /data-clickora-mirror-unlock/);
+    assert.doesNotMatch(out, /<html[^>]*async-hide/i);
+    assert.match(out, /<h1>Offer<\/h1>/);
   });
 });
 

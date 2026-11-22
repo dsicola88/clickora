@@ -35,6 +35,7 @@ export function ImportedPageMirrorIframe({
   const emptyCbRef = useRef(onMirrorProbablyEmpty);
   emptyCbRef.current = onMirrorProbablyEmpty;
   const [height, setHeight] = useState(960);
+  const [blobFrameSrc, setBlobFrameSrc] = useState("");
 
   const offerHrefRef = useRef(offerHref);
   offerHrefRef.current = offerHref;
@@ -100,9 +101,24 @@ export function ImportedPageMirrorIframe({
   }, []);
 
   useEffect(() => {
+    const trimmed = srcDoc.trim();
+    if (trimmed.length < 80) {
+      setBlobFrameSrc("");
+      return;
+    }
+    const blob = new Blob([trimmed], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    setBlobFrameSrc(url);
+    return () => {
+      URL.revokeObjectURL(url);
+      setBlobFrameSrc("");
+    };
+  }, [srcDoc]);
+
+  useEffect(() => {
     measureDebounced();
     return () => window.clearTimeout(debounceRef.current);
-  }, [srcDoc, measureDebounced]);
+  }, [srcDoc, blobFrameSrc, measureDebounced]);
 
   useEffect(() => {
     const onWin = () => measureDebounced();
@@ -158,12 +174,22 @@ export function ImportedPageMirrorIframe({
     };
   }, []);
 
+  if (!blobFrameSrc) {
+    return (
+      <div
+        className="w-full min-h-[min(72vh,520px)] bg-white"
+        aria-busy="true"
+        aria-label={title}
+      />
+    );
+  }
+
   return (
     <div className="w-full max-w-full min-w-0 overflow-x-hidden">
       <iframe
         ref={ref}
         title={title}
-        srcDoc={srcDoc}
+        src={blobFrameSrc}
         onLoad={onLoad}
         className={cn(
           "w-full max-w-full border-0 block bg-white min-h-[min(72vh,520px)]",

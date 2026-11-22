@@ -110,6 +110,7 @@ import {
 import { buildMirrorSrcDocWithTrackHref } from "@/lib/presellMirrorMarkers";
 import { bakeHtmlOfferHrefs } from "@/lib/presellOfferHrefBake";
 import { preserveNavHashCtaAppearance } from "@/lib/presellMirrorPreserveNav";
+import { unlockMirrorHtmlForSandboxIframe } from "@/lib/presellMirrorNoScriptDisplay";
 import { cn } from "@/lib/utils";
 import { PresellProductHero, PresellSecondaryImage } from "@/components/presell/PresellProductHero";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
@@ -1029,12 +1030,13 @@ export default function PublicPresell() {
     const withTrack = buildMirrorSrcDocWithTrackHref(importMirrorSrcDocRaw, href);
     const baked = bakeHtmlOfferHrefs(withTrack, href, affiliateLink.trim());
     const appeared = preserveNavHashCtaAppearance(baked);
+    const unlocked = unlockMirrorHtmlForSandboxIframe(appeared);
     /** Cookies sem Aceitar: strip scripts/handlers (sandbox já bloqueia; defesa extra). */
     const cookieGate = getPresellGateKind(page?.type || "") === "cookies";
     if (cookieGate && !marketingAllowed) {
-      return stripHtmlMarketingExecutors(appeared);
+      return stripHtmlMarketingExecutors(unlocked);
     }
-    return appeared;
+    return unlocked;
   }, [importMirrorSrcDocRaw, href, affiliateLink, page?.type, marketingAllowed]);
 
   const [mirrorUseTemplateFallback, setMirrorUseTemplateFallback] = useState(false);
