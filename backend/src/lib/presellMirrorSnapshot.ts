@@ -758,6 +758,43 @@ export function absolutizeRelativeAssetUrlsInHtmlString(html: string, base: URL)
   return out;
 }
 
+function escapeRegExpMirrorHost(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Funnels com `<base>` CDN e CSS em `http://merchant/…` — alinha hosts e HTTPS. */
+export function alignMirrorAssetUrlsToCaptureBaseString(html: string, pageBaseUrl: string): string {
+  if (!html || html.length < 80) return html;
+  let merchantOrigin = "";
+  let captureOrigin = "";
+  try {
+    merchantOrigin = new URL(pageBaseUrl).origin;
+  } catch {
+    return html.replace(/\bhttp:\/\//gi, "https://");
+  }
+  const baseMatch = html.match(/<base\b[^>]*\bhref\s*=\s*(["'])([^"']+)\1/i);
+  if (baseMatch?.[2]) {
+    try {
+      captureOrigin = new URL(baseMatch[2]).origin;
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!captureOrigin) return html.replace(/\bhttp:\/\//gi, "https://");
+  const merchantHost = new URL(merchantOrigin).hostname.replace(/^www\./, "").toLowerCase();
+  const captureHost = new URL(captureOrigin).hostname.replace(/^www\./, "").toLowerCase();
+  let out = html;
+  if (merchantHost && captureHost && merchantHost !== captureHost) {
+    const pathRe = new RegExp(
+      `https?:\\/\\/(?:www\\.)?${escapeRegExpMirrorHost(merchantHost)}(\\/[^"'\\s>]+)`,
+      "gi",
+    );
+    out = out.replace(pathRe, `${captureOrigin}$1`);
+    out = out.replace(/<base\b[^>]*>/gi, `<base href="${captureOrigin}/">`);
+  }
+  return out.replace(/\bhttp:\/\//gi, "https://");
+}
+
 /**
  * Remove elementos perigosos, normaliza links da oferta para marcador de tracking,
  * força `target="_top"` para sair do iframe.
@@ -828,6 +865,7 @@ export function finalizeMirrorSrcDocForImport(
   let out = root.toString();
   // Tailwind `class="…[22px]…"` parte o parser em alguns nós — regex cobre o resto.
   out = absolutizeRelativeAssetUrlsInHtmlString(out, base);
+  out = alignMirrorAssetUrlsToCaptureBaseString(out, pageBaseUrl);
   out = out.replace(/<script\b[\s\S]*?<\/script>/gi, "");
   out = out.replace(/on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
 

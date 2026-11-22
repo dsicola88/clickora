@@ -112,6 +112,7 @@ import { buildMirrorSrcDocWithTrackHref } from "@/lib/presellMirrorMarkers";
 import { bakeHtmlOfferHrefs } from "@/lib/presellOfferHrefBake";
 import { preserveNavHashCtaAppearance } from "@/lib/presellMirrorPreserveNav";
 import { unlockMirrorHtmlForSandboxIframe } from "@/lib/presellMirrorNoScriptDisplay";
+import { alignMirrorAssetUrlsToCaptureBase } from "@/lib/presellMirrorAssetHosts";
 import { cn } from "@/lib/utils";
 import { PresellProductHero, PresellSecondaryImage } from "@/components/presell/PresellProductHero";
 import { rankPresellProductImages } from "@/lib/presellProductImagesRank";
@@ -1031,7 +1032,12 @@ export default function PublicPresell() {
     const withTrack = buildMirrorSrcDocWithTrackHref(importMirrorSrcDocRaw, href);
     const baked = bakeHtmlOfferHrefs(withTrack, href, affiliateLink.trim());
     const appeared = preserveNavHashCtaAppearance(baked);
-    const unlocked = unlockMirrorHtmlForSandboxIframe(appeared);
+    const pageBase =
+      (typeof content.sourceUrl === "string" && content.sourceUrl.trim()) ||
+      affiliateLink.trim() ||
+      "";
+    const assetsAligned = alignMirrorAssetUrlsToCaptureBase(appeared, pageBase);
+    const unlocked = unlockMirrorHtmlForSandboxIframe(assetsAligned);
     /** Cookies sem Aceitar: strip scripts/handlers (sandbox já bloqueia; defesa extra). */
     const cookieGate = getPresellGateKind(page?.type || "") === "cookies";
     if (cookieGate && !marketingAllowed) {

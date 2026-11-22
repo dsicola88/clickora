@@ -8,6 +8,7 @@ import {
   sanitizeMirrorSrcDocFromEditor,
   tryExtractUrlFromInlineHandler,
   unlockMirrorHtmlForSandboxIframe,
+  alignMirrorAssetUrlsToCaptureBaseString,
 } from "./presellMirrorSnapshot";
 
 describe("mirrorUrlShouldUseTrackMarker", () => {
@@ -211,6 +212,15 @@ describe("finalizeMirrorSrcDocForImport (onclick → href)", () => {
     assert.match(baked, /src="https:\/\/melaramax\.com\/assets\/images\/logo\.svg"/);
     assert.match(baked, /href="https:\/\/melaramax\.com\/assets\/css\/theme\.css"/);
     assert.doesNotMatch(baked, /src="\.\/assets\//);
+  });
+});
+
+describe("alignMirrorAssetUrlsToCaptureBaseString", () => {
+  it("repoint CSS merchant → CDN do base (Trimoryn funnel)", () => {
+    const html = `<head><base href="https://cdn.funnel.example/"><link rel="stylesheet" href="http://shop.example/assets/app.css"></head><body></body>`;
+    const out = alignMirrorAssetUrlsToCaptureBaseString(html, "https://shop.example/landing");
+    assert.match(out, /https:\/\/cdn\.funnel\.example\/assets\/app\.css/);
+    assert.doesNotMatch(out, /http:\/\/shop\.example/);
   });
 });
 
