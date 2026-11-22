@@ -18,10 +18,12 @@ describe("seoHostPolicy", () => {
     expect(isMainMarketingHostname("oferta.afiliado.net")).toBe(false);
   });
 
-  it("identifica landers /p/ e /l/", () => {
+  it("identifica landers /p/, /l/ e slug bare no tenant", () => {
     expect(isPublicPresellPath("/p/abc-uuid")).toBe(true);
     expect(isPublicPresellPath("/l/abc-uuid")).toBe(true);
     expect(isPublicPresellPath("/planos")).toBe(false);
+    expect(isPublicPresellPath("/kerassentials", "go.tenant.com")).toBe(true);
+    expect(isPublicPresellPath("/kerassentials", "www.dclickora.com")).toBe(false);
   });
 
   it("exige noindex em landers e hosts de assinante", () => {

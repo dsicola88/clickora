@@ -8,6 +8,7 @@ import {
   writeCachedRootPresellId,
 } from "@/lib/customDomainRootPresellCache";
 import { ROBOTS_NOINDEX, isMainMarketingHostname } from "@/lib/seoHostPolicy";
+import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
 import { presellService } from "@/services/presellService";
 import Plans from "@/pages/Plans";
 
@@ -57,9 +58,13 @@ function CustomDomainRootRedirect() {
         return { kind: "tracking" as const };
       }
       const id = payload && typeof payload === "object" && "id" in payload ? (payload as { id?: string | null }).id : null;
+      const slug =
+        payload && typeof payload === "object" && "slug" in payload
+          ? (payload as { slug?: string | null }).slug
+          : null;
       if (id) {
         if (hostname) writeCachedRootPresellId(hostname, id);
-        return { kind: "presell" as const, id };
+        return { kind: "presell" as const, id, slug: slug ?? null };
       }
       if (hostname) clearCachedRootPresellId(hostname);
       if (error) throw new Error(error);
@@ -78,8 +83,10 @@ function CustomDomainRootRedirect() {
   }
 
   if (data?.kind === "presell" && data.id) {
-    // Preservar gclid/utm/fbclid — PublicPresell lê window.location.search.
-    return <Navigate to={`/p/${data.id}${location.search}${location.hash}`} replace />;
+    const slug = (data as { slug?: string | null }).slug?.trim() ?? "";
+    const bare =
+      slug && !isPresellUuidParam(slug) ? `/${encodeURIComponent(slug)}` : `/p/${data.id}`;
+    return <Navigate to={`${bare}${location.search}${location.hash}`} replace />;
   }
 
   if (data?.kind === "tracking") {

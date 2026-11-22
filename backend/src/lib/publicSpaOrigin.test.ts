@@ -34,6 +34,17 @@ describe("publicSpaOrigin", () => {
     );
   });
 
+  it("redirect lite no tenant com slug usa path bare", () => {
+    const req = fakeReq({
+      host: "offer.tenant.com",
+      query: { spa_origin: "https://offer.tenant.com" },
+      headers: { "x-forwarded-host": "offer.tenant.com", "x-forwarded-proto": "https" },
+    });
+    const url = publicSpaPresellUrl(req, "11111111-1111-4111-8111-111111111111", "kerassentials");
+    assert.match(url, /\/kerassentials$/);
+    assert.doesNotMatch(url, /\/p\//);
+  });
+
   it("com rewrite same-host devolve origem do host", () => {
     const req = fakeReq({
       host: "www.dclickora.com",

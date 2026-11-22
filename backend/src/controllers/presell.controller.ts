@@ -261,7 +261,7 @@ export const presellController = {
       return res.status(403).type("text/plain").send("Página indisponível");
     }
 
-    const spaUrl = publicSpaPresellUrl(req, page.id);
+    const spaUrl = publicSpaPresellUrl(req, page.id, page.slug);
     if (!isPresellLiteHtmlEligible(page.type)) {
       res.setHeader("Cache-Control", "private, no-store");
       res.setHeader("X-Clickora-Lite", "redirect-spa");
@@ -322,7 +322,7 @@ export const presellController = {
   },
 
   /**
-   * Link público por slug (estilo «/p/meu_endereco») — só em domínio personalizado verificado.
+   * Link público por slug (`/{slug}` ou legado `/p/{slug}`) — só em domínio personalizado verificado.
    * No dclickora.com / localhost / preview Vercel usa-se sempre GET /presells/id/:uuid.
    */
   async getPublicBySlug(req: Request, res: Response) {
@@ -459,7 +459,8 @@ export const presellController = {
     const access = evaluateSubscriptionAccess(page.user.subscription);
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 
-    return res.json({ id: page.id });
+    const slug = typeof page.slug === "string" ? page.slug.trim() : "";
+    return res.json({ id: page.id, slug: slug || null });
   },
 
   async uploadBuilderMedia(req: Request, res: Response) {

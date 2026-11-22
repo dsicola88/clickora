@@ -8,6 +8,7 @@ import {
 } from "@/lib/publicPresellSeo";
 import { getPresellProductLabel, resolvePublicPresellDocumentTitle } from "@/lib/publicPresellDocumentTitle";
 import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
+import { isTenantBarePresellPathname, parseBarePresellSegment } from "@/lib/publicPresellBarePath";
 
 const inflight = new Map<string, Promise<Presell | null>>();
 
@@ -98,14 +99,27 @@ function applyEarlyPresellShareImageHints(page: Presell) {
   document.head.appendChild(link);
 }
 
-function extractPublicPresellRouteParam(pathname: string): string {
-  const m = pathname.match(/^\/p\/([^/]+)/);
-  if (!m?.[1]) return "";
+function decodePresellRouteSegment(raw: string): string {
   try {
-    return decodeURIComponent(m[1]).replace(/\/+$/, "");
+    return decodeURIComponent(raw).replace(/\/+$/, "");
   } catch {
-    return m[1].replace(/\/+$/, "");
+    return raw.replace(/\/+$/, "");
   }
+}
+
+function extractPublicPresellRouteParam(pathname: string): string {
+  const mP = pathname.match(/^\/p\/([^/]+)/);
+  if (mP?.[1]) return decodePresellRouteSegment(mP[1]);
+  const mL = pathname.match(/^\/l\/([^/]+)/);
+  if (mL?.[1]) return decodePresellRouteSegment(mL[1]);
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname || "";
+    if (isTenantBarePresellPathname(pathname, host)) {
+      const bare = parseBarePresellSegment(pathname);
+      if (bare) return bare;
+    }
+  }
+  return "";
 }
 
 function buildPublicPresellFetchUrl(param: string): string {

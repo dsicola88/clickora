@@ -1,4 +1,15 @@
 import type { Request } from "express";
+import { isMainOrPreviewHostname } from "./presellHostAccess";
+
+function isPresellUuidParam(s: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim());
+}
+
+function requestHostname(req: Request): string {
+  const xf = (req.get("x-forwarded-host") || "").split(",")[0]?.trim();
+  const host = xf || (req.get("host") || "").trim();
+  return host.split(":")[0]?.toLowerCase() || "";
+}
 
 /**
  * Origem da SPA (Vite/Vercel) para redirects a partir da API.
@@ -64,9 +75,17 @@ export function resolvePublicAppOrigin(req: Request): string | null {
   return null;
 }
 
-/** URL absoluta ou relativa para a SPA pública `/p/:id`. */
-export function publicSpaPresellUrl(req: Request, presellId: string): string {
-  const path = `/p/${presellId}`;
+/** URL absoluta ou relativa para a SPA pública (`/{slug}` no tenant; senão `/p/:id`). */
+export function publicSpaPresellUrl(
+  req: Request,
+  presellId: string,
+  slug?: string | null,
+): string {
   const origin = resolvePublicAppOrigin(req);
+  const host = requestHostname(req);
+  const s = typeof slug === "string" ? slug.trim() : "";
+  const canBare =
+    host && !isMainOrPreviewHostname(host) && s.length > 0 && !isPresellUuidParam(s);
+  const path = canBare ? `/${encodeURIComponent(s)}` : `/p/${presellId}`;
   return origin ? `${origin}${path}` : path;
 }

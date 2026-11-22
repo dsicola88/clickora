@@ -1,6 +1,8 @@
+import { isTenantBarePresellPathname } from "@/lib/publicPresellBarePath";
+
 /**
  * Política de indexação por host: só o site de marketing (dclickora) deve rankear.
- * Domínios de assinantes, tracking e landers `/p/*` e `/l/*` ficam fora dos buscadores por defeito.
+ * Domínios de assinantes, tracking e landers `/p/*`, `/l/*` e `/{slug}` ficam fora dos buscadores por defeito.
  */
 
 const MAIN_MARKETING_HOSTS = new Set(["dclickora.com", "www.dclickora.com"]);
@@ -33,8 +35,10 @@ export function isMarketingIndexablePath(pathname: string): boolean {
   return MARKETING_INDEXABLE_PATHS.has(p);
 }
 
-export function isPublicPresellPath(pathname: string): boolean {
-  return /^\/(?:p|l)\/[^/]+/i.test(pathname);
+export function isPublicPresellPath(pathname: string, hostname?: string): boolean {
+  if (/^\/(?:p|l)\/[^/]+/i.test(pathname)) return true;
+  if (hostname && isTenantBarePresellPathname(pathname, hostname)) return true;
+  return false;
 }
 
 /**
@@ -47,7 +51,7 @@ export function shouldNoindexCurrentLocation(
   pathname: string,
 ): boolean {
   if (!isMainMarketingHostname(hostname)) return true;
-  if (isPublicPresellPath(pathname)) return true;
+  if (isPublicPresellPath(pathname, hostname)) return true;
   return false;
 }
 

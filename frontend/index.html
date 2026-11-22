@@ -20,13 +20,52 @@
         try {
           var p = location.pathname || "";
           var host = (location.hostname || "").toLowerCase();
-          var isPresell = /^\/p\/[^/]+/.test(p);
           var isMainHost =
             host === "dclickora.com" ||
             host === "www.dclickora.com" ||
+            host === "clickora.com" ||
+            host === "www.clickora.com" ||
             host === "localhost" ||
             host === "127.0.0.1" ||
             /\.vercel\.app$/.test(host);
+          var reservedBare = {
+            auth: 1,
+            api: 1,
+            assets: 1,
+            p: 1,
+            l: 1,
+            planos: 1,
+            plans: 1,
+            privacidade: 1,
+            termos: 1,
+            "aviso-medico": 1,
+            "aviso-cookies": 1,
+            "reset-password": 1,
+            "presell-para-afiliados": 1,
+            "super-presell": 1,
+            "rastreamento-afiliados": 1,
+            "guia-vendas-afiliados": 1,
+            presell: 1,
+            tracking: 1,
+            resultados: 1,
+            integrations: 1,
+            settings: 1,
+            admin: 1,
+            account: 1,
+            home: 1,
+            presells: 1,
+          };
+          var bareSeg = "";
+          if (!isMainHost && /^\/[^/]+\/?$/.test(p) && p !== "/") {
+            try {
+              bareSeg = decodeURIComponent((p.split("/")[1] || "").replace(/\/+$/, "")).toLowerCase();
+            } catch (bareErr) {
+              bareSeg = (p.split("/")[1] || "").replace(/\/+$/, "").toLowerCase();
+            }
+          }
+          var isBareTenant =
+            !!bareSeg && !reservedBare[bareSeg] && bareSeg.indexOf(".") === -1;
+          var isPresell = /^\/p\/[^/]+/.test(p) || /^\/l\/[^/]+/.test(p) || isBareTenant;
           // Landers e domínios de assinantes: noindex imediato (antes do React / bots sem JS).
           if (isPresell || !isMainHost) {
             var robotsEl = document.querySelector('meta[name="robots"]');
@@ -89,10 +128,18 @@
             try {
               if (isPresell && host !== "localhost" && host !== "127.0.0.1") {
                 var seg = "";
-                try {
-                  seg = decodeURIComponent((p.split("/")[2] || "").replace(/\/+$/, ""));
-                } catch (e2) {
-                  seg = (p.split("/")[2] || "").replace(/\/+$/, "");
+                if (isBareTenant) {
+                  try {
+                    seg = decodeURIComponent((p.split("/")[1] || "").replace(/\/+$/, ""));
+                  } catch (bareE) {
+                    seg = (p.split("/")[1] || "").replace(/\/+$/, "");
+                  }
+                } else {
+                  try {
+                    seg = decodeURIComponent((p.split("/")[2] || "").replace(/\/+$/, ""));
+                  } catch (e2) {
+                    seg = (p.split("/")[2] || "").replace(/\/+$/, "");
+                  }
                 }
                 if (seg) {
                   var isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg);

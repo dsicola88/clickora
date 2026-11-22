@@ -54,8 +54,11 @@ describe("publicPresellOrigin hosting vs tracking", () => {
     expect(url).toBe("https://www.x.com/p/page-1");
   });
 
-  it("Ads URL usa /l/ para review (LCP) e /p/ para cookies", () => {
+  it("review com slug usa /{slug}; sem slug usa /l/; cookies usa /p/", () => {
     const domains = [domain({ id: "www", hostname: "www.x.com", purpose: "hosting", is_default: true })];
+    expect(getPublicPresellFullUrl(domains, "www", { id: "a", type: "review", slug: "kerassentials" })).toBe(
+      "https://www.x.com/kerassentials",
+    );
     expect(getPublicPresellFullUrl(domains, "www", { id: "a", type: "review" })).toBe(
       "https://www.x.com/l/a",
     );
@@ -64,14 +67,14 @@ describe("publicPresellOrigin hosting vs tracking", () => {
     );
   });
 
-  it("usa slug no domínio personalizado (manual /p/)", () => {
+  it("com slug no domínio publica em /{slug} (sem /p/)", () => {
     const domains = [domain({ id: "www", hostname: "truefindlab.blog", purpose: "hosting", is_default: true })];
     const url = getPublicPresellFullUrl(domains, "www", {
       id: "11df2eb9-63d3-4d8e-9f99-0e19906bd2f1",
       slug: "trimoryn",
       type: "builder",
     });
-    expect(url).toBe("https://truefindlab.blog/p/trimoryn");
+    expect(url).toBe("https://truefindlab.blog/trimoryn");
   });
 
   it("mantém UUID em origem dclickora mesmo com slug definido", () => {

@@ -75,8 +75,11 @@ import {
   getPublicPresellFullUrl,
   isCustomDomainHttpsPendingForPresell,
   getPublicPresellOriginForPresell,
+  isMainPlatformPresellOrigin,
+  isPresellUuidParam,
   listVerifiedHostingDomains,
   resolveDefaultCustomDomainIdForAccount,
+  resolvePublicPresellPath,
 } from "@/lib/publicPresellOrigin";
 import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
 import { useCustomDomains } from "@/hooks/useCustomDomains";
@@ -394,14 +397,47 @@ export default function PresellDashboard() {
     );
     const slugPart = sanitizeSlug(formData.pageSlug || formData.pageName);
     const emptyBoth = !formData.pageSlug.trim() && !formData.pageName.trim();
+    const pageId = editingId || "00000000-0000-4000-8000-000000000000";
+    const path = resolvePublicPresellPath(
+      {
+        id: pageId,
+        slug: emptyBoth ? null : slugPart,
+        type: formData.presellType || editingPage?.type,
+      },
+      origin,
+    );
+    const fullUrl = `${origin}${path}`;
+    const onCustom = !isMainPlatformPresellOrigin(origin);
+    const canBare = onCustom && !emptyBoth && slugPart && !isPresellUuidParam(slugPart);
+    let prefix: string;
+    if (canBare) {
+      prefix = `${origin}/`;
+    } else if (path.startsWith("/l/")) {
+      prefix = `${origin}/l/`;
+    } else {
+      prefix = `${origin}/p/`;
+    }
+    const pathLabel = emptyBoth
+      ? "…"
+      : canBare
+        ? slugPart
+        : (path.split("/")[2] || slugPart || "…");
     return {
       origin,
-      prefix: `${origin}/p/`,
+      prefix,
       slugPart,
-      pathLabel: emptyBoth ? "…" : slugPart,
-      fullUrl: `${origin}/p/${slugPart}`,
+      pathLabel,
+      fullUrl,
     };
-  }, [customDomains, formData.customDomainId, formData.pageSlug, formData.pageName]);
+  }, [
+    customDomains,
+    editingId,
+    editingPage?.type,
+    formData.customDomainId,
+    formData.pageSlug,
+    formData.pageName,
+    formData.presellType,
+  ]);
 
   const [typeOptions, setTypeOptions] = useState({
     cookiePolicyUrl: "",
@@ -1430,7 +1466,7 @@ export default function PresellDashboard() {
                         {t("pages.presells.verifiedDomainBefore")}{" "}
                         <code className="text-[10px] bg-muted px-1 rounded">{t("pages.presells.slugExamplePath")}</code>{" "}
                         {t("pages.presells.verifiedDomainMid")}{" "}
-                        <code className="text-[10px] bg-muted px-1 rounded">/p/</code>{" "}
+                        <code className="text-[10px] bg-muted px-1 rounded">/p/&lt;UUID&gt;</code>{" "}
                         {t("pages.presells.verifiedDomainAfter")}
                       </span>
                     ) : null}

@@ -184,7 +184,8 @@ export function isMainPlatformPresellOrigin(origin: string): boolean {
 }
 
 /**
- * Segmento do path público: slug no domínio personalizado; UUID em dclickora.dev e `/l/` (LCP).
+ * Segmento do path público: no domínio verificado com slug → `/{slug}` (estilo SuperPresell);
+ * senão UUID em dclickora / lite `/l/` quando elegível; fallback `/p/<uuid>`.
  */
 export function resolvePublicPresellPath(
   page: { id: string; slug?: string | null; type?: string | null },
@@ -194,17 +195,20 @@ export function resolvePublicPresellPath(
   const onCustomLander = !isMainPlatformPresellOrigin(origin);
   const canUseSlug = onCustomLander && slug.length > 0 && !isPresellUuidParam(slug);
 
+  if (canUseSlug) {
+    return `/${encodeURIComponent(slug)}`;
+  }
+
   const lite = isPresellLitePathEligible(page.type);
-  if (lite && !canUseSlug) {
+  if (lite) {
     return `/l/${page.id}`;
   }
-  const segment = canUseSlug ? slug : page.id;
-  return `/p/${segment}`;
+  return `/p/${page.id}`;
 }
 
 /**
- * URL completo para anúncios e cópia: domínio escolhido + `/l/<uuid>` (LCP)
- * quando elegível; senão `/p/<uuid>` ou `/p/<slug>` no domínio verificado.
+ * URL completo para anúncios e cópia: domínio escolhido + `/{slug}` no custom;
+ * senão `/l/<uuid>` (LCP) ou `/p/<uuid>` na plataforma.
  */
 export function getPublicPresellFullUrl(
   domains: CustomDomainDto[] | null | undefined,

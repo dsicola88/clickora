@@ -11,6 +11,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLocaleProvider } from "@/i18n/AppLocaleProvider";
 import { LegacyDomLocalizer } from "@/i18n/LegacyDomLocalizer";
 import { mergeRedirectSearch } from "@/lib/postAuthRedirect";
+import { isAnyPublicPresellPathname } from "@/lib/publicPresellBarePath";
 
 const AppLayout = lazy(() =>
   import("@/components/AppLayout").then((m) => ({ default: m.AppLayout })),
@@ -93,7 +94,9 @@ function PublicPresellFallback() {
 
 function BrandingFaviconGate() {
   const { pathname } = useLocation();
-  if (pathname.startsWith("/p/")) return null;
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  if (pathname.startsWith("/p/") || pathname.startsWith("/l/")) return null;
+  if (isAnyPublicPresellPathname(pathname, hostname)) return null;
   return <BrandingFavicon />;
 }
 
@@ -216,6 +219,7 @@ function PublicPresellShell() {
       <Routes>
         <Route path="/p/:id" element={<PublicPresell />} />
         <Route path="/l/:id" element={<LitePresellEntry />} />
+        <Route path="/:id" element={<PublicPresell />} />
       </Routes>
     </Suspense>
   );
@@ -302,7 +306,9 @@ function AuthenticatedAppShell() {
 
 function AppRouterGate() {
   const { pathname } = useLocation();
-  if (pathname.startsWith("/p/")) return <PublicPresellShell />;
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  if (pathname.startsWith("/p/") || pathname.startsWith("/l/")) return <PublicPresellShell />;
+  if (isAnyPublicPresellPathname(pathname, hostname)) return <PublicPresellShell />;
   return <AuthenticatedAppShell />;
 }
 
