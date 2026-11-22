@@ -92,7 +92,11 @@ import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { userCanAccessDpilotAds } from "@/lib/dpilotAccess";
 import { dpilotAdsHandoffHref } from "@/lib/dpilotPresellHandoff";
-import { buildGoogleAdsPresellUrlParts, presellAdsCampaignName } from "@/lib/googleAdsPresellUrl";
+import {
+  buildGoogleAdsPresellCopyUrl,
+  buildGoogleAdsPresellUrlParts,
+  presellAdsCampaignName,
+} from "@/lib/googleAdsPresellUrl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -163,7 +167,6 @@ export default function PresellDashboard() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<Presell | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [suffixCopiedId, setSuffixCopiedId] = useState<string | null>(null);
   /** A carregar HTML (copiar fragmento para widget ou descarregar .html completo). */
   const [htmlExportBusyId, setHtmlExportBusyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -594,26 +597,20 @@ export default function PresellDashboard() {
 
   const adsFinalUrlForPage = (page: Presell) => adsUrlPartsForPage(page).finalUrl;
 
-  const handleCopyAdsFinalUrl = (page: Presell) => {
+  const handleCopyAdsUrl = (page: Presell) => {
     if (page.status !== "published") {
       toast.error(t("pages.presells.toastPublishBeforeCopy"));
       return;
     }
-    void navigator.clipboard.writeText(adsUrlPartsForPage(page).finalUrl);
+    const url = buildGoogleAdsPresellCopyUrl(
+      getPublicPresellFullUrl(customDomains, page.custom_domain_id, page),
+      presellAdsCampaignName(page.title, page.slug),
+      "Google Ads",
+    );
+    void navigator.clipboard.writeText(url);
     setCopiedId(page.id);
-    toast.success(t("pages.createPresell.copyFinalUrlDone"));
+    toast.success(t("pages.createPresell.copyCombinedUrlDone"));
     setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleCopyAdsSuffix = (page: Presell) => {
-    if (page.status !== "published") {
-      toast.error(t("pages.presells.toastPublishBeforeCopy"));
-      return;
-    }
-    void navigator.clipboard.writeText(adsUrlPartsForPage(page).finalUrlSuffix);
-    setSuffixCopiedId(page.id);
-    toast.success(t("pages.createPresell.copySuffixDone"));
-    setTimeout(() => setSuffixCopiedId(null), 2000);
   };
 
   const handleCopyHtml = async (page: Presell) => {
@@ -1897,30 +1894,16 @@ export default function PresellDashboard() {
                         <span className="text-[10px] text-muted-foreground">slug: /{page.slug}</span>
                         <button
                           type="button"
-                          onClick={() => handleCopyAdsFinalUrl(page)}
+                          onClick={() => handleCopyAdsUrl(page)}
                           className="text-xs px-2 py-0.5 rounded bg-success/10 text-success font-medium hover:bg-success/20 transition-colors inline-flex items-center gap-1"
-                          title={t("pages.createPresell.copyFinalUrl")}
+                          title={t("pages.createPresell.copyCombinedUrl")}
                         >
                           {copiedId === page.id ? (
                             <>
                               <Check className="h-3 w-3" /> {t("common.copied")}
                             </>
                           ) : (
-                            t("pages.createPresell.copyFinalUrl")
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyAdsSuffix(page)}
-                          className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium hover:bg-muted/80 transition-colors inline-flex items-center gap-1"
-                          title={t("pages.createPresell.copyUrlSuffix")}
-                        >
-                          {suffixCopiedId === page.id ? (
-                            <>
-                              <Check className="h-3 w-3" /> {t("common.copied")}
-                            </>
-                          ) : (
-                            t("pages.createPresell.copyUrlSuffix")
+                            t("pages.createPresell.copyCombinedUrl")
                           )}
                         </button>
                       </div>

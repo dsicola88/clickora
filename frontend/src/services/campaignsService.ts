@@ -83,10 +83,8 @@ export const campaignsService = {
 
 export { campaignUtmSlug, buildGoogleAdsPresellUrlParts, type GoogleAdsPresellUrlParts };
 
-/**
- * Lander + query numa string (QA / simular clique na lander).
- * Google Ads: `finalUrl` + `finalUrlSuffix` (dois campos) ou `combinedTrackingUrl` (modo simples).
- */
+/** Lander + UTMs numa string — colar no campo URL final do Google (modo único, como pré-21/11). */
 export function buildTrackedPresellUrl(basePresellUrl: string, campaignName: string, trafficSource: string): string {
-  return buildGoogleAdsPresellUrlParts(basePresellUrl, campaignName, trafficSource).combinedTrackingUrl;
+  const p = buildGoogleAdsPresellUrlParts(basePresellUrl, campaignName, trafficSource);
+  return p.finalUrlSuffix ? p.combinedTrackingUrl : p.finalUrl;
 }

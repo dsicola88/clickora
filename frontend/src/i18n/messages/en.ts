@@ -834,7 +834,7 @@ export const en = {
       draftBannerStrong: "draft",
       draftBannerAfter: ". The ad link only opens after you publish it under Presells.",
       finalUrlTitle: "Final URL for Google Ads",
-      finalUrlBefore: "Two-step copy: Final URL (lander only) and suffix (UTMs + ValueTrack). Do not paste both into one field.",
+      finalUrlBefore: "Copy the full link below into the Google Ads",
       finalUrlStrong: "Final URL",
       finalUrlAfter: "field. Do not add gclid by hand — Google injects it with auto-tagging.",
       urlCopied: "URL copied",

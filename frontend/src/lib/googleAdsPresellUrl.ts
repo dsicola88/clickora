@@ -137,3 +137,13 @@ export function buildGoogleAdsPresellUrlParts(
   const combinedTrackingUrl = finalUrlSuffix ? `${finalUrl}?${finalUrlSuffix}` : finalUrl;
   return { finalUrl, finalUrlSuffix, combinedTrackingUrl };
 }
+
+/** URL único para colar no Google Ads (modo pré-21/11 / um só campo). */
+export function buildGoogleAdsPresellCopyUrl(
+  basePresellUrl: string,
+  campaignName: string,
+  trafficSource: string,
+): string {
+  const p = buildGoogleAdsPresellUrlParts(basePresellUrl, campaignName, trafficSource);
+  return p.finalUrlSuffix ? p.combinedTrackingUrl : p.finalUrl;
+}

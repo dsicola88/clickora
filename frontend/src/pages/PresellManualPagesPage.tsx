@@ -36,7 +36,7 @@ import {
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { resolveTrackApiBaseForExport } from "@/lib/apiOrigin";
 import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
-import { buildGoogleAdsPresellUrlParts, presellAdsCampaignName } from "@/lib/googleAdsPresellUrl";
+import { buildGoogleAdsPresellCopyUrl, presellAdsCampaignName } from "@/lib/googleAdsPresellUrl";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
 import {
@@ -65,7 +65,6 @@ export default function PresellManualPagesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [suffixCopiedId, setSuffixCopiedId] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const { data: customDomains = [] } = useQuery({
@@ -151,33 +150,17 @@ export default function PresellManualPagesPage() {
     deleteMutation.mutate(page.id);
   };
 
-  const adsPartsForPage = (page: Presell) => {
+  const handleCopyAdsUrl = (page: Presell) => {
+    if (page.status !== "published") {
+      toast.error(t("pages.presells.toastPublishBeforeCopy"));
+      return;
+    }
     const base = getPublicPresellFullUrl(customDomains, page.custom_domain_id, page);
-    return buildGoogleAdsPresellUrlParts(base, presellAdsCampaignName(page.title, page.slug), "Google Ads");
-  };
-
-  const handleCopyAdsFinalUrl = (page: Presell) => {
-    if (page.status !== "published") {
-      toast.error(t("pages.presells.toastPublishBeforeCopy"));
-      return;
-    }
-    void navigator.clipboard.writeText(adsPartsForPage(page).finalUrl);
+    const url = buildGoogleAdsPresellCopyUrl(base, presellAdsCampaignName(page.title, page.slug), "Google Ads");
+    void navigator.clipboard.writeText(url);
     setCopiedId(page.id);
-    setSuffixCopiedId(null);
-    toast.success(t("pages.createPresell.copyFinalUrlDone"));
+    toast.success(t("pages.createPresell.copyCombinedUrlDone"));
     setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleCopyAdsSuffix = (page: Presell) => {
-    if (page.status !== "published") {
-      toast.error(t("pages.presells.toastPublishBeforeCopy"));
-      return;
-    }
-    void navigator.clipboard.writeText(adsPartsForPage(page).finalUrlSuffix);
-    setSuffixCopiedId(page.id);
-    setCopiedId(null);
-    toast.success(t("pages.createPresell.copySuffixDone"));
-    setTimeout(() => setSuffixCopiedId(null), 2000);
   };
 
   const loadFresh = async (id: string) => {
@@ -445,7 +428,7 @@ export default function PresellManualPagesPage() {
                 </thead>
                 <tbody>
                   {filtered.map((page) => {
-                    const parts = adsPartsForPage(page);
+                    const lander = getPublicPresellFullUrl(customDomains, page.custom_domain_id, page);
                     const busy = busyId === page.id;
                     return (
                       <tr key={page.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
@@ -456,25 +439,16 @@ export default function PresellManualPagesPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4 max-w-[min(100vw,20rem)]">
-                          <code className="text-[11px] text-primary break-all leading-snug">{parts.finalUrl}</code>
+                          <code className="text-[11px] text-primary break-all leading-snug">{lander}</code>
                           <div className="mt-1 flex flex-wrap gap-1">
                             <button
                               type="button"
                               disabled={page.status !== "published"}
-                              onClick={() => handleCopyAdsFinalUrl(page)}
+                              onClick={() => handleCopyAdsUrl(page)}
                               className="text-xs px-2 py-0.5 rounded bg-success/10 text-success font-medium hover:bg-success/20 disabled:opacity-40"
                             >
                               {copiedId === page.id ? <Check className="h-3 w-3 inline" /> : null}{" "}
-                              {t("pages.createPresell.copyFinalUrl")}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={page.status !== "published"}
-                              onClick={() => handleCopyAdsSuffix(page)}
-                              className="text-xs px-2 py-0.5 rounded bg-muted text-foreground font-medium hover:bg-muted/80 disabled:opacity-40"
-                            >
-                              {suffixCopiedId === page.id ? <Check className="h-3 w-3 inline" /> : null}{" "}
-                              {t("pages.createPresell.copyUrlSuffix")}
+                              {t("pages.createPresell.copyCombinedUrl")}
                             </button>
                           </div>
                         </td>
@@ -511,7 +485,7 @@ export default function PresellManualPagesPage() {
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-end gap-1 flex-wrap">
                             <a
-                              href={parts.finalUrl}
+                              href={lander}
                               target="_blank"
                               rel="noreferrer"
                               className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground inline-flex"

@@ -31,7 +31,7 @@ import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import { buildClickoraEmbedScriptHtml } from "@/lib/clickoraEmbedScript";
 import { mergeClickoraTrackingIntoHeader } from "@/lib/presellTrackingMerge";
 import { computePresellTrackingHealth } from "@/lib/presellTrackingHealth";
-import { buildGoogleAdsPresellUrlParts, presellAdsCampaignName } from "@/lib/googleAdsPresellUrl";
+import { buildGoogleAdsPresellCopyUrl, presellAdsCampaignName } from "@/lib/googleAdsPresellUrl";
 import {
   parsePresellBuilderPageDocument,
   parsePresellEditorWorkingDocument,
@@ -483,17 +483,17 @@ export default function PresellManualBuilderPage() {
         saved.custom_domain_id ?? customDomainId ?? null,
         saved,
       );
-      const { finalUrl } = buildGoogleAdsPresellUrlParts(
+      const adsUrl = buildGoogleAdsPresellCopyUrl(
         publicUrl,
         presellAdsCampaignName(saved.title, saved.slug),
         "Google Ads",
       );
       toast.success(t("pages.manualBuilder.publishedReady"), {
-        description: finalUrl,
+        description: adsUrl,
         duration: 8000,
       });
       try {
-        await navigator.clipboard.writeText(finalUrl);
+        await navigator.clipboard.writeText(adsUrl);
       } catch {
         /* ignore */
       }
