@@ -10,6 +10,7 @@ describe("defaultPresellLanguageForAdCountry", () => {
 
   it("BR e mercados LATAM/UE conhecidos", () => {
     expect(defaultPresellLanguageForAdCountry("BR")).toBe("pt-BR");
+    expect(defaultPresellLanguageForAdCountry("PT")).toBe("pt-BR");
     expect(defaultPresellLanguageForAdCountry("DE")).toBe("de");
     expect(defaultPresellLanguageForAdCountry("ES")).toBe("es");
   });

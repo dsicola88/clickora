@@ -10,7 +10,7 @@ const COUNTRY_TO_LANGUAGE: Record<string, PresellLocaleKey> = {
   IE: "en",
   SG: "en",
   BR: "pt-BR",
-  PT: "pt",
+  PT: "pt-BR",
   ES: "es",
   MX: "es",
   AR: "es",

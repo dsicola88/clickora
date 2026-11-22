@@ -962,7 +962,7 @@ export default function PublicPresell() {
 
   useEffect(() => {
     // Tipo cookies: o CookieBannerWidget (documento) gere o overflow.
-    // CookieConsentModal quase nunca monta neste path — este lock deixava scroll preso após Allow.
+    // Tipo cookies: overflow fica no modal; outros gates não bloqueiam scroll aqui.
     // Segmentação: o SegmentationChoiceModal gere o overflow (evita double-lock).
     if (getPresellGateKind(page?.type || "") === "cookies") return;
     if (showSegmentationModal) return;
