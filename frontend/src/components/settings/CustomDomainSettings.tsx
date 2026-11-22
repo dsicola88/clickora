@@ -20,6 +20,7 @@ import {
 } from "@/lib/customDomainDnsDisplay";
 import { CustomDomainDnsTable } from "@/components/settings/CustomDomainDnsTable";
 import { CustomDomainSslBadge } from "@/components/settings/CustomDomainSslBadge";
+import { shouldPollCustomDomainSsl } from "@/lib/customDomainSslDisplay";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 
 export function CustomDomainSettings() {
