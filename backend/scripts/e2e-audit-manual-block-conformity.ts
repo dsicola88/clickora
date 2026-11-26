@@ -10,7 +10,7 @@ import type { Request } from "express";
 import { extractClientIp } from "../src/lib/clientIp";
 import { datacenterClickPlace } from "../src/lib/ipNetworkClass";
 import { rememberDatacenterBlacklist } from "../src/lib/rememberDatacenterBlacklist";
-import { shouldServeCloakSafePage, countryOnCloakDenyList } from "../src/lib/presellEnterpriseCloak";
+import * as enterpriseCloak from "../src/lib/presellEnterpriseCloak";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -82,15 +82,15 @@ async function main() {
   );
   rec("ligação directa não aceita spoof X-Client-IP", direct === "203.0.113.50", direct);
 
-  // --- Cloak geo só com lista manual ---
-  const geoOff = shouldServeCloakSafePage(fakeReq({ "user-agent": "Mozilla/5.0" }, "8.8.8.8"), {
-    enterpriseCloak: true,
-  });
-  rec("cloak geo sem deny list → oferta", geoOff.cloak === false);
-
-  assert.equal(countryOnCloakDenyList({ enterpriseCloak: true, cloakGeoDeny: "AO" }, "AO"), true);
-  assert.equal(countryOnCloakDenyList({ enterpriseCloak: true, cloakGeoDeny: "AO" }, "US"), false);
-  rec("cloak geo deny list manual AO/US", true);
+  // --- Sem cloaking da landing: a lógica de página alternativa por país/UA já não existe ---
+  const cloakExports = Object.keys(enterpriseCloak);
+  rec(
+    "sem cloak da landing (shouldServeCloakSafePage/countryOnCloakDenyList/buildCloakSafePublicPayload removidos)",
+    !cloakExports.includes("shouldServeCloakSafePage") &&
+      !cloakExports.includes("countryOnCloakDenyList") &&
+      !cloakExports.includes("buildCloakSafePublicPayload"),
+    cloakExports.join(","),
+  );
 
   // --- UI copy (i18n: key + PT/EN catalog leaf) ---
   const uiPath = path.join(root, "../frontend/src/pages/Blacklist.tsx");
