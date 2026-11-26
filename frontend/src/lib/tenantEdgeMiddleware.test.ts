@@ -17,7 +17,7 @@ describe("classifyTenantPath", () => {
     ["/termos", "shell"],
     ["/aviso-cookies", "shell"],
     ["/api/track/r/abc", "pass"],
-    ["/l/c2e3caf4-de15-48bd-aeca-3f69b07a0358", "pass"],
+    ["/l/c2e3caf4-de15-48bd-aeca-3f69b07a0358", "lite"],
     ["/assets/index-abc.js", "pass"],
     ["/tenant-shell.html", "pass"],
     ["/favicon.ico", "not_found"],
@@ -143,6 +143,24 @@ describe("middleware", () => {
     }
   });
 
+  it("/l/<id> em domínio de assinante leva visitor_host do Host real e preserva gclid/UTMs", () => {
+    const ID = "a521fe37-6ab9-4aa7-a9e2-3d5a056466fe";
+    const rw = run("wellformulas.store", `/l/${ID}?gclid=abc&utm_source=google`)?.headers.get("x-middleware-rewrite");
+    expect(rw).toBeTruthy();
+    const u = new URL(rw as string);
+    expect(u.host).toBe("wellformulas.store");
+    expect(u.pathname).toBe(`/l/${ID}`);
+    expect(u.searchParams.get("visitor_host")).toBe("wellformulas.store");
+    expect(u.searchParams.get("gclid")).toBe("abc");
+    expect(u.searchParams.get("utm_source")).toBe("google");
+
+    const spoofed = run("wellformulas.store", `/l/${ID}?visitor_host=outro.com`)?.headers.get("x-middleware-rewrite");
+    expect(new URL(spoofed as string).searchParams.get("visitor_host")).toBe("wellformulas.store");
+
+    expect(run("wellformulas.store", `/l/${ID}?visitor_host=wellformulas.store`)).toBeUndefined();
+    expect(run("www.dclickora.com", `/l/${ID}`)?.status).toBe(404);
+  });
+
   it("resposta igual para qualquer User-Agent", () => {
     const ua = (agent: string) =>
       middleware(
@@ -246,7 +264,7 @@ describe("middleware", () => {
     });
 
     it("domínios de assinante, previews e localhost mantêm o comportamento", () => {
-      expect(call("wellformulas.store", `/l/${ID}`)).toBeUndefined();
+      expect(call("wellformulas.store", `/l/${ID}`)?.headers.get("x-middleware-rewrite")).toContain(`/l/${ID}?visitor_host=wellformulas.store`);
       expect(call("wellformulas.store", `/api/public/presells/id/${ID}`)).toBeUndefined();
       expect(call("clickora-git-main.vercel.app", "/presells")).toBeUndefined();
       expect(call("localhost", `/api/public/presells/id/${ID}`)).toBeUndefined();

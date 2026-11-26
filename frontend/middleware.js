@@ -132,7 +132,7 @@ export function classifyTenantPath(pathname) {
   const raw = String(pathname || "/");
   if (raw.startsWith("/api/") || raw === "/api") return { kind: "pass" };
   if (raw.startsWith("/assets/")) return { kind: "pass" };
-  if (/^\/l\/[^/]+\/?$/i.test(raw)) return { kind: "pass" };
+  if (/^\/l\/[^/]+\/?$/i.test(raw)) return { kind: "lite" };
   if (raw === "/index.html") return { kind: "shell" };
   if (raw === "/sitemap.xml") return { kind: "not_found" };
 
@@ -165,6 +165,18 @@ export function classifyTenantPath(pathname) {
 
   if (PANEL_FIRST_SEGMENTS.has(first)) return { kind: "panel" };
   return { kind: "not_found" };
+}
+
+/**
+ * `/l/<id>` é reescrito para a Railway pelo vercel.json e lá o host do visitante não chega nos
+ * cabeçalhos: sem `visitor_host` a API não reconhece o domínio do assinante e responde 404.
+ * O valor vem sempre do Host real (sobrepõe o que vier na query); o resto da query (gclid, UTMs) fica.
+ */
+function liteWithVisitorHost(request, url, host) {
+  if (url.searchParams.get("visitor_host") === host) return undefined;
+  const target = new URL(url.toString());
+  target.searchParams.set("visitor_host", host);
+  return rewriteTo(request, `${target.pathname}${target.search}`);
 }
 
 function rewriteTo(request, pathname) {
@@ -333,6 +345,8 @@ export default function middleware(request) {
   switch (decision.kind) {
     case "shell":
       return rewriteTo(request, TENANT_SHELL_PATH);
+    case "lite":
+      return liteWithVisitorHost(request, url, host);
     case "panel":
       return Response.redirect(`${MAIN_SITE_ORIGIN}${pathname}${url.search}`, 308);
     case "not_found":
