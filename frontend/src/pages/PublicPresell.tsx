@@ -13,6 +13,7 @@ import {
 import { useLocation, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { presellService } from "@/services/presellService";
+import { resolvePresellCookieStyleId } from "@/lib/presellCookieBannerStyles";
 import { ErrorState } from "@/components/ErrorState";
 import {
   CookieConsentModal,
@@ -1491,6 +1492,7 @@ export default function PublicPresell({ ownerPreview = false }: PublicPresellPro
               fallbackHref={cookieConsentFallbackHref}
               accepted={cookieAccepted}
               navigateOnAccept={isCookieRedirectToOfferEnabled(settings)}
+              styleId={resolvePresellCookieStyleId(settings)}
               onAccept={() => setCookieConsent("all")}
               onDismiss={() => setCookieConsent("essential")}
             />
@@ -1567,6 +1569,7 @@ export default function PublicPresell({ ownerPreview = false }: PublicPresellPro
           fallbackHref={cookieConsentFallbackHref}
           accepted={cookieAccepted}
           navigateOnAccept={isCookieRedirectToOfferEnabled(settings)}
+              styleId={resolvePresellCookieStyleId(settings)}
           onAccept={() => setCookieConsent("all")}
           onDismiss={() => setCookieConsent("essential")}
         />

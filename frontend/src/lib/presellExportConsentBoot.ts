@@ -5,6 +5,7 @@
  */
 
 import { DEFAULT_COOKIE_CONSENT_STORAGE_KEY } from "@/page-builder/cookieConsentStorage";
+import type { PresellCookieLayout } from "@/lib/presellCookieBannerStyles";
 
 export type ExportMarketingBundle = {
   headHtml: string;
@@ -104,10 +105,20 @@ else{update(false);}
   };
 }
 
-/** Liga botões do modal export ao boot de consentimento + política in-page. */
-export function buildExportCookieModalBindingsScript(): string {
+/**
+ * Liga botões do modal export ao boot de consentimento + política in-page.
+ * Também reserva espaço no fim da página enquanto o banner está visível (último CTA alcançável)
+ * e esconde o banner se já existe escolha guardada (o boot corre no <head>, antes do overlay existir).
+ */
+export function buildExportCookieModalBindingsScript(
+  layout: PresellCookieLayout = "bar",
+): string {
+  const key = JSON.stringify(DEFAULT_COOKIE_CONSENT_STORAGE_KEY);
   return `<script>(function(){
+var KEY=${key};var LAYOUT=${JSON.stringify(layout)};
 function showPolicy(on){var s=document.getElementById("pe-cookie-policy-sheet");if(!s)return;s.hidden=!on;s.style.display=on?"flex":"none";}
+function reserve(){var o=document.getElementById("pe-cookie-overlay"),c=document.getElementById("pe-cookie-card");if(!o||!c)return;var h=0;if(o.style.display!=="none"){var r=c.getBoundingClientRect();if(r.height>0){var full=r.width>=window.innerWidth*0.9;if(!(LAYOUT==="corner"&&!full))h=Math.ceil(r.height+(LAYOUT==="floating"?24:0));}}var bs=document.body.style,rs=document.documentElement.style;if(h){bs.setProperty("padding-bottom",h+"px");rs.setProperty("scroll-padding-bottom",h+"px");}else{bs.removeProperty("padding-bottom");rs.removeProperty("scroll-padding-bottom");}}
+function hasChoice(){try{return !!localStorage.getItem(KEY+":choice")||localStorage.getItem(KEY)==="1";}catch(e){return false;}}
 function bind(){var api=window.__clickoraCookieConsent;if(!api)return;
 var c=document.getElementById("pe-cookie-close");
 var a=document.getElementById("pe-cookie-allow");
@@ -115,12 +126,17 @@ var r=document.getElementById("pe-cookie-reopen");
 var p=document.getElementById("pe-cookie-policy");
 var pb=document.getElementById("pe-cookie-policy-back");
 var pd=document.getElementById("pe-cookie-policy-backdrop");
-if(c)c.addEventListener("click",function(){api.essential();});
-if(a)a.addEventListener("click",function(){api.accept();});
-if(r)r.addEventListener("click",function(){api.reopen();});
+var o=document.getElementById("pe-cookie-overlay");
+if(o&&hasChoice())o.style.display="none";
+if(c)c.addEventListener("click",function(){api.essential();reserve();});
+if(a)a.addEventListener("click",function(){api.accept();reserve();});
+if(r)r.addEventListener("click",function(){api.reopen();reserve();});
 if(p)p.addEventListener("click",function(e){e.preventDefault();showPolicy(true);});
 if(pb)pb.addEventListener("click",function(){showPolicy(false);});
 if(pd)pd.addEventListener("click",function(){showPolicy(false);});
+window.addEventListener("resize",reserve);
+if(window.ResizeObserver){var card=document.getElementById("pe-cookie-card");if(card)new ResizeObserver(reserve).observe(card);}
+reserve();
 }
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bind);else bind();
 })();</script>`;

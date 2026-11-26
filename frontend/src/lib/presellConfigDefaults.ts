@@ -1,3 +1,5 @@
+import { isPresellCookieStyleId } from "@/lib/presellCookieBannerStyles";
+
 /** Definições opcionais da presell (painel) — alinhadas com `settings` na API. */
 export type PresellConfigSettings = Record<string, string | boolean>;
 
@@ -128,5 +130,7 @@ export function hydratePresellConfigSettings(
     ...(typeof s.operatorDocument === "string" && s.operatorDocument.trim()
       ? { operatorDocument: s.operatorDocument }
       : {}),
+    /** Tipo cookies: predefinição do banner. Sem default aqui (não poluir presells de outros tipos). */
+    ...(isPresellCookieStyleId(s.cookieBannerStyle) ? { cookieBannerStyle: s.cookieBannerStyle } : {}),
   };
 }

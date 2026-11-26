@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CookieBannerStylePicker } from "@/components/presell/CookieBannerStylePicker";
+import {
+  DEFAULT_PRESELL_COOKIE_STYLE,
+  resolvePresellCookieStyleId,
+  type PresellCookieStyleId,
+} from "@/lib/presellCookieBannerStyles";
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -456,6 +462,8 @@ export default function PresellDashboard() {
     cookiePolicyUrl: "",
     /** Tipo cookies: Aceitar → oferta rastreada (opt-in; por defeito desligado). */
     cookieRedirectToOffer: false,
+    /** Tipo cookies: predefinição visual do banner (settings.cookieBannerStyle). */
+    cookieBannerStyle: DEFAULT_PRESELL_COOKIE_STYLE as PresellCookieStyleId,
     minAge: "18",
     /** Só VSL: se o import não achar vídeo, colar link do YouTube (watch ou youtu.be). */
     manualYoutubeUrl: "",
@@ -536,7 +544,13 @@ export default function PresellDashboard() {
     });
     setCreatorStep(1);
     setSlugTouchedByUser(false);
-    setTypeOptions({ cookiePolicyUrl: "", cookieRedirectToOffer: false, minAge: "18", manualYoutubeUrl: "" });
+    setTypeOptions({
+      cookiePolicyUrl: "",
+      cookieRedirectToOffer: false,
+      cookieBannerStyle: DEFAULT_PRESELL_COOKIE_STYLE,
+      minAge: "18",
+      manualYoutubeUrl: "",
+    });
     setFormErrors({});
     setConfigSettings({ ...DEFAULT_PRESELL_CONFIG_SETTINGS });
     setMirrorHtmlDraft("");
@@ -572,6 +586,7 @@ export default function PresellDashboard() {
     setTypeOptions({
       cookiePolicyUrl: String(settings.cookiePolicyUrl ?? ""),
       cookieRedirectToOffer: Boolean(settings.cookieRedirectToOffer),
+      cookieBannerStyle: resolvePresellCookieStyleId(settings as Record<string, unknown>),
       minAge: String(settings.minAge ?? "18"),
       manualYoutubeUrl: page.video_url || "",
     });
@@ -713,8 +728,10 @@ export default function PresellDashboard() {
     }
     if (formData.presellType === "cookies") {
       base.cookieRedirectToOffer = typeOptions.cookieRedirectToOffer;
+      base.cookieBannerStyle = typeOptions.cookieBannerStyle;
     } else {
       delete base.cookieRedirectToOffer;
+      delete base.cookieBannerStyle;
     }
     return base;
   };
@@ -1421,6 +1438,11 @@ export default function PresellDashboard() {
                       aria-label={t("pages.presells.cookieDirectAria")}
                     />
                   </div>
+                  <CookieBannerStylePicker
+                    value={typeOptions.cookieBannerStyle}
+                    onChange={(id) => setTypeOptions((o) => ({ ...o, cookieBannerStyle: id }))}
+                    idPrefix="dashboard-cookie-style"
+                  />
                   <div className="space-y-2">
                     <Label htmlFor="cookiePolicyUrl">{t("pages.presells.cookiePolicyLabel")}</Label>
                     <Input

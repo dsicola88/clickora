@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -14,6 +13,13 @@ import {
   writeCookieConsentChoice,
 } from "@/page-builder/cookieConsentStorage";
 import { mergeLandingAdParamsIntoTrackHref } from "@/lib/presellTrackAdParams";
+import {
+  cookieBannerReserveHeight,
+  getPresellCookieStyle,
+  presellCookieStyleCssVars,
+  type PresellCookieLayout,
+  type PresellCookieStyleId,
+} from "@/lib/presellCookieBannerStyles";
 
 export type GatePayload = {
   params: Record<string, string>;
@@ -79,10 +85,83 @@ export function isCookieRedirectToOfferEnabled(
   return v === true || v === 1 || v === "true" || v === "1";
 }
 
+/** Classes de layout por tipo de banner (cores vêm sempre de variáveis CSS dos tokens). */
+const COOKIE_LAYOUT_CLASSES: Record<
+  PresellCookieLayout,
+  { wrapper: string; card: string; inner: string; actions: string }
+> = {
+  bar: {
+    wrapper: "pointer-events-none fixed inset-x-0 bottom-0 z-[520]",
+    card: "pointer-events-auto relative z-10 w-full border-t px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6",
+    inner: "mx-auto flex w-full max-w-5xl flex-col gap-3 md:flex-row md:items-center md:gap-8",
+    actions: "flex flex-col-reverse gap-2 sm:flex-row md:w-80 md:shrink-0",
+  },
+  corner: {
+    wrapper:
+      "pointer-events-none fixed inset-x-0 bottom-0 z-[520] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[24rem]",
+    card: "pointer-events-auto relative z-10 w-full rounded-t-2xl border border-b-0 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:rounded-2xl sm:border-b sm:p-5",
+    inner: "flex w-full flex-col gap-3",
+    actions: "flex flex-col-reverse gap-2 sm:flex-row",
+  },
+  floating: {
+    wrapper:
+      "pointer-events-none fixed inset-x-0 bottom-0 z-[520] flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+    card: "pointer-events-auto relative z-10 w-full max-w-lg rounded-2xl border px-4 py-3.5 sm:px-5",
+    inner: "flex w-full flex-col gap-3",
+    actions: "flex flex-col-reverse gap-2 sm:flex-row",
+  },
+};
+
+function setStyleProp(style: CSSStyleDeclaration, prop: string, value: string) {
+  if (value) style.setProperty(prop, value);
+  else style.removeProperty(prop);
+}
+
 /**
- * Consentimento compacto (barra inferior): não tapa a oferta nem bloqueia scroll/CTAs.
+ * Enquanto o banner está aberto, reserva espaço no fim da página (padding no body + scroll-padding)
+ * para o último CTA nunca ficar tapado (WCAG 2.4.11). Restaura ao fechar/desmontar.
+ */
+function useReserveBottomSpace(
+  ref: RefObject<HTMLElement | null>,
+  layout: PresellCookieLayout,
+  enabled: boolean,
+) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!enabled || !el || typeof document === "undefined") return;
+    const body = document.body;
+    const root = document.documentElement;
+    const prevPad = body.style.getPropertyValue("padding-bottom");
+    const prevScroll = root.style.getPropertyValue("scroll-padding-bottom");
+    const apply = () => {
+      const r = el.getBoundingClientRect();
+      const h = cookieBannerReserveHeight({
+        layout,
+        cardWidth: r.width,
+        cardHeight: r.height,
+        viewportWidth: window.innerWidth,
+      });
+      setStyleProp(body.style, "padding-bottom", h > 0 ? `${h}px` : prevPad);
+      setStyleProp(root.style, "scroll-padding-bottom", h > 0 ? `${h}px` : prevScroll);
+    };
+    apply();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(apply) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", apply);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", apply);
+      setStyleProp(body.style, "padding-bottom", prevPad);
+      setStyleProp(root.style, "scroll-padding-bottom", prevScroll);
+    };
+  }, [ref, layout, enabled]);
+}
+
+/**
+ * Consentimento compacto (barra/cartão inferior): não tapa a oferta nem bloqueia scroll/CTAs.
  * Aceitar = cookies não essenciais (+ redirect opcional para /track/r/, só por clique).
- * Fechar = só essenciais; página e CTAs continuam.
+ * Fechar = só essenciais; página e CTAs continuam. Aceitar e Fechar têm o mesmo destaque.
+ * `styleId` (settings.cookieBannerStyle) escolhe a predefinição visual; inválido → classicBar.
  */
 export function CookieConsentModal({
   language,
@@ -94,6 +173,7 @@ export function CookieConsentModal({
   onDismiss,
   /** Quando true (settings.cookieRedirectToOffer), Aceitar vai à oferta via /track/r/. */
   navigateOnAccept = false,
+  styleId,
 }: {
   language: string;
   policyUrl: string;
@@ -104,10 +184,15 @@ export function CookieConsentModal({
   /** Fechar / só essenciais — nunca redireciona; CTAs da oferta continuam. */
   onDismiss?: () => void;
   navigateOnAccept?: boolean;
+  styleId?: PresellCookieStyleId | string | null;
 }) {
   const L = getPresellUiStrings(language);
   const cookieBody = stripTrailingCookiePolicyLabel(L.cookieBody, L.cookiePolicy);
   const [policyOpen, setPolicyOpen] = useState(false);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const tokens = getPresellCookieStyle(styleId);
+  const layoutClasses = COOKIE_LAYOUT_CLASSES[tokens.layout];
+  useReserveBottomSpace(cardRef, tokens.layout, !accepted);
   const offerNav = navigateOnAccept
     ? cookieConsentNavigation("allow", redirectHref, fallbackHref)
     : ({ kind: "stay" } as const);
@@ -122,86 +207,97 @@ export function CookieConsentModal({
     onAccept?.();
   };
 
-  const allowClass =
-    "inline-flex h-11 min-h-[44px] flex-1 cursor-pointer items-center justify-center rounded-xl border-0 bg-slate-900 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800";
-  const closeClass =
-    "inline-flex h-11 min-h-[44px] flex-1 cursor-pointer items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50";
+  // Mesmo tamanho/borda/peso nos dois botões (equal prominence — ICO); só a cor varia por estilo.
+  const btnBase =
+    "inline-flex h-11 min-h-[44px] flex-1 cursor-pointer items-center justify-center rounded-xl border border-transparent px-3 text-sm font-semibold no-underline shadow-sm transition-colors";
+  const allowClass = `${btnBase} [background-color:var(--ck-allow-bg)] [color:var(--ck-allow-text)] hover:[background-color:var(--ck-allow-hover)]`;
+  const closeClass = `${btnBase} [background-color:var(--ck-close-bg)] [color:var(--ck-close-text)] hover:[background-color:var(--ck-close-hover)]`;
+  const cssVars = presellCookieStyleCssVars(tokens) as CSSProperties;
 
   return (
     <>
       <div
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[520]"
+        className={layoutClasses.wrapper}
+        style={cssVars}
         role="dialog"
         aria-modal="false"
         aria-labelledby="cookie-policy-title"
         data-testid="presell-cookie-sheet"
+        data-cookie-style={tokens.id}
+        data-cookie-layout={tokens.layout}
       >
-        {/* Barra expandida em largura total (não bloqueia scroll nem CTAs): texto completo + Aceitar/Fechar sempre visíveis. */}
+        {/* Banner não bloqueante: texto completo + Aceitar/Fechar sempre visíveis; sem backdrop nem scroll lock. */}
         <div
+          ref={cardRef}
           data-testid="presell-cookie-card"
-          className="pointer-events-auto relative z-10 w-full border-t border-slate-200 bg-white px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-slate-900 shadow-[0_-10px_36px_-14px_rgba(15,23,42,0.4)] sm:px-6"
+          className={`${layoutClasses.card} [background-color:var(--ck-surface)] [border-color:var(--ck-border)] [box-shadow:var(--ck-shadow)] [backdrop-filter:var(--ck-blur)] [-webkit-backdrop-filter:var(--ck-blur)] [color:var(--ck-title)]`}
         >
-         <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 md:flex-row md:items-center md:gap-8">
-          <div className="min-w-0 flex-1">
-          <h2 id="cookie-policy-title" className="text-sm font-bold tracking-tight text-slate-950 sm:text-base">
-            {L.cookieTitle}
-          </h2>
-          <p className="mt-1.5 text-xs leading-relaxed text-slate-600 sm:text-sm">
-            {cookieBody}{" "}
-            <button
-              type="button"
-              className="cursor-pointer font-medium text-blue-600 underline underline-offset-2 transition-colors hover:text-blue-700"
-              data-testid="presell-cookie-policy-open"
-              onClick={(e) => {
-                e.stopPropagation();
-                setPolicyOpen(true);
-              }}
-            >
-              {L.cookiePolicy}
-            </button>
-            .
-          </p>
-          <p className="mt-1.5 text-[10px] leading-snug text-slate-400 sm:text-xs">{L.cookieFooter}</p>
-          </div>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row md:w-80 md:shrink-0">
-            {offerNav.kind === "assign" ? (
-              <a
-                href={offerNav.url}
-                className={allowClass}
-                data-testid="presell-cookie-allow-offer"
-                onClick={(e) => {
-                  // Gravar consentimento desmonta a barra; assign explícito evita cancelar a navegação.
-                  e.preventDefault();
-                  writeCookieConsentChoice("clickora-cookie-banner", "all");
-                  onAccept?.();
-                  const dest =
-                    mergeLandingAdParamsIntoTrackHref(offerNav.url, window.location.search) ||
-                    offerNav.url;
-                  window.location.assign(dest);
-                }}
+          <div className={layoutClasses.inner}>
+            <div className="min-w-0 flex-1">
+              <h2
+                id="cookie-policy-title"
+                className="text-sm font-bold tracking-tight [color:var(--ck-title)] sm:text-base"
               >
-                {L.cookieAllow}
-              </a>
-            ) : (
-              <Button
+                {L.cookieTitle}
+              </h2>
+              <p className="mt-1.5 text-xs leading-relaxed [color:var(--ck-body)] sm:text-sm">
+                {cookieBody}{" "}
+                <button
+                  type="button"
+                  className="cursor-pointer font-medium underline underline-offset-2 transition-opacity [color:var(--ck-link)] hover:opacity-80"
+                  data-testid="presell-cookie-policy-open"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPolicyOpen(true);
+                  }}
+                >
+                  {L.cookiePolicy}
+                </button>
+                .
+              </p>
+              <p className="mt-1.5 text-[11px] leading-snug [color:var(--ck-muted)] sm:text-xs">
+                {L.cookieFooter}
+              </p>
+            </div>
+            <div className={layoutClasses.actions}>
+              {offerNav.kind === "assign" ? (
+                <a
+                  href={offerNav.url}
+                  className={allowClass}
+                  data-testid="presell-cookie-allow-offer"
+                  onClick={(e) => {
+                    // Gravar consentimento desmonta a barra; assign explícito evita cancelar a navegação.
+                    e.preventDefault();
+                    writeCookieConsentChoice("clickora-cookie-banner", "all");
+                    onAccept?.();
+                    const dest =
+                      mergeLandingAdParamsIntoTrackHref(offerNav.url, window.location.search) ||
+                      offerNav.url;
+                    window.location.assign(dest);
+                  }}
+                >
+                  {L.cookieAllow}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  className={allowClass}
+                  data-testid="presell-cookie-allow"
+                  onClick={acceptStay}
+                >
+                  {L.cookieAllow}
+                </button>
+              )}
+              <button
                 type="button"
-                className={allowClass}
-                data-testid="presell-cookie-allow"
-                onClick={acceptStay}
+                className={closeClass}
+                data-testid="presell-cookie-close"
+                onClick={dismiss}
               >
-                {L.cookieAllow}
-              </Button>
-            )}
-            <button
-              type="button"
-              className={closeClass}
-              data-testid="presell-cookie-close"
-              onClick={dismiss}
-            >
-              {L.cookieClose}
-            </button>
+                {L.cookieClose}
+              </button>
+            </div>
           </div>
-         </div>
         </div>
       </div>
       <CookiePolicyInlineSheet

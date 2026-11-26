@@ -30,6 +30,11 @@ import {
 } from "@/lib/presellExportConsentBoot";
 import { buildExportTrackAdParamsBootstrapScript } from "@/lib/presellTrackAdParams";
 import {
+  buildExportCookieStyleCss,
+  getPresellCookieStyle,
+  resolvePresellCookieStyleId,
+} from "@/lib/presellCookieBannerStyles";
+import {
   readMarketCountryHint,
   resolveConsentRuntimePolicy,
 } from "@/lib/consentMarketPolicy";
@@ -187,8 +192,10 @@ const EXPORT_STYLES = `
 @media(min-width:640px){.pe-cookie-actions{flex-direction:row;}}
 @media(min-width:768px){.pe-cookie-card{display:grid;grid-template-columns:minmax(0,1fr) 20rem;column-gap:2rem;align-items:center;}.pe-cookie-card>*{grid-column:1;}.pe-cookie-card>.pe-cookie-actions{grid-column:2;grid-row:1 / span 5;margin-top:0;}}
 .pe-cookie-actions button,.pe-cookie-actions a{flex:1;padding:.65rem 1rem;border-radius:.5rem;font-weight:600;cursor:pointer;font:inherit;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;}
-.pe-cookie-close{background:#fff;border:1px solid #e2e8f0;color:#334155;}
-.pe-cookie-allow{background:#059669;color:#fff;border:0;}
+.pe-cookie-close{background:#475569;border:1px solid transparent;color:#fff;}
+.pe-cookie-allow{background:#0f172a;color:#fff;border:1px solid transparent;}
+.pe-cookie-card .pe-cookie-foot{font-size:.75rem;line-height:1.5;margin:.25rem 0 0;text-align:left;}
+.pe-cookie-policy-btn{color:#1d4ed8;}
 .pe-discount-bar{position:fixed;top:0;left:0;right:0;z-index:60;background:#e91e8c;color:#fff;text-align:center;padding:.65rem .75rem;box-shadow:0 4px 12px rgba(0,0,0,.12);}
 .pe-discount-bar .pe-timer{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
 .pe-discount-bar p{font-size:.75rem;opacity:.95;max-width:32rem;margin:.35rem auto 0;line-height:1.35;}
@@ -339,6 +346,7 @@ function buildCookieModalHtml(
   _policyUrl: string,
   offerHref?: string,
   redirectToOffer = false,
+  styleId?: unknown,
 ): string {
   void _policyUrl; // política só in-page — nunca target=_blank para /aviso-cookies (fuga)
   const L = cookieTexts(language);
@@ -347,7 +355,7 @@ function buildCookieModalHtml(
   const policyParas = policyCopy.paragraphs
     .map((p) => `<p style="margin:0 0 .65rem;font-size:.875rem;line-height:1.55;color:#475569;">${escapeHtml(p)}</p>`)
     .join("");
-  const policyCtl = `<button type="button" id="pe-cookie-policy" style="display:inline-block;margin:0 0 .5rem;padding:0;border:0;background:transparent;font-size:.875rem;font-weight:600;color:#0d9488;text-decoration:underline;cursor:pointer;text-align:left;">${escapeHtml(L.policy)}</button>`;
+  const policyCtl = `<button type="button" id="pe-cookie-policy" style="display:inline-block;margin:0 0 .5rem;padding:0;border:0;background:transparent;font-size:.875rem;font-weight:600;text-decoration:underline;cursor:pointer;text-align:left;" class="pe-cookie-policy-btn">${escapeHtml(L.policy)}</button>`;
   const policySheet = `<div id="pe-cookie-policy-sheet" hidden style="position:fixed;inset:0;z-index:2147483647;display:none;align-items:flex-end;justify-content:center;padding:0;" role="dialog" aria-modal="true" aria-labelledby="pe-cookie-policy-title">
 <button type="button" id="pe-cookie-policy-backdrop" aria-label="${escapeAttr(policyCopy.close)}" style="position:absolute;inset:0;border:0;background:rgba(15,23,42,.25);cursor:pointer;"></button>
 <div style="position:relative;z-index:1;width:100%;max-width:32rem;max-height:min(78vh,560px);display:flex;flex-direction:column;border-radius:1rem 1rem 0 0;border:1px solid #e2e8f0;background:#fff;box-shadow:0 20px 40px rgba(15,23,42,.18);">
@@ -365,7 +373,8 @@ function buildCookieModalHtml(
     ? `<a class="pe-cookie-allow" id="pe-cookie-allow" href="${escapeAttr(offer)}">${escapeHtml(L.allow)}</a>`
     : `<button type="button" class="pe-cookie-allow" id="pe-cookie-allow">${escapeHtml(L.allow)}</button>`;
   const reopenCtl = `<button type="button" id="pe-cookie-reopen" style="position:fixed;bottom:1.25rem;right:1.25rem;z-index:2147483645;border-radius:999px;border:1px solid #e2e8f0;background:#fff;padding:.5rem 1rem;font-size:.875rem;font-weight:500;box-shadow:0 10px 24px rgba(15,23,42,.12);cursor:pointer;">${escapeHtml(ui.cookieReopen)}</button>`;
-  return `<div class="pe-cookie-overlay" id="pe-cookie-overlay" style="z-index:2147483646;">
+  const ck = getPresellCookieStyle(styleId);
+  return `<div class="pe-cookie-overlay pe-ck-${ck.id}" id="pe-cookie-overlay" data-cookie-style="${ck.id}" data-cookie-layout="${ck.layout}" style="z-index:2147483646;">
 <div class="pe-cookie-backdrop" id="pe-cookie-backdrop" aria-hidden="true"></div>
 <div class="pe-cookie-card" id="pe-cookie-card" role="dialog" aria-modal="false">
 <h2>${escapeHtml(L.title)}</h2>
@@ -375,12 +384,12 @@ ${policyCtl}
 ${closeCtl}
 ${allowCtl}
 </div>
-<p style="text-align:center;font-size:.75rem;color:#64748b;margin-top:1rem;">${escapeHtml(L.footer)}</p>
+<p class="pe-cookie-foot">${escapeHtml(L.footer)}</p>
 </div>
 </div>
 ${policySheet}
 ${reopenCtl}
-${buildExportCookieModalBindingsScript()}`;
+${buildExportCookieModalBindingsScript(ck.layout)}`;
 }
 
 function buildVslFallbackHtml(
@@ -900,7 +909,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   if (gateKind === "cookies") {
     /** Opt-in: Aceitar vai à oferta (/track/r/) só por clique; por defeito só grava o consentimento. */
     const redirectToOffer = isCookieRedirectToOfferEnabled(settings);
-    core += buildCookieModalHtml(page.language, cookiePolicyUrl, href, redirectToOffer);
+    core += buildCookieModalHtml(page.language, cookiePolicyUrl, href, redirectToOffer, resolvePresellCookieStyleId(settings));
   }
 
   if (gateKind === "segmentation") {
@@ -967,7 +976,9 @@ ${
 
   const fontLink = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">`;
 
-  const styleBlock = `<style>${EXPORT_STYLES}${customCss ? `\n/* CSS personalizado */\n${customCss}` : ""}</style>`;
+  const cookieStyleCss =
+    gateKind === "cookies" ? `\n${buildExportCookieStyleCss(resolvePresellCookieStyleId(settings))}\n` : "";
+  const styleBlock = `<style>${EXPORT_STYLES}${cookieStyleCss}${customCss ? `\n/* CSS personalizado */\n${customCss}` : ""}</style>`;
   const cookieGateExport = getPresellGateKind(page.type) === "cookies";
   const bodyStartMount =
     bodyStartExport || cookieGateExport

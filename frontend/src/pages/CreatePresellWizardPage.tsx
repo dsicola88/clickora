@@ -67,6 +67,11 @@ import {
 import { buildEliteQualityBar } from "@/lib/presellEliteQuality";
 import { looksLikeAffiliateHopOnlyUrl } from "@/lib/presellAffiliateHop";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
+import { CookieBannerStylePicker } from "@/components/presell/CookieBannerStylePicker";
+import {
+  DEFAULT_PRESELL_COOKIE_STYLE,
+  type PresellCookieStyleId,
+} from "@/lib/presellCookieBannerStyles";
 import { fill } from "@/i18n";
 
 function detectPlatform(url: string): string | null {
@@ -133,6 +138,7 @@ export default function CreatePresellWizardPage() {
   const [cookiePolicyUrl, setCookiePolicyUrl] = useState("");
   /** Tipo cookies: Aceitar → oferta rastreada (opt-in; por defeito desligado). */
   const [cookieRedirectToOffer, setCookieRedirectToOffer] = useState(false);
+  const [cookieBannerStyle, setCookieBannerStyle] = useState<PresellCookieStyleId>(DEFAULT_PRESELL_COOKIE_STYLE);
   /** Tipo segmentação: textos e destinos opcionais (vazio = hoplink + co_seg). */
   const [segTitle, setSegTitle] = useState("");
   const [segReviewLabel, setSegReviewLabel] = useState("");
@@ -428,7 +434,7 @@ export default function CreatePresellWizardPage() {
             ? { affiliateDisclosure: defaultAffiliateDisclosureSetting(importLanguage) }
             : {}),
           minAge: minAge.trim() || "18",
-          ...(type === "cookies" ? { cookieRedirectToOffer } : {}),
+          ...(type === "cookies" ? { cookieRedirectToOffer, cookieBannerStyle } : {}),
           ...(type === "segmentacao"
             ? {
                 ...(segTitle.trim() ? { segmentationTitle: segTitle.trim() } : {}),
@@ -611,9 +617,12 @@ export default function CreatePresellWizardPage() {
         const slugB = `${slugFromTitle(titleSeed)}-b-${Date.now().toString(36).slice(-4)}`;
         const settingsB: Record<string, unknown> = {
           ...settings,
-          ...(typeB === "cookies" ? { cookieRedirectToOffer } : {}),
+          ...(typeB === "cookies" ? { cookieRedirectToOffer, cookieBannerStyle } : {}),
         };
-        if (typeB !== "cookies") delete settingsB.cookieRedirectToOffer;
+        if (typeB !== "cookies") {
+          delete settingsB.cookieRedirectToOffer;
+          delete settingsB.cookieBannerStyle;
+        }
         const { data: createdB, error: errB } = await presellService.create({
           title: `${a.pageTitle} (B)`,
           slug: slugB,
@@ -1236,6 +1245,11 @@ export default function CreatePresellWizardPage() {
                     aria-label={t("pages.createPresell.cookieDirectAria")}
                   />
                 </div>
+                <CookieBannerStylePicker
+                  value={cookieBannerStyle}
+                  onChange={setCookieBannerStyle}
+                  idPrefix="wizard-cookie-style"
+                />
                 {generationNiche === "black" ? (
                   <div className="space-y-2">
                     <Label htmlFor="cookiePolicy">{t("pages.createPresell.cookiePolicyLabel")}</Label>

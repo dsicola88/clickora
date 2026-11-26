@@ -151,13 +151,19 @@ test.describe("auditoria WHITE — todos os tipos", () => {
       if (type === "cookies") {
         const card = page.getByTestId("presell-cookie-card");
         await expect(card).toBeVisible();
-        // White: Aceitar é link para oferta trackeada
-        const allow = card.getByRole("link", {
+        // Redirect para a oferta é opt-in (`cookieRedirectToOffer`): por defeito Aceitar é botão e só grava o consentimento;
+        // com opt-in vira link nativo para a oferta trackeada.
+        const allow = card.getByRole("button", {
           name: /^(allow|permitir|accept all|aceitar tudo|aceitar)$/i,
         });
-        await expect(allow).toBeVisible();
-        const href = await allow.getAttribute("href");
-        expect(href || "").toMatch(/track|offer\.example/i);
+        const allowLink = card.getByRole("link", {
+          name: /^(allow|permitir|accept all|aceitar tudo|aceitar)$/i,
+        });
+        await expect(allow.or(allowLink)).toBeVisible();
+        if (await allowLink.count()) {
+          const href = await allowLink.getAttribute("href");
+          expect(href || "").toMatch(/track|offer\.example/i);
+        }
       }
 
       if (type === "desconto") {
