@@ -7,7 +7,7 @@ export default function LegalTermsPage() {
   return (
     <LegalDocLayout title="Termos de utilização">
       <p className="lead text-muted-foreground text-base not-prose mb-8">
-        Última actualização: Abril de 2026. Ao criar conta ou utilizar <strong className="text-foreground">{SITE_LEGAL_NAME}</strong>, aceita
+        Última actualização: Novembro de 2026. Ao criar conta ou utilizar <strong className="text-foreground">{SITE_LEGAL_NAME}</strong>, aceita
         estes termos. Se não concordar, não utilize o serviço.
       </p>
 
@@ -36,13 +36,29 @@ export default function LegalTermsPage() {
       <p>Concorda em não utilizar o serviço para:</p>
       <ul>
         <li>Violar leis aplicáveis ou direitos de terceiros;</li>
-        <li>Distribuir malware, phishing ou conteúdo enganador grave;</li>
+        <li>Phishing, recolha enganosa de dados pessoais ou de pagamento, ou distribuição de malware;</li>
+        <li>
+          Fazer-se passar por outra marca, pessoa ou entidade, ou usar marcas, textos e imagens de terceiros sem
+          autorização (incluindo violação de direitos de autor ou de propriedade industrial);
+        </li>
+        <li>
+          Mostrar conteúdo diferente a revisores, robôs de verificação ou redes de anúncios do que é mostrado aos
+          visitantes (cloaking), ou tentar contornar revisões e políticas das redes de anúncios;
+        </li>
+        <li>
+          Publicar promessas enganosas ou não comprovadas (saúde, finanças, rendimentos), testemunhos falsos ou
+          contagens decrescentes e escassez fictícias;
+        </li>
+        <li>Promover produtos ou serviços ilegais, contrafeitos ou proibidos pelas redes onde anuncia;</li>
         <li>Tentar aceder a dados ou contas de outros utilizadores;</li>
         <li>Sobrecarregar ou testar a segurança da infra-estrutura sem autorização;</li>
         <li>Revender ou partilhar o acesso de forma que viole o plano contratado.</li>
       </ul>
       <p>
-        Podemos suspender ou encerrar contas em caso de violação grave ou risco para a plataforma ou terceiros.
+        Podemos remover páginas, desativar domínios ligados e suspender ou encerrar contas em caso de violação,
+        denúncia fundamentada ou risco para a plataforma, para os visitantes ou para terceiros. Para denunciar uma
+        página publicada com o serviço (por exemplo phishing ou uso indevido de marca), contacte{" "}
+        <LegalSupportContact />.
       </p>
 
       <h2>5. Conteúdo e conformidade do afiliado</h2>

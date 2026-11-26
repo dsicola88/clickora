@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import middleware, { classifyTenantPath } from "../../middleware.js";
+import middleware, { classifyMainHostPath, classifyTenantPath } from "../../middleware.js";
 
 function run(host: string, path: string): Response | undefined {
   return middleware(new Request(`https://${host}${path}`, { headers: { host } })) as Response | undefined;
@@ -61,11 +63,12 @@ describe("middleware", () => {
     expect(run("truefindlab.blog", "/google3501df392bc0f6af.html")).toBeUndefined();
   });
 
-  it("não altera o site principal", () => {
+  it("não altera o site principal (institucional, auth e painel) nem previews", () => {
     expect(run("www.dclickora.com", "/")).toBeUndefined();
     expect(run("www.dclickora.com", "/auth")).toBeUndefined();
-    expect(run("www.dclickora.com", "/p/c2e3caf4-de15-48bd-aeca-3f69b07a0358")).toBeUndefined();
+    expect(run("www.dclickora.com", "/presells")).toBeUndefined();
     expect(run("clickora-git-main.vercel.app", "/presells")).toBeUndefined();
+    expect(run("clickora-git-main.vercel.app", "/p/c2e3caf4-de15-48bd-aeca-3f69b07a0358")).toBeUndefined();
   });
 
   it("resposta igual para qualquer User-Agent", () => {
@@ -112,10 +115,62 @@ describe("middleware", () => {
       });
     }
 
+    for (const host of ["www.dclickora.com", "dclickora.com"]) {
+      it(`${host}: /p/<id>, /track/r e slugs → 404 real (AdsBot, Googlebot e humano)`, () => {
+        const GOOGLEBOT = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
+        for (const path of [
+          `/p/${ID}`,
+          `/p/${ID}?gclid=abc`,
+          "/p/qualquer-id",
+          "/l/qualquer-id",
+          "/vissia-f2x6",
+          "/blackvisi-pjwc/",
+          "/track/r/abc",
+          "/wp-admin/install",
+        ]) {
+          for (const ua of ["Mozilla/5.0 Chrome/124", ADSBOT, GOOGLEBOT]) {
+            const res = call(host, path, { "user-agent": ua });
+            expect(res?.status, `${path} (${ua})`).toBe(404);
+            expect(res?.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+          }
+        }
+      });
+
+      it(`${host}: saltos /api/track/r e /api/track/rot → 404 mesmo com sessão`, () => {
+        for (const path of [`/api/track/r/${ID}`, `/api/track/r/${ID}/sub?to=https://x.test`, "/api/track/rot/abc"]) {
+          expect(call(host, path)?.status).toBe(404);
+          expect(call(host, path, { authorization: "Bearer abc.def.ghi" })?.status).toBe(404);
+        }
+      });
+
+      it(`${host}: presell na raiz de domínio só com sessão`, () => {
+        expect(call(host, "/api/public/custom-domain/root-presell")?.status).toBe(404);
+      });
+    }
+
     it("outras rotas públicas da API e o resto do site principal não são afetados", () => {
       expect(call("www.dclickora.com", "/api/public/branding")).toBeUndefined();
       expect(call("www.dclickora.com", "/api/public/presell-builder/u/f.png")).toBeUndefined();
+      expect(call("www.dclickora.com", "/api/track/pixel/abc.gif")).toBeUndefined();
+      expect(call("www.dclickora.com", "/api/track/postback/google-ads")).toBeUndefined();
       expect(call("www.dclickora.com", "/super-presell")).toBeUndefined();
+      expect(call("www.dclickora.com", "/")).toBeUndefined();
+      expect(call("www.dclickora.com", "/presells/preview/" + ID)).toBeUndefined();
+      expect(call("www.dclickora.com", "/favicon.ico")).toBeUndefined();
+      expect(call("www.dclickora.com", "/assets/index-abc.js")).toBeUndefined();
+    });
+
+    it("todas as rotas da SPA em App.tsx continuam acessíveis no domínio principal", () => {
+      const appTsx = readFileSync(path.resolve(__dirname, "../App.tsx"), "utf8");
+      const segments = new Set(
+        [...appTsx.matchAll(/path(?::|=)\s*"\/([a-zA-Z0-9_-]+)/g)].map((m) => m[1].toLowerCase()),
+      );
+      segments.delete("p");
+      segments.delete("l");
+      expect(segments.size).toBeGreaterThan(20);
+      for (const seg of segments) {
+        expect(classifyMainHostPath(`/${seg}`).kind, seg).toBe("pass");
+      }
     });
 
     it("domínios de assinante, previews e localhost mantêm o comportamento", () => {

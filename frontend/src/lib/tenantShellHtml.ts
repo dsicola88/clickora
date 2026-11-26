@@ -1,7 +1,7 @@
 /**
  * HTML base servido em domínios de assinantes (`/tenant-shell.html`, via `middleware.js`).
  * Mesmo bundle que `index.html`, sem identidade da plataforma no `<head>` inicial:
- * verificação Search Console, título/descrição/OG de marketing, ícones e manifest da dclickora.
+ * verificação Search Console, título/descrição/OG de marketing, ícones, manifest e hostnames da plataforma.
  */
 
 const STRIPPED_META_NAMES = new Set([
@@ -37,5 +37,7 @@ export function buildTenantShellHtml(indexHtml: string): string {
   });
 
   html = html.replace(/<title>[\s\S]*?<\/title>/i, "<title>&#160;</title>");
+  /** O shell só é servido em hosts de assinante: a lista de hosts da plataforma não tem uso aqui. */
+  html = html.replace(/\[[^\]\n]*\];?\s*\/\*\s*@platform-hosts\s*\*\//g, "[];");
   return html;
 }

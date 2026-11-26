@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation } from "react-router-dom";
 import { ArrowRight, BarChart3, Gauge, LayoutTemplate, LineChart, Link2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { applyMarketingLandingHead } from "@/lib/marketingSiteSeo";
+import { SiteLegalLinks } from "@/components/legal/SiteLegalLinks";
 type IntentKey = "presell" | "super-presell" | "tracking";
 
 type IntentConfig = {
@@ -266,6 +267,7 @@ export default function IntentConversionPage() {
             Início
           </Link>
         </p>
+        <SiteLegalLinks className="mt-6" />
       </main>
     </div>
   );

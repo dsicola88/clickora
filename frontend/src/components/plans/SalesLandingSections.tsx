@@ -16,6 +16,7 @@ import {
 import { Check } from "lucide-react";
 import { LandingMarkdown } from "@/components/plans/LandingMarkdown";
 import { LandingReveal } from "@/components/plans/LandingReveal";
+import { useSiteContactLink, withRequiredSiteLegalLinks } from "@/components/legal/SiteLegalLinks";
 
 type Props = {
   extras: LandingExtrasPublic;
@@ -374,8 +375,8 @@ export function SalesLandingLegalFooter({ extras, className }: Props) {
   const st = extras.text_styles;
   const lf = extras.legal_footer;
   const lines = lf?.lines ?? [];
-  const links = lf?.links ?? [];
-  if (!lines.length && !links.length) return null;
+  const contact = useSiteContactLink();
+  const links = [...withRequiredSiteLegalLinks(lf?.links), ...(contact ? [contact] : [])];
 
   return (
     <footer

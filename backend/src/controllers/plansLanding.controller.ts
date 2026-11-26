@@ -14,6 +14,7 @@ import {
   removeExistingPlansHero,
 } from "../lib/plansLandingUpload";
 import { publicApiBaseFromRequest } from "../lib/publicApiBase";
+import { AD_POLICY_RISK_COPY_MESSAGE, findAdPolicyRiskTerms } from "../lib/adPolicyCopy";
 import { isR2Configured, r2PublicUrl } from "../lib/r2Storage";
 import { mergePlanDisplayLabels, mergePlanDisplayLabelPatch } from "../lib/planDisplayLabels";
 import {
@@ -253,6 +254,10 @@ export const plansLandingController = {
     }
 
     const d = parsed.data;
+    const riskTerms = findAdPolicyRiskTerms(d);
+    if (riskTerms.length) {
+      return res.status(400).json({ error: AD_POLICY_RISK_COPY_MESSAGE, code: "AD_POLICY_RISK_COPY", terms: riskTerms });
+    }
     if (d.plan_display_labels) {
       const labels = rewriteCommercialTree(d.plan_display_labels);
       if (collectCommercialStrings(labels).some((line) => freeTextEmbedsNumericQuota(line))) {

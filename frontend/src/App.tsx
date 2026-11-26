@@ -43,6 +43,7 @@ const AdminEntryRedirect = lazy(() =>
 const Account = lazy(() => import("./pages/Account"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PublicPresell = lazy(() => import("./pages/PublicPresell"));
+const OwnerPresellPreview = lazy(() => import("./pages/OwnerPresellPreview"));
 const IntentConversionPage = lazy(() => import("./pages/IntentConversionPage"));
 const AffiliateGuidePage = lazy(() => import("./pages/AffiliateGuidePage"));
 const InAppUserGuidePage = lazy(() => import("./pages/InAppUserGuidePage"));
@@ -242,6 +243,14 @@ function AuthenticatedAppShell() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/p/:id" element={<PublicPresell />} />
             <Route path="/l/:id" element={<LitePresellEntry />} />
+            <Route
+              path="/presells/preview/:id"
+              element={
+                <ProtectedRoute>
+                  <OwnerPresellPreview />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/presell/builder/:id?"
               element={

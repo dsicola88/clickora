@@ -20,11 +20,10 @@
         try {
           var p = location.pathname || "";
           var host = (location.hostname || "").toLowerCase();
+          var platformHosts = ["dclickora.com", "www.dclickora.com", "clickora.com", "www.clickora.com"]; /* @platform-hosts */
+          var isPlatformMain = platformHosts.indexOf(host) !== -1;
           var isMainHost =
-            host === "dclickora.com" ||
-            host === "www.dclickora.com" ||
-            host === "clickora.com" ||
-            host === "www.clickora.com" ||
+            isPlatformMain ||
             host === "localhost" ||
             host === "127.0.0.1" ||
             /\.vercel\.app$/.test(host);
@@ -130,8 +129,7 @@
                 isPresell &&
                 host !== "localhost" &&
                 host !== "127.0.0.1" &&
-                host !== "dclickora.com" &&
-                host !== "www.dclickora.com"
+                !isPlatformMain
               ) {
                 var seg = "";
                 if (isBareTenant) {
@@ -152,7 +150,7 @@
                   var apiPath = isUuid
                     ? "/api/public/presells/id/" + encodeURIComponent(seg)
                     : "/api/public/presells/slug/" + encodeURIComponent(seg);
-                  window.__clickoraPresellEarly = {
+                  window.__presellEarly = {
                     param: seg,
                     promise: fetch(apiPath, {
                       credentials: "omit",

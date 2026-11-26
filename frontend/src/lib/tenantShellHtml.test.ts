@@ -19,10 +19,16 @@ describe("buildTenantShellHtml", () => {
     expect(shell).not.toMatch(/<title>[^<]*dclickora/i);
   });
 
+  it("não contém hostnames nem URLs da plataforma (white-label)", () => {
+    expect(shell).not.toMatch(/dclickora\.com|clickora\.com/i);
+    expect(shell).not.toMatch(/@platform-hosts/);
+    expect(indexHtml).toContain("/* @platform-hosts */");
+  });
+
   it("marca noindex e mantém o arranque da SPA", () => {
     expect(shell).toContain('<meta name="robots" content="noindex, nofollow" />');
     expect(shell).toContain('<div id="root"></div>');
     expect(shell).toContain('<script type="module" src="/src/main.tsx"></script>');
-    expect(shell).toContain("window.__clickoraPresellEarly");
+    expect(shell).toContain("window.__presellEarly");
   });
 });

@@ -15,7 +15,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { campaignsService } from "@/services/campaignsService";
 import { GoogleAdsPresellUrlBlock } from "@/components/tracking/GoogleAdsPresellUrlBlock";
-import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
+import { getPublicPresellFullUrl, ownerPresellPreviewPath } from "@/lib/publicPresellOrigin";
 import { useCustomDomains } from "@/hooks/useCustomDomains";
 import { rangeLast14Days } from "@/lib/dateRangePresets";
 import {
@@ -296,7 +296,7 @@ export default function CampaignDetailPage() {
                 </Button>
                 {campaign.presell.status === "published" ? (
                   <Button variant="outline" size="sm" asChild>
-                    <a href={`/p/${campaign.presell.id}`} target="_blank" rel="noreferrer">
+                    <a href={publicBase || ownerPresellPreviewPath(campaign.presell.id)} target="_blank" rel="noreferrer">
                       {t("pages.campaignDetail.openPublic")}
                     </a>
                   </Button>

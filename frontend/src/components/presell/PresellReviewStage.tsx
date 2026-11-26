@@ -13,6 +13,7 @@ import {
 } from "@/page-builder/editorChromeTheme";
 import { GoogleAdsPresellUrlBlock } from "@/components/tracking/GoogleAdsPresellUrlBlock";
 import { buildGoogleAdsPresellUrlParts } from "@/lib/googleAdsPresellUrl";
+import { ownerPresellPreviewPath } from "@/lib/publicPresellOrigin";
 
 type Device = "desktop" | "tablet" | "mobile";
 
@@ -119,7 +120,7 @@ export function PresellReviewStage({
     return () => ro.disconnect();
   }, [frame.w, frame.h]);
 
-  const previewPath = published ? `/p/${activeId}` : draftSrc || "";
+  const previewPath = published ? ownerPresellPreviewPath(activeId) : draftSrc || "";
   const showFrame = published || Boolean(draftSrc);
   const editorTheme = readStoredEditorChromeTheme();
 

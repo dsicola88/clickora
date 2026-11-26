@@ -180,11 +180,6 @@ export interface Presell {
     accent_color?: string | null;
   } | null;
   /**
-   * Só API pública: `true` quando o país desta presell ou uma regra da conta
-   * serviu a página segura — sem espelho, scripts, tracking nem hoplink.
-   */
-  cloak_safe?: boolean;
-  /**
    * Só API pública: base `/api` no domínio de tracking da conta (ex. https://go.marca.com/api).
    * Quando presente, pixel/CTAs preferem este host em vez do same-origin da lander.
    */

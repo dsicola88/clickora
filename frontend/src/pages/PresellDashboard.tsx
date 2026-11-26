@@ -79,6 +79,7 @@ import {
   isMainPlatformPresellOrigin,
   isPresellUuidParam,
   listVerifiedHostingDomains,
+  ownerPresellPreviewPath,
   resolveDefaultCustomDomainIdForAccount,
   resolvePublicPresellPath,
 } from "@/lib/publicPresellOrigin";
@@ -2105,7 +2106,7 @@ export default function PresellDashboard() {
                         href={
                           getPublicPresellFullUrl(customDomains, page.custom_domain_id, page) ||
                           /** Sem domínio público: abre o preview privado do dono (exige sessão). */
-                          `/p/${page.id}`
+                          ownerPresellPreviewPath(page.id)
                         }
                         target="_blank"
                         rel="noreferrer"

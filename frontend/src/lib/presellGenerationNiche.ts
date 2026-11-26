@@ -10,13 +10,13 @@ export const PRESELL_NICHE_OPTIONS: {
 }[] = [
   {
     id: "black",
-    name: "Black (promessas fortes)",
+    name: "Informativa (nichos sensíveis)",
     description:
-      "Saúde, emagrecimento, desempenho e ofertas agressivas. Portal informativo Ads-safe com o nome do produto da URL (não clona claims nem cola Visivra/outro catálogo). Cookie só desbloqueia o artigo; o hoplink fica no CTA da página. Identidade do afiliado obrigatória.",
+      "Saúde, emagrecimento e desempenho. Página informativa com o nome do produto da URL, igual para todos os visitantes (não reproduz promessas da oferta). Cookie só desbloqueia o artigo; o hoplink fica no CTA da página. Identidade do afiliado obrigatória.",
   },
   {
     id: "white",
-    name: "White (produtos leves)",
+    name: "Fiel à oferta (produtos leves)",
     description:
       "Gadgets, reviews, ofertas sem claims médicos. No wizard escolhe «só essencial» (estilo SuperPresell) ou espelho completo. Cookies só desbloqueiam a página; a oferta fica nos CTAs com /track/r/.",
   },

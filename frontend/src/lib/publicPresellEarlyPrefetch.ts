@@ -7,7 +7,7 @@ import {
   toAbsolutePageUrl,
 } from "@/lib/publicPresellSeo";
 import { getPresellProductLabel, resolvePublicPresellDocumentTitle } from "@/lib/publicPresellDocumentTitle";
-import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
+import { isPlatformMainHostname, isPresellUuidParam } from "@/lib/publicPresellOrigin";
 import { isTenantBarePresellPathname, parseBarePresellSegment } from "@/lib/publicPresellBarePath";
 
 const inflight = new Map<string, Promise<Presell | null>>();
@@ -16,7 +16,7 @@ type EarlyPresell = { param: string; promise: Promise<Presell | null> };
 
 function takeEarlyHtmlPrefetch(param: string): Promise<Presell | null> | null {
   if (typeof window === "undefined") return null;
-  const early = (window as Window & { __clickoraPresellEarly?: EarlyPresell }).__clickoraPresellEarly;
+  const early = (window as Window & { __presellEarly?: EarlyPresell }).__presellEarly;
   if (!early || early.param !== param) return null;
   return early.promise.then((data) => {
     if (data) {
@@ -180,6 +180,8 @@ export function startPublicPresellPrefetchFromLocation(): void {
 export function startPublicPresellPrefetchForParam(param: string): void {
   const p = param.trim();
   if (!p || inflight.has(p)) return;
+  /** Domínio principal: só o dono vê (pedido autenticado no queryFn); o GET anónimo daria 404. */
+  if (typeof window !== "undefined" && isPlatformMainHostname(window.location.hostname)) return;
   inflight.set(p, takeEarlyHtmlPrefetch(p) ?? fetchPublicPresellJson(p));
 }
 

@@ -710,7 +710,12 @@ function normalizePresellRouteParam(raw: string): string {
   }
 }
 
-export default function PublicPresell() {
+type PublicPresellProps = {
+  /** Preview privado do dono no painel: sem impressão nem embed de tracking (não conta nas métricas). */
+  ownerPreview?: boolean;
+};
+
+export default function PublicPresell({ ownerPreview = false }: PublicPresellProps = {}) {
   const rawId = useParams().id ?? "";
   const id = useMemo(() => normalizePresellRouteParam(rawId), [rawId]);
   const { search: locationSearch } = useLocation();
@@ -835,7 +840,7 @@ export default function PublicPresell() {
 
   /** Pixel o mais cedo possível (layout) — impressão Ads antes de paint pesado. */
   useLayoutEffect(() => {
-    if (!page?.id || page.cloak_safe === true) return;
+    if (!page?.id || ownerPreview) return;
     /** Lê a query live (gclid/gad_source do Ads) — não depender só do state omitido dos deps. */
     const liveSearch =
       typeof window !== "undefined"
@@ -846,7 +851,7 @@ export default function PublicPresell() {
     pixel.src = buildImpressionPixelUrl(apiBase, page.id, liveSearch);
     // Uma visita = uma impressão; mudanças de query na mesma página não recontam.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só page.id
-  }, [page?.id, page?.cloak_safe, apiBase]);
+  }, [page?.id, apiBase, ownerPreview]);
 
   const bodyCodeMountRef = useRef<HTMLDivElement>(null);
   const settingsInjectKey = useMemo(() => {
@@ -865,7 +870,7 @@ export default function PublicPresell() {
 
   // Re-run when serialized custom code changes (settingsInjectKey), not when page.settings object identity changes.
   useLayoutEffect(() => {
-    if (!page?.id || page.cloak_safe === true) return;
+    if (!page?.id) return;
     const s = (page.settings || {}) as Record<string, unknown>;
     const conversionTrackingScript = coerceTrackingSnippetToHtml(
       String(s.conversionTrackingScript ?? ""),
@@ -891,7 +896,7 @@ export default function PublicPresell() {
       cleanups.push(() => style.remove());
     }
     /** Clickora embed + impressão: essenciais à atribuição do funil (não são pixels de ads de terceiros). */
-    if (clickoraHead) cleanups.push(injectWithCleanup(clickoraHead, document.head));
+    if (clickoraHead && !ownerPreview) cleanups.push(injectWithCleanup(clickoraHead, document.head));
 
     /**
      * Política por mercado + tipo:
@@ -944,7 +949,7 @@ export default function PublicPresell() {
 
     return () => cleanups.forEach((fn) => fn());
   // eslint-disable-next-line react-hooks/exhaustive-deps -- settingsInjectKey + consent
-  }, [page?.id, page?.cloak_safe, page?.type, settingsInjectKey, apiBase, marketingAllowed]);
+  }, [page?.id, page?.type, settingsInjectKey, apiBase, marketingAllowed, ownerPreview]);
 
   const content = (page?.content || {}) as Record<string, unknown>;
   const tracking = (page?.tracking || {}) as Record<string, unknown>;
@@ -1087,38 +1092,14 @@ export default function PublicPresell() {
       /^Página não encontrada\.?$/i.test(raw.trim())
     ) {
       msg = "Esta página não está disponível.";
-      if (id && !isPresellUuidParam(id)) {
-        msg =
-          "Em dclickora.com o link público usa /p/<UUID>. O slug só funciona no teu domínio personalizado verificado.";
-      }
     } else if (/domínio personalizado|PRESHELL_SLUG|identificador \(UUID\)/i.test(raw)) {
-      msg =
-        "Em dclickora.com o link público usa /p/<UUID>. O slug só funciona no teu domínio personalizado verificado.";
+      msg = "Esta página não está disponível.";
     }
     const isNotFound =
       raw.trim() === "Página não encontrada" ||
       /^Página não encontrada\.?$/i.test(raw.trim()) ||
       msg === "Esta página não está disponível.";
     return <ErrorState message={msg} onRetry={isNotFound ? undefined : () => refetch()} />;
-  }
-
-  if (page.cloak_safe === true) {
-    const safeContent = (page.content || {}) as Record<string, unknown>;
-    const safeTitle =
-      (typeof safeContent.title === "string" && safeContent.title.trim()) ||
-      page.title ||
-      "Informação";
-    const safeBody =
-      (typeof safeContent.salesText === "string" && safeContent.salesText.trim()) ||
-      "Conteúdo informativo.";
-    return (
-      <div className="min-h-screen bg-background text-foreground">
-        <main className="mx-auto max-w-2xl px-4 py-16 sm:py-24">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{safeTitle}</h1>
-          <p className="mt-6 text-base leading-relaxed text-muted-foreground whitespace-pre-wrap">{safeBody}</p>
-        </main>
-      </div>
-    );
   }
 
   const gateKind = getPresellGateKind(page.type);

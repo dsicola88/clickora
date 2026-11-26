@@ -22,7 +22,7 @@ describe("classifyPresellImport", () => {
     });
     assert.equal(out.mode, "template");
     assert.equal(out.publishable, true);
-    assert.match(out.notes.join(" "), /espelho visual|não é copiada/i);
+    assert.match(out.notes.join(" "), /reprodução visual|não é reproduzida/i);
     assert.match(out.notes.join(" "), /não é um clone/i);
   });
 

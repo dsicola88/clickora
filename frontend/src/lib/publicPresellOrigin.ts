@@ -4,6 +4,18 @@ import type { CustomDomainDto } from "@/types/api";
 export const PUBLIC_DOMAIN_REQUIRED_MESSAGE =
   "Conecte um domínio próprio verificado para publicar esta página. O domínio principal da plataforma não serve presells públicas.";
 
+const PLATFORM_MAIN_HOSTNAMES_EXACT = new Set(["dclickora.com", "www.dclickora.com", "clickora.com", "www.clickora.com"]);
+
+/** Domínio principal da plataforma (não serve presells públicas). */
+export function isPlatformMainHostname(hostname: string | null | undefined): boolean {
+  return PLATFORM_MAIN_HOSTNAMES_EXACT.has(String(hostname || "").trim().toLowerCase().split(":")[0] || "");
+}
+
+/** Preview privado do dono dentro do painel (exige sessão; nunca é um URL público). */
+export function ownerPresellPreviewPath(presellId: string): string {
+  return `/presells/preview/${encodeURIComponent(presellId)}`;
+}
+
 /**
  * Origem do SITE (marketing/SEO). NÃO é origem de presells públicas: o domínio principal
  * não hospeda presells — para links de presell usa-se `getPublicPresellOriginForPresell`.

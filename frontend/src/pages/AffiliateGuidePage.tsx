@@ -6,6 +6,7 @@ import { ArrowRight, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { applyMarketingLandingHead } from "@/lib/marketingSiteSeo";
 import { useAuth } from "@/contexts/AuthContext";
+import { SiteLegalLinks } from "@/components/legal/SiteLegalLinks";
 
 const TOC: { id: string; key: MessageKey }[] = [
   { id: "criar-presell-rapido", key: "pages.affiliateGuide.toc1" },
@@ -229,6 +230,7 @@ export default function AffiliateGuidePage() {
             {t("pages.affiliateGuide.home")}
           </Link>
         </p>
+        <SiteLegalLinks className="mt-6" />
       </article>
     </div>
   );

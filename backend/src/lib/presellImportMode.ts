@@ -107,18 +107,18 @@ export function classifyPresellImport(args: {
   if (hasMirror) {
     notes.push(
       niche === "white"
-        ? "Modo white: espelho visual da sales page (sem JavaScript da origem). CTAs rastreados apontam para o teu hoplink; aviso de cookies não substitui o CTA da oferta."
-        : "Modo black: a sales page agressiva não é copiada para o anúncio. Só nome e fotos da origem; texto informativo (Google/Bing).",
+        ? "Modo fiel à oferta: reprodução visual da página do produto (sem JavaScript da origem). CTAs rastreados apontam para o teu hoplink; aviso de cookies não substitui o CTA da oferta."
+        : "Modo informativo: a página de vendas não é reproduzida. Só nome e fotos da origem, com texto informativo igual para todos os visitantes.",
     );
   } else if (niche === "black") {
     notes.push(
-      "Modo black: página informativa à prova de bloqueio com imagens da origem. Sem clonar claims da oferta. Sem espelho Playwright no anúncio.",
+      "Modo informativo: página informativa com imagens da origem, igual para todos os visitantes. Sem reproduzir promessas da oferta.",
     );
   } else {
-    notes.push("Modo white: textos e subtítulo extraídos da página; espelho indisponível nesta importação.");
+    notes.push("Modo fiel à oferta: textos e subtítulo extraídos da página; reprodução visual indisponível nesta importação.");
   }
   if (niche === "black") {
-    notes.push("Black: o hoplink fica no gate (cookies, desconto…). Não invente contacto — vem da origem quando existir.");
+    notes.push("Modo informativo: o hoplink fica no CTA da página (cookies, desconto…). Não invente contacto — vem da origem quando existir.");
   } else {
     notes.push("White: copy e políticas alinhadas ao produtor; tipos agressivos ocultos no assistente.");
   }
