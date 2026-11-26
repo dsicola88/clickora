@@ -347,7 +347,7 @@ function buildCookieModalHtml(
   const policyParas = policyCopy.paragraphs
     .map((p) => `<p style="margin:0 0 .65rem;font-size:.875rem;line-height:1.55;color:#475569;">${escapeHtml(p)}</p>`)
     .join("");
-  const policyCtl = `<button type="button" id="pe-cookie-policy" style="display:inline-block;margin-top:.5rem;padding:0;border:0;background:transparent;font-size:.875rem;font-weight:600;color:#0d9488;text-decoration:underline;cursor:pointer;">${escapeHtml(L.policy)}</button>`;
+  const policyCtl = `<button type="button" id="pe-cookie-policy" style="display:inline-block;margin:0 0 .5rem;padding:0;border:0;background:transparent;font-size:.875rem;font-weight:600;color:#0d9488;text-decoration:underline;cursor:pointer;text-align:left;">${escapeHtml(L.policy)}</button>`;
   const policySheet = `<div id="pe-cookie-policy-sheet" hidden style="position:fixed;inset:0;z-index:2147483647;display:none;align-items:flex-end;justify-content:center;padding:0;" role="dialog" aria-modal="true" aria-labelledby="pe-cookie-policy-title">
 <button type="button" id="pe-cookie-policy-backdrop" aria-label="${escapeAttr(policyCopy.close)}" style="position:absolute;inset:0;border:0;background:rgba(15,23,42,.25);cursor:pointer;"></button>
 <div style="position:relative;z-index:1;width:100%;max-width:32rem;max-height:min(78vh,560px);display:flex;flex-direction:column;border-radius:1rem 1rem 0 0;border:1px solid #e2e8f0;background:#fff;box-shadow:0 20px 40px rgba(15,23,42,.18);">
