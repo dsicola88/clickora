@@ -118,6 +118,15 @@ describe("middleware", () => {
     }
   });
 
+  it("ficheiros emitidos pelo build na raiz (vite.config emitFile) continuam servíveis no domínio principal", () => {
+    const viteConfig = readFileSync(path.resolve(__dirname, "../../vite.config.ts"), "utf8");
+    const emitted = [...viteConfig.matchAll(/fileName:\s*"([^"/]+)"/g)].map((m) => m[1]);
+    expect(emitted).toContain("version.json");
+    for (const name of emitted) {
+      expect(classifyMainHostPath(`/${name}`).kind, name).toBe("pass");
+    }
+  });
+
   it("tudo o que existe em frontend/public continua servível no domínio principal (ou é intencionalmente bloqueado)", () => {
     const publicDir = path.resolve(__dirname, "../../public");
     const intentionallyBlocked = new Set(["qa", "robots-tenant.txt"]);

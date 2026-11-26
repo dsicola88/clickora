@@ -222,6 +222,7 @@ const MAIN_HOST_STATIC_FILES = new Set([
   "/sw-push.js",
   "/sitemap.xml",
   "/robots-marketing.txt",
+  "/version.json",
 ]);
 const MAIN_HOST_STATIC_PREFIXES = ["/landing/", "/sounds/"];
 
