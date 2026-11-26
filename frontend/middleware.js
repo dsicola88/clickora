@@ -142,7 +142,15 @@ export function classifyTenantPath(pathname) {
   const parts = trimmed.split("/").filter(Boolean);
   const first = decodeSegment(parts[0] || "").toLowerCase();
 
-  if ((parts[parts.length - 1] || "").includes(".")) return { kind: "pass" };
+  /**
+   * Caminhos com extensão (`/wp-login.php`, `/.env`, `/x.html`) NUNCA são ficheiros do assinante: sem
+   * isto o rewrite `/(.*) → /index.html` devolvia 200 com o HTML de marketing da plataforma (título,
+   * token do Search Console, `index, follow`) em qualquer URL — assinatura clássica de site com
+   * conteúdo injetado. Só o shell neutro (alvo do rewrite) é servido como ficheiro.
+   */
+  if ((parts[parts.length - 1] || "").includes(".")) {
+    return raw === TENANT_SHELL_PATH ? { kind: "pass" } : { kind: "not_found" };
+  }
 
   if (first === "p") {
     return parts.length === 2 ? { kind: "shell" } : { kind: "not_found" };
@@ -196,6 +204,27 @@ const MAIN_HOST_SPA_SEGMENTS = new Set([
   "conta",
 ]);
 
+/**
+ * Ficheiros estáticos reais do site institucional (`frontend/public`). Qualquer outro caminho com
+ * extensão no domínio principal → 404 (em vez do 200 com o HTML da home, que parece conteúdo injetado).
+ * `tenantEdgeMiddleware.test.ts` garante que tudo o que existe em `public/` está coberto.
+ */
+const MAIN_HOST_STATIC_FILES = new Set([
+  "/index.html",
+  "/favicon.ico",
+  "/favicon.svg",
+  "/apple-touch-icon.png",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/brand-dclickora.png",
+  "/manifest.webmanifest",
+  "/placeholder.svg",
+  "/sw-push.js",
+  "/sitemap.xml",
+  "/robots-marketing.txt",
+]);
+const MAIN_HOST_STATIC_PREFIXES = ["/landing/", "/sounds/"];
+
 /** API de conteúdo das presells: no domínio principal só com sessão (o backend serve apenas o dono). */
 const MAIN_HOST_SESSION_ONLY_API = [/^\/api\/public\/presells\//i, /^\/api\/public\/custom-domain\//i];
 /** Saltos para ofertas/rotadores: nunca no domínio principal (só em domínio do assinante ou técnico). */
@@ -217,11 +246,20 @@ export function classifyMainHostPath(pathname, { hasSession = false } = {}) {
   const trimmed = raw.replace(/\/+$/, "") || "/";
   if (trimmed === "/") return { kind: "pass" };
   const parts = trimmed.split("/").filter(Boolean);
-  if ((parts[parts.length - 1] || "").includes(".")) return { kind: "pass" };
+  if ((parts[parts.length - 1] || "").includes(".")) {
+    const lower = trimmed.toLowerCase();
+    const known = MAIN_HOST_STATIC_FILES.has(lower) || MAIN_HOST_STATIC_PREFIXES.some((pre) => lower.startsWith(pre));
+    return known ? { kind: "pass" } : { kind: "not_found" };
+  }
 
   const first = decodeSegment(parts[0] || "").toLowerCase();
   if (first === "p" || first === "l" || first === "track") return { kind: "not_found" };
   return MAIN_HOST_SPA_SEGMENTS.has(first) ? { kind: "pass" } : { kind: "not_found" };
+}
+
+/** `*.vercel.app` (alias de produção e previews): mesmo projeto, mesma app — mesma regra do domínio principal. */
+export function isVercelAppHost(host) {
+  return Boolean(host) && host.endsWith(".vercel.app");
 }
 
 function presellNotPublicJson() {
@@ -280,12 +318,15 @@ export default function middleware(request) {
     return notFound();
   }
 
-  if (isPlatformMainHost(host)) {
+  if (isPlatformMainHost(host) || isVercelAppHost(host)) {
     const blocked = mainHostGuard(request, pathname);
     if (blocked) return blocked;
   }
 
   if (isPlatformHost(host)) return undefined;
+
+  /** Conteúdo de marketing da plataforma nunca é servido num domínio de assinante. */
+  if (/^\/api\/public\/plans-landing(\/|$)/i.test(pathname)) return presellNotPublicJson();
 
   const decision = classifyTenantPath(pathname);
   switch (decision.kind) {
@@ -306,6 +347,7 @@ export const config = {
     "/((?!api/|assets/).*)",
     "/api/public/presells/:path*",
     "/api/public/custom-domain/:path*",
+    "/api/public/plans-landing/:path*",
     "/api/track/r/:path*",
     "/api/track/rot/:path*",
   ],

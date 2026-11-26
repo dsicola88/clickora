@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import middleware, { classifyMainHostPath, classifyTenantPath } from "../../middleware.js";
@@ -19,8 +19,17 @@ describe("classifyTenantPath", () => {
     ["/api/track/r/abc", "pass"],
     ["/l/c2e3caf4-de15-48bd-aeca-3f69b07a0358", "pass"],
     ["/assets/index-abc.js", "pass"],
-    ["/favicon.ico", "pass"],
-    ["/landing/hero-default.png", "pass"],
+    ["/tenant-shell.html", "pass"],
+    ["/favicon.ico", "not_found"],
+    ["/manifest.webmanifest", "not_found"],
+    ["/sw-push.js", "not_found"],
+    ["/brand-dclickora.png", "not_found"],
+    ["/landing/hero-default.png", "not_found"],
+    ["/wp-login.php", "not_found"],
+    ["/.env", "not_found"],
+    ["/xmlrpc.php", "not_found"],
+    ["/qa/qualquer.html", "not_found"],
+    ["/p/abc.php", "not_found"],
     ["/auth", "panel"],
     ["/login", "panel"],
     ["/admin", "panel"],
@@ -63,12 +72,66 @@ describe("middleware", () => {
     expect(run("truefindlab.blog", "/google3501df392bc0f6af.html")).toBeUndefined();
   });
 
-  it("não altera o site principal (institucional, auth e painel) nem previews", () => {
+  it("não altera o site principal (institucional, auth e painel) nem previews do painel", () => {
     expect(run("www.dclickora.com", "/")).toBeUndefined();
     expect(run("www.dclickora.com", "/auth")).toBeUndefined();
     expect(run("www.dclickora.com", "/presells")).toBeUndefined();
     expect(run("clickora-git-main.vercel.app", "/presells")).toBeUndefined();
-    expect(run("clickora-git-main.vercel.app", "/p/c2e3caf4-de15-48bd-aeca-3f69b07a0358")).toBeUndefined();
+    expect(run("clickora-git-main.vercel.app", "/")).toBeUndefined();
+  });
+
+  it("alias *.vercel.app do mesmo projeto segue a regra do domínio principal (sem presells públicas)", () => {
+    const ID = "c2e3caf4-de15-48bd-aeca-3f69b07a0358";
+    for (const host of ["clickora.vercel.app", "clickora-git-main-team.vercel.app"]) {
+      expect(run(host, `/p/${ID}`)?.status).toBe(404);
+      expect(run(host, `/l/${ID}`)?.status).toBe(404);
+      expect(run(host, "/vissia-f2x6")?.status).toBe(404);
+      expect(run(host, `/api/public/presells/id/${ID}`)?.status).toBe(404);
+      expect(run(host, `/api/track/r/${ID}`)?.status).toBe(404);
+    }
+  });
+
+  it("host de assinante: lixo com extensão dá 404 real (nunca o HTML de marketing da plataforma)", () => {
+    for (const path of ["/wp-login.php", "/.env", "/xmlrpc.php", "/qualquer.php", "/x/y.html", "/favicon.ico"]) {
+      const res = run("wellformulas.store", path);
+      expect(res?.status, path).toBe(404);
+      expect(res?.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    }
+    expect(run("wellformulas.store", "/tenant-shell.html")).toBeUndefined();
+  });
+
+  it("host de assinante: marketing da plataforma (plans-landing) não é servido", () => {
+    expect(run("wellformulas.store", "/api/public/plans-landing")?.status).toBe(404);
+    expect(run("wellformulas.store", "/api/public/plans-landing/hero-image")?.status).toBe(404);
+    expect(run("wellformulas.store", "/api/public/branding")).toBeUndefined();
+    expect(run("www.dclickora.com", "/api/public/plans-landing")).toBeUndefined();
+  });
+
+  it("domínio principal: lixo com extensão dá 404 real, ficheiros reais continuam a servir", () => {
+    for (const host of ["www.dclickora.com", "dclickora.com"]) {
+      for (const path of ["/wp-login.php", "/.env", "/xmlrpc.php", "/qa/visivra.html", "/robots-tenant.txt", "/tenant-shell.html"]) {
+        expect(run(host, path)?.status, `${host}${path}`).toBe(404);
+      }
+    }
+    for (const path of ["/favicon.ico", "/manifest.webmanifest", "/sitemap.xml", "/landing/hero-default.png", "/sounds/caixa-registradora.wav"]) {
+      expect(run("www.dclickora.com", path), path).toBeUndefined();
+    }
+  });
+
+  it("tudo o que existe em frontend/public continua servível no domínio principal (ou é intencionalmente bloqueado)", () => {
+    const publicDir = path.resolve(__dirname, "../../public");
+    const intentionallyBlocked = new Set(["qa", "robots-tenant.txt"]);
+    const handledEarlier = /^google[0-9a-f]+\.html$/i; // verificação Search Console: tratado antes do guard
+    for (const entry of readdirSync(publicDir, { withFileTypes: true })) {
+      if (intentionallyBlocked.has(entry.name) || handledEarlier.test(entry.name)) continue;
+      if (entry.isDirectory()) {
+        const inner = readdirSync(path.join(publicDir, entry.name))[0];
+        if (!inner) continue;
+        expect(classifyMainHostPath(`/${entry.name}/${inner}`).kind, entry.name).toBe("pass");
+      } else {
+        expect(classifyMainHostPath(`/${entry.name}`).kind, entry.name).toBe("pass");
+      }
+    }
   });
 
   it("resposta igual para qualquer User-Agent", () => {
@@ -176,7 +239,7 @@ describe("middleware", () => {
     it("domínios de assinante, previews e localhost mantêm o comportamento", () => {
       expect(call("wellformulas.store", `/l/${ID}`)).toBeUndefined();
       expect(call("wellformulas.store", `/api/public/presells/id/${ID}`)).toBeUndefined();
-      expect(call("clickora-git-main.vercel.app", `/l/${ID}`)).toBeUndefined();
+      expect(call("clickora-git-main.vercel.app", "/presells")).toBeUndefined();
       expect(call("localhost", `/api/public/presells/id/${ID}`)).toBeUndefined();
     });
   });
