@@ -28,7 +28,7 @@ export function buildVercelCnameHint(hostname: string): { host: string; target: 
 }
 
 const VERCEL_PENDING_NOTE =
-  "O domínio foi registado no projeto do site. Configure o CNAME (ou A no apex) e o(s) TXT abaixo; depois use «Verificar».";
+  "O domínio foi registado no projeto do site. Configure o CNAME (ou A no apex), o TXT de posse (_dclickora-verify) e o(s) TXT da Vercel abaixo; depois use «Verificar».";
 
 /** Tipo de registo DNS para exibição (alinhado à Vercel: apex → A 76.76.21.21, subdomínio → CNAME). */
 export function inferDnsRecordKind(target: string): "A" | "CNAME" {
@@ -41,6 +41,14 @@ export function normalizeDomainStatus(raw: string | undefined): "pending" | "ver
   const s = String(raw ?? "").toLowerCase();
   if (s === "verified") return "verified";
   return "pending";
+}
+
+/** TXT de posse `_dclickora-verify`: exigido em qualquer modo antes de o domínio ficar verificado. */
+function ownershipTxt(hostname: string, verificationToken: string): { txt_name: string; txt_value: string } {
+  return {
+    txt_name: `_dclickora-verify.${hostname}`,
+    txt_value: verificationToken ? `dclickora-verification=${verificationToken}` : "",
+  };
 }
 
 function buildLegacyDclickoraDns(hostname: string, verificationToken: string): Extract<CustomDomainPendingDns, { mode: "dclickora" }> {
@@ -79,6 +87,7 @@ export function resolvePendingDnsForDisplay(d: CustomDomainDto): CustomDomainPen
         ...api,
         cname,
         vercel_txt: Array.isArray(api.vercel_txt) ? api.vercel_txt : [],
+        ...(api.txt_name && api.txt_value ? {} : ownershipTxt(d.hostname, token)),
         note: api.note || VERCEL_PENDING_NOTE,
       };
     }
@@ -90,6 +99,7 @@ export function resolvePendingDnsForDisplay(d: CustomDomainDto): CustomDomainPen
       mode: "vercel",
       cname: api.cname?.host && api.cname?.target ? api.cname : hint,
       vercel_txt: Array.isArray(api.vercel_txt) ? api.vercel_txt : [],
+      ...ownershipTxt(d.hostname, token),
       vercel_verified_immediately: Boolean(api.vercel_verified_immediately),
       note: api.note || VERCEL_PENDING_NOTE,
     };
@@ -104,6 +114,7 @@ export function resolvePendingDnsForDisplay(d: CustomDomainDto): CustomDomainPen
       mode: "vercel",
       cname: hint,
       vercel_txt: [],
+      ...ownershipTxt(d.hostname, token),
       vercel_verified_immediately: false,
       note: VERCEL_PENDING_NOTE,
     };

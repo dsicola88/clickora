@@ -249,7 +249,6 @@ export const customDomainController = {
 
     let vercelRegistered = false;
     let vercelVerification: VercelVerificationChallenge[] = [];
-    let vercelVerifiedImmediately = false;
 
     if (isVercelConfigured()) {
       const vr = await vercelAddProjectDomain(hostname);
@@ -260,7 +259,6 @@ export const customDomainController = {
       }
       vercelRegistered = true;
       vercelVerification = vr.verification;
-      vercelVerifiedImmediately = vr.verified;
     }
 
     const trackingCount = await prisma.customDomain.count({
@@ -275,8 +273,9 @@ export const customDomainController = {
         userId,
         hostname,
         verificationToken: token,
-        status: vercelVerifiedImmediately ? "verified" : "pending",
-        verifiedAt: vercelVerifiedImmediately ? new Date() : null,
+        // Nunca "verified" no create: mesmo que a Vercel já valide o DNS, falta a prova de posse (TXT).
+        status: "pending",
+        verifiedAt: null,
         isDefault: purpose !== "tracking" && !hostingDefaultExists,
         purpose,
         isDefaultTracking:
@@ -288,7 +287,7 @@ export const customDomainController = {
       },
     });
 
-    if (vercelVerifiedImmediately || isFirst) {
+    if (isFirst) {
       await ensureDefaultDomainForUser(userId);
     }
 
@@ -313,59 +312,15 @@ export const customDomainController = {
       return res.json({ verified: true, ...mapRow(persisted, live) });
     }
 
-    if (row.vercelDomainRegistered) {
-      const vr = await vercelVerifyProjectDomain(row.hostname);
-      if (vr.ok && vr.verified) {
-        // `prisma.customDomain.update` com where `{ id }` rebenta no tenant client (WhereUniqueInput vs AND+userId).
-        let out = await systemPrisma.customDomain.update({
-          where: { id: row.id },
-          data: {
-            status: "verified",
-            verifiedAt: new Date(),
-            vercelVerificationJson: Prisma.JsonNull,
-          },
-        });
-
-        await ensureDefaultDomainForUser(userId);
-        await ensureDefaultTrackingForUser(userId);
-        out =
-          (await prisma.customDomain.findFirst({ where: { id: out.id, userId } })) ?? out;
-
-        await refreshCustomDomainCache();
-        const live = await liveSslForDomain(out);
-        await persistSslProbeCache(out.id, live);
-        const persisted =
-          (await prisma.customDomain.findFirst({ where: { id: out.id, userId } })) ?? out;
-        return res.json({ verified: true, ...mapRow(persisted, live) });
-      }
-
-      if (!vr.ok) {
-        return res.status(400).json({
-          error: vr.error || "A Vercel ainda não validou o DNS. Confirme CNAME e TXT e aguarde a propagação.",
-          dns: buildPendingDnsPayload(row.hostname, row.verificationToken, {
-            vercel: true,
-            vercelVerification: (row.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? [],
-            vercelVerifiedImmediately: false,
-          }),
-        });
-      }
-
-      return res.status(400).json({
-        error: "Ainda a verificar na Vercel. Confirme os registos DNS e tente de novo.",
-        dns: buildPendingDnsPayload(row.hostname, row.verificationToken, {
-          vercel: true,
-          vercelVerification: (row.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? [],
-          vercelVerifiedImmediately: false,
-        }),
-      });
-    }
-
-    const dnsResult = await dnsTxtContainsVerification(row.hostname, row.verificationToken);
+    const vercelChallenges = (row.vercelVerificationJson as VercelVerificationChallenge[] | null) ?? [];
     const dnsPayload = buildPendingDnsPayload(row.hostname, row.verificationToken, {
-      vercel: false,
-      vercelVerification: [],
+      vercel: row.vercelDomainRegistered,
+      vercelVerification: vercelChallenges,
       vercelVerifiedImmediately: false,
     });
+
+    // Prova de posse obrigatória em qualquer modo: o TXT `_dclickora-verify` tem de estar no DNS.
+    const dnsResult = await dnsTxtContainsVerification(row.hostname, row.verificationToken);
     if (dnsResult === "timeout") {
       return res.status(503).json({
         error:
@@ -375,14 +330,36 @@ export const customDomainController = {
     }
     if (dnsResult !== "match") {
       return res.status(400).json({
-        error: "Ainda não detetámos o registo TXT correto. Confirme o DNS e aguarde a propagação (pode demorar).",
+        error:
+          "Falta o registo TXT de posse (_dclickora-verify). Adicione-o no DNS do domínio, aguarde a propagação e clique em Verificar.",
         dns: dnsPayload,
       });
     }
 
+    if (row.vercelDomainRegistered) {
+      const vr = await vercelVerifyProjectDomain(row.hostname);
+      if (!vr.ok) {
+        return res.status(400).json({
+          error: vr.error || "A Vercel ainda não validou o DNS. Confirme CNAME e aguarde a propagação.",
+          dns: dnsPayload,
+        });
+      }
+      if (!vr.verified) {
+        return res.status(400).json({
+          error: "Ainda a verificar na Vercel. Confirme os registos DNS e tente de novo.",
+          dns: dnsPayload,
+        });
+      }
+    }
+
+    // `prisma.customDomain.update` com where `{ id }` rebenta no tenant client (WhereUniqueInput vs AND+userId).
     let out = await systemPrisma.customDomain.update({
       where: { id: row.id },
-      data: { status: "verified", verifiedAt: new Date() },
+      data: {
+        status: "verified",
+        verifiedAt: new Date(),
+        vercelVerificationJson: Prisma.JsonNull,
+      },
     });
 
     await ensureDefaultDomainForUser(userId);
@@ -391,8 +368,11 @@ export const customDomainController = {
       (await prisma.customDomain.findFirst({ where: { id: out.id, userId } })) ?? out;
 
     await refreshCustomDomainCache();
-
-    return res.json({ verified: true, ...mapRow(out) });
+    const live = await liveSslForDomain(out);
+    await persistSslProbeCache(out.id, live);
+    const persisted =
+      (await prisma.customDomain.findFirst({ where: { id: out.id, userId } })) ?? out;
+    return res.json({ verified: true, ...mapRow(persisted, live) });
   },
 
   async setDefault(req: Request, res: Response) {

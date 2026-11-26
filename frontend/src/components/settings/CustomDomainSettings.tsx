@@ -451,6 +451,20 @@ export function CustomDomainSettings() {
                           copiedField={copiedField}
                           onCopy={(fieldId, text) => void copy(fieldId, text)}
                         />
+                        <CustomDomainDnsTable
+                          idPrefix={`${d.id}-pend-v-own`}
+                          title={t("pages.settings.dnsConfirmTitle")}
+                          sourceNote={t("pages.settings.dnsConfirmNote")}
+                          rows={[
+                            {
+                              kind: "TXT",
+                              name: dns.txt_name,
+                              value: dns.txt_value,
+                            },
+                          ]}
+                          copiedField={copiedField}
+                          onCopy={(fieldId, text) => void copy(fieldId, text)}
+                        />
                         {dns.vercel_txt.length === 0 && (
                           <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-muted-foreground leading-relaxed">
                             <p className="font-medium text-card-foreground mb-1">{t("pages.settings.dnsOneLineTitle")}</p>

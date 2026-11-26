@@ -8,6 +8,9 @@ export type CustomDomainPendingDns =
       mode: "vercel";
       cname: { host: string; target: string; note: string };
       vercel_txt: { type: string; name: string; value: string; reason: string }[];
+      /** Prova de posse da plataforma: obrigatória também no modo Vercel. */
+      txt_name: string;
+      txt_value: string;
       vercel_verified_immediately: boolean;
       note: string;
     }
