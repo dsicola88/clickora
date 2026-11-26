@@ -24,14 +24,8 @@ import { mergeAccountPixelsIntoSettings } from "../lib/accountPixelsMerge";
 import { billingUserId } from "../lib/requestContext";
 import { assertCanCreatePresellPages } from "../lib/presellPageLimits";
 import { denyIfCannotWritePresells } from "./workspace.controller";
-import {
-  buildCloakSafePublicPayload,
-  shouldServeCloakSafePage,
-} from "../lib/presellEnterpriseCloak";
 import { resolvePublicFooterBranding } from "../lib/publicFooterBranding";
-import { isProtectedGoogleCrawlerUserAgent } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
-import { isIntentionalPublicPageCloakReason } from "../lib/trackingGuardPolicy";
 import {
   preferredTrackApiBaseForUser,
   publicApiBaseFromRequest,
@@ -268,14 +262,14 @@ export const presellController = {
       return res.redirect(302, spaUrl);
     }
 
+    /**
+     * Mesma página para todos (humanos, AdsBot, Googlebot): sem troca de conteúdo por país,
+     * IP, User-Agent ou lista. O antifraude actua no hop `/track/r/` e nos relatórios.
+     */
     const liteUa = req.headers["user-agent"] || "";
-    const geo = shouldServeCloakSafePage(req, page.settings);
-    if (geo.cloak && !isProtectedGoogleCrawlerUserAgent(liteUa)) {
-      res.setHeader("Cache-Control", "private, no-store");
-      return res.redirect(302, spaUrl);
-    }
     const ip = extractClientIp(req);
-    const guard = await enforceTrackingRules({
+    /** Só regista a visita; o resultado nunca altera o HTML (antifraude = hop/pixel). */
+    await enforceTrackingRules({
       ownerUserId: page.userId,
       presellPageId: page.id,
       ip,
@@ -284,15 +278,6 @@ export const presellController = {
       channel: "public_page",
       recordedEventType: "other",
     });
-    /**
-     * Listas IP / bot / proxy: não desviam a landing lite (mesmo HTML que Ads deve ver).
-     * Antifraude no hop/pixel. Cloak geo opt-in: shouldServeCloakSafePage acima.
-     */
-    if (!guard.ok && isIntentionalPublicPageCloakReason(guard.reason)) {
-      res.setHeader("Cache-Control", "private, no-store");
-      return res.redirect(302, spaUrl);
-    }
-
     const trackBase = await trackApiBaseForUser(req, page.userId);
     const trackApiBase = trackBase || publicApiBaseFromRequest(req);
     const built = buildPresellLiteHtml({
@@ -1069,23 +1054,13 @@ async function sendPublicPresell(
   page: { id: string; userId: string; settings: unknown },
   mapped: Record<string, unknown>,
 ) {
-  const ua = req.headers["user-agent"] || "";
   /**
-   * AdsBot/Googlebot devem ver a Final URL real — cloak geográfico a crawlers
-   * oficiais = risco de cloaking / reprovação. Visitantes humanos seguem a lista.
+   * Mesma resposta para todos (humanos, AdsBot, Googlebot): sem «página segura» por país,
+   * IP, User-Agent ou lista. Antifraude actua no hop `/track/r/` e nos relatórios.
    */
-  const geo = shouldServeCloakSafePage(req, page.settings);
-  if (geo.cloak && !isProtectedGoogleCrawlerUserAgent(ua)) {
-    console.info("[presell.public] página segura", { id: page.id, reason: geo.reason });
-    res.setHeader("Cache-Control", "private, no-store");
-    return res.json(buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: geo.reason }));
-  }
   const ip = extractClientIp(req);
-  /**
-   * Bloqueios automáticos de datacenter/cloud foram removidos.
-   * Só entram regras que o afiliado configurou (geo cloak, blacklist/whitelist manual, bots/proxy opt-in).
-   */
-  const guard = await enforceTrackingRules({
+  /** Só regista a visita; o resultado nunca altera o payload. */
+  await enforceTrackingRules({
     ownerUserId: page.userId,
     presellPageId: page.id,
     ip,
@@ -1094,25 +1069,7 @@ async function sendPublicPresell(
     channel: "public_page",
     recordedEventType: "other",
   });
-  if (!guard.ok) {
-    /**
-     * Listas IP / bot / proxy: landing intacta (compliance Ads + conversões).
-     * Antifraude continua no `/track/r/` e no pixel.
-     * Cloak geo opt-in trata-se acima via shouldServeCloakSafePage.
-     */
-    if (isIntentionalPublicPageCloakReason(guard.reason)) {
-      console.info("[presell.public] página segura", { id: page.id, reason: guard.reason });
-      res.setHeader("Cache-Control", "private, no-store");
-      return res.json(
-        buildCloakSafePublicPayload({ base: mapped, settingsRaw: page.settings, reason: guard.reason }),
-      );
-    }
-    console.info("[presell.public] guard soft (landing intacta)", {
-      id: page.id,
-      reason: guard.reason,
-    });
-  }
-  // Publicado OK: cache curto partilhável (CDN/browser) — cloak geo / listas manuais já filtraram.
+  // Publicado OK: cache curto partilhável (CDN/browser); mesma resposta para qualquer visitante.
   res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
   return res.json(mapped);
 }

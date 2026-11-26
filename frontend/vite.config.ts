@@ -1,7 +1,9 @@
 import { execSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { buildTenantShellHtml } from "./src/lib/tenantShellHtml";
 
 function currentRelease(): string {
   const fromEnv = process.env.VITE_APP_RELEASE?.trim() || process.env.VERCEL_GIT_COMMIT_SHA?.trim();
@@ -38,6 +40,22 @@ function appReleasePlugin(release: string): Plugin {
   };
 }
 
+/** `dist/tenant-shell.html`: `index.html` sem a identidade da plataforma, servido em hosts de assinantes por `middleware.js`. */
+function tenantShellPlugin(): Plugin {
+  let outDir = "dist";
+  return {
+    name: "tenant-shell",
+    apply: "build",
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
+    closeBundle() {
+      const indexHtml = readFileSync(path.join(outDir, "index.html"), "utf8");
+      writeFileSync(path.join(outDir, "tenant-shell.html"), buildTenantShellHtml(indexHtml));
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
   server: {
@@ -47,7 +65,7 @@ export default defineConfig(() => ({
       overlay: false,
     },
   },
-  plugins: [react(), appReleasePlugin(currentRelease())],
+  plugins: [react(), appReleasePlugin(currentRelease()), tenantShellPlugin()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

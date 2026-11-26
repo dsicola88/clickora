@@ -44,8 +44,6 @@ function useTenantNoindexHead() {
 function CustomDomainRootRedirect() {
   useTenantNoindexHead();
   const location = useLocation();
-  const mainSite =
-    import.meta.env.VITE_PUBLIC_SITE_ORIGIN?.trim()?.replace(/\/+$/, "") || "https://www.dclickora.com";
 
   const hostname = typeof window !== "undefined" ? window.location.hostname : "";
 
@@ -89,44 +87,12 @@ function CustomDomainRootRedirect() {
     return <Navigate to={`${bare}${location.search}${location.hash}`} replace />;
   }
 
-  if (data?.kind === "tracking") {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 py-12 text-center">
-        <div className="max-w-md space-y-4">
-          <h1 className="text-xl font-semibold text-foreground">Domínio de tracking</h1>
-          <p className="text-sm text-muted-foreground">
-            Este hostname serve <code className="text-xs">/api/track/…</code> (pixel e redirects). A lander
-            publica-se no domínio de hosting.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Conta em{" "}
-            <a href={mainSite} className="text-primary underline underline-offset-2 font-medium">
-              dclickora
-            </a>
-            .
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+  /** Tracking, sem página publicada ou erro: página neutra — sem marca da plataforma nem descrição de redirects. */
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 py-12 text-center">
-      <div className="max-w-md space-y-4">
-        <h1 className="text-xl font-semibold text-foreground">Domínio ativo</h1>
-        <p className="text-sm text-muted-foreground">
-          {isError
-            ? "Erro ao carregar. Publique a página no painel ou contacte o suporte."
-            : "Nenhuma página publicada aqui — associe o domínio e publique no painel."}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Gerir contas e presells em{" "}
-          <a href={mainSite} className="text-primary underline underline-offset-2 font-medium">
-            dclickora
-          </a>
-          .
-        </p>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-background px-6 py-12 text-center">
+      <p className="text-sm text-muted-foreground">
+        {isError ? "Page temporarily unavailable." : "No page is published at this address."}
+      </p>
     </div>
   );
 }

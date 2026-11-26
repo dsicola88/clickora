@@ -1060,42 +1060,6 @@ export default function PublicPresell() {
     return resolveVideoEmbedSrc(page.video_url);
   }, [page?.video_url]);
 
-  const ghostRedirectDone = useRef(false);
-  useEffect(() => {
-    ghostRedirectDone.current = false;
-  }, [page?.id]);
-
-  useEffect(() => {
-    if (!page?.id || !isGhostPresellType(page.type) || !href) return;
-    const go = () => {
-      if (ghostRedirectDone.current) return;
-      ghostRedirectDone.current = true;
-      /** href já traz params; re-lê location no clique por se a query mudou. */
-      window.location.assign(mergeLandingAdParamsIntoTrackHref(href, window.location.search));
-    };
-    const opts = { passive: true } as const;
-    window.addEventListener("pointerdown", go);
-    window.addEventListener("click", go);
-    window.addEventListener("keydown", go);
-    window.addEventListener("mousemove", go, opts);
-    window.addEventListener("touchstart", go, opts);
-    window.addEventListener("touchmove", go, opts);
-    window.addEventListener("scroll", go, opts);
-    window.addEventListener("wheel", go, opts);
-    window.addEventListener("pointermove", go, opts);
-    return () => {
-      window.removeEventListener("pointerdown", go);
-      window.removeEventListener("click", go);
-      window.removeEventListener("keydown", go);
-      window.removeEventListener("mousemove", go);
-      window.removeEventListener("touchstart", go);
-      window.removeEventListener("touchmove", go);
-      window.removeEventListener("scroll", go);
-      window.removeEventListener("wheel", go);
-      window.removeEventListener("pointermove", go);
-    };
-  }, [page?.id, page?.type, href]);
-
   if (isLoading) {
     return (
       <div

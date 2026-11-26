@@ -74,7 +74,7 @@ describe("CookieConsentModal", () => {
     expect(screen.getByTestId("presell-cookie-policy-open")).toBeTruthy();
   });
 
-  it("com redirect: Aceitar é link /track/r/; Fechar só desbloqueia", () => {
+  it("navigateOnAccept legado é ignorado: Aceitar é botão e nunca navega", () => {
     const onAccept = vi.fn();
     const onDismiss = vi.fn();
     render(
@@ -88,9 +88,10 @@ describe("CookieConsentModal", () => {
         onDismiss={onDismiss}
       />,
     );
-    const allow = screen.getByTestId("presell-cookie-allow-offer");
-    expect(allow.tagName).toBe("A");
-    expect(allow.getAttribute("href")).toContain("/track/r/abc");
+    expect(screen.queryByTestId("presell-cookie-allow-offer")).toBeNull();
+    const allow = screen.getByTestId("presell-cookie-allow");
+    expect(allow.tagName).toBe("BUTTON");
+    expect(allow.getAttribute("href")).toBeNull();
     fireEvent.click(allow);
     expect(onAccept).toHaveBeenCalled();
     expect(onDismiss).not.toHaveBeenCalled();
@@ -171,7 +172,57 @@ describe("DiscountPresellOverlay", () => {
     const sheet = screen.getByTestId("presell-discount-sheet");
     expect(sheet.className).toContain("items-end");
     expect(sheet.className).not.toContain("backdrop-blur");
-    expect(screen.getByTestId("presell-discount-backdrop").getAttribute("aria-label")).toMatch(/offer/i);
+    expect(screen.getByTestId("presell-discount-backdrop").getAttribute("aria-label")).toBe("Close");
     expect(screen.queryByLabelText("Continuar para a oferta")).toBeNull();
+  });
+
+  it("X e fundo só fecham o overlay; nunca navegam para a oferta", () => {
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...original, assign, href: original.href, search: "" },
+    });
+    try {
+      render(
+        <DiscountPresellOverlay
+          language="en"
+          headline="Offer"
+          socialProof=""
+          ratingValue=""
+          ratingStars={5}
+          initialTimerSeconds={30}
+          ctaText="Order Now"
+          href="https://offer.example/buy"
+        >
+          <div>Produto</div>
+        </DiscountPresellOverlay>,
+      );
+      fireEvent.click(screen.getByTestId("presell-discount-close"));
+      expect(screen.queryByTestId("presell-discount-sheet")).toBeNull();
+      expect(assign).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: original });
+    }
+  });
+
+  it("clicar no fundo fecha o overlay sem navegar", () => {
+    render(
+      <DiscountPresellOverlay
+        language="en"
+        headline="Offer"
+        socialProof=""
+        ratingValue=""
+        ratingStars={5}
+        initialTimerSeconds={0}
+        ctaText="Order Now"
+        href="https://offer.example/buy"
+      >
+        <div>Produto</div>
+      </DiscountPresellOverlay>,
+    );
+    fireEvent.click(screen.getByTestId("presell-discount-backdrop"));
+    expect(screen.queryByTestId("presell-discount-sheet")).toBeNull();
+    expect(document.body.style.overflow).not.toBe("hidden");
   });
 });

@@ -41,7 +41,7 @@ export function DiscountPresellOverlay({
   href,
   children,
 }: Props) {
-  const [open] = useState(true);
+  const [open, setOpen] = useState(true);
   const [secondsLeft, setSecondsLeft] = useState(() =>
     Number.isFinite(initialTimerSeconds) && initialTimerSeconds > 0 ? Math.floor(initialTimerSeconds) : 0,
   );
@@ -64,29 +64,19 @@ export function DiscountPresellOverlay({
 
   const stars = Math.min(5, Math.max(1, Math.round(ratingStars || 5)));
   const ui = getPresellUiStrings(language);
-  /** Backdrop e X também vão à oferta — aria alinhada ao idioma da página. */
-  const continueOfferAria = ui.portalHeaderOffer;
-
-  const goOffer = () => {
-    const url = href.trim();
-    if (!url || url === "#") return;
-    window.location.assign(url);
-  };
+  /** X e fundo só fecham o overlay; a oferta só abre pelo CTA (link nativo). */
+  const closeAria = ui.cookieClose;
+  const onClose = () => setOpen(false);
 
   return (
     <div className="relative">
       {secondsLeft > 0 ? (
-        <button
-          type="button"
-          className="fixed top-0 left-0 right-0 z-[530] bg-[#e91e8c] text-white text-center px-3 py-2.5 shadow-md"
-          onClick={goOffer}
-          aria-label={continueOfferAria}
-        >
+        <div className="fixed top-0 left-0 right-0 z-[530] bg-[#e91e8c] text-white text-center px-3 py-2.5 shadow-md">
           <div className="text-2xl font-bold tabular-nums tracking-tight">{formatMmSs(secondsLeft)}</div>
           <p className="text-xs sm:text-sm font-medium opacity-95 leading-snug max-w-lg mx-auto">
             {discountUrgencyCopy(language)}
           </p>
-        </button>
+        </div>
       ) : null}
 
       <div className={secondsLeft > 0 ? "pt-[5.25rem]" : undefined}>{children}</div>
@@ -103,18 +93,18 @@ export function DiscountPresellOverlay({
             type="button"
             data-testid="presell-discount-backdrop"
             className="absolute inset-0 cursor-pointer border-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent p-0"
-            aria-label={continueOfferAria}
-            onClick={goOffer}
+            aria-label={closeAria}
+            onClick={onClose}
           />
           <div
-            className="relative z-10 w-full max-w-md cursor-pointer rounded-2xl bg-[#eceff1] shadow-2xl border border-white/40 px-6 py-8 sm:px-8"
-            onClick={goOffer}
+            className="relative z-10 w-full max-w-md rounded-2xl bg-[#eceff1] shadow-2xl border border-white/40 px-6 py-8 sm:px-8"
           >
             <button
               type="button"
               className="absolute right-3 top-3 rounded-full p-1.5 text-foreground/50 hover:text-foreground hover:bg-black/5 transition-colors"
-              aria-label={continueOfferAria}
-              onClick={goOffer}
+              aria-label={closeAria}
+              data-testid="presell-discount-close"
+              onClick={onClose}
             >
               <X className="h-5 w-5" />
             </button>

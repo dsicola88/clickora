@@ -3,7 +3,6 @@ import { PageRenderer } from "@/page-builder/components/PageRenderer";
 import type { PageDocument } from "@/page-builder/types";
 import { applyTrackingToDocument } from "@/page-builder/tracking";
 import { hrefLooksLikeOfferLink, isCtaLabel } from "@/lib/presellOfferHrefBake";
-import { mergeLandingAdParamsIntoTrackHref } from "@/lib/presellTrackAdParams";
 import { useViewportBuilderDevice } from "@/page-builder/useViewportBuilderDevice";
 import { BUILDER_PUBLIC_RESPONSIVE_CSS } from "@/page-builder/builderPublicCss";
 
@@ -38,12 +37,11 @@ type Props = {
 };
 
 /**
- * Vista pública do editor manual. Intercepta cliques no hoplink para passar por `/track/r/`
- * (contagem + `clickora_click_id`); links internos / mailto / tel / outras URLs ficam intactos.
+ * Vista pública do editor manual. Os CTAs são links nativos para `/track/r/` (contagem +
+ * `clickora_click_id`); não há interceção nem `location.assign` — só bloqueio enquanto o gate está incompleto.
  */
 export function PublicBuilderPresellView({
   doc,
-  trackOfferHref,
   offerUrl,
   interactionLocked = false,
   marketingAllowed = true,
@@ -60,94 +58,43 @@ export function PublicBuilderPresellView({
     return () => cleanup();
   }, [doc, gateMarketingUntilAccept, marketingAllowed]);
 
+  /**
+   * Sem sequestro de clique: os CTAs são `<a href>` nativos já apontados a `/track/r/…`
+   * (com gclid/UTMs da URL actual) por `bakePublicOfferHrefs`, e o browser navega sozinho.
+   * Este handler só BLOQUEIA a compra enquanto um gate interactivo (idade, país…) está incompleto.
+   */
   useEffect(() => {
-    const track = (trackOfferHref ?? "").trim();
+    if (!interactionLocked) return;
     const offerNorm = offerUrl ? normalizeComparableUrl(offerUrl) : null;
     const root = rootRef.current;
     if (!root) return;
 
     const onClick = (e: MouseEvent) => {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
-        return;
-      }
       const path = e.composedPath();
       const a = path.find((n): n is HTMLAnchorElement => n instanceof HTMLAnchorElement);
-      const btn = path.find(
-        (n): n is HTMLElement =>
-          n instanceof HTMLElement &&
-          (n instanceof HTMLButtonElement ||
-            n.getAttribute?.("role") === "button" ||
-            n.getAttribute?.("data-clickora-offer") === "1"),
-      );
-
-      if (a) {
-        const hrefAttr = (a.getAttribute("href") || "").trim();
-        const marked = a.getAttribute("data-clickora-offer") === "1";
-        const hashOnly = !hrefAttr || hrefAttr === "#" || hrefAttr.startsWith("#");
-
-        const labelHit = isCtaLabel(a.textContent || a.getAttribute("aria-label") || "");
-        const softHash = /^#(top|content|main|inicio|topo|footer|nav)\b/i.test(hrefAttr);
-        const isOfferIntent = (() => {
-          if (marked) return true;
-          if (labelHit && (hashOnly || !softHash)) return true;
-          if (hashOnly || hrefAttr.startsWith("mailto:") || hrefAttr.startsWith("tel:")) return false;
-          try {
-            const absolute = new URL(hrefAttr, window.location.href).href;
-            if (hrefLooksLikeOfferLink(absolute, offerUrl || "")) return true;
-            if (!offerNorm) return false;
-            const linkNorm = normalizeComparableUrl(absolute);
-            return Boolean(linkNorm && linkNorm === offerNorm);
-          } catch {
-            return false;
-          }
-        })();
-
-        if (!isOfferIntent) return;
-
-        if (interactionLocked) {
-          e.preventDefault();
-          e.stopPropagation();
-          return;
+      if (!a) return;
+      const hrefAttr = (a.getAttribute("href") || "").trim();
+      const marked = a.getAttribute("data-clickora-offer") === "1";
+      const labelHit = isCtaLabel(a.textContent || a.getAttribute("aria-label") || "");
+      let offerLike = marked || labelHit || /\/track\/r\//i.test(hrefAttr);
+      if (!offerLike && hrefAttr && !hrefAttr.startsWith("#")) {
+        try {
+          const absolute = new URL(hrefAttr, window.location.href).href;
+          const linkNorm = normalizeComparableUrl(absolute);
+          offerLike =
+            hrefLooksLikeOfferLink(absolute, offerUrl || "") || Boolean(offerNorm && linkNorm === offerNorm);
+        } catch {
+          offerLike = false;
         }
-
-        if (!track) return;
-
-        /** Sempre re-merge query actual (gclid pode chegar após o bake do href). Hop = 302 servidor. */
-        const dest = mergeLandingAdParamsIntoTrackHref(track, window.location.search);
-        if (hashOnly || hrefAttr.startsWith("mailto:") || hrefAttr.startsWith("tel:") || softHash) {
-          if (labelHit || marked) {
-            e.preventDefault();
-            e.stopPropagation();
-            window.location.assign(dest);
-          }
-          return;
-        }
-        e.preventDefault();
-        e.stopPropagation();
-        window.location.assign(dest);
-        return;
       }
-
-      // Botões / role=button comerciais (black portal e widgets sem <a>).
-      if (btn && !a) {
-        const marked = btn.getAttribute("data-clickora-offer") === "1";
-        const labelHit = isCtaLabel(btn.textContent || btn.getAttribute("aria-label") || "");
-        if (!marked && !labelHit) return;
-        if (interactionLocked) {
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
-        if (!track) return;
-        e.preventDefault();
-        e.stopPropagation();
-        window.location.assign(mergeLandingAdParamsIntoTrackHref(track, window.location.search));
-      }
+      if (!offerLike) return;
+      e.preventDefault();
+      e.stopPropagation();
     };
 
     root.addEventListener("click", onClick, true);
     return () => root.removeEventListener("click", onClick, true);
-  }, [trackOfferHref, offerUrl, interactionLocked]);
+  }, [offerUrl, interactionLocked]);
 
   return (
     <div

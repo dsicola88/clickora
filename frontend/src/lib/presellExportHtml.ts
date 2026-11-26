@@ -420,9 +420,9 @@ function buildDiscountModalHtml(
       ? `<div class="pe-discount-rating"><div class="pe-num">${escapeHtml(ratingValue)}</div><div class="pe-stars" aria-hidden="true">${escapeHtml(starStr)}</div></div>`
       : "";
   return `<div class="pe-discount-modal-wrap" id="pe-discount-modal">
-<button type="button" class="pe-modal-bg-btn" id="pe-discount-bg" aria-label="Continue"></button>
+<button type="button" class="pe-modal-bg-btn" id="pe-discount-bg" aria-label="${escapeAttr(getPresellUiStrings(language).cookieClose)}"></button>
 <div class="pe-discount-card" id="pe-discount-card">
-<a href="${escapeAttr(href)}" class="pe-close-x" aria-label="Fechar" style="display:flex;align-items:center;justify-content:center;text-decoration:none;">×</a>
+<button type="button" class="pe-close-x" id="pe-discount-close" aria-label="${escapeAttr(getPresellUiStrings(language).cookieClose)}" style="display:flex;align-items:center;justify-content:center;">×</button>
 <h2>${escapeHtml(headline)}</h2>
 ${socialHtml}
 ${ratingHtml}
@@ -431,30 +431,28 @@ ${ratingHtml}
 </div>
 <script>
 (function(){
-var h=${JSON.stringify(href)};
+/* X e fundo só fecham o overlay; a oferta abre apenas pelo CTA (link nativo). */
+var wrap=document.getElementById("pe-discount-modal");
+function close(){if(wrap)wrap.style.display="none";}
 var bg=document.getElementById("pe-discount-bg");
-var card=document.getElementById("pe-discount-card");
-function visit(){if(h&&h!=="#")location.assign(h);}
-if(bg)bg.addEventListener("click",visit);
-if(card)card.addEventListener("click",visit);
+var x=document.getElementById("pe-discount-close");
+if(bg)bg.addEventListener("click",close);
+if(x)x.addEventListener("click",close);
 })();</script>`;
 }
 
-function buildDiscountBarHtml(initialSeconds: number, language: string, href: string): string {
+function buildDiscountBarHtml(initialSeconds: number, language: string, _href: string): string {
   const mm = Math.floor(Math.max(0, initialSeconds) / 60);
   const ss = Math.max(0, initialSeconds) % 60;
   const label = `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
   const urg = getPresellUiStrings(language).discountUrgency;
-  return `<div class="pe-discount-bar" id="pe-discount-bar" style="cursor:pointer"><div class="pe-timer" id="pe-discount-timer">${escapeHtml(label)}</div><p>${escapeHtml(urg)}</p></div>
+  return `<div class="pe-discount-bar" id="pe-discount-bar"><div class="pe-timer" id="pe-discount-timer">${escapeHtml(label)}</div><p>${escapeHtml(urg)}</p></div>
 <script>
 (function(){
 var el=document.getElementById("pe-discount-timer");
-var bar=document.getElementById("pe-discount-bar");
-var dest=${JSON.stringify(href)};
 var s=${Math.max(0, Math.floor(initialSeconds))};
 function tick(){if(!el||s<=0)return;s--;var m=Math.floor(s/60);var r=s%60;el.textContent=String(m).padStart(2,"0")+":"+String(r).padStart(2,"0");}
 setInterval(tick,1000);
-if(bar)bar.addEventListener("click",function(){if(dest&&dest!=="#")location.assign(dest);});
 })();</script>`;
 }
 
@@ -644,13 +642,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
       cookiePolicyUrl,
       {
         unlockCookieOnly: true,
-        cookieRedirectToOffer:
-          builderSettings.cookieRedirectToOffer === true ||
-          builderSettings.cookieRedirectToOffer === 1 ||
-          builderSettings.cookieRedirectToOffer === "true" ||
-          builderSettings.cookieRedirectToOffer === "1" ||
-          builderSettings.cookie_redirect_to_offer === true ||
-          builderSettings.cookie_redirect_to_offer === 1,
+        cookieRedirectToOffer: false,
       },
     );
     const merged = injectPresellSettingsIntoFullHtml(
@@ -899,13 +891,8 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   let core = "";
   if (gateKind === "cookies") {
-    const redirectToOffer =
-      settings.cookieRedirectToOffer === true ||
-      settings.cookieRedirectToOffer === 1 ||
-      settings.cookieRedirectToOffer === "true" ||
-      settings.cookieRedirectToOffer === "1" ||
-      settings.cookie_redirect_to_offer === true ||
-      settings.cookie_redirect_to_offer === 1;
+    /** Aceitar só grava o consentimento — `cookieRedirectToOffer` descontinuado. */
+    const redirectToOffer = false;
     core += buildCookieModalHtml(page.language, cookiePolicyUrl, href, Boolean(redirectToOffer));
   }
 
@@ -958,13 +945,6 @@ ${
   }
 
   const gateScript = buildGateScript(gateForCta, settings, href);
-  /**
-   * Ghost: no auto-redirect também funde gclid/gad_source da lander (mesmo helper URL
-   * que o bootstrap dos CTAs) — senão o hop Ads perde atribuição no 1.º toque.
-   */
-  const ghostScript = isGhost
-    ? `<script>(function(){var base=${JSON.stringify(href)};var d=0;function merge(href){try{var u=new URL(href,location.href);if(!/\\/track\\/r\\//i.test(u.pathname))return href;var q=new URLSearchParams(location.search||"");["gclid","gbraid","wbraid","gad_source","gad_campaignid","msclkid","fbclid","ttclid","utm_source","utm_medium","utm_campaign","utm_term","utm_content","sub1","sub2","sub3"].forEach(function(k){if(u.searchParams.has(k))return;var v=q.get(k);if(!v||!String(v).trim())return;if(/^\\{[\\w.]+\\}$/.test(v)||/^\\{\\{/.test(v))return;u.searchParams.set(k,v.trim());});return u.toString();}catch(e){return href;}}function go(){if(d)return;d=1;var u=merge(base);if(u)location.href=u;}["pointerdown","click","keydown","mousemove","touchstart","touchmove","scroll","wheel","pointermove"].forEach(function(ev){window.addEventListener(ev,go,{passive:true});});})();</script>`
-    : "";
   /** Runtime: gclid/gad_source da lander → CTAs /track/r/ (HTML estático não conhece a query do Ads). */
   const adsParamScript = buildExportTrackAdParamsBootstrapScript();
 
@@ -975,7 +955,6 @@ ${
     }>` +
     core +
     gateScript +
-    ghostScript +
     adsParamScript +
     `</div>`;
 
