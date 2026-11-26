@@ -131,6 +131,8 @@ export default function CreatePresellWizardPage() {
   const [enableTriplePack, setEnableTriplePack] = useState(false);
   const [abTypeB, setAbTypeB] = useState("desconto");
   const [cookiePolicyUrl, setCookiePolicyUrl] = useState("");
+  /** Tipo cookies: Aceitar → oferta rastreada (opt-in; por defeito desligado). */
+  const [cookieRedirectToOffer, setCookieRedirectToOffer] = useState(false);
   /** Tipo segmentação: textos e destinos opcionais (vazio = hoplink + co_seg). */
   const [segTitle, setSegTitle] = useState("");
   const [segReviewLabel, setSegReviewLabel] = useState("");
@@ -426,6 +428,7 @@ export default function CreatePresellWizardPage() {
             ? { affiliateDisclosure: defaultAffiliateDisclosureSetting(importLanguage) }
             : {}),
           minAge: minAge.trim() || "18",
+          ...(type === "cookies" ? { cookieRedirectToOffer } : {}),
           ...(type === "segmentacao"
             ? {
                 ...(segTitle.trim() ? { segmentationTitle: segTitle.trim() } : {}),
@@ -606,7 +609,11 @@ export default function CreatePresellWizardPage() {
         const typeB = abTypeB === type ? defaultAbPresellTypeB(type, generationNiche) : abTypeB;
         const b = buildContent(typeB);
         const slugB = `${slugFromTitle(titleSeed)}-b-${Date.now().toString(36).slice(-4)}`;
-        const settingsB: Record<string, unknown> = { ...settings };
+        const settingsB: Record<string, unknown> = {
+          ...settings,
+          ...(typeB === "cookies" ? { cookieRedirectToOffer } : {}),
+        };
+        if (typeB !== "cookies") delete settingsB.cookieRedirectToOffer;
         const { data: createdB, error: errB } = await presellService.create({
           title: `${a.pageTitle} (B)`,
           slug: slugB,
@@ -1218,9 +1225,17 @@ export default function CreatePresellWizardPage() {
             <p className="text-sm font-medium text-foreground">{t("pages.createPresell.typeOptions")}</p>
             {presellType === "cookies" ? (
               <div className="space-y-4">
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  {t("pages.createPresell.cookieConsentInfo")}
-                </p>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm font-medium text-foreground">{t("pages.createPresell.cookieDirectTitle")}</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">{t("pages.createPresell.cookieDirectHint")}</p>
+                  </div>
+                  <Switch
+                    checked={cookieRedirectToOffer}
+                    onCheckedChange={setCookieRedirectToOffer}
+                    aria-label={t("pages.createPresell.cookieDirectAria")}
+                  />
+                </div>
                 {generationNiche === "black" ? (
                   <div className="space-y-2">
                     <Label htmlFor="cookiePolicy">{t("pages.createPresell.cookiePolicyLabel")}</Label>

@@ -54,8 +54,8 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
   cookiePolicyUrl: "",
   affiliateDisclosure: "",
   /**
-   * Descontinuado (Ads compliance): Aceitar/Fechar nunca navegam; o valor é ignorado em runtime.
-   * Mantido só por compatibilidade com páginas antigas.
+   * Tipo cookies (opt-in, por defeito false): Aceitar → oferta rastreada (`/track/r/`) só por clique.
+   * Fechar nunca navega. false / ausente = Aceitar só grava o consentimento.
    */
   cookieRedirectToOffer: false,
   /**

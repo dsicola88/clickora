@@ -327,6 +327,12 @@ function buildInteractiveGateHtml(
   return parts.join("");
 }
 
+/** Opt-in `cookieRedirectToOffer` (mesma regra do runtime React, sem importar componentes). */
+function isCookieRedirectToOfferEnabled(settings: Record<string, unknown> | null | undefined): boolean {
+  const v = settings?.cookieRedirectToOffer ?? settings?.cookie_redirect_to_offer;
+  return v === true || v === 1 || v === "true" || v === "1";
+}
+
 function buildCookieModalHtml(
   language: string,
   _policyUrl: string,
@@ -642,7 +648,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
       cookiePolicyUrl,
       {
         unlockCookieOnly: true,
-        cookieRedirectToOffer: false,
+        cookieRedirectToOffer: isCookieRedirectToOfferEnabled(builderSettings),
       },
     );
     const merged = injectPresellSettingsIntoFullHtml(
@@ -891,9 +897,9 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   let core = "";
   if (gateKind === "cookies") {
-    /** Aceitar só grava o consentimento — `cookieRedirectToOffer` descontinuado. */
-    const redirectToOffer = false;
-    core += buildCookieModalHtml(page.language, cookiePolicyUrl, href, Boolean(redirectToOffer));
+    /** Opt-in: Aceitar vai à oferta (/track/r/) só por clique; por defeito só grava o consentimento. */
+    const redirectToOffer = isCookieRedirectToOfferEnabled(settings);
+    core += buildCookieModalHtml(page.language, cookiePolicyUrl, href, redirectToOffer);
   }
 
   if (gateKind === "segmentation") {

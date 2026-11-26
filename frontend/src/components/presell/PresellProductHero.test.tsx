@@ -74,27 +74,58 @@ describe("CookieConsentModal", () => {
     expect(screen.getByTestId("presell-cookie-policy-open")).toBeTruthy();
   });
 
-  it("navigateOnAccept legado é ignorado: Aceitar é botão e nunca navega", () => {
+  it("navigateOnAccept (opt-in): Aceitar é link para /track/r/ e regista consentimento ao clicar; Fechar nunca navega", () => {
     const onAccept = vi.fn();
     const onDismiss = vi.fn();
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...original, search: "?gclid=abc", assign },
+    });
+    try {
+      render(
+        <CookieConsentModal
+          language="en"
+          policyUrl="/aviso-cookies"
+          redirectHref="/track/r/abc?to=https%3A%2F%2Foffer.example"
+          accepted={false}
+          navigateOnAccept
+          onAccept={onAccept}
+          onDismiss={onDismiss}
+        />,
+      );
+      const allow = screen.getByTestId("presell-cookie-allow-offer");
+      expect(allow.tagName).toBe("A");
+      expect(allow.getAttribute("href")).toContain("/track/r/abc");
+      expect(assign).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByTestId("presell-cookie-close"));
+      expect(assign).not.toHaveBeenCalled();
+      fireEvent.click(allow);
+      expect(onAccept).toHaveBeenCalled();
+      expect(assign).toHaveBeenCalledTimes(1);
+      expect(String(assign.mock.calls[0][0])).toContain("/track/r/abc");
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: original });
+    }
+  });
+
+  it("sem opt-in: Aceitar é botão e nunca navega", () => {
+    const onAccept = vi.fn();
     render(
       <CookieConsentModal
         language="en"
         policyUrl="/aviso-cookies"
         redirectHref="/track/r/abc?to=https%3A%2F%2Foffer.example"
         accepted={false}
-        navigateOnAccept
         onAccept={onAccept}
-        onDismiss={onDismiss}
       />,
     );
     expect(screen.queryByTestId("presell-cookie-allow-offer")).toBeNull();
     const allow = screen.getByTestId("presell-cookie-allow");
     expect(allow.tagName).toBe("BUTTON");
-    expect(allow.getAttribute("href")).toBeNull();
     fireEvent.click(allow);
     expect(onAccept).toHaveBeenCalled();
-    expect(onDismiss).not.toHaveBeenCalled();
   });
 
   it("sem redirect: Aceitar e Fechar só registam consentimento", () => {

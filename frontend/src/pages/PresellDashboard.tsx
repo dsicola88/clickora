@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PRESELL_CREATION_LANGUAGES, normalizePresellLocale } from "@/lib/presellUiStrings";
 import { presellLanguageFromImport } from "@/lib/presellCampaignLanguage";
@@ -453,6 +454,8 @@ export default function PresellDashboard() {
 
   const [typeOptions, setTypeOptions] = useState({
     cookiePolicyUrl: "",
+    /** Tipo cookies: Aceitar → oferta rastreada (opt-in; por defeito desligado). */
+    cookieRedirectToOffer: false,
     minAge: "18",
     /** Só VSL: se o import não achar vídeo, colar link do YouTube (watch ou youtu.be). */
     manualYoutubeUrl: "",
@@ -533,7 +536,7 @@ export default function PresellDashboard() {
     });
     setCreatorStep(1);
     setSlugTouchedByUser(false);
-    setTypeOptions({ cookiePolicyUrl: "", minAge: "18", manualYoutubeUrl: "" });
+    setTypeOptions({ cookiePolicyUrl: "", cookieRedirectToOffer: false, minAge: "18", manualYoutubeUrl: "" });
     setFormErrors({});
     setConfigSettings({ ...DEFAULT_PRESELL_CONFIG_SETTINGS });
     setMirrorHtmlDraft("");
@@ -568,6 +571,7 @@ export default function PresellDashboard() {
     setSlugTouchedByUser(true);
     setTypeOptions({
       cookiePolicyUrl: String(settings.cookiePolicyUrl ?? ""),
+      cookieRedirectToOffer: Boolean(settings.cookieRedirectToOffer),
       minAge: String(settings.minAge ?? "18"),
       manualYoutubeUrl: page.video_url || "",
     });
@@ -707,8 +711,11 @@ export default function PresellDashboard() {
     ) {
       base.affiliateDisclosure = defaultAffiliateDisclosureSetting(formData.language);
     }
-    // Descontinuado: Aceitar cookies nunca navega; limpa a chave em páginas antigas.
-    delete base.cookieRedirectToOffer;
+    if (formData.presellType === "cookies") {
+      base.cookieRedirectToOffer = typeOptions.cookieRedirectToOffer;
+    } else {
+      delete base.cookieRedirectToOffer;
+    }
     return base;
   };
 
@@ -1399,9 +1406,21 @@ export default function PresellDashboard() {
               <p className="text-xs text-muted-foreground">{t("pages.presells.typeOptionsHint")}</p>
               {formData.presellType === "cookies" ? (
                 <div className="space-y-4">
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {t("pages.presells.cookieConsentInfo")}
-                  </p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-sm font-medium text-card-foreground">{t("pages.presells.cookieDirectTitle")}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {t("pages.presells.cookieDirectHint")}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={typeOptions.cookieRedirectToOffer}
+                      onCheckedChange={(v) =>
+                        setTypeOptions((o) => ({ ...o, cookieRedirectToOffer: Boolean(v) }))
+                      }
+                      aria-label={t("pages.presells.cookieDirectAria")}
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="cookiePolicyUrl">{t("pages.presells.cookiePolicyLabel")}</Label>
                     <Input

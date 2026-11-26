@@ -13,6 +13,7 @@ import {
   readCookieConsentChoice,
   writeCookieConsentChoice,
 } from "@/page-builder/cookieConsentStorage";
+import { mergeLandingAdParamsIntoTrackHref } from "@/lib/presellTrackAdParams";
 
 export type GatePayload = {
   params: Record<string, string>;
@@ -50,30 +51,37 @@ function num(v: unknown, fallback: number): number {
 }
 
 /**
- * Consentimento nunca navega: Aceitar e Fechar só gravam a escolha e fecham a barra.
- * (O redirect «Aceitar → oferta» foi removido: parecia um redirect injetado ao Google Ads.)
+ * Resolve o destino de «Aceitar» quando `cookieRedirectToOffer` está activo (opt-in).
+ * Só o clique intencional em Aceitar navega, por link nativo para /track/r/.
+ * Fechar (dismiss) nunca navega — a página e os CTAs ficam acessíveis.
  */
 export function cookieConsentNavigation(
-  _action: "allow" | "dismiss",
-  _redirectHref: string,
-  _fallbackHref?: string,
-): { kind: "stay" } {
-  return { kind: "stay" };
+  action: "allow" | "dismiss",
+  redirectHref: string,
+  fallbackHref?: string,
+): { kind: "assign"; url: string } | { kind: "stay" } {
+  if (action === "dismiss") return { kind: "stay" };
+  const a = redirectHref.trim();
+  const b = (fallbackHref || "").trim();
+  const url = a && a !== "#" ? a : b && b !== "#" ? b : "";
+  if (!url) return { kind: "stay" };
+  return { kind: "assign", url };
 }
 
 /**
- * Descontinuado: `settings.cookieRedirectToOffer` é ignorado (sempre false).
- * Páginas guardadas com a chave activa deixam de redirecionar ao aceitar cookies.
+ * `settings.cookieRedirectToOffer` — opt-in explícito por presell (por defeito desligado).
+ * Páginas sem a chave só gravam o consentimento.
  */
 export function isCookieRedirectToOfferEnabled(
-  _settings: Record<string, unknown> | null | undefined,
+  settings: Record<string, unknown> | null | undefined,
 ): boolean {
-  return false;
+  const v = settings?.cookieRedirectToOffer ?? settings?.cookie_redirect_to_offer;
+  return v === true || v === 1 || v === "true" || v === "1";
 }
 
 /**
  * Consentimento compacto (barra inferior): não tapa a oferta nem bloqueia scroll/CTAs.
- * Aceitar = cookies não essenciais (só grava a escolha; nunca navega).
+ * Aceitar = cookies não essenciais (+ redirect opcional para /track/r/, só por clique).
  * Fechar = só essenciais; página e CTAs continuam.
  */
 export function CookieConsentModal({
@@ -84,8 +92,8 @@ export function CookieConsentModal({
   accepted,
   onAccept,
   onDismiss,
-  /** @deprecated Ignorado: Aceitar nunca navega. */
-  navigateOnAccept: _navigateOnAccept = false,
+  /** Quando true (settings.cookieRedirectToOffer), Aceitar vai à oferta via /track/r/. */
+  navigateOnAccept = false,
 }: {
   language: string;
   policyUrl: string;
@@ -100,6 +108,9 @@ export function CookieConsentModal({
   const L = getPresellUiStrings(language);
   const cookieBody = stripTrailingCookiePolicyLabel(L.cookieBody, L.cookiePolicy);
   const [policyOpen, setPolicyOpen] = useState(false);
+  const offerNav = navigateOnAccept
+    ? cookieConsentNavigation("allow", redirectHref, fallbackHref)
+    : ({ kind: "stay" } as const);
   if (accepted) return null;
 
   const dismiss = () => {
@@ -148,14 +159,34 @@ export function CookieConsentModal({
             .
           </p>
           <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row">
-            <Button
-              type="button"
-              className={allowClass}
-              data-testid="presell-cookie-allow"
-              onClick={acceptStay}
-            >
-              {L.cookieAllow}
-            </Button>
+            {offerNav.kind === "assign" ? (
+              <a
+                href={offerNav.url}
+                className={allowClass}
+                data-testid="presell-cookie-allow-offer"
+                onClick={(e) => {
+                  // Gravar consentimento desmonta a barra; assign explícito evita cancelar a navegação.
+                  e.preventDefault();
+                  writeCookieConsentChoice("clickora-cookie-banner", "all");
+                  onAccept?.();
+                  const dest =
+                    mergeLandingAdParamsIntoTrackHref(offerNav.url, window.location.search) ||
+                    offerNav.url;
+                  window.location.assign(dest);
+                }}
+              >
+                {L.cookieAllow}
+              </a>
+            ) : (
+              <Button
+                type="button"
+                className={allowClass}
+                data-testid="presell-cookie-allow"
+                onClick={acceptStay}
+              >
+                {L.cookieAllow}
+              </Button>
+            )}
             <button
               type="button"
               className={closeClass}

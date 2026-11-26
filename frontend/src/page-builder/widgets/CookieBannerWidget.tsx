@@ -27,6 +27,8 @@ import { usePageBuilderT } from "../usePageBuilderT";
 import type { ResponsiveValue } from "../types";
 import type { CookieButtonLayout } from "../cookieBannerStyle";
 import { CookiePolicyInlineSheet } from "@/components/presell/CookiePolicyInlineSheet";
+import { cookieConsentNavigation } from "@/components/presell/PresellTypeControls";
+import { mergeLandingAdParamsIntoTrackHref } from "@/lib/presellTrackAdParams";
 import {
   COOKIE_CONSENT_EVENT,
   readCookieConsentChoice,
@@ -138,6 +140,13 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
   const overlayOpacity = clampCookieOverlayOpacity(c.overlayOpacity);
   const overlayBlur = clampCookieOverlayBlur(c.overlayBlur);
   const storageKey = (c.storageKey ?? "clickora-cookie-banner").trim() || "clickora-cookie-banner";
+  /**
+   * `offerHref` só é baked quando `settings.cookieRedirectToOffer` está activo (opt-in).
+   * Sem ele, Aceitar grava consentimento e a compra fica nos CTAs (`/track/r/`).
+   */
+  const offerNav = !inBuilder
+    ? cookieConsentNavigation("allow", (c.offerHref ?? "").trim(), "")
+    : ({ kind: "stay" } as const);
   const [dismissed, setDismissed] = useState(false);
   const [policyOpen, setPolicyOpen] = useState(false);
   const [delayReady, setDelayReady] = useState(() => !c.delayMs || c.delayMs <= 0 || inBuilder);
@@ -419,26 +428,58 @@ export function CookieBannerWidget({ widget, device }: { widget: WidgetNode; dev
         >
           {/**
            * Fechar = só essenciais; página/CTAs ficam.
-           * Aceitar = all; só grava o consentimento (nunca navega para a oferta).
+           * Aceitar = all; se cookieRedirectToOffer (offerHref baked, opt-in) → /track/r/ só por clique.
            */}
-          <button
-            type="button"
-            data-testid="presell-cookie-allow"
-            onClick={inBuilder ? undefined : () => dismiss("all")}
-            className="cookie-allow-btn"
-            style={allowClass}
-            {...pointerHover.allow}
-          >
-            {commit ? (
-              <CookieText
-                field="allowLabel"
-                value={allowLabel}
-                style={{ color: allowClass.color, fontWeight: 700, cursor: "text" }}
-              />
-            ) : (
-              allowLabel
-            )}
-          </button>
+          {offerNav.kind === "assign" ? (
+            <a
+              href={offerNav.url}
+              data-testid="presell-cookie-allow-offer"
+              data-clickora-cookie-allow-offer="1"
+              className="cookie-allow-btn"
+              style={{
+                ...allowClass,
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              {...pointerHover.allow}
+              onClick={(e) => {
+                if (inBuilder) {
+                  e.preventDefault();
+                  return;
+                }
+                // Gravar consentimento desmonta o banner — assign explícito evita cancelar a navegação.
+                e.preventDefault();
+                const dest =
+                  mergeLandingAdParamsIntoTrackHref(offerNav.url, window.location.search) ||
+                  offerNav.url;
+                writeCookieConsentChoice(storageKey, "all");
+                window.location.assign(dest);
+              }}
+            >
+              {allowLabel}
+            </a>
+          ) : (
+            <button
+              type="button"
+              data-testid="presell-cookie-allow"
+              onClick={inBuilder ? undefined : () => dismiss("all")}
+              className="cookie-allow-btn"
+              style={allowClass}
+              {...pointerHover.allow}
+            >
+              {commit ? (
+                <CookieText
+                  field="allowLabel"
+                  value={allowLabel}
+                  style={{ color: allowClass.color, fontWeight: 700, cursor: "text" }}
+                />
+              ) : (
+                allowLabel
+              )}
+            </button>
+          )}
           <button
             type="button"
             data-testid="presell-cookie-close"

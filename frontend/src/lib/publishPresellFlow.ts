@@ -7,6 +7,7 @@ import {
   type PublishReadinessItem,
 } from "@/components/PresellPublishReadiness";
 import { bakePublicOfferHrefs } from "@/lib/presellVisualEdit";
+import { isCookieRedirectToOfferEnabled } from "@/components/presell/PresellTypeControls";
 import { presellService } from "@/services/presellService";
 import type { Presell } from "@/types/api";
 
@@ -54,7 +55,9 @@ export async function bakeAndMaybePublishPresell(args: {
     const track = trackHrefForPresell(args.page.id, affiliate, args.trackApiBase);
     const baked = bakePublicOfferHrefs(pageDoc, track, affiliate, "", {
       unlockCookieOnly: true,
-      cookieRedirectToOffer: false,
+      cookieRedirectToOffer: isCookieRedirectToOfferEnabled(
+        (args.page.settings ?? null) as Record<string, unknown> | null,
+      ),
     });
     content = { ...content, pageDocument: baked, editorWorkingDocument: baked };
   }

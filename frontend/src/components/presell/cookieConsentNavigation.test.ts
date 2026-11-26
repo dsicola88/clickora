@@ -5,9 +5,10 @@ import {
 } from "./PresellTypeControls";
 
 describe("cookieConsentNavigation", () => {
-  it("Aceitar nunca navega — só grava o consentimento", () => {
+  it("Allow usa o link rastreado (só quando o opt-in está activo no chamador)", () => {
     expect(cookieConsentNavigation("allow", "/track/r/1?gclid=abc&sub1=s", "https://offer.example")).toEqual({
-      kind: "stay",
+      kind: "assign",
+      url: "/track/r/1?gclid=abc&sub1=s",
     });
   });
 
@@ -24,12 +25,12 @@ describe("cookieConsentNavigation", () => {
 });
 
 describe("isCookieRedirectToOfferEnabled", () => {
-  it("descontinuado: sempre false, mesmo em páginas antigas com a chave activa", () => {
+  it("opt-in: só true / 1 / string / snake_case activam; por defeito desligado", () => {
     expect(isCookieRedirectToOfferEnabled(undefined)).toBe(false);
     expect(isCookieRedirectToOfferEnabled({})).toBe(false);
     expect(isCookieRedirectToOfferEnabled({ cookieRedirectToOffer: false })).toBe(false);
-    expect(isCookieRedirectToOfferEnabled({ cookieRedirectToOffer: true })).toBe(false);
-    expect(isCookieRedirectToOfferEnabled({ cookieRedirectToOffer: "true" })).toBe(false);
-    expect(isCookieRedirectToOfferEnabled({ cookie_redirect_to_offer: 1 })).toBe(false);
+    expect(isCookieRedirectToOfferEnabled({ cookieRedirectToOffer: true })).toBe(true);
+    expect(isCookieRedirectToOfferEnabled({ cookieRedirectToOffer: "true" })).toBe(true);
+    expect(isCookieRedirectToOfferEnabled({ cookie_redirect_to_offer: 1 })).toBe(true);
   });
 });

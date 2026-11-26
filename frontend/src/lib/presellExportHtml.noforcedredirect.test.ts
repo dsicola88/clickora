@@ -53,13 +53,20 @@ describe("buildPresellStandaloneHtml — sem redirecionamentos forçados", () =>
     expect(html).toMatch(/style\.display="none"/);
   });
 
-  it("cookies: cookieRedirectToOffer é ignorado — Aceitar é botão", () => {
+  it("cookies: por defeito Aceitar é botão e não navega", () => {
+    const html = buildPresellStandaloneHtml(page("cookies"), exportOpts);
+    expect(html).toContain('<button type="button" class="pe-cookie-allow" id="pe-cookie-allow">');
+    expect(html).not.toMatch(/<a class="pe-cookie-allow"/);
+    expect(html).not.toMatch(/location\.assign/);
+  });
+
+  it("cookies: com cookieRedirectToOffer (opt-in) Aceitar é link nativo para /track/r/ — sem redirect automático", () => {
     const html = buildPresellStandaloneHtml(
       page("cookies", { cookieRedirectToOffer: true }),
       exportOpts,
     );
-    expect(html).toContain('<button type="button" class="pe-cookie-allow" id="pe-cookie-allow">');
-    expect(html).not.toMatch(/<a class="pe-cookie-allow"/);
+    expect(html).toMatch(/<a class="pe-cookie-allow" id="pe-cookie-allow" href="[^"]*\/track\/r\/[^"]*"/);
     expect(html).not.toMatch(/location\.assign/);
+    expect(html).not.toMatch(/location\.href\s*=/);
   });
 });
