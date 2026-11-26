@@ -242,7 +242,7 @@ test.describe("presell — produto visível com cookies", () => {
     await expect(page).toHaveURL(/\/track\//);
   });
 
-  test("fechar o desconto vai ao rastreio", async ({ page }) => {
+  test("fechar o desconto (X) só fecha o aviso e fica na página; a oferta abre pelo CTA", async ({ page }) => {
     await openPresell(page, "desconto");
     await page.route("**/track/**", (route) =>
       route.fulfill({
@@ -251,22 +251,22 @@ test.describe("presell — produto visível com cookies", () => {
         body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
       }),
     );
-    await expect(page.getByTestId("presell-discount-sheet")).toBeVisible();
-    await page.getByTestId("presell-discount-sheet").getByRole("button", { name: "Fechar", exact: true }).click();
+    const sheet = page.getByTestId("presell-discount-sheet");
+    await expect(sheet).toBeVisible();
+    await page.getByTestId("presell-discount-close").click();
+    await expect(sheet).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));
+    await page.getByRole("link", { name: /^order now$/i }).first().click();
     await expect(page).toHaveURL(/\/track\//);
   });
 
-  test("clicar fora do desconto vai ao rastreio", async ({ page }) => {
+  test("clicar fora do desconto só fecha o aviso e não navega", async ({ page }) => {
     await openPresell(page, "desconto");
-    await page.route("**/track/**", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: "<!doctype html><title>tracked</title><h1>Tracked offer</h1>",
-      }),
-    );
+    const sheet = page.getByTestId("presell-discount-sheet");
+    await expect(sheet).toBeVisible();
     await page.getByTestId("presell-discount-backdrop").click({ position: { x: 12, y: 12 } });
-    await expect(page).toHaveURL(/\/track\//);
+    await expect(sheet).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));
   });
 
   test("rascunho não publicado não mostra a landing", async ({ page }) => {
