@@ -18,11 +18,11 @@ import {
   resolveVisitorCountryFromRequest,
 } from "../lib/cdn77Visitor";
 import { isFastlyEdgeIp } from "../lib/fastlyEdges";
-import { assessClickQuality, isProtectedGoogleCrawlerUserAgent } from "../lib/detectBot";
+import { assessClickQuality } from "../lib/detectBot";
 import { enforceTrackingRules } from "../lib/trackGuard";
 import { shouldBypassProxyBlockForPaidClick } from "../lib/trackingGuardPolicy";
 import { consumeTrackRateLimitAsync } from "../lib/trackRateLimit";
-import { countryOnCloakDenyList, sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
+import { sendSafeVisitorPage } from "../lib/presellEnterpriseCloak";
 import { datacenterClickMeta, datacenterClickPlace } from "../lib/ipNetworkClass";
 import { reportCloudClickMeta } from "../lib/reportCloudIpRanges";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
@@ -88,9 +88,7 @@ async function earlyTrackRateLimit(
   res: Response,
   opts?: { softForOfferHop?: boolean },
 ): Promise<boolean> {
-  const ua = String(req.headers["user-agent"] || "");
-  /** Crawlers Google Ads/Search não devem levar 429 (aprovação / SEO). */
-  if (isProtectedGoogleCrawlerUserAgent(ua)) return false;
+  /** Mesmo limite para qualquer visitante: o User-Agent nunca muda o tratamento do pedido. */
   const ip = extractClientIp(req);
   if (await consumeTrackRateLimitAsync(ip)) return false;
   if (opts?.softForOfferHop) {
@@ -534,14 +532,6 @@ export const trackController = {
         ip,
       });
     }
-    if (
-      countryOnCloakDenyList(page.settings, seen.routeCountry) &&
-      !isProtectedGoogleCrawlerUserAgent(userAgent)
-    ) {
-      console.warn("[track.redirect] país sem oferta", { presellId, ip });
-      return sendSafeVisitorPage(res, page.settings);
-    }
-
     const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
 
     let rotatorParentMeta: Record<string, unknown> = {};
@@ -812,13 +802,6 @@ export const trackController = {
         rotatorId,
         reason: guard.reason,
       });
-    }
-    if (
-      countryOnCloakDenyList(rot.contextPresell.settings, country) &&
-      !isProtectedGoogleCrawlerUserAgent(userAgent)
-    ) {
-      console.warn("[track.rotator] país sem oferta", { rotatorId, country });
-      return sendSafeVisitorPage(res, rot.contextPresell.settings);
     }
     const { device, botMeta: rotBotMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
     const stickyCookie = stickyRotatorCookieName(rotatorId);
@@ -2251,8 +2234,6 @@ export const trackController = {
       destination: dest.destination,
       status: dest.status,
       network: dest.network,
-      enterprise_cloak: dest.enterpriseCloak,
-      cloak_geo_deny: dest.cloakGeoDeny,
       updated_at: dest.updatedAt,
     });
   },

@@ -15,8 +15,8 @@ export function effectiveAutoBlacklistThreshold(raw: number): number {
  * rate-limit e UA vazio NÃO alteram o HTML da Final URL.
  * Antifraude continua no hop `/track/r/` e no pixel (403 / sem clique).
  *
- * Cloak geo (`enterpriseCloak` + `cloakGeoDeny`) é opt-in por presell
- * (`shouldServeCloakSafePage`); AdsBot / Googlebot bypassam.
+ * Sem cloak geo nem página segura na landing, e sem exceção por User-Agent:
+ * AdsBot, Googlebot e humanos recebem exactamente o mesmo HTML e o mesmo tratamento no hop.
  */
 export function isIntentionalPublicPageCloakReason(_reason: string): boolean {
   return false;

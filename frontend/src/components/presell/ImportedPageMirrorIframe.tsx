@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { bindMirrorOfferClickCapture } from "@/lib/presellMirrorOfferClick";
-import {
-  CLICKORA_OFFER_NAV_MESSAGE,
-} from "@/lib/presellMirrorOfferNavigate";
 import { measureMirrorDocumentContentHeight } from "@/lib/presellMirrorTailTrim";
 
 type Props = {
@@ -11,15 +7,20 @@ type Props = {
   title?: string;
   /** Chamado se o `<body>` parecer vazio (texto mínimo e sem media/tabelas) — permite cair no layout React. */
   onMirrorProbablyEmpty?: () => void;
-  /** URL rastreada `/track/r/…` — todos os CTAs comerciais devem abrir na janela principal. */
+  /**
+   * @deprecated Sem efeito. Os CTAs já vêm como `<a href="/track/r/…" target="_top">` nativos
+   * no `srcDoc` (ver `bakeHtmlOfferHrefs`); o iframe não intercepta cliques nem usa postMessage.
+   */
   offerHref?: string;
-  /** Hoplink bruto (mwebkivo, buygoods…) — classificar links no espelho. */
+  /** @deprecated Sem efeito (ver `offerHref`). */
   affiliateHref?: string;
   interactionLocked?: boolean;
 };
 
 /**
  * Iframe com `srcDoc` da página importada (sem scripts).
+ * Navegação para a oferta = âncoras nativas `target="_top"` (UTMs/GCLID já no href rastreado):
+ * sem listeners de clique, sem postMessage, sem `window.location.assign`.
  * Altura segue o conteúdo; reage a resize / visualViewport / ResizeObserver (rotação, fonts).
  */
 export function ImportedPageMirrorIframe({
@@ -27,8 +28,6 @@ export function ImportedPageMirrorIframe({
   title = "Página do produto",
   onMirrorProbablyEmpty,
   interactionLocked = false,
-  offerHref,
-  affiliateHref = "",
 }: Props) {
   const ref = useRef<HTMLIFrameElement>(null);
   const roRef = useRef<ResizeObserver | null>(null);
@@ -37,12 +36,6 @@ export function ImportedPageMirrorIframe({
   emptyCbRef.current = onMirrorProbablyEmpty;
   const [height, setHeight] = useState(960);
   const [blobFrameSrc, setBlobFrameSrc] = useState("");
-
-  const offerHrefRef = useRef(offerHref);
-  offerHrefRef.current = offerHref;
-  const affiliateHrefRef = useRef(affiliateHref);
-  affiliateHrefRef.current = affiliateHref;
-  const mirrorClickCleanup = useRef<(() => void) | null>(null);
 
   const measure = useCallback(() => {
     const el = ref.current;
@@ -87,20 +80,6 @@ export function ImportedPageMirrorIframe({
     }
   }, []);
 
-  const attachOfferClickCapture = useCallback(() => {
-    mirrorClickCleanup.current?.();
-    mirrorClickCleanup.current = null;
-    const el = ref.current;
-    const doc = el?.contentDocument;
-    const offer = (offerHrefRef.current || "").trim();
-    if (!doc || !offer || offer === "#") return;
-    mirrorClickCleanup.current = bindMirrorOfferClickCapture(
-      doc,
-      offer,
-      affiliateHrefRef.current || "",
-    );
-  }, []);
-
   useEffect(() => {
     const trimmed = srcDoc.trim();
     if (trimmed.length < 80) {
@@ -131,24 +110,6 @@ export function ImportedPageMirrorIframe({
     };
   }, [measureDebounced]);
 
-  useEffect(() => {
-    attachOfferClickCapture();
-    return () => mirrorClickCleanup.current?.();
-  }, [attachOfferClickCapture, offerHref, srcDoc, affiliateHref]);
-
-  useEffect(() => {
-    const onMsg = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin) return;
-      const data = e.data as { type?: string; href?: string } | null;
-      if (data?.type !== CLICKORA_OFFER_NAV_MESSAGE) return;
-      const dest = typeof data.href === "string" ? data.href.trim() : "";
-      if (!dest || dest === "#") return;
-      window.location.assign(dest);
-    };
-    window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
-  }, []);
-
   const onLoad = useCallback(() => {
     measureDebounced();
     const el = ref.current;
@@ -164,12 +125,10 @@ export function ImportedPageMirrorIframe({
     window.setTimeout(checkProbablyEmpty, 320);
     window.setTimeout(checkProbablyEmpty, 1400);
     window.setTimeout(checkProbablyEmpty, 2800);
-    attachOfferClickCapture();
-  }, [measureDebounced, checkProbablyEmpty, attachOfferClickCapture]);
+  }, [measureDebounced, checkProbablyEmpty]);
 
   useEffect(() => {
     return () => {
-      mirrorClickCleanup.current?.();
       roRef.current?.disconnect();
       roRef.current = null;
     };
@@ -198,8 +157,8 @@ export function ImportedPageMirrorIframe({
           interactionLocked && "pointer-events-none select-none",
         )}
         style={{ height, width: "100%", maxWidth: "100%" }}
-        /** Sem allow-scripts: pixels/trackers do HTML espelhado não executam no iframe. */
-        sandbox="allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin allow-presentation allow-top-navigation allow-top-navigation-by-user-activation"
+        /** Sem allow-scripts: nada executa no iframe. Só cliques reais (user activation) navegam o topo. */
+        sandbox="allow-popups allow-popups-to-escape-sandbox allow-forms allow-same-origin allow-presentation allow-top-navigation-by-user-activation"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         referrerPolicy="no-referrer-when-downgrade"
       />

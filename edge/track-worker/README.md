@@ -8,7 +8,7 @@ Regista o clique **antes** do 302. Sem `click_id` (guard, falha, IP em falta) ou
 
 1. `GET /api/track/r/:presellId` no Worker  
 2. Destino em cache: `GET {ORIGIN}/track/edge/dest/:presellId` (network + cloak)  
-3. Cloak geo (`CF-IPCountry` vs `cloak_geo_deny`) → se negado, `302` → origin `/track/r/`  
+3. Sem cloak geo nem exceção por User-Agent: o mesmo clique válido segue o mesmo caminho para qualquer visitante  
 4. `POST {ORIGIN}/track/click` **sync** com:
    - `presell_id`, UTMs, ads IDs, `parent_click_id`, `redirect_to`, `sub1`–`sub3`
    - `X-Forwarded-For` / `CF-Connecting-IP` = visitante (origin confia via secret — sem `CF-Ray`)

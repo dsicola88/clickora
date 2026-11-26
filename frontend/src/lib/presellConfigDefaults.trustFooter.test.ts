@@ -37,12 +37,12 @@ describe("showAffiliateTrustFooter hydrate / legado", () => {
     expect(hydratePresellConfigSettings({}).marketCountry).toBe("");
   });
 
-  it("enterpriseCloak fica OFF por defeito e só liga com true explícito", () => {
+  it("enterpriseCloak está descontinuado: fica sempre OFF (limpa configuração legada)", () => {
     expect(DEFAULT_PRESELL_CONFIG_SETTINGS.enterpriseCloak).toBe(false);
     expect(hydratePresellConfigSettings({}).enterpriseCloak).toBe(false);
     expect(hydratePresellConfigSettings({ enterpriseCloak: false }).enterpriseCloak).toBe(false);
     expect(hydratePresellConfigSettings({ enterpriseCloak: "false" }).enterpriseCloak).toBe(false);
-    expect(hydratePresellConfigSettings({ enterpriseCloak: true }).enterpriseCloak).toBe(true);
-    expect(hydratePresellConfigSettings({ enterpriseCloak: "true" }).enterpriseCloak).toBe(true);
+    expect(hydratePresellConfigSettings({ enterpriseCloak: true }).enterpriseCloak).toBe(false);
+    expect(hydratePresellConfigSettings({ enterpriseCloak: "true" }).enterpriseCloak).toBe(false);
   });
 });

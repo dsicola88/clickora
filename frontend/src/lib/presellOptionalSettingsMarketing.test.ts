@@ -149,7 +149,7 @@ describe("coerceTrackingSnippetToHtml", () => {
 });
 
 describe("hydratePresellConfigSettings", () => {
-  it("preserva pixels + cloak + defaults em páginas antigas", () => {
+  it("preserva pixels + defaults e limpa o cloak legado em páginas antigas", () => {
     const h = hydratePresellConfigSettings({
       fbPixelId: "1234567890123456",
       enterpriseCloak: true,
@@ -158,8 +158,8 @@ describe("hydratePresellConfigSettings", () => {
       conversionTrackingScript: "<script>x</script>",
     });
     expect(h.fbPixelId).toBe("1234567890123456");
-    expect(h.enterpriseCloak).toBe(true);
-    expect(h.cloakGeoDeny).toBe("CN");
+    expect(h.enterpriseCloak).toBe(false);
+    expect(h.cloakGeoDeny).toBe("");
     expect(h.adPixelsMode).toBe("manual");
     expect(h.tiktokPixelId).toBe("");
     expect(h.exitPopup).toBe(false);

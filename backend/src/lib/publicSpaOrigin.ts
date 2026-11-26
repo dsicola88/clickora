@@ -1,14 +1,20 @@
 import type { Request } from "express";
 import { isMainOrPreviewHostname } from "./presellHostAccess";
+import { getRequestHostname } from "./requestHost";
 
-function isPresellUuidParam(s: string): boolean {
+export function isPresellUuidParam(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim());
 }
 
-function requestHostname(req: Request): string {
-  const xf = (req.get("x-forwarded-host") || "").split(",")[0]?.trim();
-  const host = xf || (req.get("host") || "").trim();
-  return host.split(":")[0]?.toLowerCase() || "";
+/** Hosts de infra (API Railway, localhost): nunca são o domínio público de uma presell. */
+function isInfraHostname(h: string): boolean {
+  return (
+    h.endsWith(".railway.app") ||
+    h.endsWith(".railway.dev") ||
+    h.endsWith(".run.app") ||
+    h === "localhost" ||
+    h === "127.0.0.1"
+  );
 }
 
 /**
@@ -75,17 +81,31 @@ export function resolvePublicAppOrigin(req: Request): string | null {
   return null;
 }
 
-/** URL absoluta ou relativa para a SPA pública (`/{slug}` no tenant; senão `/p/:id`). */
+/**
+ * URL para a SPA pública a partir da API (`/l/:id` lite-inelegível → SPA).
+ *
+ * - Domínio personalizado do assinante (host do visitante ≠ site principal/preview/infra):
+ *   caminho RELATIVO no mesmo host — `/{slug}` (ou `/p/:id` sem slug). Nunca salta para o
+ *   dclickora.com, e o slug só é usado onde existe (é único por utilizador, não global).
+ * - Site principal / preview / dev: `/p/:id` (existe em todos os hosts → 200) na origem da SPA.
+ *
+ * O host do visitante vem de `getRequestHostname` (atrás do rewrite Vercel → Railway o `Host`
+ * é o da API, o que antes fazia o slug cair no host errado → 404).
+ */
 export function publicSpaPresellUrl(
   req: Request,
   presellId: string,
   slug?: string | null,
 ): string {
-  const origin = resolvePublicAppOrigin(req);
-  const host = requestHostname(req);
+  const visitorHost = (getRequestHostname(req) ?? "").toLowerCase();
   const s = typeof slug === "string" ? slug.trim() : "";
-  const canBare =
-    host && !isMainOrPreviewHostname(host) && s.length > 0 && !isPresellUuidParam(s);
-  const path = canBare ? `/${encodeURIComponent(s)}` : `/p/${presellId}`;
+  const onTenantHost =
+    visitorHost.length > 0 && !isMainOrPreviewHostname(visitorHost) && !isInfraHostname(visitorHost);
+
+  if (onTenantHost) {
+    return s.length > 0 && !isPresellUuidParam(s) ? `/${encodeURIComponent(s)}` : `/p/${presellId}`;
+  }
+  const origin = resolvePublicAppOrigin(req);
+  const path = `/p/${presellId}`;
   return origin ? `${origin}${path}` : path;
 }

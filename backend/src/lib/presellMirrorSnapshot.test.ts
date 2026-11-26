@@ -258,3 +258,24 @@ describe("buildMirrorPartsFromStaticHtml", () => {
     assert.doesNotMatch(parts!.bodyInner, /<script/i);
   });
 });
+
+describe("finalizeMirrorSrcDocForImport — navegação nativa", () => {
+  it("CTAs saem como <a target=_top> com o marcador de tracking, sem JS de navegação", () => {
+    const html = `<html><body>
+      <script>window.top.location='https://evil.example'</script>
+      <a href="https://www.buygoods.com/secure/checkout.html?vid=1" onclick="location.href='x'">BUY NOW</a>
+      <a href="https://lander.example/about">About</a>
+      <form action="https://www.buygoods.com/secure/checkout.html" method="get"><input type="submit"></form>
+    </body></html>`;
+    const out = finalizeMirrorSrcDocForImport(html, "https://lander.example/", "https://hop.example/1");
+    assert.ok(out);
+    assert.doesNotMatch(out!, /<script/i);
+    assert.doesNotMatch(out!, /postMessage|location\.assign|javascript:/i);
+    const cta = out!.match(/<a\b[^>]*>\s*BUY NOW/i)?.[0] ?? "";
+    assert.ok(cta.includes(CLICKORA_MIRROR_TRACK_MARKER), cta);
+    assert.match(cta, /target="_top"/);
+    assert.match(cta, /rel="noopener noreferrer"/);
+    assert.doesNotMatch(cta, /onclick/i);
+    assert.match(out!, /<form\b[^>]*target="_top"/);
+  });
+});

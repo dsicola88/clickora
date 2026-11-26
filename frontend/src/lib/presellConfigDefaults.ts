@@ -39,14 +39,13 @@ export const DEFAULT_PRESELL_CONFIG_SETTINGS: PresellConfigSettings = {
    */
   marketCountry: "",
   /**
-   * Página segura por país — OFF por defeito (compliance Ads).
-   * Só com switch ON + códigos em cloakGeoDeny. AdsBot / Googlebot bypassam.
-   * Blacklist/whitelist de IP NÃO trocam a landing (só hop/pixel).
+   * DESCONTINUADO — sem «página segura» nem bloqueio por país na landing (cloaking).
+   * Mantidos só para compatibilidade de tipos; `hydratePresellConfigSettings` força-os a vazio,
+   * por isso gravar uma presell antiga limpa a configuração legada.
    */
   enterpriseCloak: false,
   cloakSafeTitle: "",
   cloakSafeBody: "",
-  /** ISO country codes separados por vírgula (ex.: CN,RU) — esses países vêem a safe page. */
   cloakGeoDeny: "",
   /** Conformidade publicitária — identidade e privacidade (não inventar dados). */
   businessName: "",
@@ -108,11 +107,10 @@ export function hydratePresellConfigSettings(
     )
       .trim()
       .toUpperCase(),
-    enterpriseCloak:
-      s.enterpriseCloak === true || s.enterpriseCloak === 1 || s.enterpriseCloak === "true",
-    cloakSafeTitle: String(s.cloakSafeTitle ?? ""),
-    cloakSafeBody: String(s.cloakSafeBody ?? ""),
-    cloakGeoDeny: String(s.cloakGeoDeny ?? ""),
+    enterpriseCloak: false,
+    cloakSafeTitle: "",
+    cloakSafeBody: "",
+    cloakGeoDeny: "",
     businessName: String(s.businessName ?? ""),
     contactEmail: String(s.contactEmail ?? ""),
     privacyPolicyUrl: String(s.privacyPolicyUrl ?? ""),

@@ -258,21 +258,6 @@ function appendClickId(destUrl, clickId, platform) {
   }
 }
 
-function cloakGeoDenied(dest, request) {
-  if (!dest?.enterprise_cloak) return false;
-  const denyRaw = String(dest.cloak_geo_deny || "")
-    .split(/[,;\s]+/)
-    .map((c) => c.trim().toUpperCase())
-    .filter((c) => /^[A-Z]{2}$/.test(c));
-  if (denyRaw.length === 0) return false;
-  const code = String(request.headers.get("cf-ipcountry") || "")
-    .trim()
-    .toUpperCase();
-  // Sem país CF fiável → origin decide (fail-closed; evita abrir oferta quando o origin cloakearia).
-  if (!/^[A-Z]{2}$/.test(code) || code === "XX" || code === "T1") return true;
-  return denyRaw.includes(code);
-}
-
 function visitorIpFromRequest(request) {
   const cf = String(request.headers.get("cf-connecting-ip") || "").trim();
   if (cf) return cf;
@@ -358,10 +343,6 @@ export default {
 
     const dest = await fetchDest(env, presellId);
     if (!dest?.destination) {
-      return originTrackRedirect(env, presellId, url.search);
-    }
-
-    if (cloakGeoDenied(dest, request)) {
       return originTrackRedirect(env, presellId, url.search);
     }
 

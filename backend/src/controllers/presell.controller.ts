@@ -57,7 +57,7 @@ import { buildPresellLiteHtml, isPresellLiteHtmlEligible } from "../lib/presellL
 import { PRESSELL_LITE_HTML_CSP } from "../lib/sanitizeMirrorEmbedForLiteHtml";
 import { buildLiteImpressionPixelUrl } from "../lib/buildLiteImpressionPixelUrl";
 import { invalidateTrackEdgeDest } from "../lib/trackEdgeDestCache";
-import { publicSpaPresellUrl } from "../lib/publicSpaOrigin";
+import { isPresellUuidParam, publicSpaPresellUrl } from "../lib/publicSpaOrigin";
 import { isPublicSafeTenantBrandName } from "../lib/tenantBrandingPublic";
 import { z } from "zod";
 
@@ -178,6 +178,13 @@ const importFromUrlSchema = z.object({
   ),
 });
 
+function findLitePageByUuid(id: string) {
+  return systemPrisma.presellPage.findFirst({
+    where: { id },
+    include: { user: { include: { subscription: { include: { plan: true } } } } },
+  });
+}
+
 export const presellController = {
   async getPublicById(req: Request, res: Response) {
     const id = req.params.id;
@@ -230,11 +237,30 @@ export const presellController = {
    * Tipos com gate → 302 para SPA `/p/:id`.
    */
   async getPublicHtml(req: Request, res: Response) {
-    const id = req.params.id;
-    const page = await systemPrisma.presellPage.findFirst({
-      where: { id },
-      include: { user: { include: { subscription: { include: { plan: true } } } } },
-    });
+    const rawParam = typeof req.params.id === "string" ? req.params.id : "";
+    let page: Awaited<ReturnType<typeof findLitePageByUuid>> = null;
+    if (isPresellUuidParam(rawParam)) {
+      page = await findLitePageByUuid(rawParam);
+    } else {
+      /** `/l/{slug}` — só em domínio personalizado verificado (slug é único por utilizador). */
+      let slug = "";
+      try {
+        slug = decodeURIComponent(rawParam).trim();
+      } catch {
+        slug = "";
+      }
+      const host = getRequestHostname(req);
+      if (slug && slug.length <= 200 && host && !isMainOrPreviewHostname(host)) {
+        let ownerId = getVerifiedOwnerIdForHostname(host);
+        if (!ownerId) ownerId = await resolveVerifiedOwnerUserIdFromDb(host);
+        if (ownerId) {
+          page = await systemPrisma.presellPage.findFirst({
+            where: { userId: ownerId, status: "published", slug: { equals: slug, mode: "insensitive" } },
+            include: { user: { include: { subscription: { include: { plan: true } } } } },
+          });
+        }
+      }
+    }
     if (!page) return res.status(404).type("text/plain").send("Página não encontrada");
     if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
       return res.status(404).type("text/plain").send("Página não encontrada");

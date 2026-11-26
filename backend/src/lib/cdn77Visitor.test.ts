@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Request } from "express";
-import { shouldServeCloakSafePage } from "./presellEnterpriseCloak";
 import {
   cdn77VisitorCountryFromHeaders,
   countrySourceMeta,
@@ -9,6 +8,7 @@ import {
   locationForStoredClick,
   lookupIpForTools,
   resolveVisitorCountry,
+  resolveVisitorCountryFromRequest,
 } from "./cdn77Visitor";
 
 function req(headers: Record<string, string>, remote: string): Request {
@@ -210,17 +210,16 @@ describe("CDN77 visitor country", () => {
     );
   });
 
-  it("cloak usa o país do visitante, não o do nó", () => {
-    const settings = { enterpriseCloak: true, cloakGeoDeny: "AO" };
-    const viaCdn = shouldServeCloakSafePage(
+  it("país do visitante vem do CDN só quando o IP do nó é de confiança", () => {
+    const viaCdn = resolveVisitorCountryFromRequest(
       req({ "x-forwarded-for": "79.127.178.81", "x-client-geo-country": "AO", "user-agent": "Mozilla/5.0" }, "10.0.0.1"),
-      settings,
+      "79.127.178.81",
     );
-    assert.equal(viaCdn.cloak, true);
-    const spoof = shouldServeCloakSafePage(
+    assert.equal(viaCdn.country, "AO");
+    const spoof = resolveVisitorCountryFromRequest(
       req({ "x-forwarded-for": "8.8.8.8", "x-client-geo-country": "AO", "user-agent": "Mozilla/5.0" }, "8.8.8.8"),
-      settings,
+      "8.8.8.8",
     );
-    assert.equal(spoof.cloak, false);
+    assert.notEqual(spoof.country, "AO");
   });
 });

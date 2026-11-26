@@ -26,15 +26,18 @@ const NAMED: { test: RegExp; label: string }[] = [
   { test: /curl\/|wget\/|python-requests|axios\/|go-http|java\//i, label: "HTTP client" },
 ];
 
-/** Crawlers usados pelo Google Ads / inspeção de destino — não bloquear na presell pública nem no redirect. */
+/**
+ * Classificação de crawlers Google Ads / inspeção de destino — apenas para relatórios/diagnóstico.
+ * NUNCA decide a resposta (landing ou hop): o User-Agent não altera o tratamento do pedido.
+ */
 export function isGoogleAdsCrawlerUserAgent(userAgent: string | undefined | null): boolean {
   const ua = (userAgent || "").trim();
   return /adsbot-google|google-inspectiontool/i.test(ua);
 }
 
 /**
- * Crawlers oficiais Google (Ads + Search) — nunca auto-blacklistar o IP.
- * Bloquear estes IPs pode reprovar anúncios ou prejudicar SEO.
+ * Crawlers oficiais Google (Ads + Search) — apenas classificação para relatórios.
+ * Não usar para ramificar respostas (sem exceção por User-Agent).
  */
 export function isProtectedGoogleCrawlerUserAgent(userAgent: string | undefined | null): boolean {
   const ua = (userAgent || "").trim();

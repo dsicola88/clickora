@@ -187,6 +187,11 @@ export function bakeHtmlOfferHrefs(code: string, trackHref: string, affiliateHre
     if (!hrefLooksLikeOfferLink(href, affiliateHref)) return full;
     return `${attr}=${q}${track}${q}`;
   });
+  /** Forms cujo `action` aponta ao hop rastreado submetem na janela principal (sem JS no iframe). */
+  out = out.replace(/<form\b([^>]*)>/gi, (full, attrs: string) => {
+    if (htmlTagAttr(attrs, "action") !== track) return full;
+    return `<form${upsertAttr(attrs, "target", "_top")}>`;
+  });
 
   /** Segunda passagem: ofertas cruas que escaparam (classe/atributos atípicos no espelho). */
   out = out.replace(/<a\b([^>]*)\bhref\s*=\s*(["'])([\s\S]*?)\2/gi, (full, attrs: string, _q: string, href: string) => {

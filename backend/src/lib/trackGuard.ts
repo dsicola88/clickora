@@ -4,7 +4,6 @@ import { normalizeIpForMatch } from "./normalizeIp";
 import {
   assessClickQuality,
   detectBot,
-  isProtectedGoogleCrawlerUserAgent,
 } from "./detectBot";
 import { consumeTrackRateLimitAsync } from "./trackRateLimit";
 import { isPrivateOrLocalIp } from "./clientIp";
@@ -104,16 +103,10 @@ export async function enforceTrackingRules(args: {
   const ipKey = ipKeyForLog;
 
   /**
-   * AdsBot / Googlebot / Inspection Tool: ANTES de blacklist/whitelist/bot/proxy.
-   * Se o IP do crawler estiver na blacklist (auto ou manual), o Google ainda tem de
-   * ver a mesma Final URL / hop que o comprador — senão é cloaking e reprovação.
+   * Sem exceção por User-Agent: AdsBot, Googlebot e visitantes humanos passam pelas mesmas
+   * regras (blacklist/whitelist/bot/proxy manuais da conta). As regras só actuam no hop
+   * `/track/r/` e no pixel — nunca mudam o HTML da Final URL.
    */
-  const adsReviewChannel =
-    channel === "public_page" || channel === "redirect" || channel === "rotator_redirect";
-  if (adsReviewChannel && isProtectedGoogleCrawlerUserAgent(userAgent)) {
-    return { ok: true, ipKey };
-  }
-
   const blacklisted = await systemPrisma.blacklistedIp.findUnique({
     where: { userId_ipAddress: { userId: ownerUserId, ipAddress: ipKey } },
   });

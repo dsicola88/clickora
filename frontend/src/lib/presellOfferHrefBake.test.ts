@@ -105,4 +105,38 @@ describe("bakeHtmlOfferHrefs", () => {
     expect(out).toMatch(/href="#"[^>]*>Privacy</);
     expect(out).not.toMatch(/data-clickora-offer="1"[^>]*>Contact</);
   });
+
+  describe("navegação nativa (sem JS no iframe)", () => {
+    const TRACK =
+      "https://app.example/api/track/r/abc?to=https%3A%2F%2Fhop.example%2F1&gclid=Cj0KCQ&utm_source=google&utm_campaign=c1";
+
+    it("CTA vira <a href=track target=_top> preservando gclid e UTMs, sem onclick/javascript:", () => {
+      const html = `<a href="${CLICKORA_MIRROR_TRACK_MARKER}">Buy now</a>
+        <a href="https://www.buygoods.com/secure/checkout?item=1" onclick="return false">ORDER NOW</a>`;
+      const out = bakeHtmlOfferHrefs(html, TRACK, "https://hop.example/1");
+      const anchors = out.match(/<a\b[^>]*>/gi) ?? [];
+      expect(anchors.length).toBe(2);
+      for (const a of anchors) {
+        expect(a).toContain(`href="${TRACK}"`);
+        expect(a).toContain('target="_top"');
+        expect(a).toMatch(/rel="noopener noreferrer"/);
+      }
+      expect(out).toContain("gclid=Cj0KCQ");
+      expect(out).toContain("utm_source=google");
+      expect(out).not.toMatch(/javascript:/i);
+      expect(out).not.toMatch(/<script/i);
+    });
+
+    it("form de checkout aponta ao hop rastreado e submete no topo", () => {
+      const html = `<form method="get" action="https://www.buygoods.com/secure/checkout"><input type="submit" value="Buy"></form>`;
+      const out = bakeHtmlOfferHrefs(html, TRACK, "https://hop.example/1");
+      expect(out).toMatch(/<form\b[^>]*action="[^"]*track\/r\/abc[^"]*"/);
+      expect(out).toMatch(/<form\b[^>]*target="_top"/);
+    });
+
+    it("form não comercial fica intacto", () => {
+      const html = `<form action="/subscribe"><input name="e"></form>`;
+      expect(bakeHtmlOfferHrefs(html, TRACK)).toBe(html);
+    });
+  });
 });
