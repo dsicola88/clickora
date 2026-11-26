@@ -178,13 +178,14 @@ const EXPORT_STYLES = `
 .pe-gate-box input[type="number"],.pe-gate-box select{width:100%;max-width:200px;padding:.5rem .65rem;border-radius:.375rem;border:1px solid #e2e8f0;font:inherit;}
 .pe-gate-box .pe-radio-row{display:flex;align-items:center;gap:.5rem;margin:.35rem 0;}
 .pe-gate-box .pe-hint{font-size:.75rem;color:#64748b;margin-top:.35rem;}
-.pe-cookie-overlay{position:fixed;left:0;right:0;bottom:0;z-index:100;display:flex;align-items:flex-end;justify-content:center;padding:1rem;pointer-events:none;}
+.pe-cookie-overlay{position:fixed;left:0;right:0;bottom:0;z-index:100;display:block;padding:0;pointer-events:none;}
 .pe-cookie-backdrop{display:none;}
-.pe-cookie-card{pointer-events:auto;position:relative;z-index:10;max-width:28rem;width:100%;border-radius:1rem;border:1px solid rgba(15,23,42,.12);background:rgba(255,255,255,.95);padding:1.5rem;box-shadow:0 18px 50px -12px rgba(15,23,42,.35);}
-.pe-cookie-card h2{font-size:1.25rem;font-weight:700;margin:0 0 1rem;}
-.pe-cookie-card p{font-size:.875rem;line-height:1.6;color:#64748b;margin:0 0 .75rem;}
-.pe-cookie-actions{display:flex;flex-direction:column-reverse;gap:.75rem;margin-top:1.5rem;}
+.pe-cookie-card{pointer-events:auto;position:relative;z-index:10;width:100%;box-sizing:border-box;border-radius:0;border:0;border-top:1px solid rgba(15,23,42,.12);background:#fff;padding:1rem max(1.25rem,calc((100% - 64rem)/2)) max(1rem,env(safe-area-inset-bottom));box-shadow:0 -10px 36px -14px rgba(15,23,42,.4);}
+.pe-cookie-card h2{font-size:1rem;font-weight:700;margin:0 0 .5rem;}
+.pe-cookie-card p{font-size:.875rem;line-height:1.6;color:#64748b;margin:0 0 .5rem;}
+.pe-cookie-actions{display:flex;flex-direction:column-reverse;gap:.75rem;margin-top:.75rem;}
 @media(min-width:640px){.pe-cookie-actions{flex-direction:row;}}
+@media(min-width:768px){.pe-cookie-card{display:grid;grid-template-columns:minmax(0,1fr) 20rem;column-gap:2rem;align-items:center;}.pe-cookie-card>*{grid-column:1;}.pe-cookie-card>.pe-cookie-actions{grid-column:2;grid-row:1 / span 5;margin-top:0;}}
 .pe-cookie-actions button,.pe-cookie-actions a{flex:1;padding:.65rem 1rem;border-radius:.5rem;font-weight:600;cursor:pointer;font:inherit;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;}
 .pe-cookie-close{background:#fff;border:1px solid #e2e8f0;color:#334155;}
 .pe-cookie-allow{background:#059669;color:#fff;border:0;}

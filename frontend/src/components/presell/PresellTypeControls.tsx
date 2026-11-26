@@ -130,16 +130,19 @@ export function CookieConsentModal({
   return (
     <>
       <div
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[520] flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[520]"
         role="dialog"
         aria-modal="false"
         aria-labelledby="cookie-policy-title"
         data-testid="presell-cookie-sheet"
       >
+        {/* Barra expandida em largura total (não bloqueia scroll nem CTAs): texto completo + Aceitar/Fechar sempre visíveis. */}
         <div
           data-testid="presell-cookie-card"
-          className="pointer-events-auto relative z-10 w-full max-w-lg rounded-2xl border border-slate-200/90 bg-white/95 px-4 py-3.5 text-slate-900 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] ring-1 ring-black/5 backdrop-blur-[2px] sm:px-5"
+          className="pointer-events-auto relative z-10 w-full border-t border-slate-200 bg-white px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-slate-900 shadow-[0_-10px_36px_-14px_rgba(15,23,42,0.4)] sm:px-6"
         >
+         <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 md:flex-row md:items-center md:gap-8">
+          <div className="min-w-0 flex-1">
           <h2 id="cookie-policy-title" className="text-sm font-bold tracking-tight text-slate-950 sm:text-base">
             {L.cookieTitle}
           </h2>
@@ -158,7 +161,9 @@ export function CookieConsentModal({
             </button>
             .
           </p>
-          <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row">
+          <p className="mt-1.5 text-[10px] leading-snug text-slate-400 sm:text-xs">{L.cookieFooter}</p>
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row md:w-80 md:shrink-0">
             {offerNav.kind === "assign" ? (
               <a
                 href={offerNav.url}
@@ -196,7 +201,7 @@ export function CookieConsentModal({
               {L.cookieClose}
             </button>
           </div>
-          <p className="mt-2 text-center text-[10px] leading-snug text-slate-400 sm:text-xs">{L.cookieFooter}</p>
+         </div>
         </div>
       </div>
       <CookiePolicyInlineSheet
