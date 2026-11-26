@@ -100,11 +100,14 @@ test.describe("presell — produto visível com cookies", () => {
     expect(viewport).toBeTruthy();
     expect(heroBox!.height).toBeGreaterThan(viewport!.height * 0.45);
     expect(cardBox!.y).toBeGreaterThan(viewport!.height * 0.12);
-    expect(cardBox!.y + cardBox!.height).toBeLessThan(viewport!.height * 0.95);
+    // Banner expandido = barra inferior em largura total, colada ao fundo (não tapa o palco do produto).
+    expect(cardBox!.y + cardBox!.height).toBeGreaterThan(viewport!.height - 2);
+    expect(cardBox!.width).toBeGreaterThan(viewport!.width - 2);
+    expect(cardBox!.y).toBeGreaterThanOrEqual(heroBox!.y + heroBox!.height * 0.5);
 
     await page
       .getByTestId("presell-cookie-card")
-      .getByRole("button", { name: /^(allow|permitir|accept all|aceitar tudo)$/i })
+      .getByRole("button", { name: /^(accept|allow|accept all|permitir|aceitar tudo|aceitar)$/i })
       .click();
     await expect(page.getByTestId("presell-cookie-card")).not.toBeVisible();
     await page.route("**/track/**", (route) =>
@@ -135,7 +138,7 @@ test.describe("presell — produto visível com cookies", () => {
     // Sem banda hero de viewport inteira
     await expect(page.locator("[data-presell-hero='product']")).toHaveCount(0);
     const allowBtn = card.getByRole("button", {
-      name: /^(allow|permitir|accept all|aceitar tudo)$/i,
+      name: /^(accept|allow|accept all|permitir|aceitar tudo|aceitar)$/i,
     });
     await expect(allowBtn).toBeVisible();
     await allowBtn.click();
@@ -193,7 +196,7 @@ test.describe("presell — produto visível com cookies", () => {
     await expect(page.getByTestId("presell-cookie-card")).toBeVisible();
     await page
       .getByTestId("presell-cookie-card")
-      .getByRole("button", { name: /^(allow|permitir|accept all|aceitar tudo)$/i })
+      .getByRole("button", { name: /^(accept|allow|accept all|permitir|aceitar tudo|aceitar)$/i })
       .click();
     await expect(page.getByTestId("presell-cookie-card")).not.toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));
@@ -206,7 +209,8 @@ test.describe("presell — produto visível com cookies", () => {
     await page.goto(
       `/p/${PAGE_ID}?gclid=test-gclid&sub1=kw-1&utm_source=google_ads&utm_medium=cpc&parent_click_id=${PARENT_CLICK}`,
     );
-    await page.getByTestId("presell-cookie-backdrop").click({ position: { x: 12, y: 12 }, force: true });
+    // Banner React não tem backdrop: clicar na página por baixo não fecha nem navega.
+    await page.mouse.click(12, 12);
     await expect(page.getByTestId("presell-cookie-card")).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/p/${PAGE_ID}`));
   });
@@ -231,7 +235,7 @@ test.describe("presell — produto visível com cookies", () => {
     );
     await page
       .getByTestId("presell-cookie-card")
-      .getByRole("button", { name: /^(allow|permitir|accept all|aceitar tudo)$/i })
+      .getByRole("button", { name: /^(accept|allow|accept all|permitir|aceitar tudo|aceitar)$/i })
       .click();
     await expect(page.getByTestId("presell-cookie-card")).not.toBeVisible();
     await page.getByRole("link", { name: /order now/i }).click();
