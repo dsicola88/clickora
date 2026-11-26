@@ -27,11 +27,7 @@ import { assertCanCreatePresellPages } from "../lib/presellPageLimits";
 import { denyIfCannotWritePresells } from "./workspace.controller";
 import { resolvePublicFooterBranding } from "../lib/publicFooterBranding";
 import { enforceTrackingRules } from "../lib/trackGuard";
-import {
-  preferredTrackApiBaseForUser,
-  publicApiBaseFromRequest,
-  trackApiBaseForUser,
-} from "../lib/publicApiBase";
+import { preferredTrackApiBaseForUser, sameOriginTrackApiBase } from "../lib/publicApiBase";
 import { extractClientIp } from "../lib/clientIp";
 import { reconcileMirrorInPresellContent } from "../lib/presellMirrorRehost";
 import { sanitizeMirrorInContentRecord } from "../lib/presellMirrorSanitizeContent";
@@ -314,8 +310,9 @@ export const presellController = {
       channel: "public_page",
       recordedEventType: "other",
     });
-    const trackBase = await trackApiBaseForUser(req, page.userId);
-    const trackApiBase = trackBase || publicApiBaseFromRequest(req);
+    // Sem domínio de tracking: mesma origem da presell (o domínio principal não serve /api/track/r).
+    const trackApiBase =
+      (await preferredTrackApiBaseForUser(page.userId)) ?? sameOriginTrackApiBase(req, spaUrl);
     const built = buildPresellLiteHtml({
       id: page.id,
       title: page.title,

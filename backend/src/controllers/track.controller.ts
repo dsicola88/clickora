@@ -6,7 +6,7 @@ import prisma, { systemPrisma } from "../lib/prisma";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { createPostbackToken, verifyPostbackToken } from "../lib/postbackToken";
 import { resolveAdsPostbackAuth } from "../lib/adsPostbackAuth";
-import { publicApiBaseFromRequest } from "../lib/publicApiBase";
+import { publicApiBaseFromRequest, usableTrackApiBaseForUser } from "../lib/publicApiBase";
 import { appendClickIdToAffiliateUrl } from "../lib/appendClickIdToUrl";
 import { canonicalPlatformId } from "../lib/affiliatePlatforms/parseAffiliatePostback";
 import { syncDirectGclidConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
@@ -1738,9 +1738,11 @@ export const trackController = {
     });
 
     const dryRun = String(req.query.dry_run ?? "1") !== "0";
+    const usableTrackBase = await usableTrackApiBaseForUser(req, page.userId);
     const liveTrackUrl = (() => {
+      if (!usableTrackBase) return null;
       try {
-        const base = publicApiBaseFromRequest(req).replace(/\/+$/, "");
+        const base = usableTrackBase.replace(/\/+$/, "");
         const u = new URL(`${base}/track/r/${page.id}`);
         if (toCandidate) u.searchParams.set("to", toCandidate);
         for (const [k, v] of Object.entries({

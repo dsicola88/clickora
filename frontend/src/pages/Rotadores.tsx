@@ -36,6 +36,12 @@ import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { buildGoogleAdsPresellUrlParts } from "@/lib/googleAdsPresellUrl";
 import { useAuth } from "@/contexts/AuthContext";
 import { presellService } from "@/services/presellService";
+import { useCustomDomains } from "@/hooks/useCustomDomains";
+import {
+  getPublicPresellFullUrl,
+  isPlatformMainHostname,
+  PUBLIC_DOMAIN_REQUIRED_MESSAGE,
+} from "@/lib/publicPresellOrigin";
 import {
   trafficRotatorsService,
   type CreateTrafficRotatorBody,
@@ -277,16 +283,10 @@ function dtoToArms(r: TrafficRotatorDto): ArmForm[] {
   }));
 }
 
-/** Em dclickora.com / preview o /p/ público só resolve UUID — slug dá 404. */
-function isBrokenMainHostPresellPath(url: string): boolean {
+/** O domínio principal da plataforma não serve presells nem redirects (404 no edge). */
+function isPlatformMainHostUrl(url: string): boolean {
   try {
-    const u = new URL(url.trim());
-    const host = u.hostname.replace(/^www\./i, "").toLowerCase();
-    if (!/(^|\.)dclickora\.com$/i.test(host) && !/localhost|127\.0\.0\.1/i.test(host)) return false;
-    const m = u.pathname.match(/^\/p\/([^/]+)\/?$/i);
-    if (!m) return false;
-    const param = decodeURIComponent(m[1]);
-    return !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(param);
+    return isPlatformMainHostname(new URL(url.trim()).hostname);
   } catch {
     return false;
   }
@@ -379,6 +379,7 @@ export default function Rotadores() {
   });
 
   const publishedPresells = presells.filter((p) => p.status === "published");
+  const { data: customDomains = [] } = useCustomDomains();
 
   const { data: rotators = [], isLoading } = useQuery({
     queryKey: ["traffic-rotators", tenantKey],
@@ -489,7 +490,7 @@ export default function Rotadores() {
     const badPaths = [
       ...armPayload.map((a) => a.destination_url),
       backupUrl.trim() || "",
-    ].filter((u) => u && isBrokenMainHostPresellPath(u));
+    ].filter((u) => u && isPlatformMainHostUrl(u));
     if (badPaths.length) {
       toast.error(t("pages.rotators.toastDclickoraPath"));
       return;
@@ -553,7 +554,8 @@ export default function Rotadores() {
     }
   };
 
-  const copyAdsFinalUrl = async (rotator: { id: string; name: string; public_click_url: string }) => {
+  const copyAdsFinalUrl = async (rotator: { id: string; name: string; public_click_url: string | null }) => {
+    if (!rotator.public_click_url) return;
     const { finalUrl } = buildGoogleAdsPresellUrlParts(
       rotator.public_click_url,
       rotator.name,
@@ -566,7 +568,8 @@ export default function Rotadores() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const copyAdsSuffix = async (rotator: { id: string; name: string; public_click_url: string }) => {
+  const copyAdsSuffix = async (rotator: { id: string; name: string; public_click_url: string | null }) => {
+    if (!rotator.public_click_url) return;
     const { finalUrlSuffix } = buildGoogleAdsPresellUrlParts(
       rotator.public_click_url,
       rotator.name,
@@ -664,33 +667,45 @@ export default function Rotadores() {
                 </span>
               </div>
 
+              {!r.public_click_url ? (
+                <p
+                  className="text-[11px] rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-amber-900 dark:text-amber-200"
+                  data-testid="rotator-tracking-domain-required"
+                >
+                  {t("pages.rotators.trackingDomainRequired")}
+                </p>
+              ) : null}
               <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs gap-1"
-                  onClick={() => void copyAdsFinalUrl(r)}
-                >
-                  {copiedId === r.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  {t("pages.createPresell.copyFinalUrl")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs gap-1"
-                  onClick={() => void copyAdsSuffix(r)}
-                >
-                  {suffixCopiedId === r.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  {t("pages.createPresell.copyUrlSuffix")}
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" asChild>
-                  <a href={r.public_click_url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    {t("common.open")}
-                  </a>
-                </Button>
+                {r.public_click_url ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1"
+                      onClick={() => void copyAdsFinalUrl(r)}
+                    >
+                      {copiedId === r.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {t("pages.createPresell.copyFinalUrl")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1"
+                      onClick={() => void copyAdsSuffix(r)}
+                    >
+                      {suffixCopiedId === r.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {t("pages.createPresell.copyUrlSuffix")}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" asChild>
+                      <a href={r.public_click_url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        {t("common.open")}
+                      </a>
+                    </Button>
+                  </>
+                ) : null}
                 {canWriteRotators ? (
                   <Button
                     type="button"
@@ -1032,9 +1047,16 @@ export default function Rotadores() {
                       size="sm"
                       className="h-8 text-[11px]"
                       onClick={() => {
-                        const origin =
-                          typeof window !== "undefined" ? window.location.origin : "https://www.dclickora.com";
-                        const pub = `${origin.replace(/\/+$/, "")}/p/${contextPresellId}`;
+                        const ctx = presells.find((p) => p.id === contextPresellId);
+                        const pub = getPublicPresellFullUrl(
+                          customDomains,
+                          ctx?.custom_domain_id ?? null,
+                          ctx ?? { id: contextPresellId },
+                        );
+                        if (!pub) {
+                          toast.error(PUBLIC_DOMAIN_REQUIRED_MESSAGE);
+                          return;
+                        }
                         setArms((prev) => {
                           const next = [...prev];
                           const idx = next.findIndex((a) => !a.destination_url.trim());

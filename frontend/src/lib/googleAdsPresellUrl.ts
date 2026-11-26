@@ -101,7 +101,7 @@ export function buildGoogleAdsFinalUrlSuffix(
   trafficSource: string,
   basePresellUrl?: string,
 ): string {
-  let existing = new URLSearchParams();
+  const existing = new URLSearchParams();
   if (basePresellUrl) {
     try {
       const u = new URL(basePresellUrl.trim());

@@ -2,7 +2,11 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { Prisma, RotatorDeviceRule, TrafficRotatorMode } from "@prisma/client";
 import { systemPrisma } from "../lib/prisma";
-import { trackApiBaseForUser } from "../lib/publicApiBase";
+import { usableTrackApiBaseForUser } from "../lib/publicApiBase";
+
+function rotatorPublicClickUrl(apiBase: string | null, rotatorId: string): string | null {
+  return apiBase ? `${apiBase}/track/rot/${rotatorId}` : null;
+}
 import { getRotatorAbStats, promoteRotatorWinner } from "../lib/rotatorAbStats.service";
 import { actorUserId, billingUserId } from "../lib/requestContext";
 import { rotatorRulesPolicySchema } from "../lib/routingRules";
@@ -202,11 +206,11 @@ export const trafficRotatorsController = {
         arms: { orderBy: { orderIndex: "asc" } },
       },
     });
-    const apiBase = await trackApiBaseForUser(req, userId);
+    const apiBase = await usableTrackApiBaseForUser(req, userId);
     res.json(
       rows.map((r) => ({
         ...mapRotatorRow(r),
-        public_click_url: `${apiBase}/track/rot/${r.id}`,
+        public_click_url: rotatorPublicClickUrl(apiBase, r.id),
       })),
     );
   },
@@ -219,10 +223,10 @@ export const trafficRotatorsController = {
       include: { arms: { orderBy: { orderIndex: "asc" } } },
     });
     if (!r) return res.status(404).json({ error: "Rotador não encontrado." });
-    const apiBase = await trackApiBaseForUser(req, userId);
+    const apiBase = await usableTrackApiBaseForUser(req, userId);
     res.json({
       ...mapRotatorRow(r),
-      public_click_url: `${apiBase}/track/rot/${r.id}`,
+      public_click_url: rotatorPublicClickUrl(apiBase, r.id),
     });
   },
 
@@ -322,10 +326,10 @@ export const trafficRotatorsController = {
       });
     }
 
-    const apiBase = await trackApiBaseForUser(req, userId);
+    const apiBase = await usableTrackApiBaseForUser(req, userId);
     res.status(201).json({
       ...mapRotatorRow(created),
-      public_click_url: `${apiBase}/track/rot/${created.id}`,
+      public_click_url: rotatorPublicClickUrl(apiBase, created.id),
     });
   },
 
@@ -454,10 +458,10 @@ export const trafficRotatorsController = {
         resourceId: id,
       });
     }
-    const apiBase = await trackApiBaseForUser(req, userId);
+    const apiBase = await usableTrackApiBaseForUser(req, userId);
     res.json({
       ...mapRotatorRow(r!),
-      public_click_url: `${apiBase}/track/rot/${id}`,
+      public_click_url: rotatorPublicClickUrl(apiBase, id),
     });
   },
 

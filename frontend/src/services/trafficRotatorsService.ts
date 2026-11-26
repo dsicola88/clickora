@@ -33,7 +33,8 @@ export type TrafficRotatorDto = {
   created_at: string;
   updated_at: string;
   arms: TrafficRotatorArmDto[];
-  public_click_url: string;
+  /** `null` = a conta ainda não tem domínio de tracking verificado (o domínio principal não faz redirects). */
+  public_click_url: string | null;
 };
 
 export type TrafficRotatorArmInput = {
