@@ -11,6 +11,32 @@ export function isPlatformMainHostname(hostname: string | null | undefined): boo
   return PLATFORM_MAIN_HOSTNAMES_EXACT.has(String(hostname || "").trim().toLowerCase().split(":")[0] || "");
 }
 
+const PLATFORM_TRACK_URL_RE = /https?:\/\/(?:www\.)?d?clickora\.com\/api\/track\//gi;
+
+/**
+ * CTAs gravados com o host da plataforma (`https://www.dclickora.com/api/track/r/…`) passam a usar a
+ * base de tracking do domínio onde a presell é servida — o domínio principal não faz saltos para ofertas.
+ * `apiBase` tem de ser absoluto (ex. `https://loja.com/api`); caso contrário não altera nada.
+ */
+export function rehomePlatformTrackUrls<T>(value: T, apiBase: string): T {
+  const base = apiBase.trim().replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(base)) return value;
+  try {
+    if (isPlatformMainHostname(new URL(base).hostname)) return value;
+  } catch {
+    return value;
+  }
+  const walk = (v: unknown): unknown => {
+    if (typeof v === "string") return v.replace(PLATFORM_TRACK_URL_RE, `${base}/track/`);
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") {
+      return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, walk(x)]));
+    }
+    return v;
+  };
+  return walk(value) as T;
+}
+
 /** Preview privado do dono dentro do painel (exige sessão; nunca é um URL público). */
 export function ownerPresellPreviewPath(presellId: string): string {
   return `/presells/preview/${encodeURIComponent(presellId)}`;

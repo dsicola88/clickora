@@ -87,7 +87,7 @@ import {
   getPublicPresellPrefetchResult,
   startPublicPresellPrefetchForParam,
 } from "@/lib/publicPresellEarlyPrefetch";
-import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
+import { isPresellUuidParam, rehomePlatformTrackUrls } from "@/lib/publicPresellOrigin";
 import { DiscountPresellOverlay } from "@/components/presell/DiscountPresellOverlay";
 import { SegmentationChoiceModal } from "@/components/presell/SegmentationChoiceModal";
 import {
@@ -748,6 +748,16 @@ export default function PublicPresell({ ownerPreview = false }: PublicPresellPro
       const { data, error } = await presellService.getPublicBySlug(param);
       if (data) return data;
       throw new Error(error || "Página não encontrada");
+    },
+    select: (data) => {
+      const accountBase = data.track_api_base?.trim();
+      const base =
+        accountBase && /^https:\/\//i.test(accountBase)
+          ? accountBase
+          : typeof window !== "undefined"
+            ? `${window.location.origin}/api`
+            : "";
+      return { ...data, content: rehomePlatformTrackUrls(data.content, base) };
     },
     enabled: !!id,
     /** Após editar/publicar, remount da mesma /p/… tem de ir à API — não servir cache stale. */

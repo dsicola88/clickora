@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CustomDomainDto } from "@/types/api";
 import {
   getPublicPresellFullUrl,
+  rehomePlatformTrackUrls,
   getPublicPresellOriginForPresell,
   getPublicPresellTechnicalOrigin,
   hasPublicPresellOrigin,
@@ -163,5 +164,26 @@ describe("domínio principal NÃO é origem de presells públicas", () => {
       }),
     ];
     expect(getPublicPresellOriginForPresell(domains, "p")).toBe("https://novo.cliente.com");
+  });
+});
+
+describe("rehomePlatformTrackUrls", () => {
+  const content = {
+    mirrorHtml:
+      '<a href="https://www.dclickora.com/api/track/r/816663c8?to=https%3A%2F%2Fx.test">Comprar</a><img src="https://cdn.test/a.png">',
+    blocks: [{ href: "https://dclickora.com/api/track/rot/abc" }, { href: "https://www.dclickora.com/termos" }],
+  };
+
+  it("troca o host da plataforma pela base de tracking do domínio da presell", () => {
+    const out = rehomePlatformTrackUrls(content, "https://loja.test/api/");
+    expect(out.mirrorHtml).toContain('href="https://loja.test/api/track/r/816663c8?to=https%3A%2F%2Fx.test"');
+    expect(out.mirrorHtml).toContain("https://cdn.test/a.png");
+    expect(out.blocks[0].href).toBe("https://loja.test/api/track/rot/abc");
+    expect(out.blocks[1].href).toBe("https://www.dclickora.com/termos");
+  });
+
+  it("não altera com base relativa ou do próprio domínio principal", () => {
+    expect(rehomePlatformTrackUrls(content, "/api")).toBe(content);
+    expect(rehomePlatformTrackUrls(content, "https://www.dclickora.com/api")).toBe(content);
   });
 });
