@@ -13,8 +13,7 @@ import { toast } from "sonner";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { APP_PAGE_SHELL_PRO } from "@/lib/appPageLayout";
 import { ProInlineLink, ProPageHeader } from "@/components/enterprise/ProShell";
-import { SyncHealthBanner } from "@/components/SyncHealthBanner";
-import { NextAccountActionBanner } from "@/components/NextAccountActionBanner";
+import { ReportsHealthPanel } from "@/components/ReportsHealthPanel";
 import { analyticsService } from "@/services/analyticsService";
 import type { TrackingEvent } from "@/types/api";
 import { LoadingState } from "@/components/LoadingState";
@@ -986,13 +985,23 @@ export default function Relatorios() {
   };
 
   const TimezoneAlert = () => (
-    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
-      {fill(t("pages.reports.hoursHint"), { time: currentTime })}{" "}
-      <span className="text-foreground/80 font-medium">{t("pages.reports.typeLegend")}</span>
-      {t("pages.reports.typeLegendBody")}{" "}
-      <span className="text-foreground/80 font-medium">{t("pages.reports.situationLegend")}</span>
-      {t("pages.reports.situationLegendBody")}
-    </div>
+    <details className="group rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground leading-relaxed">
+      <summary className="cursor-pointer select-none font-medium text-foreground/80 list-none flex items-center gap-1.5">
+        <span aria-hidden className="transition-transform group-open:rotate-90">›</span>
+        {t("pages.reports.readingGuide")}
+      </summary>
+      <div className="mt-2 space-y-1">
+        <p>{fill(t("pages.reports.hoursHint"), { time: currentTime })}</p>
+        <p>
+          <span className="text-foreground/80 font-medium">{t("pages.reports.typeLegend")}</span>
+          {t("pages.reports.typeLegendBody")}
+        </p>
+        <p>
+          <span className="text-foreground/80 font-medium">{t("pages.reports.situationLegend")}</span>
+          {t("pages.reports.situationLegendBody")}
+        </p>
+      </div>
+    </details>
   );
 
   const DateFilters = ({
@@ -1109,22 +1118,12 @@ export default function Relatorios() {
           <ProInlineLink to="/integracoes">{t("pages.reports.fixTrackingLink")}</ProInlineLink>
         }
       />
-      <SyncHealthBanner className="mb-4" syncHealth={dashQuery.data?.sync_health} />
-      <NextAccountActionBanner
-        className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/[0.06] px-4 py-3"
+      <ReportsHealthPanel
+        className="mb-4"
+        syncHealth={dashQuery.data?.sync_health}
+        paidUntracked={tab === "cliques" || tab === "acessos" ? trafficTypeCounts.paid_untracked : 0}
         checks={dashQuery.data?.account_health?.checks}
       />
-
-      {(tab === "cliques" || tab === "acessos") && trafficTypeCounts.paid_untracked > 0 ? (
-        <div className="mb-4 rounded-xl border border-amber-500/35 bg-amber-500/[0.07] px-4 py-3 text-sm text-foreground">
-          <p className="font-medium text-amber-950 dark:text-amber-100">
-            {fill(t("pages.reports.untrackedVisits"), { n: trafficTypeCounts.paid_untracked })}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-            {t("pages.reports.untrackedBanner")}
-          </p>
-        </div>
-      ) : null}
 
       {compareRange && (tab === "cliques" || tab === "acessos") ? (
         <div className="mb-4 rounded-xl border border-border/60 bg-muted/15 px-4 py-3 text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">

@@ -35,6 +35,15 @@ export function syncHealthIssueTotal(sh: SyncHealth): number {
   );
 }
 
+/**
+ * «Sem ID» só é acionável quando a venda veio de um clique dessa rede (ex.: Google Ads sem gclid
+ * = etiquetagem automática desligada). Vendas orgânicas, diretas ou de outras redes nunca teriam
+ * esse ID e não contam como erro.
+ */
+const GOOGLE_ORIGIN_SQL = Prisma.sql`(te.source ~* 'google' OR te.metadata->>'utm_source' ~* 'google')`;
+const META_ORIGIN_SQL = Prisma.sql`(te.source ~* '(facebook|instagram|^meta$|^fb$)' OR te.metadata->>'utm_source' ~* '(facebook|instagram|^meta$|^fb$)')`;
+const TIKTOK_ORIGIN_SQL = Prisma.sql`(te.source ~* 'tiktok' OR te.metadata->>'utm_source' ~* 'tiktok')`;
+
 /** Contagens de envio Google/Meta/TikTok desde `since` (inclusive). */
 export async function loadSyncHealth(args: {
   userId: string;
@@ -54,16 +63,17 @@ export async function loadSyncHealth(args: {
       }>
     >(Prisma.sql`
       SELECT
-        COUNT(*) FILTER (WHERE google_ads_sync = 'failed')::bigint AS g,
-        COUNT(*) FILTER (WHERE google_ads_sync = 'skipped_no_gclid')::bigint AS gclid,
-        COUNT(*) FILTER (WHERE meta_capi_sync = 'failed')::bigint AS m,
-        COUNT(*) FILTER (WHERE meta_capi_sync = 'skipped_no_fbclid')::bigint AS fbclid,
-        COUNT(*) FILTER (WHERE tiktok_events_sync = 'failed')::bigint AS t,
-        COUNT(*) FILTER (WHERE tiktok_events_sync = 'skipped_no_ttclid')::bigint AS ttclid
-      FROM conversions
-      WHERE user_id = ${userId}
-        AND status = 'approved'
-        AND created_at >= ${since}
+        COUNT(*) FILTER (WHERE c.google_ads_sync = 'failed')::bigint AS g,
+        COUNT(*) FILTER (WHERE c.google_ads_sync = 'skipped_no_gclid' AND ${GOOGLE_ORIGIN_SQL})::bigint AS gclid,
+        COUNT(*) FILTER (WHERE c.meta_capi_sync = 'failed')::bigint AS m,
+        COUNT(*) FILTER (WHERE c.meta_capi_sync = 'skipped_no_fbclid' AND ${META_ORIGIN_SQL})::bigint AS fbclid,
+        COUNT(*) FILTER (WHERE c.tiktok_events_sync = 'failed')::bigint AS t,
+        COUNT(*) FILTER (WHERE c.tiktok_events_sync = 'skipped_no_ttclid' AND ${TIKTOK_ORIGIN_SQL})::bigint AS ttclid
+      FROM conversions c
+      LEFT JOIN tracking_events te ON te.id = c.click_id
+      WHERE c.user_id = ${userId}
+        AND c.status = 'approved'
+        AND c.created_at >= ${since}
     `);
     return {
       period_days: periodDays,

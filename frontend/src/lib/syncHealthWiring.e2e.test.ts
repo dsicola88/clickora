@@ -10,7 +10,6 @@ describe("sync_health FE wiring", () => {
       "ResultsOverviewPage.tsx",
       "IntegrationsHubPage.tsx",
       "Vendas.tsx",
-      "Relatorios.tsx",
       "Home.tsx",
       "AgencyReadyPage.tsx",
     ];
@@ -26,6 +25,12 @@ describe("sync_health FE wiring", () => {
     expect(hubSteps).toContain('id: "cost_sync"');
     const relatorios = readFileSync(join(process.cwd(), "src/pages/Relatorios.tsx"), "utf8");
     expect(relatorios).toContain("google_ads_skipped_no_gclid");
+    // Relatórios usa o painel único (que lê sync_health), não a pilha de avisos.
+    expect(relatorios).toContain("ReportsHealthPanel");
+    expect(relatorios).not.toContain("NextAccountActionBanner");
+    const panel = readFileSync(join(process.cwd(), "src/components/ReportsHealthPanel.tsx"), "utf8");
+    expect(panel).toContain("google_ads_skipped_no_gclid");
+    expect(panel).toContain("getNextAccountHealthStep");
   });
 
   it("PresellDashboard liga customDomainHttpsPending", () => {
