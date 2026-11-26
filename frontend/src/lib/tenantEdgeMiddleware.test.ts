@@ -80,6 +80,52 @@ describe("middleware", () => {
     expect(bot?.headers.get("x-middleware-rewrite")).toBe(human?.headers.get("x-middleware-rewrite"));
   });
 
+  describe("domínio principal não serve presells públicas", () => {
+    const ID = "c2e3caf4-de15-48bd-aeca-3f69b07a0358";
+    const ADSBOT = "Mozilla/5.0 (compatible; AdsBot-Google; +http://www.google.com/adsbot.html)";
+    const call = (host: string, path: string, headers: Record<string, string> = {}) =>
+      middleware(new Request(`https://${host}${path}`, { headers: { host, ...headers } })) as Response | undefined;
+
+    for (const host of ["www.dclickora.com", "dclickora.com"]) {
+      it(`${host}: /l/<id> → 404 real e noindex (qualquer User-Agent)`, () => {
+        for (const ua of ["Mozilla/5.0 Chrome/124", ADSBOT]) {
+          const res = call(host, `/l/${ID}`, { "user-agent": ua });
+          expect(res?.status).toBe(404);
+          expect(res?.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+        }
+      });
+
+      it(`${host}: API pública da presell sem sessão → 404 sem cache (qualquer User-Agent)`, async () => {
+        for (const path of [`/api/public/presells/id/${ID}`, `/api/public/presells/id/${ID}/html`, "/api/public/presells/slug/vissia-f2x6"]) {
+          for (const ua of ["Mozilla/5.0 Chrome/124", ADSBOT]) {
+            const res = call(host, path, { "user-agent": ua });
+            expect(res?.status).toBe(404);
+            expect(res?.headers.get("cache-control")).toBe("private, no-store");
+            const body = (await res?.json()) as { code?: string };
+            expect(body.code).toBe("PRESELL_NOT_PUBLIC_ON_MAIN_HOST");
+          }
+        }
+      });
+
+      it(`${host}: com sessão (Bearer) segue para o backend, que só serve o dono`, () => {
+        expect(call(host, `/api/public/presells/id/${ID}`, { authorization: "Bearer abc.def.ghi" })).toBeUndefined();
+      });
+    }
+
+    it("outras rotas públicas da API e o resto do site principal não são afetados", () => {
+      expect(call("www.dclickora.com", "/api/public/branding")).toBeUndefined();
+      expect(call("www.dclickora.com", "/api/public/presell-builder/u/f.png")).toBeUndefined();
+      expect(call("www.dclickora.com", "/super-presell")).toBeUndefined();
+    });
+
+    it("domínios de assinante, previews e localhost mantêm o comportamento", () => {
+      expect(call("wellformulas.store", `/l/${ID}`)).toBeUndefined();
+      expect(call("wellformulas.store", `/api/public/presells/id/${ID}`)).toBeUndefined();
+      expect(call("clickora-git-main.vercel.app", `/l/${ID}`)).toBeUndefined();
+      expect(call("localhost", `/api/public/presells/id/${ID}`)).toBeUndefined();
+    });
+  });
+
   it("robots.txt do domínio principal: só o site institucional, sem rotas internas", async () => {
     for (const host of ["www.dclickora.com", "dclickora.com"]) {
       const res = run(host, "/robots.txt");

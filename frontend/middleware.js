@@ -1,6 +1,8 @@
 /**
  * Edge Middleware (Vercel): superfície pública por host.
  * — Marketing (dclickora / preview): `robots.txt` indexável; resto segue para a SPA.
+ * — Domínio principal (dclickora.com / www): NÃO serve presells públicas (`/l/*` e API pública
+ *   da presell sem sessão → 404). Presells só em domínio do assinante ou domínio técnico isolado.
  * — Domínios de assinantes / tracking: só landers, páginas legais, `/api` e estáticos.
  *   HTML base neutro (`/tenant-shell.html`, gerado no build), painel SaaS → dclickora,
  *   caminhos desconhecidos → 404 real. Ficheiros de verificação Google só no host dono.
@@ -174,6 +176,45 @@ function notFound() {
   });
 }
 
+/** Domínio principal da plataforma (sem localhost / previews Vercel). */
+export function isPlatformMainHost(host) {
+  return host === "dclickora.com" || host === "www.dclickora.com";
+}
+
+const PRESELL_API_PREFIX = "/api/public/presells/";
+
+function presellNotPublicJson() {
+  return new Response(
+    JSON.stringify({ error: "Página não encontrada", code: "PRESELL_NOT_PUBLIC_ON_MAIN_HOST" }),
+    {
+      status: 404,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "private, no-store",
+        "X-Robots-Tag": "noindex, nofollow",
+        "X-Content-Type-Options": "nosniff",
+      },
+    },
+  );
+}
+
+/**
+ * O domínio principal (SaaS + site institucional) NÃO serve presells públicas.
+ * Aqui o host é fiável (o backend, atrás do rewrite Vercel → Railway, só o conhece com Referer/Origin).
+ * — `/l/*` (HTML lite público): 404 real.
+ * — API pública da presell sem sessão (`Authorization: Bearer`): 404. Com sessão, o backend só
+ *   devolve o conteúdo ao próprio dono (preview privado no painel/builder).
+ * Mesma resposta para qualquer User-Agent (AdsBot, Googlebot, humano).
+ */
+function mainHostPresellGuard(request, pathname) {
+  if (/^\/l\//i.test(pathname)) return notFound();
+  if (pathname.startsWith(PRESELL_API_PREFIX)) {
+    const bearer = /^Bearer\s+\S+/i.test(request.headers.get("authorization") || "");
+    if (!bearer) return presellNotPublicJson();
+  }
+  return undefined;
+}
+
 export default function middleware(request) {
   const url = new URL(request.url);
   const host = hostOnly(request.headers.get("host"));
@@ -198,6 +239,11 @@ export default function middleware(request) {
     return notFound();
   }
 
+  if (isPlatformMainHost(host)) {
+    const blocked = mainHostPresellGuard(request, pathname);
+    if (blocked) return blocked;
+  }
+
   if (isPlatformHost(host)) return undefined;
 
   const decision = classifyTenantPath(pathname);
@@ -214,5 +260,6 @@ export default function middleware(request) {
 }
 
 export const config = {
-  matcher: ["/((?!api/|assets/).*)"],
+  /** `/api/` fica de fora, exceto a API pública das presells (guarda do domínio principal). */
+  matcher: ["/((?!api/|assets/).*)", "/api/public/presells/:path*"],
 };

@@ -126,7 +126,13 @@
                 el.parentNode && el.parentNode.removeChild(el);
               });
             try {
-              if (isPresell && host !== "localhost" && host !== "127.0.0.1") {
+              if (
+                isPresell &&
+                host !== "localhost" &&
+                host !== "127.0.0.1" &&
+                host !== "dclickora.com" &&
+                host !== "www.dclickora.com"
+              ) {
                 var seg = "";
                 if (isBareTenant) {
                   try {
