@@ -45,9 +45,11 @@ export function GoogleAdsPresellUrlBlock({
     () => buildGoogleAdsPresellUrlParts(basePresellUrl.trim(), campaignName, trafficSource),
     [basePresellUrl, campaignName, trafficSource],
   );
-  const [copied, setCopied] = useState(false);
+  const [copiedBare, setCopiedBare] = useState(false);
+  const [copiedFull, setCopiedFull] = useState(false);
 
-  const copyUrl = parts.finalUrlSuffix ? parts.combinedTrackingUrl : parts.finalUrl;
+  const bareUrl = parts.finalUrl;
+  const fullUrl = parts.finalUrlSuffix ? parts.combinedTrackingUrl : parts.finalUrl;
   const pathHint = displayPathHint(parts.finalUrl);
 
   const labelClass = cn(
@@ -59,38 +61,67 @@ export function GoogleAdsPresellUrlBlock({
     editorChrome ? "border-editor-border/60 bg-editor-panel text-editor-fg/90" : "border-border/60 bg-background text-foreground/90",
   );
 
-  if (!copyUrl) return null;
+  if (!bareUrl) return null;
 
-  const copy = async () => {
-    if (!copyUrl) return;
-    await navigator.clipboard.writeText(copyUrl);
-    setCopied(true);
+  const copyBare = async () => {
+    if (!bareUrl) return;
+    await navigator.clipboard.writeText(bareUrl);
+    setCopiedBare(true);
+    toast.success(t("pages.createPresell.copyBareUrlDone"));
+    setTimeout(() => setCopiedBare(false), 2000);
+  };
+
+  const copyFull = async () => {
+    if (!fullUrl) return;
+    await navigator.clipboard.writeText(fullUrl);
+    setCopiedFull(true);
     toast.success(t("pages.createPresell.copyCombinedUrlDone"));
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopiedFull(false), 2000);
   };
 
   return (
-    <div className={cn("space-y-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-3", className)}>
-      <p className={cn(labelClass, "text-foreground")}>{t("pages.createPresell.finalUrlTitle")}</p>
-      <p className="text-[11px] leading-relaxed text-muted-foreground">{t("pages.createPresell.combinedUrlHint")}</p>
+    <div className={cn("space-y-4 rounded-lg border border-primary/25 bg-primary/5 px-3 py-3", className)}>
+      <p className={cn(labelClass, "text-foreground font-semibold")}>{t("pages.createPresell.finalUrlTitle")}</p>
       {pathHint ? (
         <p className="text-[11px] text-muted-foreground">
           {t("pages.createPresell.googleAdsUrlDisplayHint")}{" "}
           <span className="font-medium text-foreground/80">{pathHint}</span>
         </p>
       ) : null}
-      <p className={monoClass}>{copyUrl}</p>
-      <Button
-        type="button"
-        variant="default"
-        size="sm"
-        disabled={disabled}
-        className={cn("gap-1.5", editorChrome && "border-editor-border bg-editor-panel text-editor-fg")}
-        onClick={() => void copy()}
-      >
-        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-        {t("pages.createPresell.copyCombinedUrl")}
-      </Button>
+
+      <div className="space-y-2">
+        <p className={labelClass}>{t("pages.createPresell.barePresellUrlLabel")}</p>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">{t("pages.createPresell.barePresellUrlHint")}</p>
+        <p className={monoClass}>{bareUrl}</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          className={cn("gap-1.5", editorChrome && "border-editor-border bg-editor-panel text-editor-fg")}
+          onClick={() => void copyBare()}
+        >
+          {copiedBare ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          {t("pages.createPresell.copyBareUrl")}
+        </Button>
+      </div>
+
+      <div className="space-y-2 border-t border-primary/15 pt-3">
+        <p className={labelClass}>{t("pages.createPresell.fullTrackingUrlLabel")}</p>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">{t("pages.createPresell.combinedUrlHint")}</p>
+        <p className={monoClass}>{fullUrl}</p>
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          disabled={disabled}
+          className={cn("gap-1.5", editorChrome && "border-editor-border bg-editor-panel text-editor-fg")}
+          onClick={() => void copyFull()}
+        >
+          {copiedFull ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          {t("pages.createPresell.copyCombinedUrl")}
+        </Button>
+      </div>
     </div>
   );
 }

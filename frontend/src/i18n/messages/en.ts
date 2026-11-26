@@ -441,6 +441,13 @@ export const en = {
       toastReimportUrl: "Enter an https:// product URL to re-import.",
       toastReimportFail: "Re-import failed.",
       toastReimportNoMirror: "Re-import without a faithful mirror — HTML kept. Check the URL.",
+      importPresentationLabel: "Page mode (white)",
+      importPresentationHint:
+        "Super Presell: hero image, title, and copy extracted only — professional layout with /track/r/. Mirror: full HTML clone (higher Google Ads risk).",
+      essentialsEditorHint:
+        "Essentials mode: the live page uses the storefront layout (hero, real product images, offer copy). HTML mirror is off. Re-read the URL to refresh photos and text.",
+      refreshEssentialsFromUrl: "Refresh images and copy from URL",
+      toastEssentialsRefreshed: "Images, title, and copy updated (no mirror).",
       toastMirrorUpdated: "Mirror updated. Save to publish.",
       saving: "Saving…",
       generatingPage: "Generating page…",
@@ -761,6 +768,13 @@ export const en = {
         "Black: informational portal (Google/Bing). The cookie only unlocks the article; the hoplink stays on the «official site» button. The aggressive sales page does not go into the ad.",
       productWhiteHint:
         "White: the page follows the product look. Use the public sales page (not Knownwalk/checkout). On cookies the hoplink stays in the notice; on other types, the type CTA.",
+      importPresentationLabel: "Page mode (white)",
+      importPresentationEssentials: "Super Presell — essentials only (recommended for Google)",
+      importPresentationEssentialsHint:
+        "Pulls hero image, title, and short copy from the offer URL. Polished Clickora layout, CTA via /track/r/ — no full HTML clone (SuperPresell-style bridge).",
+      importPresentationMirror: "Full sales page mirror",
+      importPresentationMirrorHint:
+        "Stores imported HTML (1:1 visual clone). Higher risk of Google “compromised site”; use only when mirror is required.",
       continue: "Continue",
       defaultCampaign: "My campaign",
       campaignNameLabel: "Campaign name (and page name in the list)",
@@ -848,8 +862,13 @@ export const en = {
       combinedUrlFieldLabel: "Full URL (simple mode)",
       combinedUrlHint:
         "Same as the old flow: paste only in the ad Final URL field and leave Final URL suffix empty. Tracking (UTMs + auto gclid) matches the two-field setup.",
-      copyCombinedUrl: "Copy full URL",
-      copyCombinedUrlDone: "Full URL copied — paste in Google Ads Final URL field",
+      copyCombinedUrl: "Copy URL with tracking (UTMs)",
+      copyCombinedUrlDone: "Tracking URL copied — paste in Google Ads Final URL field",
+      barePresellUrlLabel: "Presell-only URL (no tracking)",
+      barePresellUrlHint: "Clean page for tests, sharing, or verification — no UTMs or campaign params.",
+      copyBareUrl: "Copy presell URL",
+      copyBareUrlDone: "Presell URL copied (no tracking)",
+      fullTrackingUrlLabel: "Full URL for Google Ads",
       googleAdsUrlLayoutLabel: "Google Ads link layout",
       googleAdsUrlLayoutOneField: "Single field",
       googleAdsUrlLayoutTwoFields: "Google two fields",

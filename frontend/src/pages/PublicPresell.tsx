@@ -65,6 +65,10 @@ import {
 import { presellHasConfiguredGoogleTags } from "@/lib/presellHasGoogleTags";
 import { stripHtmlMarketingExecutors } from "@/lib/stripHtmlMarketingExecutors";
 import { sanitizeMirrorEmbedForPublic } from "@/lib/sanitizeMirrorEmbedForPublic";
+import {
+  PresellAffiliateDisclosureBar,
+} from "@/components/presell/PresellComplianceChrome";
+import { isEssentialsImportPresentation } from "@/lib/presellImportPresentation";
 import { resolvePresellGenerationNiche } from "@/lib/presellGenerationNiche";
 import {
   policyUrlsFromPresellContent,
@@ -1132,8 +1136,10 @@ export default function PublicPresell() {
   const productLabelEarly = plainTextFromMaybeHtml(
     typeof content.productName === "string" ? content.productName.trim() : "",
   );
+  const essentialsPresentation = isEssentialsImportPresentation(content as Record<string, unknown>);
   const importedClone =
-    importMirrorSrcDocRaw.length > 800 || content.importMode === "mirror";
+    !essentialsPresentation &&
+    (importMirrorSrcDocRaw.length > 800 || content.importMode === "mirror");
   const title = presellHeadline({
     importedClone,
     productName: productLabelEarly,
@@ -1215,7 +1221,11 @@ export default function PublicPresell() {
     complianceLang,
   );
   /** Só White espelha a sales page. Black (promessas fortes) não clona claims — artigo informativo. */
-  const showImportedMirror = mirrorEligible && !isGhostPage && generationNiche === "white";
+  const showImportedMirror =
+    mirrorEligible &&
+    !isGhostPage &&
+    generationNiche === "white" &&
+    !isEssentialsImportPresentation(content as Record<string, unknown>);
   /** White espelho: sem chrome WL no rodapé (ex. nome da conta «… Super Admin»). */
   const showTenantBrandChrome = Boolean(tenantBranding) && !showImportedMirror && showTrustFooter;
 
@@ -1342,7 +1352,10 @@ export default function PublicPresell() {
     );
   }
 
-  if (!isGhostPage) {
+  const useEssentialsStorefront =
+    essentialsPresentation && generationNiche === "white" && productImages.length > 0;
+
+  if (!isGhostPage && !useEssentialsStorefront) {
     const resolvedVisualDoc = resolvePresellPageDocument(page.content, {
       title: page.title,
       type: page.type,
@@ -1533,8 +1546,28 @@ export default function PublicPresell() {
     );
   }
 
+  const affiliateDisclosureTop = String(settings.affiliateDisclosure ?? "").trim();
+  const essentialsPublicLayout = essentialsPresentation && generationNiche === "white";
+  const essentialsHeroBlurb = (() => {
+    if (!essentialsPublicLayout) return "";
+    const blocks = salesText
+      .split(/\n\n+/)
+      .map((b) => b.trim())
+      .filter(Boolean);
+    const first = blocks[0] || salesText.trim();
+    if (!first) return "";
+    return first.length > 420 ? `${first.slice(0, 417)}…` : first;
+  })();
+
   const pageBody = (
     <>
+      {essentialsPublicLayout ? (
+        <PresellAffiliateDisclosureBar
+          language={complianceLang}
+          variant="dark"
+          textOverride={affiliateDisclosureTop || undefined}
+        />
+      ) : null}
       {gateKind === "cookies" && showCookieModal ? (
         <CookieConsentModal
           language={complianceLang}
@@ -1725,6 +1758,11 @@ export default function PublicPresell() {
                       />
                     ) : null}
                     {subtitle ? <StorefrontDarkSubtitle subtitle={subtitle} /> : null}
+                    {!subtitle && essentialsHeroBlurb ? (
+                      <p className="text-sm sm:text-base text-slate-300/95 leading-relaxed max-w-xl">
+                        {essentialsHeroBlurb}
+                      </p>
+                    ) : null}
                     <div className="pt-1">
                       <PresellCta href={href} disabled={!ctaEnabled} surface="dark" stretch>
                         {ctaText}
@@ -1870,6 +1908,11 @@ export default function PublicPresell() {
                       />
                     ) : null}
                     {subtitle ? <StorefrontTintSubtitle subtitle={subtitle} /> : null}
+                    {!subtitle && essentialsHeroBlurb ? (
+                      <p className="text-sm sm:text-base text-violet-950/90 leading-relaxed max-w-xl">
+                        {essentialsHeroBlurb}
+                      </p>
+                    ) : null}
                     <div className="pt-1">
                       <PresellCta href={href} disabled={!ctaEnabled} surface="tintHero" stretch>
                         {ctaText}

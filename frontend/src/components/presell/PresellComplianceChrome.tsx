@@ -7,16 +7,24 @@ import {
 export function PresellAffiliateDisclosureBar({
   language,
   className,
+  variant = "light",
+  textOverride,
 }: {
   language: string | undefined;
   className?: string;
+  /** Barra escura no topo (estilo SuperPresell / review desk). */
+  variant?: "light" | "dark";
+  textOverride?: string;
 }) {
-  const text = publicAffiliateDisclosureText(language);
+  const text = (textOverride || publicAffiliateDisclosureText(language)).trim();
   return (
     <div
       role="note"
       className={cn(
-        "relative z-[36] w-full border-b border-amber-200/80 bg-amber-50/95 px-3 py-2 text-center text-xs leading-snug text-amber-950",
+        "relative z-[36] w-full px-3 py-2 text-center text-[11px] sm:text-xs leading-snug",
+        variant === "dark"
+          ? "border-b border-white/10 bg-[#0c0f14] text-slate-300"
+          : "border-b border-amber-200/80 bg-amber-50/95 text-amber-950",
         className,
       )}
     >

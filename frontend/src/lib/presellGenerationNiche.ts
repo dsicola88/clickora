@@ -18,7 +18,7 @@ export const PRESELL_NICHE_OPTIONS: {
     id: "white",
     name: "White (produtos leves)",
     description:
-      "Gadgets, reviews, ofertas sem claims médicos. Visual da página da URL (espelho) quando possível. Cookies só desbloqueiam a página; a oferta fica nos CTAs explícitos. Divulgação de afiliado no topo.",
+      "Gadgets, reviews, ofertas sem claims médicos. No wizard escolhe «só essencial» (estilo SuperPresell) ou espelho completo. Cookies só desbloqueiam a página; a oferta fica nos CTAs com /track/r/.",
   },
 ];
 

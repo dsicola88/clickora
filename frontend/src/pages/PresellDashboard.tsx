@@ -125,6 +125,12 @@ import {
 } from "@/components/presell/PresellScriptAnalyticsPanel";
 import { PresellTypeCombobox } from "@/components/presell/PresellTypeCombobox";
 import {
+  IMPORT_PRESENTATION_OPTIONS,
+  essentialsFieldsFromImport,
+  resolveImportPresentationFromContent,
+  type PresellImportPresentation,
+} from "@/lib/presellImportPresentation";
+import {
   PRESELL_NICHE_OPTIONS,
   applyImportedPolicyToSettings,
   coercePresellTypeForNiche,
@@ -387,6 +393,7 @@ export default function PresellDashboard() {
     affiliateLink: "",
     /** Vazio = domínio padrão da conta; UUID = domínio verificado específico. */
     customDomainId: "",
+    importPresentation: "essentials" as PresellImportPresentation,
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   /** Quando false, o slug segue o «Nome da página»; ao editar o slug à mão, passa a true (edição/alteração manual). */
@@ -522,6 +529,7 @@ export default function PresellDashboard() {
       productLink: "",
       affiliateLink: "",
       customDomainId: presetDomainId,
+      importPresentation: "essentials",
     });
     setCreatorStep(1);
     setSlugTouchedByUser(false);
@@ -544,6 +552,8 @@ export default function PresellDashboard() {
         : mirrorLen >= 2500
           ? "white"
           : "black";
+    const importPresentation =
+      resolveImportPresentationFromContent(content, niche) ?? "essentials";
     setFormData({
       pageName: page.title,
       pageSlug: page.slug,
@@ -553,6 +563,7 @@ export default function PresellDashboard() {
       productLink: source || affiliate,
       affiliateLink: affiliate,
       customDomainId: page.custom_domain_id ?? "",
+      importPresentation,
     });
     setSlugTouchedByUser(true);
     setTypeOptions({
@@ -790,17 +801,26 @@ export default function PresellDashboard() {
             return;
           }
         }
-        const content = {
+        const essentialsOnly =
+          formData.generationNiche === "white" && formData.importPresentation === "essentials";
+        const content: Record<string, unknown> = {
           ...prevContent,
           affiliateLink: ctaAffiliate,
           sourceUrl: prevContent.sourceUrl ?? importUrl,
           generationNiche: formData.generationNiche,
-          ...(mirrorToSave.length > 0
-            ? { importMirrorSrcDoc: mirrorToSave }
-            : prevMirror
-              ? { importMirrorSrcDoc: prevMirror }
-              : {}),
+          ...(formData.generationNiche === "white"
+            ? { importPresentation: formData.importPresentation, importMode: "template" }
+            : { importPresentation: undefined }),
         };
+        if (essentialsOnly) {
+          delete content.importMirrorSrcDoc;
+          delete content.import_mirror_src_doc;
+          delete content.pageDocument;
+        } else if (mirrorToSave.length > 0) {
+          content.importMirrorSrcDoc = mirrorToSave;
+        } else if (prevMirror) {
+          content.importMirrorSrcDoc = prevMirror;
+        }
         await updateMutation.mutateAsync({
           id: editingId,
           data: {
@@ -890,7 +910,13 @@ export default function PresellDashboard() {
           storefrontTheme: data.storefront_theme,
           storefrontHeroTint: data.storefront_hero_tint,
           mirrorShowSpotlight: false,
-          ...(typeof data.import_mirror_src_doc === "string" && data.import_mirror_src_doc.length > 0
+          ...(formData.generationNiche === "white"
+            ? { importPresentation: formData.importPresentation, importMode: "template" as const }
+            : {}),
+          ...(formData.generationNiche === "white" &&
+          formData.importPresentation === "mirror" &&
+          typeof data.import_mirror_src_doc === "string" &&
+          data.import_mirror_src_doc.length > 0
             ? { importMirrorSrcDoc: data.import_mirror_src_doc }
             : {}),
           ...(typeof data.source_page_title === "string" && data.source_page_title.trim()
@@ -1202,6 +1228,43 @@ export default function PresellDashboard() {
                     })}
                   </div>
                 </div>
+
+                {formData.generationNiche === "white" ? (
+                  <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
+                    <div>
+                      <Label className="text-foreground">{t("pages.presells.importPresentationLabel")}</Label>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                        {t("pages.presells.importPresentationHint")}
+                      </p>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {IMPORT_PRESENTATION_OPTIONS.map((opt) => {
+                        const active = formData.importPresentation === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => {
+                              setFormData((prev) => ({ ...prev, importPresentation: opt.id }));
+                              if (opt.id === "essentials") setMirrorHtmlDraft("");
+                            }}
+                            className={cn(
+                              "rounded-lg border px-3 py-3 text-left transition-colors",
+                              active
+                                ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                                : "border-border/70 bg-card hover:border-primary/40",
+                            )}
+                          >
+                            <p className="text-sm font-semibold text-foreground">{t(opt.nameKey)}</p>
+                            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                              {t(opt.descriptionKey)}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="space-y-2">
                   <Label htmlFor="productLink">{t("pages.presells.productPageLabel")}</Label>
@@ -1559,7 +1622,9 @@ export default function PresellDashboard() {
               />
             )}
 
-            {isEditing ? (
+            {isEditing &&
+            formData.generationNiche === "white" &&
+            formData.importPresentation === "mirror" ? (
               <MirrorHtmlEditor
                 value={mirrorHtmlDraft}
                 onChange={setMirrorHtmlDraft}
@@ -1607,6 +1672,77 @@ export default function PresellDashboard() {
                   }
                 }}
               />
+            ) : isEditing &&
+              formData.generationNiche === "white" &&
+              formData.importPresentation === "essentials" ? (
+              <div className="rounded-lg border border-primary/20 bg-primary/[0.04] px-4 py-3 text-sm text-muted-foreground leading-relaxed">
+                {t("pages.presells.essentialsEditorHint")}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  disabled={mirrorReimportBusy}
+                  onClick={async () => {
+                    const url = formData.productLink.trim() || formData.affiliateLink.trim();
+                    if (!/^https?:\/\//i.test(url) || !editingId) {
+                      toast.error(t("pages.presells.toastReimportUrl"));
+                      return;
+                    }
+                    setMirrorReimportBusy(true);
+                    try {
+                      const { data, error } = await presellService.importFromUrl({
+                        product_url: url,
+                        language: formData.language,
+                        generation_niche: formData.generationNiche,
+                        affiliate_link: formData.affiliateLink.trim() || undefined,
+                      });
+                      if (error || !data) {
+                        toast.error(error || t("pages.presells.toastReimportFail"));
+                        return;
+                      }
+                      const isDiscount = formData.presellType === "desconto";
+                      const patch = essentialsFieldsFromImport(data as Record<string, unknown>, {
+                        isDiscount,
+                      });
+                      const { data: full } = await presellService.getById(editingId);
+                      const prev = (full?.content || {}) as Record<string, unknown>;
+                      const nextContent: Record<string, unknown> = {
+                        ...prev,
+                        ...patch,
+                        importPresentation: "essentials",
+                        importMode: "template",
+                      };
+                      delete nextContent.importMirrorSrcDoc;
+                      delete nextContent.import_mirror_src_doc;
+                      delete nextContent.pageDocument;
+                      const lang = presellLanguageFromImport(
+                        normalizePresellLocale(formData.language),
+                        data.detected_language,
+                        data.detected_language_confidence,
+                      );
+                      if (lang !== formData.language) updateField("language", lang);
+                      await updateMutation.mutateAsync({
+                        id: editingId,
+                        data: {
+                          title: patch.title || formData.pageName,
+                          content: nextContent,
+                          language: lang,
+                        },
+                      });
+                      setMirrorHtmlDraft("");
+                      if (patch.title) updateField("pageName", patch.title);
+                      toast.success(t("pages.presells.toastEssentialsRefreshed"));
+                    } catch (e) {
+                      toastErrorFromCatch(e, t("pages.presells.toastReimportFail"));
+                    } finally {
+                      setMirrorReimportBusy(false);
+                    }
+                  }}
+                >
+                  {t("pages.presells.refreshEssentialsFromUrl")}
+                </Button>
+              </div>
             ) : null}
 
             <div className="space-y-2">

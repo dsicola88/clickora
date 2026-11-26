@@ -104,6 +104,34 @@ describe("presellLiteHtml", () => {
     assert.match(built.html, /VISIVRA REVIEW PAGE/);
     assert.match(built.html, /class="mirror"/);
     assert.match(built.html, /go\.example\.com\/api\/track\/r\/11111111/);
+  });
+
+  it("essentials: HTML lite ignora espelho mesmo com importMirrorSrcDoc", () => {
+    const built = buildPresellLiteHtml({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Visivra",
+      type: "review",
+      language: "en",
+      content: {
+        generationNiche: "white",
+        importPresentation: "essentials",
+        affiliateLink: "https://offer.example/buy",
+        importMirrorSrcDoc: `<!DOCTYPE html><html><body><h1>SHOULD NOT EMBED</h1>${"x".repeat(250)}</body></html>`,
+        article: {
+          headline: "Independent review headline",
+          intro: "Original intro " + "y".repeat(80),
+          cta_label: "See packages",
+        },
+      },
+      tracking: {},
+      trackApiBase: "https://go.example.com/api",
+    });
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+    assert.doesNotMatch(built.html, /SHOULD NOT EMBED/);
+    assert.doesNotMatch(built.html, /class="mirror"/);
+    assert.match(built.html, /Independent review headline/);
+
     const withPixel = buildPresellLiteHtml({
       id: "11111111-1111-4111-8111-111111111111",
       title: "Produto X",

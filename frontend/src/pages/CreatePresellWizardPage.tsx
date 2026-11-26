@@ -36,6 +36,10 @@ import { isDiscountPresellType, isVideoPresellType } from "@/lib/presellTypeMeta
 import { useAuth } from "@/contexts/AuthContext";
 import { PresellReviewStage } from "@/components/presell/PresellReviewStage";
 import {
+  IMPORT_PRESENTATION_OPTIONS,
+  type PresellImportPresentation,
+} from "@/lib/presellImportPresentation";
+import {
   PRESELL_NICHE_OPTIONS,
   applyImportedPolicyToSettings,
   coercePresellTypeForNiche,
@@ -118,6 +122,9 @@ export default function CreatePresellWizardPage() {
     () => defaultPresellLanguageForAdCountry("US") ?? "en",
   );
   const [generationNiche, setGenerationNiche] = useState<PresellGenerationNiche>("black");
+  /** White: espelho total vs só essencial (estilo SuperPresell — hero + copy + /track). */
+  const [whiteImportPresentation, setWhiteImportPresentation] =
+    useState<PresellImportPresentation>("essentials");
   const [presellType, setPresellType] = useState("cookies");
   const [enableAbTest, setEnableAbTest] = useState(false);
   /** Pacote landing (tsl) + review + advertorial — estilo SuperPresell. */
@@ -281,7 +288,15 @@ export default function CreatePresellWizardPage() {
             storefrontTheme: data.storefront_theme,
             storefrontHeroTint: data.storefront_hero_tint,
             mirrorShowSpotlight: false,
-            ...(hasMirror ? { importMirrorSrcDoc: data.import_mirror_src_doc } : {}),
+            ...(hasMirror && generationNiche === "white" && whiteImportPresentation === "mirror"
+              ? { importMirrorSrcDoc: data.import_mirror_src_doc }
+              : {}),
+            ...(generationNiche === "white"
+              ? { importPresentation: whiteImportPresentation }
+              : {}),
+            ...(generationNiche === "white" && whiteImportPresentation === "essentials"
+              ? { pageDocument: undefined }
+              : {}),
             ...(typeof data.source_page_title === "string" && data.source_page_title.trim()
               ? { sourcePageTitle: data.source_page_title.trim() }
               : {}),
@@ -315,13 +330,15 @@ export default function CreatePresellWizardPage() {
           }
         }
 
-        content.pageDocument = buildEditablePageDocument({
-          title: pageTitle,
-          type: typeForPage,
-          videoUrl: video_url,
-          language: importLanguage,
-          content,
-        });
+        if (!(generationNiche === "white" && whiteImportPresentation === "essentials")) {
+          content.pageDocument = buildEditablePageDocument({
+            title: pageTitle,
+            type: typeForPage,
+            videoUrl: video_url,
+            language: importLanguage,
+            content,
+          });
+        }
 
         return { content, video_url, mirrorOk, pageTitle };
       };
@@ -862,6 +879,33 @@ export default function CreatePresellWizardPage() {
               })}
             </div>
           </div>
+
+          {generationNiche === "white" ? (
+            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+              <Label>{t("pages.createPresell.importPresentationLabel")}</Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {IMPORT_PRESENTATION_OPTIONS.map((opt) => {
+                  const active = whiteImportPresentation === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setWhiteImportPresentation(opt.id)}
+                      className={cn(
+                        "rounded-lg border px-3 py-2.5 text-left text-xs",
+                        active
+                          ? "border-primary bg-primary/10"
+                          : "border-border/70 bg-card hover:border-primary/40",
+                      )}
+                    >
+                      <p className="font-semibold text-foreground text-sm">{t(opt.nameKey)}</p>
+                      <p className="mt-1 text-muted-foreground leading-relaxed">{t(opt.descriptionKey)}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="offer">{t("pages.createPresell.offerLabel")}</Label>

@@ -2,6 +2,7 @@
  * HTML estático mínimo para landers Ads (LCP).
  * Tipos com gate interativo ficam na SPA `/p/:id`.
  */
+import { isEssentialsImportPresentation } from "./presellImportPresentation";
 import { affiliateLinkFromPresellPage } from "./trackOfferRedirectGuard";
 import { sanitizeMirrorEmbedForLiteHtml } from "./sanitizeMirrorEmbedForLiteHtml";
 
@@ -188,7 +189,8 @@ export function buildPresellLiteHtml(input: PresellLiteHtmlInput): PresellLiteHt
   const lang = (input.language || "pt").trim().slice(0, 8) || "pt";
   const spa = input.spaPath || `/p/${input.id}`;
   // Espelho só no nicho white — black fica no portal editorial (igual à SPA).
-  const mirrorRaw = isWhiteNiche(content) ? extractMirrorHtml(content) : "";
+  const mirrorRaw =
+    isWhiteNiche(content) && !isEssentialsImportPresentation(content) ? extractMirrorHtml(content) : "";
   const mirrorSanitized =
     mirrorRaw.length > 200 && mirrorRaw.length < 450_000
       ? sanitizeMirrorEmbedForLiteHtml(rewriteMirrorTrackHrefs(mirrorRaw, trackHref))
