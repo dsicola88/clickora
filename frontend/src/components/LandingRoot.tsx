@@ -50,7 +50,7 @@ function CustomDomainRootRedirect() {
   const { data, isPending, isError, isFetched } = useQuery({
     queryKey: ["public-custom-domain-root-presell", hostname],
     queryFn: async () => {
-      const { data: payload, error } = await presellService.getRootPresellIdForHost();
+      const { data: payload, error, errorCode } = await presellService.getRootPresellIdForHost();
       if (payload && typeof payload === "object" && "purpose" in payload && (payload as { purpose?: string }).purpose === "tracking") {
         if (hostname) clearCachedRootPresellId(hostname);
         return { kind: "tracking" as const };
@@ -65,7 +65,8 @@ function CustomDomainRootRedirect() {
         return { kind: "presell" as const, id, slug: slug ?? null };
       }
       if (hostname) clearCachedRootPresellId(hostname);
-      if (error) throw new Error(error);
+      /** 404 `ROOT_PRESELL_NONE` = domínio verificado sem presell publicada: estado vazio, não erro. */
+      if (error && errorCode !== "ROOT_PRESELL_NONE") throw new Error(error);
       return { kind: "empty" as const };
     },
     staleTime: 60_000,

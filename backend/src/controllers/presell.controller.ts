@@ -423,7 +423,7 @@ export const presellController = {
     const variants = hostnameLookupVariants(host);
     const cd = await systemPrisma.customDomain.findFirst({
       where: { status: "verified", userId: ownerId, hostname: { in: variants } },
-      select: { id: true, rootPresellId: true, purpose: true },
+      select: { id: true, rootPresellId: true, purpose: true, isDefault: true },
     });
     if (!cd) {
       return res.status(404).json({ error: "Domínio não encontrado.", code: "ROOT_PRESELL_NO_DOMAIN" });
@@ -463,6 +463,21 @@ export const presellController = {
         where: {
           userId: ownerId,
           customDomainId: cd.id,
+          status: "published",
+        },
+        orderBy: [{ updatedAt: "desc" }],
+        include: { user: { include: { subscription: true } } },
+      });
+    }
+    /**
+     * Presells criadas antes deste domínio ser verificado ficam com `customDomainId = null`, mas o painel
+     * mostra o link no domínio padrão (mesma regra do frontend). Sem isto a raiz dava 404 com presells publicadas.
+     */
+    if (!page && cd.isDefault) {
+      page = await systemPrisma.presellPage.findFirst({
+        where: {
+          userId: ownerId,
+          customDomainId: null,
           status: "published",
         },
         orderBy: [{ updatedAt: "desc" }],
