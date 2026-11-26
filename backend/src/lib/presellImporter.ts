@@ -2,6 +2,7 @@ import type { RichLocalePack } from "./presellLocalePack";
 import {
   buildDiscountHeadline,
   localePack,
+  localePackForNiche,
   normalizeImporterLang,
   officialBuyCta,
   referencePriceLineCompact,
@@ -1372,13 +1373,14 @@ function buildRichSalesText(
 
 function buildCompactSalesText(args: {
   language: string;
+  generationNiche?: string;
   productName: string;
   description: string;
   price: string;
   paragraphs: string[];
   listItems: string[];
 }): string {
-  const locale = localePack(args.language);
+  const locale = localePackForNiche(args.language, args.generationNiche);
   const primary = cleanText(args.description) || args.productName;
   const intro = firstSentences(primary, 420);
   const priceLine = args.price ? referencePriceLineCompact(args.language, args.price) : "";
@@ -1868,7 +1870,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
 
   const { language, detection: languageDetection } = resolveImportLanguage(requestedLanguage, html);
 
-  const locale = localePack(language);
+  const locale = localePackForNiche(language, generationNiche);
 
   const pageHost = new URL(finalUrl).hostname;
   const brandFromHost = brandFromHostname(pageHost.replace(/^www\./, ""));
@@ -1952,6 +1954,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   } else if (sourceChars >= 120 || listItems.length >= 2 || paragraphs.length >= 2) {
     sales_text = buildCompactSalesText({
       language,
+      generationNiche,
       productName,
       description: metaDescription,
       price,
@@ -1961,6 +1964,7 @@ export async function importPresellFromProductUrl(input: ImportPresellInput): Pr
   } else {
     sales_text = buildCompactSalesText({
       language,
+      generationNiche,
       productName,
       description: metaDescription,
       price,

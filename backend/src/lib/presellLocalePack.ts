@@ -214,6 +214,31 @@ export function localePack(language: string): RichLocalePack {
   return RICH[k] ?? RICH.en;
 }
 
+/**
+ * Super Presell (white) em inglês para EUA, Canadá, Austrália e Reino Unido:
+ * só informação do produto, sem linguagem de afiliado no corpo.
+ * A divulgação de comissão fica numa única frase neutra (barra/rodapé), não aqui.
+ * O modo black mantém o pack editorial de `RICH.en`.
+ */
+const WHITE_EN_PACK: RichLocalePack = {
+  subtitleFallback: "Product details, images and key information.",
+  cta: "See the offer",
+  sectionWhy: "Product overview",
+  sectionWhat: "Before you buy",
+  sectionFromPage: "More details",
+  bullet1: "Confirm the product name, size and variant before you order.",
+  bullet2: "Final price, shipping and guarantee terms are shown at checkout.",
+  bullet3: "Review the return policy and contact details before you buy.",
+  urgency: "Availability and pricing can change. Check the latest details before you order.",
+  richFooter: "Continue to checkout to see current pricing and payment options.",
+};
+
+/** Pack de texto por nicho: white em inglês usa o pack profissional; restantes casos não mudam. */
+export function localePackForNiche(language: string, niche: string | undefined): RichLocalePack {
+  if (niche === "white" && normalizeImporterLang(language) === "en") return WHITE_EN_PACK;
+  return localePack(language);
+}
+
 export function buildDiscountHeadline(percent: number | null, language: string): string {
   const k = normalizeImporterLang(language);
   if (percent != null && percent >= 5) {

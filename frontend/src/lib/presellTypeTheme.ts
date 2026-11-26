@@ -406,7 +406,7 @@ export function getPresellTypeEditorial(
           title: "Privacy first",
           points: [
             "You can review cookie and privacy policies anytime.",
-            "Continuing implies consent as stated in the notice.",
+            "You can change your cookie choices at any time from the settings link.",
           ],
         },
       };
