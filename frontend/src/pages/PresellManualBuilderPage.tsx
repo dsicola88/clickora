@@ -57,7 +57,9 @@ import { PresellAdvancedTrackingCollapsible } from "@/components/presell/Presell
 import { PresellTrackingHealthPanel } from "@/components/presell/PresellTrackingHealthPanel";
 import {
   getPublicPresellFullUrl,
+  hasPublicPresellOrigin,
   listVerifiedHostingDomains,
+  PUBLIC_DOMAIN_REQUIRED_MESSAGE,
   resolveDefaultCustomDomainIdForAccount,
 } from "@/lib/publicPresellOrigin";
 import { setPageBuilderStorageKey, useBuilder } from "@/page-builder/store";
@@ -401,6 +403,11 @@ export default function PresellManualBuilderPage() {
           ? { custom_domain_id: customDomainId }
           : {}),
       };
+
+      /** O domínio principal não serve presells públicas: sem domínio próprio não há onde publicar. */
+      if (!hasPublicPresellOrigin(customDomains, customDomainId || null)) {
+        throw new Error(PUBLIC_DOMAIN_REQUIRED_MESSAGE);
+      }
 
       const complianceBlockedMessage = (row: {
         compliance_blocked?: boolean;

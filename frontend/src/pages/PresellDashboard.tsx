@@ -73,6 +73,7 @@ import { tenantQueryKey } from "@/lib/tenantQueryKey";
 import { userCanWritePresells } from "@/lib/workspaceCapabilities";
 import {
   getPublicPresellFullUrl,
+  PUBLIC_DOMAIN_REQUIRED_MESSAGE,
   isCustomDomainHttpsPendingForPresell,
   getPublicPresellOriginForPresell,
   isMainPlatformPresellOrigin,
@@ -416,7 +417,8 @@ export default function PresellDashboard() {
       },
       origin,
     );
-    const fullUrl = `${origin}${path}`;
+    /** Sem domínio para publicar: não há URL pública (nunca o domínio principal). */
+    const fullUrl = origin ? `${origin}${path}` : "";
     const onCustom = !isMainPlatformPresellOrigin(origin);
     const canBare = onCustom && !emptyBoth && slugPart && !isPresellUuidParam(slugPart);
     let prefix: string;
@@ -618,6 +620,10 @@ export default function PresellDashboard() {
       presellAdsCampaignName(page.title, page.slug),
       "Google Ads",
     );
+    if (!url) {
+      toast.error(PUBLIC_DOMAIN_REQUIRED_MESSAGE);
+      return;
+    }
     void navigator.clipboard.writeText(url);
     setCopiedId(page.id);
     toast.success(t("pages.createPresell.copyCombinedUrlDone"));
@@ -1521,7 +1527,11 @@ export default function PresellDashboard() {
                       {presellUrlPreview.prefix}
                       {presellUrlPreview.pathLabel}
                     </span>
-                    {!hasVerifiedCustomDomain ? (
+                    {!presellUrlPreview.origin ? (
+                      <span className="block mt-1 text-[11px] leading-snug text-amber-600 dark:text-amber-400">
+                        {PUBLIC_DOMAIN_REQUIRED_MESSAGE}
+                      </span>
+                    ) : !hasVerifiedCustomDomain ? (
                       <span className="block mt-1 text-[11px] leading-snug">
                         {t("pages.presells.verifiedDomainBefore")}{" "}
                         <code className="text-[10px] bg-muted px-1 rounded">{t("pages.presells.slugExamplePath")}</code>{" "}
@@ -2023,9 +2033,16 @@ export default function PresellDashboard() {
                   </td>
                   <td className="py-3 px-4 max-w-[min(100vw,22rem)]">
                     <div className="flex flex-col gap-1">
-                      <code className="text-[11px] sm:text-xs text-primary break-all leading-snug">
-                        {getPublicPresellFullUrl(customDomains, page.custom_domain_id, page)}
-                      </code>
+                      {(() => {
+                        const lander = getPublicPresellFullUrl(customDomains, page.custom_domain_id, page);
+                        return lander ? (
+                          <code className="text-[11px] sm:text-xs text-primary break-all leading-snug">{lander}</code>
+                        ) : (
+                          <span className="text-[11px] sm:text-xs text-amber-600 dark:text-amber-400 leading-snug">
+                            {PUBLIC_DOMAIN_REQUIRED_MESSAGE}
+                          </span>
+                        );
+                      })()}
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] text-muted-foreground">slug: /{page.slug}</span>
                         <button
@@ -2085,7 +2102,11 @@ export default function PresellDashboard() {
                         </button>
                       ) : null}
                       <a
-                        href={getPublicPresellFullUrl(customDomains, page.custom_domain_id, page)}
+                        href={
+                          getPublicPresellFullUrl(customDomains, page.custom_domain_id, page) ||
+                          /** Sem domínio público: abre o preview privado do dono (exige sessão). */
+                          `/p/${page.id}`
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"

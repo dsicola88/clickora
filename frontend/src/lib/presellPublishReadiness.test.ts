@@ -90,3 +90,42 @@ describe("resolvePresellAffiliateLink", () => {
     ).toBe("https://mwebkivo.com/12679/3986/2/?");
   });
 });
+
+describe("publicar exige onde servir a página (sem domínio principal)", () => {
+  const base = {
+    status: "draft",
+    affiliateLink: "https://mwebkivo.com/1/2/3/",
+    mirrorHtml: '<a href="https://x.com/api/track/r/abc?to=offer">Buy</a>',
+  };
+
+  it("sem domínio próprio nem URL pública → bloqueia a publicação", () => {
+    const items = buildPublishReadinessFromPresell({ ...base, customDomainId: null, publicUrl: "" });
+    const domain = items.find((i) => i.id === "domain");
+    expect(domain?.ok).toBe(false);
+    expect(domain?.blocking).toBe(true);
+    expect(domain?.hint).toMatch(/domínio próprio/i);
+    expect(publishBlockedByReadiness(items)?.id).toBe("domain");
+  });
+
+  it("URL pública do domínio técnico isolado → publica", () => {
+    const items = buildPublishReadinessFromPresell({
+      ...base,
+      customDomainId: null,
+      publicUrl: "https://pages.isolado-exemplo.com/p/abc",
+    });
+    expect(publishBlockedByReadiness(items)).toBeNull();
+  });
+
+  it("domínio próprio com SSL pendente avisa mas não bloqueia", () => {
+    const items = buildPublishReadinessFromPresell({
+      ...base,
+      customDomainId: "dom-1",
+      publicUrl: "https://novo.cliente.com/l/abc",
+      customDomainHttpsPending: true,
+    });
+    const domain = items.find((i) => i.id === "domain");
+    expect(domain?.ok).toBe(false);
+    expect(domain?.blocking).toBeFalsy();
+    expect(publishBlockedByReadiness(items)).toBeNull();
+  });
+});

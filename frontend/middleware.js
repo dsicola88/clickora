@@ -8,51 +8,9 @@
  * Mesma resposta para qualquer User-Agent: nada aqui depende de bot/IP.
  */
 
-const MARKETING_ROBOTS = `# dclickora — site de marketing (indexável)
-User-agent: Googlebot
-Allow: /
-Disallow: /p/
-Disallow: /api/
-Disallow: /inicio
-Disallow: /presells
-Disallow: /settings
-Disallow: /integracoes
-Disallow: /tracking
-Disallow: /rotadores
-Disallow: /urls
-Disallow: /admin
-
-User-agent: Bingbot
-Allow: /
-Disallow: /p/
-Disallow: /api/
-Disallow: /inicio
-Disallow: /presells
-Disallow: /settings
-Disallow: /integracoes
-Disallow: /tracking
-Disallow: /rotadores
-Disallow: /urls
-Disallow: /admin
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
+const MARKETING_ROBOTS = `# dclickora — site institucional (indexável)
 User-agent: *
 Allow: /
-Disallow: /p/
-Disallow: /api/
-Disallow: /inicio
-Disallow: /presells
-Disallow: /settings
-Disallow: /integracoes
-Disallow: /tracking
-Disallow: /rotadores
-Disallow: /urls
-Disallow: /admin
 
 Sitemap: https://www.dclickora.com/sitemap.xml
 `;

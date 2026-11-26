@@ -1,6 +1,7 @@
 import type { Request } from "express";
 import { isMainOrPreviewHostname } from "./presellHostAccess";
 import { getRequestHostname } from "./requestHost";
+import { getPublicPresellOrigin, isPlatformMainHostname } from "./publicPresellHost";
 
 export function isPresellUuidParam(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim());
@@ -81,22 +82,34 @@ export function resolvePublicAppOrigin(req: Request): string | null {
   return null;
 }
 
+function hostnameOfOrigin(origin: string | null): string {
+  if (!origin) return "";
+  try {
+    return new URL(origin).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
 /**
- * URL para a SPA pública a partir da API (`/l/:id` lite-inelegível → SPA).
+ * URL pública da presell a partir da API (`/l/:id` lite-inelegível → SPA).
  *
- * - Domínio personalizado do assinante (host do visitante ≠ site principal/preview/infra):
- *   caminho RELATIVO no mesmo host — `/{slug}` (ou `/p/:id` sem slug). Nunca salta para o
- *   dclickora.com, e o slug só é usado onde existe (é único por utilizador, não global).
- * - Site principal / preview / dev: `/p/:id` (existe em todos os hosts → 200) na origem da SPA.
+ * - Domínio personalizado do assinante (host do visitante ≠ plataforma/preview/infra):
+ *   caminho RELATIVO no mesmo host — `/{slug}` (ou `/p/:id` sem slug).
+ * - Domínio principal da plataforma (`dclickora.com` / `www`), ou origem que resolve para ele:
+ *   NUNCA gera URL pública ali (o SaaS não hospeda presells). Usa o domínio técnico isolado
+ *   `PUBLIC_PRESELL_HOST` (`https://<host>/p/:id`) e, sem ele, devolve `null` — o chamador deve
+ *   avisar que é preciso conectar um domínio próprio.
+ * - Dev (localhost) / preview Vercel: `/p/:id` na origem da SPA, como antes.
  *
  * O host do visitante vem de `getRequestHostname` (atrás do rewrite Vercel → Railway o `Host`
- * é o da API, o que antes fazia o slug cair no host errado → 404).
+ * é o da API).
  */
 export function publicSpaPresellUrl(
   req: Request,
   presellId: string,
   slug?: string | null,
-): string {
+): string | null {
   const visitorHost = (getRequestHostname(req) ?? "").toLowerCase();
   const s = typeof slug === "string" ? slug.trim() : "";
   const onTenantHost =
@@ -105,7 +118,12 @@ export function publicSpaPresellUrl(
   if (onTenantHost) {
     return s.length > 0 && !isPresellUuidParam(s) ? `/${encodeURIComponent(s)}` : `/p/${presellId}`;
   }
+
   const origin = resolvePublicAppOrigin(req);
+  if (isPlatformMainHostname(visitorHost) || isPlatformMainHostname(hostnameOfOrigin(origin))) {
+    const technical = getPublicPresellOrigin();
+    return technical ? `${technical}/p/${presellId}` : null;
+  }
   const path = `/p/${presellId}`;
   return origin ? `${origin}${path}` : path;
 }

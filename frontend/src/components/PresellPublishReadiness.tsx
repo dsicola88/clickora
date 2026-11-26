@@ -9,6 +9,8 @@ export type PublishReadinessItem = {
   label: string;
   ok: boolean;
   hint?: string;
+  /** Bloqueia publicar enquanto `ok` for falso (sem onde servir a página). */
+  blocking?: boolean;
 };
 
 type Props = {
@@ -131,9 +133,10 @@ export function buildPublishReadinessFromPresell(input: {
   const untracked = countUntrackedOfferHrefs(html, link);
   /** Hoplink + zero CTAs comerciais crus (bake no save / wizard). */
   const ctaOk = Boolean(link) && (!html || untracked === 0);
-  const domainOk =
-    !input.customDomainHttpsPending &&
-    Boolean(input.customDomainId || (input.publicUrl && /^https?:\/\//i.test(input.publicUrl)));
+  const hasPublicUrl = Boolean(input.publicUrl && /^https?:\/\//i.test(input.publicUrl));
+  const domainOk = !input.customDomainHttpsPending && Boolean(input.customDomainId || hasPublicUrl);
+  /** Sem domínio próprio e sem domínio técnico isolado: o domínio principal não serve presells. */
+  const noPublicHost = !input.customDomainId && !hasPublicUrl;
   return [
     {
       id: "published",
@@ -162,9 +165,10 @@ export function buildPublishReadinessFromPresell(input: {
       id: "domain",
       label: "URL pública / domínio",
       ok: domainOk,
+      blocking: noPublicHost,
       hint: input.customDomainHttpsPending
-        ? "O domínio ainda não está pronto — use o link da app ou aguarde «Pronto para anúncios»."
-        : "Ligue o seu domínio ou use o link público da app.",
+        ? "O domínio ainda não está pronto — aguarde «Pronto para anúncios» antes de usar na Final URL."
+        : "Conecte um domínio próprio verificado para publicar. O domínio principal da plataforma não serve presells públicas.",
     },
   ];
 }
@@ -172,5 +176,5 @@ export function buildPublishReadinessFromPresell(input: {
 /** Bloqueia «publicar / anunciar» se oferta ou CTAs falharem (gates duros). */
 export function publishBlockedByReadiness(items: PublishReadinessItem[]): PublishReadinessItem | null {
   const hard = new Set(["offer", "cta_track"]);
-  return items.find((i) => hard.has(i.id) && !i.ok) ?? null;
+  return items.find((i) => (hard.has(i.id) || i.blocking) && !i.ok) ?? null;
 }

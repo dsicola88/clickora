@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly VITE_PUBLIC_APP_URL?: string;
   /** Origem pública do site (HTTPS, sem barra final), ex. `https://www.dclickora.com` — OG, sitemap, links canónicos. */
   readonly VITE_PUBLIC_SITE_ORIGIN?: string;
+  /** Domínio técnico isolado só para presells publicadas (nunca o domínio principal). */
+  readonly VITE_PUBLIC_PRESELL_HOST?: string;
   /** OAuth Web client ID (Google Cloud Console) — igual a GOOGLE_OAUTH_CLIENT_ID na API */
   readonly VITE_GOOGLE_CLIENT_ID?: string;
   /** Mostra o botão SSO enterprise (OIDC). Sem isto o botão não aparece — evita link quebrado. */

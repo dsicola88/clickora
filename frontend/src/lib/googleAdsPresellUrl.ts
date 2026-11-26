@@ -144,6 +144,8 @@ export function buildGoogleAdsPresellCopyUrl(
   campaignName: string,
   trafficSource: string,
 ): string {
+  /** Sem URL base (sem domínio para publicar) não há URL de anúncio — nunca devolver só a query. */
+  if (!basePresellUrl.trim()) return "";
   const p = buildGoogleAdsPresellUrlParts(basePresellUrl, campaignName, trafficSource);
   return p.finalUrlSuffix ? p.combinedTrackingUrl : p.finalUrl;
 }

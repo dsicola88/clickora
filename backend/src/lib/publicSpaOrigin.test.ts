@@ -23,7 +23,7 @@ function fakeReq(partial: {
   } as unknown as Request;
 }
 
-const ENV_KEYS = ["PUBLIC_APP_URL", "FRONTEND_URL", "APP_PUBLIC_URL"] as const;
+const ENV_KEYS = ["PUBLIC_APP_URL", "FRONTEND_URL", "APP_PUBLIC_URL", "PUBLIC_PRESELL_HOST"] as const;
 
 describe("publicSpaOrigin", () => {
   /** Determinístico: o resultado não pode depender do `.env` local. */
@@ -94,14 +94,46 @@ describe("publicSpaOrigin", () => {
     assert.equal(publicSpaPresellUrl(req, ID, null), `/p/${ID}`);
   });
 
-  it("site principal nunca usa slug (não resolve fora do domínio do assinante)", () => {
+  it("domínio principal NUNCA gera URL pública (sem PUBLIC_PRESELL_HOST → null)", () => {
     const req = fakeReq({
       host: "clickora-production.up.railway.app",
       headers: { "x-vercel-forwarded-host": "www.dclickora.com", "x-forwarded-proto": "https" },
     });
-    const url = publicSpaPresellUrl(req, ID, "kerassentials");
-    assert.match(url, new RegExp(`/p/${ID}$`));
-    assert.doesNotMatch(url, /kerassentials/);
+    assert.equal(publicSpaPresellUrl(req, ID, "kerassentials"), null);
+    assert.equal(publicSpaPresellUrl(req, ID, null), null);
+  });
+
+  it("origem que resolve para o domínio principal também não gera URL pública", () => {
+    process.env.PUBLIC_APP_URL = "https://www.dclickora.com";
+    try {
+      const req = fakeReq({ host: "clickora-production.up.railway.app" });
+      assert.equal(publicSpaPresellUrl(req, ID, null), null);
+    } finally {
+      delete process.env.PUBLIC_APP_URL;
+    }
+  });
+
+  it("com PUBLIC_PRESELL_HOST, o domínio principal aponta para o domínio técnico isolado", () => {
+    process.env.PUBLIC_PRESELL_HOST = "pages.example-pub.com";
+    try {
+      const req = fakeReq({
+        host: "clickora-production.up.railway.app",
+        headers: { "x-vercel-forwarded-host": "www.dclickora.com" },
+      });
+      assert.equal(publicSpaPresellUrl(req, ID, "kerassentials"), `https://pages.example-pub.com/p/${ID}`);
+    } finally {
+      delete process.env.PUBLIC_PRESELL_HOST;
+    }
+  });
+
+  it("PUBLIC_PRESELL_HOST apontado ao domínio principal é ignorado", () => {
+    process.env.PUBLIC_PRESELL_HOST = "https://www.dclickora.com";
+    try {
+      const req = fakeReq({ host: "x", headers: { "x-vercel-forwarded-host": "dclickora.com" } });
+      assert.equal(publicSpaPresellUrl(req, ID, null), null);
+    } finally {
+      delete process.env.PUBLIC_PRESELL_HOST;
+    }
   });
 
   it("slug que é UUID não é usado como path bare", () => {

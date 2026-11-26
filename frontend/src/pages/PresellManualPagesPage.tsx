@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { resolveTrackApiBaseForExport } from "@/lib/apiOrigin";
-import { getPublicPresellFullUrl } from "@/lib/publicPresellOrigin";
+import { getPublicPresellFullUrl, PUBLIC_DOMAIN_REQUIRED_MESSAGE } from "@/lib/publicPresellOrigin";
 import { buildGoogleAdsPresellCopyUrl, presellAdsCampaignName } from "@/lib/googleAdsPresellUrl";
 import { parsePresellBuilderPageDocument } from "@/lib/presellBuilderContent";
 import { buildPresellStandaloneHtml } from "@/lib/presellExportHtml";
@@ -157,6 +157,10 @@ export default function PresellManualPagesPage() {
     }
     const base = getPublicPresellFullUrl(customDomains, page.custom_domain_id, page);
     const url = buildGoogleAdsPresellCopyUrl(base, presellAdsCampaignName(page.title, page.slug), "Google Ads");
+    if (!url) {
+      toast.error(PUBLIC_DOMAIN_REQUIRED_MESSAGE);
+      return;
+    }
     void navigator.clipboard.writeText(url);
     setCopiedId(page.id);
     toast.success(t("pages.createPresell.copyCombinedUrlDone"));
@@ -439,7 +443,13 @@ export default function PresellManualPagesPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4 max-w-[min(100vw,20rem)]">
-                          <code className="text-[11px] text-primary break-all leading-snug">{lander}</code>
+                          {lander ? (
+                            <code className="text-[11px] text-primary break-all leading-snug">{lander}</code>
+                          ) : (
+                            <span className="text-[11px] text-amber-600 dark:text-amber-400 leading-snug">
+                              {PUBLIC_DOMAIN_REQUIRED_MESSAGE}
+                            </span>
+                          )}
                           <div className="mt-1 flex flex-wrap gap-1">
                             <button
                               type="button"

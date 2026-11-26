@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CustomDomainDto } from "@/types/api";
 import {
   getPublicPresellFullUrl,
+  getPublicPresellOriginForPresell,
+  getPublicPresellTechnicalOrigin,
+  hasPublicPresellOrigin,
   isHostingCapableDomain,
   listVerifiedHostingDomains,
   resolveDefaultCustomDomainIdForAccount,
@@ -99,5 +102,66 @@ describe("publicPresellOrigin hosting vs tracking", () => {
     const url = getPublicPresellFullUrl(domains, "hv", { id: "page-ab", type: "tsl" });
     expect(url).toBe("https://honestverdictguide.online/l/page-ab");
     expect(url).not.toContain("localhost");
+  });
+});
+
+describe("domínio principal NÃO é origem de presells públicas", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  const PROD_SITE = "https://www.dclickora.com";
+
+  it("sem domínio próprio e sem domínio técnico → URL vazia (nunca www.dclickora.com)", () => {
+    vi.stubEnv("VITE_PUBLIC_SITE_ORIGIN", PROD_SITE);
+    vi.stubEnv("VITE_PUBLIC_PRESELL_HOST", "");
+    expect(getPublicPresellOriginForPresell([], null)).toBe("");
+    expect(getPublicPresellOriginForPresell(null, null)).toBe("");
+    expect(hasPublicPresellOrigin([], null)).toBe(false);
+    const url = getPublicPresellFullUrl([], null, { id: "page-1", type: "cookies" });
+    expect(url).toBe("");
+    expect(url).not.toContain("dclickora.com");
+  });
+
+  it("domínio técnico isolado é usado quando não há domínio próprio", () => {
+    vi.stubEnv("VITE_PUBLIC_SITE_ORIGIN", PROD_SITE);
+    vi.stubEnv("VITE_PUBLIC_PRESELL_HOST", "pages.isolado-exemplo.com");
+    expect(getPublicPresellTechnicalOrigin()).toBe("https://pages.isolado-exemplo.com");
+    expect(getPublicPresellFullUrl([], null, { id: "page-1", type: "cookies" })).toBe(
+      "https://pages.isolado-exemplo.com/p/page-1",
+    );
+    expect(hasPublicPresellOrigin([], null)).toBe(true);
+  });
+
+  it("VITE_PUBLIC_PRESELL_HOST apontado ao domínio principal é ignorado", () => {
+    vi.stubEnv("VITE_PUBLIC_SITE_ORIGIN", PROD_SITE);
+    for (const bad of ["www.dclickora.com", "https://dclickora.com", "clickora.com"]) {
+      vi.stubEnv("VITE_PUBLIC_PRESELL_HOST", bad);
+      expect(getPublicPresellTechnicalOrigin()).toBeNull();
+      expect(getPublicPresellFullUrl([], null, { id: "p" })).toBe("");
+    }
+  });
+
+  it("domínio próprio verificado e pronto tem prioridade sobre o técnico", () => {
+    vi.stubEnv("VITE_PUBLIC_SITE_ORIGIN", PROD_SITE);
+    vi.stubEnv("VITE_PUBLIC_PRESELL_HOST", "pages.isolado-exemplo.com");
+    const domains = [domain({ id: "d", hostname: "oferta.cliente.com", purpose: "hosting", is_default: true })];
+    expect(getPublicPresellFullUrl(domains, "d", { id: "x", slug: "kera", type: "builder" })).toBe(
+      "https://oferta.cliente.com/kera",
+    );
+  });
+
+  it("domínio verificado com SSL a provisionar serve de último recurso (nunca o principal)", () => {
+    vi.stubEnv("VITE_PUBLIC_SITE_ORIGIN", PROD_SITE);
+    vi.stubEnv("VITE_PUBLIC_PRESELL_HOST", "");
+    const domains = [
+      domain({
+        id: "p",
+        hostname: "novo.cliente.com",
+        purpose: "hosting",
+        vercel_domain_registered: true,
+        https_ready: false,
+        ssl_state: "ssl_provisioning",
+      }),
+    ];
+    expect(getPublicPresellOriginForPresell(domains, "p")).toBe("https://novo.cliente.com");
   });
 });

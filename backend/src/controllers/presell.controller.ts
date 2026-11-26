@@ -13,6 +13,7 @@ import {
 import { isR2Configured, r2PublicUrl } from "../lib/r2Storage";
 import {
   assertPresellAllowedOnRequestHost,
+  evaluatePublicPresellAccess,
   isMainOrPreviewHostname,
   resolveVerifiedOwnerUserIdFromDb,
 } from "../lib/presellHostAccess";
@@ -58,6 +59,7 @@ import { PRESSELL_LITE_HTML_CSP } from "../lib/sanitizeMirrorEmbedForLiteHtml";
 import { buildLiteImpressionPixelUrl } from "../lib/buildLiteImpressionPixelUrl";
 import { invalidateTrackEdgeDest } from "../lib/trackEdgeDestCache";
 import { isPresellUuidParam, publicSpaPresellUrl } from "../lib/publicSpaOrigin";
+import { PUBLIC_DOMAIN_REQUIRED_MESSAGE } from "../lib/publicPresellHost";
 import { isPublicSafeTenantBrandName } from "../lib/tenantBrandingPublic";
 import { z } from "zod";
 
@@ -201,8 +203,9 @@ export const presellController = {
      * Em dclickora.com / preview / host sem domínio verificado, `assert` falha aberto
      * (getRequestHostname já prefere forwarded do visitante vs *.railway.app).
      */
-    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
-      return res.status(404).json({ error: "Página não encontrada" });
+    const access = await evaluatePublicPresellAccess(req, page.userId);
+    if (!access.allowed) {
+      return sendPresellNotPublic(res, access.reason, "json");
     }
     if (page.status !== "published") {
       const hint =
@@ -225,11 +228,11 @@ export const presellController = {
       });
     }
 
-    const access = evaluateSubscriptionAccess(page.user.subscription);
-    if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
+    const subscription = evaluateSubscriptionAccess(page.user.subscription);
+    if (!subscription.allowed) return res.status(403).json({ error: "Página indisponível." });
 
     const mapped = await mapPresellForPublic(page);
-    return sendPublicPresell(req, res, page, mapped);
+    return sendPublicPresell(req, res, page, mapped, { ownerPreview: access.ownerPreview });
   },
 
   /**
@@ -262,8 +265,9 @@ export const presellController = {
       }
     }
     if (!page) return res.status(404).type("text/plain").send("Página não encontrada");
-    if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
-      return res.status(404).type("text/plain").send("Página não encontrada");
+    const htmlAccess = await evaluatePublicPresellAccess(req, page.userId);
+    if (!htmlAccess.allowed) {
+      return sendPresellNotPublic(res, htmlAccess.reason, "text");
     }
     if (page.status !== "published") {
       return res.status(404).type("text/plain").send("Página não publicada");
@@ -282,6 +286,12 @@ export const presellController = {
     }
 
     const spaUrl = publicSpaPresellUrl(req, page.id, page.slug);
+    if (!spaUrl) {
+      /** Sem domínio de assinante nem `PUBLIC_PRESELL_HOST`: não há onde publicar. */
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("X-Robots-Tag", "noindex, nofollow");
+      return res.status(404).type("text/plain").send(PUBLIC_DOMAIN_REQUIRED_MESSAGE);
+    }
     if (!isPresellLiteHtmlEligible(page.type)) {
       res.setHeader("Cache-Control", "private, no-store");
       res.setHeader("X-Clickora-Lite", "redirect-spa");
@@ -324,7 +334,10 @@ export const presellController = {
     }
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Cache-Control", "public, max-age=120, stale-while-revalidate=600");
+    res.setHeader(
+      "Cache-Control",
+      htmlAccess.ownerPreview ? "private, no-store" : "public, max-age=120, stale-while-revalidate=600",
+    );
     res.setHeader("Content-Security-Policy", PRESSELL_LITE_HTML_CSP);
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Clickora-Lite", "1");
@@ -1074,11 +1087,27 @@ type PresellPageWithOwnerPlan = Prisma.PresellPageGetPayload<{
 }>;
 
 /** Resposta pública: rodapé dclickora + white-label do tenant. */
+/**
+ * Presell não servida neste host. No domínio principal responde 404 sem cache e sem indexação:
+ * a plataforma não hospeda presells públicas (só o dono vê preview autenticado).
+ */
+function sendPresellNotPublic(res: Response, reason: "main_host" | "host_mismatch", kind: "json" | "text") {
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  if (kind === "text") return res.status(404).type("text/plain").send("Página não encontrada");
+  return res.status(404).json(
+    reason === "main_host"
+      ? { error: "Página não encontrada", code: "PRESELL_NOT_PUBLIC_ON_MAIN_HOST" }
+      : { error: "Página não encontrada" },
+  );
+}
+
 async function sendPublicPresell(
   req: Request,
   res: Response,
   page: { id: string; userId: string; settings: unknown },
   mapped: Record<string, unknown>,
+  opts: { ownerPreview?: boolean } = {},
 ) {
   /**
    * Mesma resposta para todos (humanos, AdsBot, Googlebot): sem «página segura» por país,
@@ -1096,7 +1125,13 @@ async function sendPublicPresell(
     recordedEventType: "other",
   });
   // Publicado OK: cache curto partilhável (CDN/browser); mesma resposta para qualquer visitante.
-  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+  if (opts.ownerPreview) {
+    /** Domínio principal: preview privado do dono — nunca em cache partilhado, nunca indexável. */
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  } else {
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+  }
   return res.json(mapped);
 }
 

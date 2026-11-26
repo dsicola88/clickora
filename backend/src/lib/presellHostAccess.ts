@@ -2,6 +2,9 @@ import type { Request } from "express";
 import { getRequestHostname, hostnameLookupVariants } from "./requestHost";
 import { getVerifiedOwnerIdForHostname } from "./customDomainCache";
 import { systemPrisma } from "./prisma";
+import { verifyToken } from "./jwt";
+import { resolveLiveWorkspaceClaims } from "./workspaceSessionGuard";
+import { isPlatformMainHostname } from "./publicPresellHost";
 
 /**
  * Resolve o dono (userId) de um hostname com domínio personalizado verificado na BD.
@@ -52,4 +55,55 @@ export async function assertPresellAllowedOnRequestHost(req: Request, pageUserId
     select: { id: true },
   });
   return !!owns;
+}
+
+/**
+ * Sessão autenticada (Bearer) → `tenantUserId` da conta, ou `null`.
+ * Opcional: token ausente/inválido NÃO é erro (a rota continua pública para os restantes hosts).
+ */
+export async function resolveOptionalSessionTenantUserId(req: Request): Promise<string | null> {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) return null;
+  try {
+    const raw = verifyToken(header.slice("Bearer ".length).trim());
+    if (raw.purpose === "mfa" || raw.purpose === "password_reset") return null;
+    const live = await resolveLiveWorkspaceClaims(raw);
+    return live.tenantUserId || null;
+  } catch {
+    return null;
+  }
+}
+
+export type PublicPresellAccess =
+  /** Servir normalmente (domínio de assinante, domínio técnico, dev/preview). */
+  | { allowed: true; ownerPreview: false }
+  /** Domínio principal: só o dono autenticado, como preview privado (no-store, noindex). */
+  | { allowed: true; ownerPreview: true }
+  | { allowed: false; reason: "main_host" | "host_mismatch" };
+
+/**
+ * Decide se uma presell pode ser servida publicamente NESTE pedido.
+ *
+ * - `dclickora.com` / `www.dclickora.com`: nunca público. Só o dono (sessão do mesmo tenant)
+ *   recebe o conteúdo, como preview privado dentro do painel/builder.
+ * - Restantes hosts: regra anterior (domínio verificado só serve presells do seu dono).
+ *
+ * Mesma decisão para qualquer User-Agent: depende apenas do host e da sessão, nunca de bot/IP.
+ */
+export async function evaluatePublicPresellAccess(
+  req: Request,
+  pageUserId: string,
+): Promise<PublicPresellAccess> {
+  const host = getRequestHostname(req);
+  if (host && isPlatformMainHostname(host)) {
+    const sessionTenant = await resolveOptionalSessionTenantUserId(req);
+    if (sessionTenant && sessionTenant === pageUserId) {
+      return { allowed: true, ownerPreview: true };
+    }
+    return { allowed: false, reason: "main_host" };
+  }
+  if (!(await assertPresellAllowedOnRequestHost(req, pageUserId))) {
+    return { allowed: false, reason: "host_mismatch" };
+  }
+  return { allowed: true, ownerPreview: false };
 }

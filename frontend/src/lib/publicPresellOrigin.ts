@@ -1,8 +1,12 @@
 import type { CustomDomainDto } from "@/types/api";
 
+/** Mensagem quando não existe onde publicar (sem domínio próprio nem domínio técnico isolado). */
+export const PUBLIC_DOMAIN_REQUIRED_MESSAGE =
+  "Conecte um domínio próprio verificado para publicar esta página. O domínio principal da plataforma não serve presells públicas.";
+
 /**
- * Origem usada em links públicos das presells (anúncios, Google).
- * Com domínio verificado, usa `https://hostname`; caso contrário env ou o origin atual.
+ * Origem do SITE (marketing/SEO). NÃO é origem de presells públicas: o domínio principal
+ * não hospeda presells — para links de presell usa-se `getPublicPresellOriginForPresell`.
  */
 export function getPublicPresellOrigin(verifiedHostname?: string | null): string {
   const h = verifiedHostname?.trim();
@@ -81,6 +85,31 @@ export function resolveDefaultCustomDomainIdForAccount(
   return sorted[0]?.id ?? null;
 }
 
+/**
+ * Domínio técnico isolado, dedicado só a páginas publicadas (`VITE_PUBLIC_PRESELL_HOST`).
+ * Nunca aceita o domínio principal da plataforma.
+ */
+export function getPublicPresellTechnicalOrigin(): string | null {
+  const raw = import.meta.env.VITE_PUBLIC_PRESELL_HOST?.trim();
+  if (!raw) return null;
+  try {
+    const u = new URL(raw.includes("://") ? raw : `https://${raw}`);
+    const h = u.hostname.toLowerCase();
+    if (!h.includes(".")) return null;
+    if (PLATFORM_MAIN_HOSTNAMES.has(h)) return null;
+    return `https://${h}`;
+  } catch {
+    return null;
+  }
+}
+
+const PLATFORM_MAIN_HOSTNAMES = new Set([
+  "dclickora.com",
+  "www.dclickora.com",
+  "clickora.com",
+  "www.clickora.com",
+]);
+
 function isLocalDevOrigin(origin: string): boolean {
   try {
     const u = new URL(origin.includes("://") ? origin : `https://${origin}`);
@@ -92,9 +121,12 @@ function isLocalDevOrigin(origin: string): boolean {
 }
 
 /**
- * Resolve o URL base para uma presell: override por domínio ad-ready, senão padrão, senão origem da app.
- * Domínios Vercel só com DNS (sem HTTPS pronto) são ignorados para ads — mas NUNCA gravamos
- * localhost em rotadores/URL pública quando existe hostname verificado (mesmo SSL a provisionar).
+ * Resolve o URL base público de uma presell, por ordem:
+ * 1. domínio verificado e pronto para Ads (o da presell, o padrão, ou o primeiro);
+ * 2. dev local (localhost) — só para desenvolvimento;
+ * 3. domínio técnico isolado (`VITE_PUBLIC_PRESELL_HOST`);
+ * 4. domínio verificado ainda a provisionar SSL (melhor que nada; a checklist avisa);
+ * 5. `""` — sem onde publicar. NUNCA devolve o domínio principal da plataforma.
  */
 export function getPublicPresellOriginForPresell(
   domains: CustomDomainDto[] | null | undefined,
@@ -114,17 +146,30 @@ export function getPublicPresellOriginForPresell(
   }
   if (adReady[0]) return `https://${adReady[0].hostname}`;
 
-  const fallback = getPublicPresellOrigin(null);
-  if (!isLocalDevOrigin(fallback)) return fallback;
-
-  // Dev local + domínio verificado (SSL pending): preferir hostname público nos braços do rotador.
   const verified = listVerifiedHostingDomains(list);
-  if (presellCustomDomainId) {
-    const pending = verified.find((d) => d.id === presellCustomDomainId);
-    if (pending) return `https://${pending.hostname}`;
+  const pending = (): string => {
+    if (presellCustomDomainId) {
+      const p = verified.find((d) => d.id === presellCustomDomainId);
+      if (p) return `https://${p.hostname}`;
+    }
+    return verified[0] ? `https://${verified[0].hostname}` : "";
+  };
+
+  const siteOrigin = getPublicPresellOrigin(null);
+  if (isLocalDevOrigin(siteOrigin)) {
+    // Dev local + domínio verificado (SSL pending): preferir hostname público nos braços do rotador.
+    return pending() || siteOrigin;
   }
-  if (verified[0]) return `https://${verified[0].hostname}`;
-  return fallback;
+
+  return getPublicPresellTechnicalOrigin() ?? pending();
+}
+
+/** Há onde publicar (domínio próprio, técnico ou dev)? */
+export function hasPublicPresellOrigin(
+  domains: CustomDomainDto[] | null | undefined,
+  presellCustomDomainId?: string | null,
+): boolean {
+  return getPublicPresellOriginForPresell(domains, presellCustomDomainId).length > 0;
 }
 
 /** Parâmetro de rota `/p/:id` — UUID da presell ou slug (API suporta ambos no domínio verificado). */
@@ -208,7 +253,8 @@ export function resolvePublicPresellPath(
 
 /**
  * URL completo para anúncios e cópia: domínio escolhido + `/{slug}` no custom;
- * senão `/l/<uuid>` (LCP) ou `/p/<uuid>` na plataforma.
+ * senão `/l/<uuid>` (LCP) ou `/p/<uuid>` no domínio técnico isolado.
+ * Devolve `""` quando não há onde publicar (ver `PUBLIC_DOMAIN_REQUIRED_MESSAGE`).
  */
 export function getPublicPresellFullUrl(
   domains: CustomDomainDto[] | null | undefined,
@@ -216,6 +262,7 @@ export function getPublicPresellFullUrl(
   page: { id: string; slug?: string | null; type?: string | null },
 ): string {
   const origin = getPublicPresellOriginForPresell(domains, presellCustomDomainId).replace(/\/+$/, "");
+  if (!origin) return "";
   const path = resolvePublicPresellPath(page, origin);
   return `${origin}${path}`;
 }

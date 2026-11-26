@@ -1,3 +1,5 @@
+import { getPublicPresellOrigin, isPlatformMainHostname } from "./publicPresellHost";
+
 /**
  * Braços de rotador criados no wizard local por vezes gravam
  * `http://localhost:8080/l|p/<uuid>`. Em produção isso parte o anúncio.
@@ -27,6 +29,8 @@ function envPublicOrigin(): string | null {
   try {
     const u = new URL(env.includes("://") ? env : `https://${env}`);
     if (isLocalHostname(u.hostname)) return null;
+    /** O domínio principal não hospeda presells públicas: usa o domínio técnico isolado, ou nada. */
+    if (isPlatformMainHostname(u.hostname)) return getPublicPresellOrigin();
     return u.origin;
   } catch {
     return null;
@@ -58,6 +62,11 @@ export function rewriteLocalPresellDestination(
   try {
     const o = new URL(origin);
     if (isLocalHostname(o.hostname)) return raw;
+    if (isPlatformMainHostname(o.hostname)) {
+      const technical = getPublicPresellOrigin();
+      if (!technical) return raw;
+      return `${technical}${u.pathname}${u.search}${u.hash}`;
+    }
     return `${o.origin}${u.pathname}${u.search}${u.hash}`;
   } catch {
     return raw;

@@ -80,6 +80,29 @@ describe("middleware", () => {
     expect(bot?.headers.get("x-middleware-rewrite")).toBe(human?.headers.get("x-middleware-rewrite"));
   });
 
+  it("robots.txt do domínio principal: só o site institucional, sem rotas internas", async () => {
+    for (const host of ["www.dclickora.com", "dclickora.com"]) {
+      const res = run(host, "/robots.txt");
+      expect(res?.status).toBe(200);
+      const body = (await res?.text()) ?? "";
+      expect(body).toContain("User-agent: *");
+      expect(body).toContain("Allow: /");
+      expect(body).toContain("Sitemap: https://www.dclickora.com/sitemap.xml");
+      expect(body).not.toMatch(/Disallow/i);
+      for (const internal of ["/p/", "/l/", "/api", "/inicio", "/presells", "/settings", "/integracoes", "/tracking", "/rotadores", "/urls", "/admin"]) {
+        expect(body).not.toContain(internal);
+      }
+    }
+  });
+
+  it("robots-marketing.txt estático é idêntico ao do middleware", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const file = readFileSync(resolve(__dirname, "../../public/robots-marketing.txt"), "utf8");
+    const edge = (await run("www.dclickora.com", "/robots.txt")?.text()) ?? "";
+    expect(file).toBe(edge);
+  });
+
   it("robots.txt de assinante sem referência à plataforma", async () => {
     const body = await run("wellformulas.store", "/robots.txt")?.text();
     expect(body).toBe("User-agent: *\nDisallow: /\n");

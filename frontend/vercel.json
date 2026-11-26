@@ -33,6 +33,18 @@
       ]
     },
     {
+      "source": "/:section(inicio|presells|settings|integracoes|tracking|rotadores|urls|admin)/:rest*",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
+    {
       "source": "/robots-tenant.txt",
       "headers": [
         { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
