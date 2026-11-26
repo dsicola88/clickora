@@ -279,27 +279,6 @@ export function buildDiscountHeadline(percent: number | null, language: string):
   return limited[k] ?? limited.en;
 }
 
-export function socialProofFallback(language: string): string {
-  const k = normalizeImporterLang(language);
-  const m: Record<string, string> = {
-    en: "8 out of 10 people prefer our product",
-    es: "8 de cada 10 personas prefieren nuestro producto",
-    "pt-BR": "8 em cada 10 pessoas preferem o nosso produto",
-    de: "8 von 10 Personen bevorzugen unser Produkt",
-    fr: "8 personnes sur 10 préfèrent notre produit",
-    it: "8 persone su 10 preferiscono il nostro prodotto",
-    pl: "8 na 10 osób wybiera nasz produkt",
-    tr: "10 kişiden 8'i ürünümüzü tercih ediyor",
-    hi: "10 में से 8 लोग हमारे उत्पाद को पसंद करते हैं",
-    ar: "8 من كل 10 يفضلون منتجنا",
-    nl: "8 van de 10 mensen geven de voorkeur aan ons product",
-    sv: "8 av 10 föredrar vår produkt",
-    no: "8 av 10 foretrekker vårt produkt",
-    da: "8 ud af 10 foretrækker vores produkt",
-  };
-  return m[k] ?? m.en;
-}
-
 export function officialBuyCta(language: string): string {
   const k = normalizeImporterLang(language);
   const m: Record<string, string> = {

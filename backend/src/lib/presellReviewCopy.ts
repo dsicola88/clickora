@@ -291,6 +291,65 @@ function buildEnArticle(
   return { article, subtitle: "Transparent affiliate page — we are not the manufacturer." };
 }
 
+/** Divulgação única (EN, white) — mesma frase da barra do Super Presell. */
+export const EN_WHITE_DISCLOSURE =
+  "Disclosure: we may earn a commission from links on this page, at no extra cost to you.";
+
+/**
+ * Super Presell (white) em inglês — EUA/CA/AU/UK.
+ * Só factos da origem (nome, extrato e preço já visíveis) + orientação genérica de compra.
+ * Sem linguagem de afiliado, sem prova social, sem garantias ou resultados inventados.
+ */
+function buildEnWhiteArticle(
+  name: string,
+  angle: PresellCopyAngle,
+  facts: string,
+  price: string,
+): { article: PresellArticleBlocks; subtitle: string } {
+  const factsLine = facts ? ` ${facts}` : "";
+  const priceLine = price ? ` The price shown on the source page is ${price}; confirm it at checkout.` : "";
+  const intro = facts
+    ? `${name}.${factsLine}${priceLine}`
+    : `${name}. Key product details are summarised below. Confirm the full specification, sizing and availability at checkout.${priceLine}`;
+  const headline =
+    angle === "landing"
+      ? `${name}: what to check before you buy`
+      : angle === "advertorial"
+        ? `About ${name}`
+        : `${name}: product overview`;
+  const article: PresellArticleBlocks = {
+    kicker: "Product overview",
+    headline,
+    intro,
+    pillarsTitle: "Before you buy",
+    pillars: [
+      {
+        title: "Product details",
+        body: "Confirm the product name, size and variant you are ordering. Compare them with the images and description shown on this page before you continue.",
+      },
+      {
+        title: "Price, shipping and returns",
+        body: "Final price, shipping costs and guarantee terms are shown at checkout. Read the return policy and delivery times before you complete your order.",
+      },
+      {
+        title: "Contact and policies",
+        body: "Review the seller's contact details, privacy policy and terms of sale before you buy. Keep your order confirmation for your records.",
+      },
+    ],
+    productNote: EN_WHITE_DISCLOSURE,
+    ctaLabel: "See the offer",
+  };
+  return { article, subtitle: "Product details and key information." };
+}
+
+/** Regras do prompt de IA para white em inglês (EUA/CA/AU/UK). */
+function whiteEnRules(): string {
+  return `WHITE (US/CA/AU/UK shoppers): professional product presentation.
+- Use ONLY facts present in product_name, offer_facts and price_mention. Never invent specs, numbers, reviews, testimonials, scarcity, guarantees or results.
+- The body must not mention affiliates, commissions, independence, "not the manufacturer", "we do not process payments" or "official site".
+- product_note must be exactly: "${EN_WHITE_DISCLOSURE}"`;
+}
+
 function buildLocalePackArticle(
   name: string,
   language: string,
@@ -363,7 +422,10 @@ export function buildDeterministicReviewCopy(input: PresellReviewCopyInput): Pre
   }
 
   if (lang === "en") {
-    const { article, subtitle } = buildEnArticle(name, angle, facts, price);
+    const { article, subtitle } =
+      input.generationNiche === "white"
+        ? buildEnWhiteArticle(name, angle, facts, price)
+        : buildEnArticle(name, angle, facts, price);
     return packResult(article, subtitle, {
       source: "deterministic",
       model: null,
@@ -462,7 +524,9 @@ export async function generatePresellReviewCopy(
   const nicheHint =
     niche === "black"
       ? "Niche BLACK: informational portal for paid Search — do NOT clone aggressive sales-page claims; help the reader verify facts on the official site."
-      : "Niche WHITE: clean product/review page — closer to the offer look, still honest affiliate (no manufacturer pose).";
+      : lang === "en"
+        ? whiteEnRules()
+        : "Niche WHITE: clean product/review page — closer to the offer look, still honest affiliate (no manufacturer pose).";
   const system = `You write professional affiliate editorial pages for Google Ads policy awareness.
 Angle: ${angle}. ${angleHint}
 ${nicheHint}
@@ -470,7 +534,7 @@ Rules:
 - Sound like a careful publisher + affiliate, not a spam bridge.
 - Never claim to be the manufacturer or official store.
 - No medical cures, guaranteed results, miracle language, or invented testimonials/prices.
-- Brief affiliate disclosure in product_note.
+- ${niche === "white" && lang === "en" ? "product_note: the disclosure sentence from the WHITE rules above." : "Brief affiliate disclosure in product_note."}
 - Write entirely in language code: ${lang}.
 - Return JSON only with keys: title, subtitle, article:{kicker,headline,intro,pillars_title,pillars:[{title,body}],product_note,cta_label}.
 - article.intro >= 60 words when possible; exactly 3 pillars; no invented clinical benefits.
@@ -581,7 +645,7 @@ export async function generateTriplePackCopy(
             content: `Return JSON {"landing":{title,subtitle,article:{...}},"review":{...},"advertorial":{...}}.
 article keys: kicker,headline,intro,pillars_title,pillars[{title,body}],product_note,cta_label.
 Language: ${lang}. Niche: ${niche}.
-${niche === "black" ? "BLACK = informational Ads portal — no aggressive sales clone." : "WHITE = clean product/review page — honest affiliate."}
+${niche === "black" ? "BLACK = informational Ads portal — no aggressive sales clone." : lang === "en" ? whiteEnRules() : "WHITE = clean product/review page — honest affiliate."}
 Affiliate-safe: no manufacturer claims, no cures/miracles, no invented prices/testimonials.
 Ignore marketing hype in offer_facts; keep only short factual cues.
 Each angle must feel distinct (landing=checklist, review=analysis, advertorial=editorial).`,

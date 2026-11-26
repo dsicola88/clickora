@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildDeterministicReviewCopy,
+  EN_WHITE_DISCLOSURE,
   mapDisapprovalToHints,
   generatePresellReviewCopy,
   sanitizeOfferFacts,
@@ -74,6 +75,40 @@ describe("presellReviewCopy", () => {
     assert.equal(review.article.pillars.length, 3);
     assert.equal(adv.article.kicker, "Artigo de afiliado");
     assert.ok(review.article.headline.includes("Visivra"));
+  });
+
+  it("white EN (EUA/CA/AU/UK): corpo sem linguagem de afiliado e sem factos inventados", () => {
+    for (const angle of ["landing", "review", "advertorial"] as const) {
+      const c = buildDeterministicReviewCopy({
+        productName: "Tidy Desk Organizer",
+        language: "en",
+        generationNiche: "white",
+        offerFacts: "Bamboo organizer with three compartments for pens and cables.",
+        priceMention: "$29.99",
+        angle,
+      });
+      const body = `${c.article.intro} ${c.article.pillars.map((p) => `${p.title} ${p.body}`).join(" ")}`;
+      assert.equal(/affiliate|independent|not the manufacturer|process payments|official site|commission/i.test(body), false, angle);
+      assert.equal(c.article.productNote, EN_WHITE_DISCLOSURE);
+      assert.equal(c.article.ctaLabel, "See the offer");
+      assert.ok(c.salesText.split(/\s+/).length >= 60, `${angle} thin`);
+    }
+  });
+
+  it("white EN sem factos nem preço: sem números nem promessas inventadas", () => {
+    const c = buildDeterministicReviewCopy({
+      productName: "Tidy Desk Organizer",
+      language: "en",
+      generationNiche: "white",
+      angle: "review",
+    });
+    assert.equal(/\d/.test(c.salesText), false);
+    assert.equal(/guarantee[sd]?\s+(results|a refund)|clinically|limited time|only \d|% off/i.test(c.salesText), false);
+  });
+
+  it("black EN mantém o pack editorial (não muda com o white)", () => {
+    const c = buildDeterministicReviewCopy({ productName: "Tea", language: "en", generationNiche: "black", angle: "landing" });
+    assert.match(c.article.intro, /independent affiliate/i);
   });
 });
 
