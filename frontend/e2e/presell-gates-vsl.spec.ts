@@ -107,6 +107,46 @@ test.describe("H8 — gates + VSL browser", () => {
     );
     await allow.first().click();
     await expect(page.getByTestId("presell-cookie-sheet")).toBeHidden({ timeout: 10_000 });
+    // Opt-in activo: Aceitar (clique intencional) segue para o hop rastreado.
+    await expect(page).toHaveURL(/\/track\/r\//, { timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: "Tracked offer" })).toBeVisible();
+  });
+
+  test("cookies: sem opt-in Aceitar não sai da página e Fechar nunca navega", async ({ page }) => {
+    const id = "b8e11e11-1111-4111-8111-111111111111";
+    await mockPresell(
+      page,
+      basePage(id, {
+        type: "cookies",
+        language: "pt-BR",
+        settings: {
+          businessName: "Analista Independente Lda",
+          contactEmail: "ops@example.com",
+          cookiePolicyUrl: "/privacidade",
+          privacyPolicyUrl: "/privacidade",
+          termsUrl: "/termos",
+          affiliateDisclosure: "Links de afiliado podem aplicar-se.",
+          minAge: "18",
+        },
+        content: {
+          title: "Produto H8",
+          productName: "Produto H8",
+          subtitle: "Análise",
+          salesText: "Conteúdo descritivo para a auditoria de gates.",
+          ctaText: "Ver oferta",
+          affiliateLink: HOP,
+          generationNiche: "white",
+          images: ["https://upload.wikimedia.org/wikipedia/commons/d/d3/Longjing_tea_steeping_in_gaiwan.jpg"],
+        },
+      }),
+    );
+    await page.goto(`/p/${id}`, { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("presell-cookie-card")).toBeVisible({ timeout: 20_000 });
+    expect(await page.getByTestId("presell-cookie-allow-offer").count()).toBe(0);
+    await page.getByTestId("presell-cookie-allow").click();
+    await expect(page.getByTestId("presell-cookie-sheet")).toBeHidden({ timeout: 10_000 });
+    await page.waitForTimeout(500);
+    expect(new URL(page.url()).pathname).toBe(`/p/${id}`);
   });
 
   test("idade: formulário gate e idade válida", async ({ page }) => {
