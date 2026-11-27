@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CookieBannerStylePicker } from "@/components/presell/CookieBannerStylePicker";
+import { isCookieRedirectToOfferEnabled } from "@/components/presell/PresellTypeControls";
 import {
   DEFAULT_PRESELL_COOKIE_STYLE,
   resolvePresellCookieStyleId,
@@ -585,7 +586,7 @@ export default function PresellDashboard() {
     setSlugTouchedByUser(true);
     setTypeOptions({
       cookiePolicyUrl: String(settings.cookiePolicyUrl ?? ""),
-      cookieRedirectToOffer: Boolean(settings.cookieRedirectToOffer),
+      cookieRedirectToOffer: isCookieRedirectToOfferEnabled(settings as Record<string, unknown>),
       cookieBannerStyle: resolvePresellCookieStyleId(settings as Record<string, unknown>),
       minAge: String(settings.minAge ?? "18"),
       manualYoutubeUrl: page.video_url || "",

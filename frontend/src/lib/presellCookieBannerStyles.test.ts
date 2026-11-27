@@ -136,4 +136,14 @@ describe("presellCookieBannerStyles", () => {
     expect(hydratePresellConfigSettings({ cookieBannerStyle: "xxx" })).not.toHaveProperty("cookieBannerStyle");
     expect(hydratePresellConfigSettings({})).not.toHaveProperty("cookieBannerStyle");
   });
+
+  it("redirect para a oferta é estritamente opt-in no hydrate ('false'/'0'/lixo/ausente → desligado)", () => {
+    for (const off of [undefined, null, false, 0, "false", "0", "", "yes", "TRUE", {}, []]) {
+      expect(hydratePresellConfigSettings({ cookieRedirectToOffer: off }).cookieRedirectToOffer, String(off)).toBe(false);
+    }
+    expect(hydratePresellConfigSettings({}).cookieRedirectToOffer).toBe(false);
+    for (const on of [true, 1, "true", "1"]) {
+      expect(hydratePresellConfigSettings({ cookieRedirectToOffer: on }).cookieRedirectToOffer).toBe(true);
+    }
+  });
 });

@@ -118,7 +118,12 @@ export function hydratePresellConfigSettings(
     privacyPolicyUrl: String(s.privacyPolicyUrl ?? ""),
     cookiePolicyUrl: String(s.cookiePolicyUrl ?? ""),
     affiliateDisclosure: String(s.affiliateDisclosure ?? ""),
-    cookieRedirectToOffer: Boolean(s.cookieRedirectToOffer),
+    // Estrito (opt-in): só true/1/"true"/"1" ligam; "false"/"0"/lixo ficam desligados.
+    cookieRedirectToOffer:
+      s.cookieRedirectToOffer === true ||
+      s.cookieRedirectToOffer === 1 ||
+      s.cookieRedirectToOffer === "true" ||
+      s.cookieRedirectToOffer === "1",
     showAffiliateTrustFooter: Object.prototype.hasOwnProperty.call(s, "showAffiliateTrustFooter")
       ? !(
           s.showAffiliateTrustFooter === false ||
