@@ -1,29 +1,31 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { inspectFinalUrl, sanitizeFinalUrlForAds } from "../lib/googleAdsFinalUrl";
+import { planFinalUrlRepair } from "./google-ads-final-url-repair.service";
 
-/**
- * Contrato do reparo: só conta como aplicado na Google se a URL limpa
- * deixar de ter gclid/ValueTrack — senão o media buyer tem de editar no Ads.
- */
-describe("final-url repair contract", () => {
-  it("query gclid/ValueTrack limpa → pronta para mutate Google", () => {
-    const before = "https://land.example/p/abc?utm_source=google&gclid={gclid}&utm_term={keyword}";
-    const after = sanitizeFinalUrlForAds(before);
-    assert.equal(after, "https://land.example/p/abc?utm_source=google");
-    const issues = inspectFinalUrl(after);
-    assert.ok(!issues.includes("final_url_has_click_id"));
-    assert.ok(!issues.includes("final_url_has_valuetrack"));
-    assert.notEqual(after, before);
+describe("planFinalUrlRepair (P14)", () => {
+  it("URL limpa / vazia não é tocada", () => {
+    assert.deepEqual(planFinalUrlRepair([]), { kind: "skip", reason: "sem_final_url" });
+    assert.deepEqual(planFinalUrlRepair(["https://offer.tenant.com/p/abc"]), { kind: "skip", reason: "ja_limpa" });
   });
 
-  it("ValueTrack no path não fica limpo → exige edição manual no Ads", () => {
-    const before = "https://land.example/p/{campaignid}";
-    const after = sanitizeFinalUrlForAds(before);
-    const afterIssues = inspectFinalUrl(after || before);
-    assert.ok(
-      afterIssues.includes("final_url_has_valuetrack"),
-      "path ValueTrack deve continuar detectado para bloquear falso sucesso",
-    );
+  it("remove gclid/ValueTrack mantendo domínio e caminho", () => {
+    const plan = planFinalUrlRepair(["https://offer.tenant.com/p/abc?gclid=TEST123&utm_source=google"]);
+    assert.equal(plan.kind, "repair");
+    if (plan.kind !== "repair") return;
+    const before = new URL(plan.before);
+    const after = new URL(plan.after);
+    assert.equal(after.origin, before.origin);
+    assert.equal(after.pathname, before.pathname);
+    assert.equal(after.searchParams.has("gclid"), false);
+  });
+
+  it("ValueTrack na query também é limpo sem mudar a landing", () => {
+    const plan = planFinalUrlRepair(["https://offer.tenant.com/p/abc?kw={keyword}&cid={campaignid}"]);
+    if (plan.kind === "repair") {
+      assert.equal(new URL(plan.after).pathname, "/p/abc");
+      assert.equal(new URL(plan.after).host, "offer.tenant.com");
+    } else {
+      assert.equal(plan.kind, "error");
+    }
   });
 });

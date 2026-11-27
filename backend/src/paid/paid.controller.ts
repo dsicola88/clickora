@@ -1422,7 +1422,8 @@ export const paidController = {
       return res.status(403).json({ error: "Sem acesso ao projecto." });
     }
     try {
-      const out = await repairGoogleFinalUrls(parsed.data.projectId);
+      const body = (req.body ?? {}) as { dry_run?: unknown };
+      const out = await repairGoogleFinalUrls(parsed.data.projectId, { dryRun: body.dry_run === true });
       return res.json(out);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Falha ao reparar Final URLs.";

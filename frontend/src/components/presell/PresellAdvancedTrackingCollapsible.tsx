@@ -116,56 +116,6 @@ export function PresellAdvancedTrackingCollapsible({
                 onCheckedChange={(v) => setConfigSettings((p) => ({ ...p, exitPopup: v }))}
               />
             </div>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className={cn("text-sm font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>
-                  {t("pages.presells.advanced.countdown")}
-                </p>
-                <p className={cn("text-xs", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                  {t("pages.presells.advanced.countdownHint")}
-                </p>
-              </div>
-              <Switch
-                checked={Boolean(configSettings.countdownTimer)}
-                onCheckedChange={(v) => setConfigSettings((p) => ({ ...p, countdownTimer: v }))}
-              />
-            </div>
-            {configSettings.countdownTimer ? (
-              <div
-                className={cn(
-                  "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-dashed px-3 py-2",
-                  isEditor ? "border-editor-border bg-editor-panel-2/50" : "border-border/60 bg-muted/20",
-                )}
-              >
-                <Label className={cn("text-xs shrink-0", isEditor ? "text-editor-fg" : "")}>
-                  {t("pages.presells.advanced.countdownMinutes")}
-                </Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={1440}
-                  className={cn("max-w-[8rem] sm:max-w-[10rem]", isEditor ? "bg-editor-bg border-editor-border text-editor-fg" : "")}
-                  value={String(configSettings.countdownDurationMinutes ?? "15")}
-                  onChange={(e) =>
-                    setConfigSettings((p) => ({ ...p, countdownDurationMinutes: e.target.value }))
-                  }
-                />
-              </div>
-            ) : null}
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className={cn("text-sm font-medium", isEditor ? "text-editor-fg" : "text-card-foreground")}>
-                  {t("pages.presells.advanced.socialProof")}
-                </p>
-                <p className={cn("text-xs", isEditor ? "text-editor-fg-muted" : "text-muted-foreground")}>
-                  {t("pages.presells.advanced.socialProofHint")}
-                </p>
-              </div>
-              <Switch
-                checked={Boolean(configSettings.socialProof)}
-                onCheckedChange={(v) => setConfigSettings((p) => ({ ...p, socialProof: v }))}
-              />
-            </div>
             <div className="space-y-2 max-w-2xl">
               <Label htmlFor={isEditor ? "presell-offer-fwd-editor" : "presell-offer-fwd"}>
                 {t("pages.presells.advanced.forwardLabel")}

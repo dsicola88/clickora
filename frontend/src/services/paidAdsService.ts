@@ -474,9 +474,11 @@ export const paidAdsService = {
     }>(`/paid/projects/${projectId}/google-ads/final-url-audit`);
   },
 
-  repairGoogleAdsFinalUrls(projectId: string) {
+  repairGoogleAdsFinalUrls(projectId: string, opts: { dryRun?: boolean } = {}) {
     return apiClient.post<{
       ok: true;
+      /** true = só pré-visualização; nada mudou na Google Ads. */
+      dry_run?: boolean;
       repaired_count: number;
       /** Só conta anúncios mutados com sucesso na Google Ads (não só BD local). */
       applied_to_google_count: number;
@@ -492,7 +494,7 @@ export const paidAdsService = {
       skipped: Array<{ rsa_id: string; campaign_name: string; reason: string }>;
       errors: Array<{ rsa_id: string; campaign_name: string; error: string }>;
       note: string;
-    }>(`/paid/projects/${projectId}/google-ads/final-url-repair`, {});
+    }>(`/paid/projects/${projectId}/google-ads/final-url-repair`, opts.dryRun ? { dry_run: true } : {});
   },
 
   getGoogleAdsCampaignsMetrics(

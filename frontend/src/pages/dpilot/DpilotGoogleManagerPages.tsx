@@ -679,6 +679,36 @@ export function DpilotGoogleCampaignsManagerPage() {
                   void (async () => {
                     setRepairingUrls(true);
                     try {
+                      const preview = await paidAdsService.repairGoogleAdsFinalUrls(projectId, { dryRun: true });
+                      if (!preview.error && preview.data) {
+                        if (preview.data.repaired.length === 0) {
+                          if (preview.data.error_count > 0) {
+                            toast.error(
+                              toastGoogleAdsError(
+                                preview.data.errors[0]?.error ||
+                                  t("pages.dpilot.google.cm.campaigns.repairCouldNotApply"),
+                              ),
+                            );
+                          } else {
+                            toast.message(t("pages.dpilot.google.cm.campaigns.repairNothingNeeded"));
+                          }
+                          return;
+                        }
+                        const sample = preview.data.repaired
+                          .slice(0, 5)
+                          .map((r) => `• ${r.campaign_name}\n  ${r.before ?? ""}\n  → ${r.after ?? ""}`)
+                          .join("\n");
+                        if (
+                          !window.confirm(
+                            fill(t("pages.dpilot.google.cm.campaigns.repairConfirm"), {
+                              n: preview.data.repaired.length,
+                              sample,
+                            }),
+                          )
+                        ) {
+                          return;
+                        }
+                      }
                       const { data, error } = await paidAdsService.repairGoogleAdsFinalUrls(projectId);
                       if (error || !data) {
                         const raw = (error || "").trim();

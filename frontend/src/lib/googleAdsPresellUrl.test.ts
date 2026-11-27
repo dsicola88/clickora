@@ -9,6 +9,19 @@ import {
 describe("googleAdsPresellUrl", () => {
   const base = "https://truefindlab.blog/p/c516c2c8-ff36-493e-ba07-dc747d8e4dea";
 
+  it("P13: URL para colar no Ads nunca leva gclid/wbraid/gbraid e mantém domínio + caminho", () => {
+    const dirty = `${base}?gclid=MANUAL&wbraid=W&gbraid=G&kw={keyword}&utm_source=x`;
+    const parts = buildGoogleAdsPresellUrlParts(dirty, "Campanha EUA", "Google Ads");
+    for (const u of [parts.finalUrl, parts.combinedTrackingUrl]) {
+      const url = new URL(u);
+      expect(url.origin + url.pathname).toBe(base);
+      expect(url.searchParams.has("gclid")).toBe(false);
+      expect(url.searchParams.has("wbraid")).toBe(false);
+      expect(url.searchParams.has("gbraid")).toBe(false);
+    }
+    expect(parts.finalUrl).toBe(base);
+  });
+
   it("final URL sem query", () => {
     expect(cleanPresellUrlForGoogleFinalBase(`${base}?utm_source=x&gclid=1`)).toBe(base);
   });

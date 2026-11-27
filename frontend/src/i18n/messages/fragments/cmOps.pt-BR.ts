@@ -173,6 +173,7 @@ export const cmOpsPtBR = {
     "repairSuccess": "Aplicadas na Google Ads: {n} anúncio(s). Não precisa de colar de novo no ads.google.com. ValueTrack/UTMs dinâmicos → sufixo da URL.",
     "repairCouldNotApply": "Não foi possível aplicar na Google Ads. Sincronize/importe a campanha e tente de novo, ou limpe a Final URL em ads.google.com.",
     "repairNothingNeeded": "Nenhuma Final URL precisava de limpeza automática.",
+    "repairConfirm": "Vamos alterar a Final URL de {n} anúncio(s) no Google Ads — só removemos gclid/ValueTrack; domínio e caminho ficam iguais.\n\n{sample}\n\nConfirmar?",
     "repairLocalOnly": "A limpeza ficou só local — a Google Ads não foi actualizada. Sincronize a campanha e volte a Reparar.",
     "urlAuditUnavailable": "Auditoria de Final URL indisponível neste momento — confirme presell limpa e auto-tagging.",
     "funnelRiskTitle": "{n} campanha(s) com cliques Google que quase não chegam à Clickora",

@@ -89,7 +89,23 @@ export function GoogleAdsPresellUrlBlock({
         </p>
       ) : null}
 
-      <div className="space-y-2">
+      <div className="space-y-2" data-testid="google-ads-final-url-primary">
+        <p className={labelClass}>{t("pages.createPresell.fullTrackingUrlLabel")}</p>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">{t("pages.createPresell.combinedUrlHint")}</p>
+        <p className={monoClass}>{fullUrl}</p>
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          disabled={disabled}
+          className={cn("gap-1.5", editorChrome && "border-editor-border bg-editor-panel text-editor-fg")}
+          onClick={() => void copyFull()}
+        >
+          {copiedFull ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          {t("pages.createPresell.copyCombinedUrl")}
+        </Button>
+      </div>
+      <div className="space-y-2 border-t border-primary/15 pt-3 opacity-90" data-testid="google-ads-bare-url">
         <p className={labelClass}>{t("pages.createPresell.barePresellUrlLabel")}</p>
         <p className="text-[11px] leading-relaxed text-muted-foreground">{t("pages.createPresell.barePresellUrlHint")}</p>
         <p className={monoClass}>{bareUrl}</p>
@@ -106,22 +122,6 @@ export function GoogleAdsPresellUrlBlock({
         </Button>
       </div>
 
-      <div className="space-y-2 border-t border-primary/15 pt-3">
-        <p className={labelClass}>{t("pages.createPresell.fullTrackingUrlLabel")}</p>
-        <p className="text-[11px] leading-relaxed text-muted-foreground">{t("pages.createPresell.combinedUrlHint")}</p>
-        <p className={monoClass}>{fullUrl}</p>
-        <Button
-          type="button"
-          variant="default"
-          size="sm"
-          disabled={disabled}
-          className={cn("gap-1.5", editorChrome && "border-editor-border bg-editor-panel text-editor-fg")}
-          onClick={() => void copyFull()}
-        >
-          {copiedFull ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-          {t("pages.createPresell.copyCombinedUrl")}
-        </Button>
-      </div>
     </div>
   );
 }

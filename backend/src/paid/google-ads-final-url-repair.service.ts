@@ -16,7 +16,57 @@ function asStringArray(j: unknown): string[] {
   return j.map((x) => String(x ?? "").trim()).filter(Boolean);
 }
 
-export async function repairGoogleFinalUrls(projectId: string) {
+export type FinalUrlRepairPlan =
+  | { kind: "skip"; reason: string }
+  | { kind: "error"; error: string }
+  | { kind: "repair"; before: string; after: string; cleanedList: string[] };
+
+function sameOriginAndPath(a: string, b: string): boolean {
+  try {
+    const ua = new URL(a);
+    const ub = new URL(b);
+    return ua.origin === ub.origin && ua.pathname.replace(/\/+$/, "") === ub.pathname.replace(/\/+$/, "");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Decide (sem efeitos) o que fazer com as Final URLs de um RSA.
+ * Invariante: a reparação só remove gclid/ValueTrack da query — nunca muda domínio nem path
+ * (a landing que o revisor do Google vê continua exactamente a mesma).
+ */
+export function planFinalUrlRepair(urls: string[]): FinalUrlRepairPlan {
+  if (urls.length === 0) return { kind: "skip", reason: "sem_final_url" };
+  const before = urls[0] ?? "";
+  const issues: FinalUrlIssueCode[] = before ? inspectFinalUrl(before) : ["empty_final_url"];
+  if (!issues.includes("final_url_has_click_id") && !issues.includes("final_url_has_valuetrack")) {
+    return { kind: "skip", reason: "ja_limpa" };
+  }
+  const cleanedList = urls.map((u) => sanitizeFinalUrlForAds(u)).filter(Boolean);
+  const after = cleanedList[0] ?? "";
+  if (!after) return { kind: "skip", reason: "sanitize_falhou" };
+  const afterIssues = inspectFinalUrl(after);
+  if (afterIssues.includes("final_url_has_click_id") || afterIssues.includes("final_url_has_valuetrack")) {
+    return {
+      kind: "error",
+      error:
+        "A limpeza automática não removeu todo o ValueTrack/gclid (ex. no path). Em ads.google.com edite a Final URL para só a presell https://…/p/… e ponha macros no sufixo.",
+    };
+  }
+  if (after === before) return { kind: "skip", reason: "sanitize_sem_efeito" };
+  if (cleanedList.length !== urls.length || urls.some((u, i) => !sameOriginAndPath(u, cleanedList[i] ?? ""))) {
+    return {
+      kind: "error",
+      error:
+        "A limpeza mudaria o domínio ou o caminho da Final URL — nada foi alterado. Corrija manualmente em ads.google.com.",
+    };
+  }
+  return { kind: "repair", before, after, cleanedList };
+}
+
+export async function repairGoogleFinalUrls(projectId: string, opts: { dryRun?: boolean } = {}) {
+  const dryRun = opts.dryRun === true;
   const rsas = await prisma.paidAdsRsa.findMany({
     where: {
       status: { not: "archived" },
@@ -49,52 +99,13 @@ export async function repairGoogleFinalUrls(projectId: string) {
 
   for (const rsa of rsas) {
     const campaignName = rsa.adGroup.campaign.name;
-    const urls = asStringArray(rsa.finalUrls);
-    if (urls.length === 0) {
-      skipped.push({ rsa_id: rsa.id, campaign_name: campaignName, reason: "sem_final_url" });
+    const plan = planFinalUrlRepair(asStringArray(rsa.finalUrls));
+    if (plan.kind === "skip") {
+      skipped.push({ rsa_id: rsa.id, campaign_name: campaignName, reason: plan.reason });
       continue;
     }
-
-    const before = urls[0] ?? null;
-    const issues: FinalUrlIssueCode[] = before ? inspectFinalUrl(before) : ["empty_final_url"];
-    const needs =
-      issues.includes("final_url_has_click_id") || issues.includes("final_url_has_valuetrack");
-    if (!needs) {
-      skipped.push({ rsa_id: rsa.id, campaign_name: campaignName, reason: "ja_limpa" });
-      continue;
-    }
-
-    const cleanedList = urls.map((u) => sanitizeFinalUrlForAds(u)).filter(Boolean);
-    const after = cleanedList[0] ?? null;
-    if (!after) {
-      skipped.push({
-        rsa_id: rsa.id,
-        campaign_name: campaignName,
-        reason: "sanitize_falhou",
-      });
-      continue;
-    }
-
-    const afterIssues = inspectFinalUrl(after);
-    if (
-      afterIssues.includes("final_url_has_click_id") ||
-      afterIssues.includes("final_url_has_valuetrack")
-    ) {
-      errors.push({
-        rsa_id: rsa.id,
-        campaign_name: campaignName,
-        error:
-          "A limpeza automática não removeu todo o ValueTrack/gclid (ex. no path). Em ads.google.com edite a Final URL para só a presell https://…/p/… e ponha macros no sufixo.",
-      });
-      continue;
-    }
-
-    if (after === before) {
-      skipped.push({
-        rsa_id: rsa.id,
-        campaign_name: campaignName,
-        reason: "sanitize_sem_efeito",
-      });
+    if (plan.kind === "error") {
+      errors.push({ rsa_id: rsa.id, campaign_name: campaignName, error: plan.error });
       continue;
     }
 
@@ -108,10 +119,26 @@ export async function repairGoogleFinalUrls(projectId: string) {
       continue;
     }
 
+    if (dryRun) {
+      repaired.push({
+        rsa_id: rsa.id,
+        campaign_name: campaignName,
+        before: plan.before,
+        after: plan.after,
+        applied_to_google: false,
+      });
+      continue;
+    }
+
     const result = await applyGoogleUpdateRsaFinalUrls(projectId, {
       paid_ads_rsa_id: rsa.id,
-      final_urls: cleanedList,
+      final_urls: plan.cleanedList,
     });
+
+    console.info(
+      "[finalUrlRepair]",
+      JSON.stringify({ projectId, rsa_id: rsa.id, before: plan.before, after: plan.after, ok: result.ok }),
+    );
 
     if (!result.ok) {
       errors.push({
@@ -125,8 +152,8 @@ export async function repairGoogleFinalUrls(projectId: string) {
     repaired.push({
       rsa_id: rsa.id,
       campaign_name: campaignName,
-      before,
-      after,
+      before: plan.before,
+      after: plan.after,
       applied_to_google: true,
     });
   }
@@ -135,6 +162,7 @@ export async function repairGoogleFinalUrls(projectId: string) {
 
   return {
     ok: true as const,
+    dry_run: dryRun,
     repaired_count: repaired.length,
     applied_to_google_count: applied,
     skipped_count: skipped.length,
@@ -142,8 +170,9 @@ export async function repairGoogleFinalUrls(projectId: string) {
     repaired,
     skipped,
     errors,
-    note:
-      applied > 0
+    note: dryRun
+      ? "Pré-visualização: nada foi alterado na Google Ads. Confirme para aplicar."
+      : applied > 0
         ? "Final URLs limpas e aplicadas na Google Ads. ValueTrack/UTMs dinâmicos devem ir no sufixo da URL em ads.google.com — não na Final URL."
         : "Nenhuma Final URL foi aplicada na Google Ads. Veja errors[] (falta sync/ID Google ou ValueTrack no path).",
   };

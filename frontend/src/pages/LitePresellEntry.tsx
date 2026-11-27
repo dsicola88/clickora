@@ -4,15 +4,19 @@ import { getResolvedPublicApiBaseUrl } from "@/config/publicApiUrl";
 import { isPresellUuidParam } from "@/lib/publicPresellOrigin";
 
 /**
- * Dev / fallback SPA: `/l/:id` → HTML estático no API (com spa_origin para redirects correctos).
- * Em produção Vercel, o rewrite em vercel.json serve o HTML antes da SPA.
+ * Dev: `/l/:id` → HTML estático no API (com spa_origin para redirects correctos).
+ * Em produção Vercel, o rewrite em vercel.json serve o HTML antes da SPA; se a SPA chegar aqui,
+ * segue para `/p/:id` na mesma origem.
  */
 export default function LitePresellEntry() {
   const { id = "" } = useParams();
 
   useEffect(() => {
     const param = id.trim();
-    if (!param || !isPresellUuidParam(param)) {
+    const host = window.location.hostname;
+    const isLocalDev = host === "localhost" || host === "127.0.0.1";
+    // Fora de dev nunca saltar por JS para outro domínio (API): fica na mesma origem.
+    if (!param || !isPresellUuidParam(param) || !isLocalDev) {
       window.location.replace(`/p/${encodeURIComponent(param || "")}`);
       return;
     }
