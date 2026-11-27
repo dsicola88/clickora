@@ -3645,7 +3645,7 @@ export const en = {
         extraHint: "Do not write page, click or domain counts here. Those numbers are in the fields above and change on the card when you edit them.",
         cta: "Button text (optional)",
         ctaPlaceholder: "Empty = use global copy (free / upgrade / current plan)",
-        branding: "Branding on presells",
+        branding: "No custom branding (white-label off)",
         webhook: "Affiliate webhook (Platforms)",
         webhookHint: "HTTP postback to close sales against the click. Off = URL and calls are refused for accounts on this plan.",
         ads: "Ads (Google, Meta, TikTok)",

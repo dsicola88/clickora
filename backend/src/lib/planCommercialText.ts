@@ -18,17 +18,25 @@ const STALE_PHRASES: Record<string, string> = {
   "Até 25 presell pages · 50.000 cliques/mês":
     "Páginas e cliques deste plano são os números do cartão. Ao passar a quota de cliques, o anúncio continua.",
   "Todos os tipos de presell no editor · Sem branding dclickora no rodapé":
-    "Todos os tipos de presell no editor. Retirar a marca depende do interruptor deste plano.",
+    "Todos os tipos de presell no editor. Logo e cores próprios seguem o interruptor deste plano.",
   "Domínio personalizado: use Pro Anual (até 2) ou export HTML no Mensal":
     "Os domínios próprios são o número deste cartão.",
   "Presells e cliques com quotas amplas (uso razoável) durante o ano":
     "Páginas e cliques seguem os campos deste plano. Vazio significa sem máximo numérico. Ao passar uma quota de cliques, o anúncio continua.",
   "Até 2 domínios personalizados · Sem branding dclickora no rodapé":
-    "Os domínios próprios são o número deste cartão. Retirar a marca depende do interruptor deste plano.",
+    "Os domínios próprios são o número deste cartão. Logo e cores próprios seguem o interruptor deste plano.",
   "Páginas, cliques e 1 domínio: os números do cartão":
     "Páginas, cliques e domínios deste plano são os números do cartão.",
   "Até 2 domínios próprios": "Os domínios próprios são o número deste cartão.",
-  "Sem marca Clickora": "Pode retirar a marca",
+  "Sem marca Clickora": "Logo e cores próprios",
+  /** As presells nunca levam marca da plataforma: o interruptor do plano só controla logo/cores próprios. */
+  "Pode retirar a marca": "Logo e cores próprios",
+  "Clickora visível": "Sem marca da plataforma",
+  "Marca no rodapé": "Marca própria (white-label)",
+  "Todos os tipos de presell no editor. Retirar a marca depende do interruptor deste plano.":
+    "Todos os tipos de presell no editor. Logo e cores próprios seguem o interruptor deste plano.",
+  "Os domínios próprios são o número deste cartão. Retirar a marca depende do interruptor deste plano.":
+    "Os domínios próprios são o número deste cartão. Logo e cores próprios seguem o interruptor deste plano.",
   "Compare presells, cliques e o que cada plano inclui. Os números são os limites da conta, não uma previsão de vendas. O plano grátis não pede cartão nesta página.":
     "Compare o que cada plano inclui. O número de páginas é o máximo que a conta deixa criar. O número de cliques é a quota do mês no painel: o anúncio não é cortado ao passar essa quota. O plano grátis não pede cartão nesta página.",
   "A venda entra quando a rede a confirma.":

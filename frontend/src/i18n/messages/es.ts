@@ -3591,7 +3591,7 @@ export const es = {
         "extraHint": "No escribas aquí cuántas páginas, clics o dominios. Esos números están en los campos de arriba y cambian en la tarjeta al editarlos.",
         "cta": "Texto del botón (opcional)",
         "ctaPlaceholder": "Vacío = usar textos globales (gratis / mejora / plan actual)",
-        "branding": "Marca en las presells",
+        "branding": "Sin marca propia (white-label desactivado)",
         "webhook": "Webhook de afiliados (Plataformas)",
         "webhookHint": "Postback HTTP para cerrar ventas con el clic. Apagado = la URL y las llamadas se rechazan para cuentas de este plan.",
         "ads": "Anuncios (Google, Meta, TikTok)",

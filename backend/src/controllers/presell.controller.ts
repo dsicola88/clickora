@@ -291,7 +291,7 @@ export const presellController = {
     }
     if (!isPresellLiteHtmlEligible(page.type)) {
       res.setHeader("Cache-Control", "private, no-store");
-      res.setHeader("X-Clickora-Lite", "redirect-spa");
+      res.setHeader("X-Presell-Lite", "redirect-spa");
       return res.redirect(302, spaUrl);
     }
 
@@ -327,7 +327,7 @@ export const presellController = {
     });
     if (!built.ok) {
       res.setHeader("Cache-Control", "private, no-store");
-      res.setHeader("X-Clickora-Lite", built.reason);
+      res.setHeader("X-Presell-Lite", built.reason);
       return res.redirect(302, spaUrl);
     }
 
@@ -338,7 +338,7 @@ export const presellController = {
     );
     res.setHeader("Content-Security-Policy", PRESSELL_LITE_HTML_CSP);
     res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Clickora-Lite", "1");
+    res.setHeader("X-Presell-Lite", "1");
     res.setHeader("X-Robots-Tag", "noindex, nofollow");
     return res.status(200).send(built.html);
   },

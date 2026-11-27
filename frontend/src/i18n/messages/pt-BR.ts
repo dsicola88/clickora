@@ -3591,7 +3591,7 @@ export const ptBR = {
         "extraHint": "Não escreva aqui quantas páginas, cliques ou domínios. Esses números estão nos campos acima e mudam no cartão quando você os alterar.",
         "cta": "Texto do botão (opcional)",
         "ctaPlaceholder": "Vazio = usar textos globais (grátis / upgrade / plano atual)",
-        "branding": "Branding nas presells",
+        "branding": "Sem marca própria (white-label desligado)",
         "webhook": "Webhook de afiliados (Plataformas)",
         "webhookHint": "Postback HTTP para fechar vendas com o clique. Desligado = URL e chamadas recusadas para contas neste plano.",
         "ads": "Anúncios (Google, Meta, TikTok)",

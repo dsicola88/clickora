@@ -6,7 +6,6 @@ import { enterpriseService } from "@/services/enterpriseService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { ProPanel } from "@/components/enterprise/ProShell";
 import { toast } from "sonner";
 import { Loader2, Palette } from "lucide-react";
@@ -27,7 +26,6 @@ export function EnterpriseTenantBrandingPanel() {
   const [faviconUrl, setFaviconUrl] = useState("");
   const [primaryColor, setPrimaryColor] = useState("");
   const [accentColor, setAccentColor] = useState("");
-  const [hidePoweredBy, setHidePoweredBy] = useState(true);
 
   const { data, isLoading } = useQuery({
     queryKey: ["enterprise-tenant-branding"],
@@ -46,7 +44,6 @@ export function EnterpriseTenantBrandingPanel() {
     setFaviconUrl(data.favicon_url ?? "");
     setPrimaryColor(data.primary_color ?? "");
     setAccentColor(data.accent_color ?? "");
-    setHidePoweredBy(data.hide_powered_by ?? true);
   }, [data]);
 
   const saveMut = useMutation({
@@ -57,7 +54,7 @@ export function EnterpriseTenantBrandingPanel() {
         favicon_url: faviconUrl.trim() || null,
         primary_color: primaryColor.trim() || null,
         accent_color: accentColor.trim() || null,
-        hide_powered_by: hidePoweredBy,
+        hide_powered_by: true,
       });
       if (error) {
         const err = new Error(error) as Error & { code?: string };
@@ -185,13 +182,6 @@ export function EnterpriseTenantBrandingPanel() {
                   />
                 </div>
               </div>
-            </div>
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2.5">
-              <div>
-                <p className="text-sm font-medium">Ocultar «powered by dclickora»</p>
-                <p className="text-[11px] text-muted-foreground">Nas páginas publicadas com white-label.</p>
-              </div>
-              <Switch checked={hidePoweredBy} onCheckedChange={setHidePoweredBy} />
             </div>
             <Button type="button" className="gap-1.5" disabled={saveMut.isPending} onClick={() => saveMut.mutate()}>
               {saveMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Palette className="h-4 w-4" />}

@@ -21,8 +21,6 @@ export const FORWARD_AD_QUERY_KEYS = [
   "utm_campaign",
   "utm_term",
   "utm_content",
-  "fbp",
-  "ttp",
 ] as const;
 
 export type AdClickQueryKey = (typeof AD_CLICK_QUERY_KEYS)[number];

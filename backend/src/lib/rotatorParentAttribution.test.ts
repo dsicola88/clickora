@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it } from "node:test";
 import {
+  FORWARD_AD_QUERY_KEYS,
   fillMissingAdClickIds,
   forwardAdQueryToUrl,
   rotatorMetaFromParentClick,
@@ -99,5 +102,14 @@ describe("pesos do rotador", () => {
     assert.equal(pickWeightedIndex([90, 10], 0.9), 0);
     assert.equal(pickWeightedIndex([90, 10], 0.91), 1);
     assert.equal(pickWeightedIndex([0, 100], 0.1), 1);
+  });
+
+  it("edge worker copia para o hoplink exatamente as mesmas chaves que o origin", () => {
+    const src = readFileSync(join(__dirname, "../../../edge/track-worker/src/index.js"), "utf8");
+    const block = src.match(/const FORWARD_AD_KEYS = \[([\s\S]*?)\];/);
+    assert.ok(block, "FORWARD_AD_KEYS não encontrado no worker");
+    const edgeKeys = [...block[1].matchAll(/"([a-z_]+)"/g)].map((m) => m[1]);
+    assert.deepEqual([...edgeKeys].sort(), [...FORWARD_AD_QUERY_KEYS].sort());
+    assert.ok(!edgeKeys.includes("fbp") && !edgeKeys.includes("ttp"));
   });
 });

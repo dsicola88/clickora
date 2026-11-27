@@ -55,6 +55,7 @@ const REPLACEABLE_NON_UUID_KEYS = new Set([
 
 /**
  * Mesmas chaves que origin `FORWARD_AD_QUERY_KEYS` no hop `/track/r/`.
+ * fbp/ttp ficam só no POST /track/click (metadata): não vão para o hoplink de terceiros.
  * gad_source fica no POST /track/click (metadata), não no destino afiliado.
  */
 const FORWARD_AD_KEYS = [
@@ -69,8 +70,6 @@ const FORWARD_AD_KEYS = [
   "utm_campaign",
   "utm_term",
   "utm_content",
-  "fbp",
-  "ttp",
 ];
 
 function json(data, status = 200) {

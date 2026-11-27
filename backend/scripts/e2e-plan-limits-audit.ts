@@ -699,7 +699,7 @@ async function main() {
   const staleLabels = (staleLanding.body as { plan_display_labels?: { branding_no?: string } }).plan_display_labels;
   record(
     "as sete frases velhas saem já corrigidas na leitura",
-    staleLabels?.branding_no === "Pode retirar a marca" &&
+    staleLabels?.branding_no === "Logo e cores próprios" &&
       staleExtras?.plans_section_subtitle?.includes("o anúncio não é cortado") === true &&
       staleExtras?.features?.cards?.[0]?.title === "Campanha e venda juntas" &&
       staleExtras?.features?.cards?.[0]?.body?.includes("quando o Google aceita a leitura") === true &&
