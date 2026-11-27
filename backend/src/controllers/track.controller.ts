@@ -28,6 +28,7 @@ import { reportCloudClickMeta } from "../lib/reportCloudIpRanges";
 import { assertPresellAllowedOnRequestHost } from "../lib/presellHostAccess";
 import { shouldEnforceComplianceServeBlock } from "../compliance/evaluate";
 import { pickRotatorDestination, stickyRotatorCookieName } from "../lib/trafficRotator.service";
+import { buildStickyRotatorSetCookie, isSecureRequest } from "../lib/stickyRotatorCookie";
 import { rewriteLocalPresellDestination } from "../lib/rewriteLocalPresellDestination";
 import {
   findClickIdByAdClickParam,
@@ -932,7 +933,12 @@ export const trackController = {
       const maxAge = 60 * 60 * 24 * 30;
       res.append(
         "Set-Cookie",
-        `${stickyCookie}=${encodeURIComponent(armIdForMeta)}; Path=/; Max-Age=${maxAge}; SameSite=Lax`,
+        buildStickyRotatorSetCookie({
+          name: stickyCookie,
+          value: armIdForMeta,
+          maxAgeSeconds: maxAge,
+          secure: isSecureRequest(req),
+        }),
       );
     }
     recordTrackRedirectLatency(performance.now() - t0);
