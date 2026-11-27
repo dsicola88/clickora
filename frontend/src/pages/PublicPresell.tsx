@@ -785,7 +785,13 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
     return getTrackApiBaseUrl();
   }, [page?.track_api_base]);
 
-  const { cookieAccepted, setCookieConsent, cookieConsent } = useCookieAcceptedState();
+  const { setCookieConsent, cookieConsent } = useCookieAcceptedState();
+  /**
+   * «Fechar» (essenciais) esconde o banner só nesta visita: ao carregar de novo volta expandido.
+   * Só «Aceitar» (all) deixa de mostrar o banner e liga o botão «Cookie settings».
+   */
+  const [cookieBannerDismissed, setCookieBannerDismissed] = useState(false);
+  const cookieAllAccepted = cookieConsent === "all";
   /** Consentimento do CookieBannerWidget (documento) — path principal do tipo cookies. */
   const [bannerConsent, setBannerConsent] = useState<"all" | "essential" | null>(() =>
     typeof window !== "undefined" ? readCookieConsentChoice() : null,
@@ -827,6 +833,7 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
     const stored = readCookieConsentChoice();
     setCookieConsent(stored);
     setBannerConsent(stored);
+    setCookieBannerDismissed(false);
     setSegmentationDismissed(false);
     // Gates interativos começam bloqueados até PresellGateFields reportar válido.
     setFieldGate({ params: {}, ctaEnabled: !getInteractiveGateKind(page?.type || "") });
@@ -838,6 +845,7 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
     clearCookieConsentChoice(DEFAULT_COOKIE_CONSENT_STORAGE_KEY);
     setCookieConsent(null);
     setBannerConsent(null);
+    setCookieBannerDismissed(false);
     updateGoogleConsentMode(false);
   }, [setCookieConsent]);
 
@@ -980,7 +988,8 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
   );
   const heroImageFallback = usePresellHeroImageWithFallback(productImages, storefrontMainIdx);
 
-  const showCookieModal = getPresellGateKind(page?.type || "") === "cookies" && !cookieAccepted;
+  const showCookieModal =
+    getPresellGateKind(page?.type || "") === "cookies" && !cookieAllAccepted && !cookieBannerDismissed;
   const showSegmentationModal =
     isSegmentationPresellType(page?.type) && !segmentationDismissed;
 
@@ -1486,14 +1495,17 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
               policyUrl={cookiePolicyUrl}
               redirectHref={href}
               fallbackHref={cookieConsentFallbackHref}
-              accepted={cookieAccepted}
+              accepted={cookieAllAccepted}
               navigateOnAccept={isCookieRedirectToOfferEnabled(settings)}
               styleId={resolvePresellCookieStyleId(settings)}
               onAccept={() => setCookieConsent("all")}
-              onDismiss={() => setCookieConsent("essential")}
+              onDismiss={() => {
+                setCookieConsent("essential");
+                setCookieBannerDismissed(true);
+              }}
             />
           ) : null}
-          {gateKind === "cookies" && cookieAccepted ? (
+          {gateKind === "cookies" && cookieAllAccepted ? (
             <CookieSettingsChip language={complianceLang} onClick={reopenCookieSettings} />
           ) : null}
           {showSegmentationModal ? (
@@ -1563,11 +1575,14 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
           policyUrl={cookiePolicyUrl}
           redirectHref={href}
           fallbackHref={cookieConsentFallbackHref}
-          accepted={cookieAccepted}
+          accepted={cookieAllAccepted}
           navigateOnAccept={isCookieRedirectToOfferEnabled(settings)}
               styleId={resolvePresellCookieStyleId(settings)}
           onAccept={() => setCookieConsent("all")}
-          onDismiss={() => setCookieConsent("essential")}
+          onDismiss={() => {
+            setCookieConsent("essential");
+            setCookieBannerDismissed(true);
+          }}
         />
       ) : null}
 
@@ -2268,7 +2283,7 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
         language={uiLang}
         suppressWhileCookieGate={showCookieModal}
       />
-      {gateKind === "cookies" && cookieAccepted ? (
+      {gateKind === "cookies" && cookieAllAccepted ? (
         <CookieSettingsChip language={complianceLang} onClick={reopenCookieSettings} />
       ) : null}
       {!useHealthArticleBody ? (

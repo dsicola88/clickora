@@ -132,10 +132,18 @@ describe("export estático — script do banner (executado em jsdom)", () => {
     }
   });
 
-  it("escolha já guardada → banner não volta a aparecer", () => {
-    window.localStorage.setItem("clickora-cookie-banner:choice", "essential");
+  it("Aceitar guardado → banner escondido e botão «Cookie settings» visível", () => {
+    window.localStorage.setItem("clickora-cookie-banner:choice", "all");
     mount("bar");
     expect(document.getElementById("pe-cookie-overlay")!.style.display).toBe("none");
+    expect(document.getElementById("pe-cookie-reopen")!.style.display).not.toBe("none");
+  });
+
+  it("só «Fechar» (essencial) guardado → banner volta EXPANDIDO, sem chip minimizado", () => {
+    window.localStorage.setItem("clickora-cookie-banner:choice", "essential");
+    mount("bar");
+    expect(document.getElementById("pe-cookie-overlay")!.style.display).not.toBe("none");
+    expect(document.getElementById("pe-cookie-reopen")!.style.display).toBe("none");
   });
 
   it("sem escolha guardada → banner visível", () => {

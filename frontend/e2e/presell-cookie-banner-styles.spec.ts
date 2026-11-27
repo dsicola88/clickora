@@ -159,10 +159,12 @@ for (const vpName of Object.keys(VIEWPORTS) as (keyof typeof VIEWPORTS)[]) {
           .toBe(0);
         expect(await page.evaluate(() => localStorage.getItem("clickora-cookie-banner:choice"))).toBe("essential");
 
-        // Escolha persiste após reload.
+        // Após Fechar, o banner volta EXPANDIDO no próximo carregamento (nunca minimizado) e sem chip.
         await page.goto(`/p/${id}`, { waitUntil: "domcontentloaded" });
         await expect(page.getByText("Cookie Styles Product").first()).toBeVisible({ timeout: 20_000 });
-        await expect(page.getByTestId("presell-cookie-sheet")).toBeHidden();
+        await expect(page.getByTestId("presell-cookie-sheet")).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByTestId("presell-cookie-card")).toBeVisible();
+        await expect(page.getByRole("button", { name: /cookie settings|configura/i })).toHaveCount(0);
       });
 
       test(`${style}: Aceitar sem opt-in grava consentimento e fica na página`, async ({ page }) => {
@@ -176,6 +178,8 @@ for (const vpName of Object.keys(VIEWPORTS) as (keyof typeof VIEWPORTS)[]) {
         await page.waitForTimeout(400);
         expect(new URL(page.url()).pathname).toBe(`/p/${id}`);
         expect(await page.evaluate(() => localStorage.getItem("clickora-cookie-banner:choice"))).toBe("all");
+        // Só depois de Aceitar aparece o botão «Cookie settings» para reabrir.
+        await expect(page.getByRole("button", { name: /cookie settings|configura/i })).toBeVisible();
       });
 
       test(`${style}: opt-in → Aceitar vai a /track/r/ preservando gclid; Fechar não navega`, async ({ page }) => {
