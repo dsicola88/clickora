@@ -55,11 +55,6 @@ export function readPublicTenantBranding(page: Pick<Presell, "tenant_branding">)
   return { brand_name, logo_url, favicon_url, primary_color, accent_color };
 }
 
-/** Crédito «powered by dclickora» — só quando a API pública marca `footer_branding: true`. */
-export function shouldShowPlatformFooterBranding(page: Pick<Presell, "footer_branding">): boolean {
-  return page.footer_branding === true;
-}
-
 /** Variáveis CSS aplicadas ao root da lander pública. */
 export function tenantBrandingCssVars(
   branding: PublicTenantBranding | null,

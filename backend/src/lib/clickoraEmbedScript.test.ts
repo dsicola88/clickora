@@ -5,11 +5,11 @@ import { CLICKORA_EMBED_JS } from "./clickoraEmbedScript";
 
 const PID = "11111111-1111-4111-8111-111111111111";
 
-function run(opts: { href: string; cookie?: string; attrs?: Record<string, string> }) {
+function run(opts: { href: string; cookie?: string; attrs?: Record<string, string>; scriptSrc?: string }) {
   const calls: Array<{ url: string; init: { body: string } }> = [];
   const url = new URL(opts.href);
   const script = {
-    src: "https://api.example.com/api/track/v2/clickora.min.js",
+    src: opts.scriptSrc ?? "https://api.example.com/api/track/v2/trk.min.js",
     getAttribute: (k: string) => opts.attrs?.[k] ?? null,
   };
   const ctx = {
@@ -30,7 +30,19 @@ function run(opts: { href: string; cookie?: string; attrs?: Record<string, strin
   return calls;
 }
 
-describe("clickora.min.js (embed)", () => {
+describe("trk.min.js (embed)", () => {
+  it("não expõe o nome da plataforma no script servido", () => {
+    assert.doesNotMatch(CLICKORA_EMBED_JS, /dclickora\.com|powered by/i);
+  });
+
+  it("alias legado clickora.min.js continua a resolver a API base", () => {
+    const calls = run({
+      href: `https://offer.tenant.com/p/${PID}`,
+      scriptSrc: "https://api.example.com/api/track/v2/clickora.min.js",
+    });
+    assert.equal(calls[0]!.url, "https://api.example.com/api/track/event");
+  });
+
   it("é legível (não minificado numa linha) e sem padrões de injeção", () => {
     assert.ok(CLICKORA_EMBED_JS.split("\n").length > 40);
     assert.doesNotMatch(CLICKORA_EMBED_JS, /\beval\(|new Function|atob\(|fromCharCode|document\.write|location\.(href\s*=|replace|assign)|window\.open/);

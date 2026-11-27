@@ -8,7 +8,6 @@ import { describe, expect, it } from "vitest";
 import type { Presell } from "@/types/api";
 import {
   readPublicTenantBranding,
-  shouldShowPlatformFooterBranding,
   tenantBrandingCssVars,
 } from "@/lib/tenantBrandingPublic";
 import { resolvePublicPresellFaviconUrl } from "@/lib/publicPresellSeo";
@@ -43,12 +42,12 @@ function basePage(partial: Partial<Presell>): Presell {
 }
 
 describe("white-label FE wiring (API → lander)", () => {
-  it("PublicPresell liga tenant_branding + footer_branding", () => {
+  it("PublicPresell liga tenant_branding e não tem crédito da plataforma", () => {
     const src = readFileSync(join(process.cwd(), "src/pages/PublicPresell.tsx"), "utf8");
     expect(src).toContain("readPublicTenantBranding");
-    expect(src).toContain("shouldShowPlatformFooterBranding");
+    expect(src).not.toContain("shouldShowPlatformFooterBranding");
+    expect(src).not.toMatch(/PresellPlatformCredit|dclickora\.com/);
     expect(src).toContain("PresellTenantBrandChrome");
-    expect(src).toContain("PresellPlatformCredit");
     expect(src).toContain("data-tenant-wl");
     expect(src).toContain("tenantBrandingCssVars");
   });
@@ -66,7 +65,6 @@ describe("white-label FE wiring (API → lander)", () => {
     });
     const b = readPublicTenantBranding(page);
     expect(b?.brand_name).toBe("Acme");
-    expect(shouldShowPlatformFooterBranding(page)).toBe(false);
     expect(tenantBrandingCssVars(b)).toMatchObject({
       "--tenant-primary": "#0F172A",
       "--tenant-accent": "#2563EB",
@@ -87,20 +85,19 @@ describe("white-label FE wiring (API → lander)", () => {
     expect(html).toContain('og:site_name" content="Acme"');
   });
 
-  it("free: crédito plataforma + sem chrome se tenant null", () => {
+  it("qualquer plano (footer_branding true): nunca há crédito nem link dclickora; sem chrome se tenant null", () => {
     const page = basePage({
       footer_branding: true,
       tenant_branding: null,
     });
     expect(readPublicTenantBranding(page)).toBeNull();
-    expect(shouldShowPlatformFooterBranding(page)).toBe(true);
     const html = buildPresellStandaloneHtml(page, {
       apiBase: "https://api.example.com/api",
       publicPageUrl: "https://www.example.com/p/wl-2",
       format: "document",
     });
-    expect(html).toContain('data-testid="platform-footer-branding"');
-    expect(html).toContain("dclickora");
+    expect(html).not.toContain('data-testid="platform-footer-branding"');
+    expect(html).not.toMatch(/dclickora/i);
     // CSS selector menciona data-tenant-wl; o atributo no root só existe com marca.
     expect(html).not.toMatch(/data-pe-presell-root="true"[^>]*data-tenant-wl="1"/);
     expect(html).not.toContain("--tenant-primary:");

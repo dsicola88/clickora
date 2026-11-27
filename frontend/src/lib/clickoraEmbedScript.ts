@@ -1,9 +1,10 @@
 /**
- * Snippet Clickora para &lt;head&gt;: async (não bloqueia render) + data-presell-id quando conhecido.
+ * Snippet de tracking para &lt;head&gt;: async (não bloqueia render) + data-presell-id quando conhecido.
  * Em páginas hospedadas (/p/…), PublicPresell injeta sempre com o UUID da página.
  */
 
-const CLICKORA_SCRIPT_RE = /<script\b[^>]*clickora\.min\.js[^>]*>\s*<\/script>/gi;
+/** Remove o script de tracking (nome novo `trk.min.js` e legado `clickora.min.js`). */
+const CLICKORA_SCRIPT_RE = /<script\b[^>]*(?:trk|clickora)\.min\.js[^>]*>\s*<\/script>/gi;
 
 export function stripClickoraEmbedScripts(html: string): string {
   return (html || "")
@@ -20,7 +21,7 @@ export function buildClickoraEmbedScriptHtml(opts: {
 }): string {
   const base = (opts.apiBase || "").replace(/\/$/, "");
   if (!base) return "";
-  const parts = [`src="${base}/track/v2/clickora.min.js"`, "async"];
+  const parts = [`src="${base}/track/v2/trk.min.js"`, "async"];
   const uid = (opts.userId || "").trim();
   if (uid) parts.push(`data-id="${uid}"`);
   const pid = (opts.presellId || "").trim();

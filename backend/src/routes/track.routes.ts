@@ -26,6 +26,8 @@ trackRouter.get("/edge/dest/:presellId", trackController.getEdgeDest);
 trackRouter.get("/pixel/:presellId.gif", trackController.pixel);
 trackRouter.get("/funnel/:step.gif", trackController.funnelStepPixel);
 trackRouter.get("/funnel/:step", trackController.funnelStepPixel);
+trackRouter.get("/v2/trk.min.js", trackController.serveClickoraEmbed);
+/** Alias legado: presells/exports já publicados com o nome antigo do ficheiro. */
 trackRouter.get("/v2/clickora.min.js", trackController.serveClickoraEmbed);
 trackRouter.get("/conversions/csv", trackController.conversionsCsvPing);
 trackRouter.post(

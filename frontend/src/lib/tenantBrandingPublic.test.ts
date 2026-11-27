@@ -5,7 +5,6 @@ import {
   normalizeTenantHex,
   readPublicTenantBranding,
   resolveTenantFaviconUrl,
-  shouldShowPlatformFooterBranding,
   tenantBrandingCssVars,
 } from "./tenantBrandingPublic";
 
@@ -68,12 +67,6 @@ describe("tenantBrandingPublic", () => {
     );
     expect(b?.brand_name).toBeNull();
     expect(b?.primary_color).toBe("#0F766E");
-  });
-
-  it("footer só com footer_branding === true", () => {
-    expect(shouldShowPlatformFooterBranding(page({ footer_branding: true }))).toBe(true);
-    expect(shouldShowPlatformFooterBranding(page({ footer_branding: false }))).toBe(false);
-    expect(shouldShowPlatformFooterBranding(page({}))).toBe(false);
   });
 
   it("css vars só com cores válidas", () => {

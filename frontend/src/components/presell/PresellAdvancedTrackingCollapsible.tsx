@@ -461,7 +461,7 @@ export function PresellAdvancedTrackingCollapsible({
                   <Textarea
                     id={isEditor ? "presell-adv-head-editor" : "headerCode"}
                     rows={3}
-                    placeholder={`<script src="…/track/v2/clickora.min.js" data-id="…"></script>`}
+                    placeholder={`<script src="…/track/v2/trk.min.js" data-id="…"></script>`}
                     value={String(configSettings.headerCode ?? "")}
                     onChange={(e) => setConfigSettings((p) => ({ ...p, headerCode: e.target.value }))}
                     className={cn(

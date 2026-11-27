@@ -8,11 +8,16 @@ describe("clickoraEmbedScript", () => {
       userId: "user-1",
       presellId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
     });
-    expect(html).toContain('src="https://example.com/api/track/v2/clickora.min.js"');
+    expect(html).toContain('src="https://example.com/api/track/v2/trk.min.js"');
     expect(html).toMatch(/\basync\b/);
     expect(html).toContain('data-id="user-1"');
     expect(html).toContain('data-presell-id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"');
     expect(html.startsWith("<script ")).toBe(true);
+  });
+
+  it("remove também o nome novo trk.min.js", () => {
+    const raw = `<script src="https://x.com/api/track/v2/trk.min.js" async></script>\n\n<!-- meta -->`;
+    expect(stripClickoraEmbedScripts(raw)).toBe("<!-- meta -->");
   });
 
   it("remove scripts clickora antigos (incl. localhost)", () => {

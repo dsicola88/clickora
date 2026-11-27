@@ -31,8 +31,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "Independent information about {name} — confirm price, ingredients, and terms on the seller’s official site.",
     footerNote: "Price, availability and payment are confirmed at checkout.",
-    footerBrandingPrefix: "Presell and tracking with ",
-    footerBrandingSuffix: "",
     trustDisclosure: "Disclosure: we may earn a commission from links on this page, at no extra cost to you.",
     trustAbout: "Product details and images are provided by the seller. Final price, shipping and guarantees are shown at checkout.",
     trustNavLabel: "Policies",
@@ -74,8 +72,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "Información independiente sobre {name}: confirme precio, ingredientes y condiciones en el sitio oficial del vendedor.",
     footerNote: "Precios, disponibilidad y pago seguro están en la página oficial del producto.",
-    footerBrandingPrefix: "Presell y seguimiento con ",
-    footerBrandingSuffix: "",
     trustDisclosure: "Esta es una página de oferta independiente. Podemos recibir una comisión si compras a través del enlace. No somos la marca ni gestionamos el pago.",
     trustAbout: "Esta página muestra fotos del producto y un enlace a la oferta del vendedor. El precio y el pago están en el sitio del comerciante.",
     trustNavLabel: "Políticas",
@@ -117,8 +113,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "Informação independente sobre {name} — confirme preço, ingredientes e condições no site oficial do vendedor.",
     footerNote: "Página independente · preço e pagamento no checkout do comerciante.",
-    footerBrandingPrefix: "Presell e rastreamento com ",
-    footerBrandingSuffix: "",
     trustDisclosure:
       "Página de oferta independente (divulgação de afiliado): podemos receber comissão se comprar pelo link do produto. Não somos a marca, o fabricante nem o processador de pagamento.",
     trustAbout:
@@ -163,8 +157,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "Unabhängige Informationen zu {name} — Preis, Inhaltsstoffe und Bedingungen nur auf der offiziellen Verkäuferseite prüfen.",
     footerNote: "Preise, Verfügbarkeit und sicherer Checkout finden Sie auf der offiziellen Produktseite.",
-    footerBrandingPrefix: "Presell und Tracking mit ",
-    footerBrandingSuffix: "",
     trustDisclosure: "Dies ist eine unabhängige Angebotsseite. Wir können eine Provision erhalten, wenn Sie über den Produktlink kaufen. Wir sind nicht die Marke und wickeln die Zahlung nicht ab.",
     trustAbout: "Diese Seite zeigt Produktfotos und einen Angebotslink des Händlers. Preis und Zahlung erfolgen auf der Händlerseite.",
     trustNavLabel: "Richtlinien",
@@ -206,8 +198,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "Page d’information indépendante sur {name} — vérifiez prix, ingrédients et conditions sur le site officiel du vendeur.",
     footerNote: "Tarifs, disponibilité et paiement sécurisé : voir la page officielle du produit.",
-    footerBrandingPrefix: "Presell et suivi avec ",
-    footerBrandingSuffix: "",
     trustDisclosure: "Ceci est une page d’offre indépendante. Nous pouvons percevoir une commission si vous achetez via le lien produit. Nous ne sommes pas la marque et n’encaissons pas le paiement.",
     trustAbout: "Cette page montre des photos du produit et un lien d’offre du vendeur. Prix et paiement sont sur le site du marchand.",
     trustNavLabel: "Politiques",
@@ -249,8 +239,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "Informazioni indipendenti su {name}: prezzo, ingredienti e condizioni solo sul sito ufficiale del venditore.",
     footerNote: "Prezzi, disponibilità e checkout sicuro sulla pagina ufficiale del prodotto.",
-    footerBrandingPrefix: "Presell e tracciamento con ",
-    footerBrandingSuffix: "",
     trustDisclosure: "Questa è una pagina di offerta indipendente. Possiamo ricevere una commissione se acquisti tramite il link. Non siamo il brand e non gestiamo il pagamento.",
     trustAbout: "Questa pagina mostra foto del prodotto e un link all’offerta del venditore. Prezzo e pagamento sono sul sito del merchant.",
     trustNavLabel: "Politiche",
@@ -292,8 +280,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "Niezależne informacje o {name} — cenę, skład i warunki potwierdź na oficjalnej stronie sprzedawcy.",
     footerNote: "Ceny, dostępność i bezpieczna płatność — na oficjalnej stronie produktu.",
-    footerBrandingPrefix: "Presell i śledzenie z ",
-    footerBrandingSuffix: "",
     trustDisclosure: "To niezależna strona oferty. Możemy otrzymać prowizję, jeśli kupisz przez link produktu. Nie jesteśmy marką i nie obsługujemy płatności.",
     trustAbout: "Ta strona pokazuje zdjęcia produktu i link do oferty sprzedawcy. Cena i płatność są na stronie sprzedawcy.",
     trustNavLabel: "Zasady",
@@ -335,8 +321,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "{name} hakkında bağımsız bilgi — fiyat, içerik ve koşulları satıcının resmi sitesinde doğrulayın.",
     footerNote: "Fiyat, stok ve güvenli ödeme için resmî ürün sayfasına bakın.",
-    footerBrandingPrefix: "Presell ve izleme ile ",
-    footerBrandingSuffix: "",
     trustDisclosure: "Bu bağımsız bir teklif sayfasıdır. Ürün bağlantısı üzerinden satın alırsanız komisyon alabiliriz. Marka değiliz ve ödemeyi biz almıyoruz.",
     trustAbout: "Bu sayfa ürün fotoğraflarını ve satıcının teklif bağlantısını gösterir. Fiyat ve ödeme satıcı sitesindedir.",
     trustNavLabel: "Politikalar",
@@ -378,8 +362,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "{name} के बारे में स्वतंत्र जानकारी — कीमत, सामग्री और शर्तें विक्रेता की आधिकारिक साइट पर पुष्टि करें।",
     footerNote: "मूल्य, उपलब्धता और सुरक्षित भुगतान आधिकारिक उत्पाद पृष्ठ पर देखें।",
-    footerBrandingPrefix: "प्रेसेल और ट्रैकिंग: ",
-    footerBrandingSuffix: "",
     trustDisclosure: "यह एक स्वतंत्र ऑफ़र पेज है। उत्पाद लिंक से खरीदने पर हमें कमीशन मिल सकता है। हम ब्रांड नहीं हैं और भुगतान हम नहीं लेते।",
     trustAbout: "इस पेज पर उत्पाद की तस्वीरें और विक्रेता का ऑफ़र लिंक है। कीमत और भुगतान व्यापारी की साइट पर हैं।",
     trustNavLabel: "नीतियाँ",
@@ -421,8 +403,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "معلومات مستقلة عن {name} — أكّد السعر والمكوّنات والشروط على الموقع الرسمي للبائع.",
     footerNote: "التفاصيل والأسعار والدفع الآمن على الصفحة الرسمية للمنتج.",
-    footerBrandingPrefix: "البيع المسبق والتتبع عبر ",
-    footerBrandingSuffix: "",
     trustDisclosure: "هذه صفحة عرض مستقلة. قد نحصل على عمولة إذا اشتريت عبر رابط المنتج. لسنا العلامة التجارية ولا نعالج الدفع.",
     trustAbout: "تعرض هذه الصفحة صور المنتج ورابط عرض البائع. السعر والدفع على موقع التاجر.",
     trustNavLabel: "السياسات",
@@ -464,8 +444,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "Onafhankelijke informatie over {name} — bevestig prijs, ingrediënten en voorwaarden op de officiële site van de verkoper.",
     footerNote: "Prijzen, beschikbaarheid en veilige checkout staan op de officiële productpagina.",
-    footerBrandingPrefix: "Presell en tracking met ",
-    footerBrandingSuffix: "",
     trustDisclosure: "Dit is een onafhankelijke aanbiedingspagina. We kunnen commissie ontvangen als u via de productlink koopt. Wij zijn niet het merk en verwerken de betaling niet.",
     trustAbout: "Deze pagina toont productfoto’s en een aanbiedingslink van de verkoper. Prijs en betaling staan op de merchantsite.",
     trustNavLabel: "Beleid",
@@ -507,8 +485,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "Oberoende information om {name} — bekräfta pris, innehåll och villkor på säljarens officiella webbplats.",
     footerNote: "Priser, tillgänglighet och säker betalning på den officiella produktsidan.",
-    footerBrandingPrefix: "Presell och spårning med ",
-    footerBrandingSuffix: "",
     trustDisclosure: "Detta är en oberoende erbjudandesida. Vi kan få provision om du köper via produktlänken. Vi är inte varumärket och hanterar inte betalningen.",
     trustAbout: "Sidan visar produktbilder och en erbjudandelänk från säljaren. Pris och betalning finns på handlarens webbplats.",
     trustNavLabel: "Policyer",
@@ -550,8 +526,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "Uavhengig informasjon om {name} — bekreft pris, innhold og vilkår på selgerens offisielle nettsted.",
     footerNote: "Priser, tilgjengelighet og sikker betaling på den offisielle produktsiden.",
-    footerBrandingPrefix: "Presell og sporing med ",
-    footerBrandingSuffix: "",
     trustDisclosure: "Dette er en uavhengig tilbudsside. Vi kan motta provisjon hvis du kjøper via produktlenken. Vi er ikke merkevaren og behandler ikke betalingen.",
     trustAbout: "Siden viser produktbilder og en tilbudslenke fra selgeren. Pris og betaling er på forhandlerens nettsted.",
     trustNavLabel: "Retningslinjer",
@@ -593,8 +567,6 @@ export const PRESHELL_UI_STRINGS: Record<PresellLocaleKey, PresellUiStrings> = {
     portalHeaderTagline:
       "Uafhængig information om {name} — bekræft pris, indhold og vilkår på sælgerens officielle websted.",
     footerNote: "Priser, tilgængelighed og sikker betaling på den officielle produktside.",
-    footerBrandingPrefix: "Presell og sporing med ",
-    footerBrandingSuffix: "",
     trustDisclosure: "Dette er en uafhængig tilbudsside. Vi kan få provision, hvis du køber via produktlinket. Vi er ikke brandet og håndterer ikke betalingen.",
     trustAbout: "Siden viser produktfotos og et tilbudslink fra sælgeren. Pris og betaling er på forhandlerens site.",
     trustNavLabel: "Politikker",

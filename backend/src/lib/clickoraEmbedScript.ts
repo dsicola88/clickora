@@ -1,13 +1,14 @@
 /**
- * Script público `/track/v2/clickora.min.js` (pageview em presells `/p/{uuid}`).
+ * Script público `/track/v2/trk.min.js` (pageview em presells). O caminho antigo `/track/v2/clickora.min.js`
+ * continua servido como alias para páginas já publicadas.
  *
  * Servido legível e comentado de propósito: código minificado numa linha que lê cookies e faz
  * POST para outro domínio é o perfil que os scanners de malware associam a skimmers.
  * Mantém-se async-safe (não depende só de `document.currentScript`).
  */
 export const CLICKORA_EMBED_JS = String.raw`/*!
- * dclickora pageview tracker — https://www.dclickora.com
- * Envia 1 evento "pageview" para a API dclickora com: id da presell, URL da página, referrer,
+ * Pageview tracker.
+ * Envia 1 evento "pageview" para a API de tracking do próprio domínio com: id da presell, URL da página, referrer,
  * IDs de clique dos anúncios (gclid/gbraid/wbraid/fbclid/ttclid/msclkid), UTMs e os cookies
  * _fbp/_ttp quando existem. Não altera a página, não redireciona e não escreve cookies.
  */
@@ -19,7 +20,7 @@ export const CLICKORA_EMBED_JS = String.raw`/*!
     if (current && current.src) return current;
     var scripts = document.getElementsByTagName("script");
     for (var i = scripts.length - 1; i >= 0; i--) {
-      if (scripts[i].src && /clickora\.min\.js/i.test(scripts[i].src)) return scripts[i];
+      if (scripts[i].src && /(?:trk|clickora)\.min\.js/i.test(scripts[i].src)) return scripts[i];
     }
     return null;
   }
@@ -41,7 +42,7 @@ export const CLICKORA_EMBED_JS = String.raw`/*!
   var scriptUrl = new URL(script.src);
   var apiBase =
     script.getAttribute("data-api-base") ||
-    scriptUrl.origin + scriptUrl.pathname.replace(/\/track\/v2\/clickora\.min\.js$/i, "");
+    scriptUrl.origin + scriptUrl.pathname.replace(/\/track\/v2\/(?:trk|clickora)\.min\.js$/i, "");
   var userId = script.getAttribute("data-id") || "";
   var explicitPresellId = (script.getAttribute("data-presell-id") || "").trim();
   var pathMatch = location.pathname.match(/\/p\/([a-f0-9-]{36})/i);

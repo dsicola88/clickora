@@ -2265,7 +2265,7 @@ export const analyticsController = {
       account_health,
       tracking_install: {
         user_id: userId,
-        embed_js_url: `${trackApiBase}/track/v2/clickora.min.js`,
+        embed_js_url: `${trackApiBase}/track/v2/trk.min.js`,
         csv_upload_url: postbackToken
           ? `${trackApiBase}/track/conversions/csv?token=${encodeURIComponent(postbackToken)}`
           : null,

@@ -129,7 +129,6 @@ import { plainTextFromMaybeHtml } from "@/lib/plainTextFromMaybeHtml";
 import { usePresellHeroImageWithFallback } from "@/lib/presellHeroImageFallback";
 import { PresellTrustFooter } from "@/components/presell/PresellTrustFooter";
 import { isAffiliateTrustFooterEnabled } from "@/lib/presellAffiliateTrustFooter";
-import { PresellPlatformCredit } from "@/components/presell/PresellPlatformCredit";
 import { PresellTenantBrandChrome } from "@/components/presell/PresellTenantBrandChrome";
 import { presellComplianceLanguage } from "@/lib/presellPublicComplianceCopy";
 import { PresellTypeFrame } from "@/components/presell/PresellTypeFrame";
@@ -138,7 +137,6 @@ import { resolveHealthArticle } from "@/lib/presellHealthArticle";
 import { getPresellTypeTheme } from "@/lib/presellTypeTheme";
 import {
   readPublicTenantBranding,
-  shouldShowPlatformFooterBranding,
   tenantBrandingCssVars,
 } from "@/lib/tenantBrandingPublic";
 
@@ -1153,9 +1151,6 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
   const showTrustFooter = isAffiliateTrustFooterEnabled(settings as Record<string, unknown>);
   const tenantBranding = readPublicTenantBranding(page);
   const tenantCssVars = tenantBrandingCssVars(tenantBranding);
-  /** Leveza: crédito da plataforma só se o rodapé de afiliado também estiver ligado (menos chrome). */
-  const showPlatformCredit =
-    shouldShowPlatformFooterBranding(page) && showTrustFooter;
   /** Artigo editorial: adia pintura abaixo da dobra. */
   const lightArticleLayout =
     page.type === "review" || page.type === "advertorial" || page.type === "tsl";
@@ -1341,7 +1336,6 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
         {showTenantBrandChrome && tenantBranding ? (
           <PresellTenantBrandChrome branding={tenantBranding} />
         ) : null}
-        {showPlatformCredit ? <PresellPlatformCredit language={complianceLang} /> : null}
       </div>
       </PresellPublicLocaleProvider>
     );
@@ -1462,7 +1456,6 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
         {showTenantBrandChrome && tenantBranding ? (
           <PresellTenantBrandChrome branding={tenantBranding} />
         ) : null}
-        {showPlatformCredit ? <PresellPlatformCredit language={complianceLang} /> : null}
       </>
     );
     return (
@@ -2256,7 +2249,6 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
       {showTenantBrandChrome && tenantBranding ? (
           <PresellTenantBrandChrome branding={tenantBranding} />
         ) : null}
-      {showPlatformCredit ? <PresellPlatformCredit language={complianceLang} /> : null}
     </>
   );
 

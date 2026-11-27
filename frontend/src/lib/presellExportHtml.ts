@@ -171,8 +171,6 @@ const EXPORT_STYLES = `
 .pe-footer-sec{max-width:48rem;margin:0 auto;padding:1.5rem .75rem 3rem;}
 .pe-footer-box{border-radius:1rem;border:1px solid rgba(0,0,0,.1);background:rgba(255,255,255,.5);backdrop-filter:blur(2px);padding:2rem 1.25rem;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.05);}
 .pe-footnote{font-size:.8rem;color:#64748b;margin:.75rem auto 0;max-width:28rem;line-height:1.6;}
-.pe-footer-branding{font-size:.7rem;color:#94a3b8;margin:.75rem auto 0;max-width:28rem;line-height:1.5;padding-top:.75rem;border-top:1px solid rgba(0,0,0,.08);}
-.pe-footer-branding a{color:#475569;font-weight:500;}
 .pe-tenant-brand{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-top:.75rem;font-size:.7rem;color:#64748b;}
 .pe-tenant-logo{height:1.25rem;width:auto;max-width:7rem;object-fit:contain;opacity:.9;}
 .pe-root[data-tenant-wl="1"] .pe-cta--light{background:var(--tenant-primary,linear-gradient(135deg,hsl(172,66%,38%),hsl(28,92%,48%)));color:var(--tenant-primary-fg,#fff);border-color:color-mix(in srgb,var(--tenant-accent,var(--tenant-primary,#14b8a6)) 35%,transparent);}
@@ -859,10 +857,6 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
   }
 
   const L = getPresellUiStrings(page.language);
-  const brandingLine =
-    page.footer_branding === true
-      ? `<p class="pe-footer-branding" data-testid="platform-footer-branding">${escapeHtml(L.footerBrandingPrefix)}<a href="https://www.dclickora.com" target="_blank" rel="noopener noreferrer">dclickora</a>${escapeHtml(L.footerBrandingSuffix)}</p>`
-      : "";
   const tenant = page.tenant_branding;
   const tenantPrimary =
     typeof tenant?.primary_color === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(tenant.primary_color.trim())
@@ -888,7 +882,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
             : ""
         }${tenantName ? `<span data-testid="tenant-brand-name">${escapeHtml(tenantName)}</span>` : ""}</div>`
       : "";
-  const ctaFooterSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(L.footerNote)}</p>${brandingLine}${tenantChrome}</div></section>`;
+  const ctaFooterSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(L.footerNote)}</p>${tenantChrome}</div></section>`;
   const trustFooter =
     !isAffiliateTrustFooterEnabled(settings)
       ? ""

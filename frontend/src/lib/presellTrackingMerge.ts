@@ -1,5 +1,5 @@
 /**
- * Remove scripts existentes que carregam clickora.min.js e junta o script atual da conta
+ * Remove scripts existentes que carregam trk.min.js (ou o legado clickora.min.js) e junta o script atual da conta
  * no início do código do head (sem duplicar o mesmo snippet).
  */
 import { stripClickoraEmbedScripts } from "./clickoraEmbedScript";

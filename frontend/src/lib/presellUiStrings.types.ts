@@ -83,9 +83,7 @@ export type PresellUiStrings = {
   /** Texto neutro para o visitante (sem mencionar afiliado ou rastreamento). */
   footerNote: string;
   /** Texto antes do link da marca (ex.: "Presell e rastreamento com "). */
-  footerBrandingPrefix: string;
   /** Texto após o link da marca (geralmente vazio). */
-  footerBrandingSuffix: string;
   /** Transparência Google Ads: relação comercial / afiliado, sem se passar pela marca. */
   trustDisclosure: string;
   /** Quem opera a página / o que é esta landing. */
