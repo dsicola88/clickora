@@ -533,7 +533,11 @@ export function CustomDomainSettings() {
                       <SelectContent>
                         <SelectItem value="__auto__">{t("pages.settings.rootAuto")}</SelectItem>
                         {presells
-                          .filter((p) => p.custom_domain_id === d.id && p.status === "published")
+                          .filter(
+                            (p) =>
+                              p.status === "published" &&
+                              (p.custom_domain_id === d.id || (p.custom_domain_id == null && d.is_default)),
+                          )
                           .map((p) => (
                             <SelectItem key={p.id} value={p.id}>
                               {p.title}

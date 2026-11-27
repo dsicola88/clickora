@@ -94,6 +94,12 @@ export function isTenantBarePresellPathname(pathname: string, hostname: string):
   return !isReservedBarePresellSegment(seg);
 }
 
+/** Raiz `/` de um domínio de assinante (não marketing/dev): mostra a presell escolhida ou página neutra. */
+export function isTenantRootPathname(pathname: string, hostname: string): boolean {
+  if (!isTenantPresellHost(hostname)) return false;
+  return ((pathname || "").replace(/\/+$/, "") || "/") === "/";
+}
+
 /** Lander pública: `/p/`, `/l/` ou slug bare no tenant. */
 export function isAnyPublicPresellPathname(pathname: string, hostname: string): boolean {
   if (/^\/(?:p|l)\/[^/]+/i.test(pathname)) return true;

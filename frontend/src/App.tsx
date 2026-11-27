@@ -11,7 +11,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLocaleProvider } from "@/i18n/AppLocaleProvider";
 import { LegacyDomLocalizer } from "@/i18n/LegacyDomLocalizer";
 import { mergeRedirectSearch } from "@/lib/postAuthRedirect";
-import { isAnyPublicPresellPathname } from "@/lib/publicPresellBarePath";
+import { isAnyPublicPresellPathname, isTenantRootPathname } from "@/lib/publicPresellBarePath";
 
 const AppLayout = lazy(() =>
   import("@/components/AppLayout").then((m) => ({ default: m.AppLayout })),
@@ -43,6 +43,7 @@ const AdminEntryRedirect = lazy(() =>
 const Account = lazy(() => import("./pages/Account"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PublicPresell = lazy(() => import("./pages/PublicPresell"));
+const TenantRoot = lazy(() => import("./components/TenantRoot").then((m) => ({ default: m.TenantRoot })));
 const OwnerPresellPreview = lazy(() => import("./pages/OwnerPresellPreview"));
 const IntentConversionPage = lazy(() => import("./pages/IntentConversionPage"));
 const AffiliateGuidePage = lazy(() => import("./pages/AffiliateGuidePage"));
@@ -220,6 +221,7 @@ function PublicPresellShell() {
       <Routes>
         <Route path="/p/:id" element={<PublicPresell />} />
         <Route path="/l/:id" element={<LitePresellEntry />} />
+        <Route path="/" element={<TenantRoot />} />
         <Route path="/:id" element={<PublicPresell />} />
       </Routes>
     </Suspense>
@@ -318,6 +320,7 @@ function AppRouterGate() {
   const hostname = typeof window !== "undefined" ? window.location.hostname : "";
   if (pathname.startsWith("/p/") || pathname.startsWith("/l/")) return <PublicPresellShell />;
   if (isAnyPublicPresellPathname(pathname, hostname)) return <PublicPresellShell />;
+  if (isTenantRootPathname(pathname, hostname)) return <PublicPresellShell />;
   return <AuthenticatedAppShell />;
 }
 

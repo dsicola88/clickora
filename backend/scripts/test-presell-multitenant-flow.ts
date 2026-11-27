@@ -1,57 +1,40 @@
 /**
  * Testes de integração: raiz do domínio (root presell) + isolamento multi-tenant.
- * Não arranca o servidor HTTP — usa systemPrisma e replica a lógica de resolução de GET /api/public/.../root-presell.
+ * Não arranca o servidor HTTP — usa systemPrisma e usa a mesma decisão de GET /api/public/.../root-presell.
  *
  * Uso: `npm run test:presell-multitenant` (na pasta backend)
  */
 import assert from "node:assert/strict";
 import bcrypt from "bcryptjs";
-import { Prisma } from "@prisma/client";
 import { evaluateSubscriptionAccess } from "../src/lib/subscription";
+import { decideRootPresell } from "../src/lib/customDomainRoot";
 import { systemPrisma } from "../src/lib/prisma";
 
 const EMAIL_A = "mt-presell-flow-a@dclickora.local";
 const EMAIL_B = "mt-presell-flow-b@dclickora.local";
 
-/** Espelha a escolha de página em presellController.getRootPresellForHost (após obter cd + ownerId). */
+/** Usa a mesma decisão de presellController.getRootPresellForHost (após obter cd + ownerId). */
 async function resolveRootPresellPageId(
-  cd: { id: string; rootPresellId: string | null },
+  cd: { id: string; rootPresellId: string | null; isDefault?: boolean; purpose?: string },
   ownerId: string,
 ): Promise<string | null> {
-  let page = null as
-    | Prisma.PresellPageGetPayload<{ include: { user: { include: { subscription: true } } } }>
-    | null;
-
-  if (cd.rootPresellId) {
-    const byRoot = await systemPrisma.presellPage.findFirst({
-      where: {
-        id: cd.rootPresellId,
-        userId: ownerId,
-        customDomainId: cd.id,
-        status: "published",
-      },
-      include: { user: { include: { subscription: true } } },
-    });
-    if (byRoot && evaluateSubscriptionAccess(byRoot.user.subscription).allowed) {
-      page = byRoot;
-    }
-  }
-
-  if (!page) {
-    page = await systemPrisma.presellPage.findFirst({
-      where: {
-        userId: ownerId,
-        customDomainId: cd.id,
-        status: "published",
-      },
-      orderBy: [{ updatedAt: "desc" }],
-      include: { user: { include: { subscription: true } } },
-    });
-  }
-
-  if (!page) return null;
-  if (!evaluateSubscriptionAccess(page.user.subscription).allowed) return null;
-  return page.id;
+  const decision = await decideRootPresell(
+    {
+      id: cd.id,
+      userId: ownerId,
+      isDefault: cd.isDefault ?? false,
+      purpose: cd.purpose ?? "both",
+      rootPresellId: cd.rootPresellId,
+    },
+    (presellId) =>
+      systemPrisma.presellPage.findFirst({
+        where: { id: presellId, userId: ownerId },
+        include: { user: { include: { subscription: true } } },
+      }),
+  );
+  if (decision.kind !== "page") return null;
+  if (!evaluateSubscriptionAccess(decision.page.user.subscription).allowed) return null;
+  return decision.page.id;
 }
 
 async function ensurePlanFree() {
@@ -195,14 +178,14 @@ async function main() {
     },
   });
 
-  // --- Sem root explícito: deve escolher a mais recentemente atualizada (pA2) ---
+  // --- Sem escolha manual: NUNCA há raiz automática (página neutra), mesmo com presells publicadas ---
   const cdA0 = await systemPrisma.customDomain.findUniqueOrThrow({
     where: { id: domainA.id },
     select: { id: true, rootPresellId: true },
   });
   assert.equal(cdA0.rootPresellId, null);
   const rootAuto = await resolveRootPresellPageId(cdA0, userA.id);
-  assert.equal(rootAuto, pA2.id, "automático deve preferir updatedAt mais recente");
+  assert.equal(rootAuto, null, "sem «Presell ao abrir» a raiz não pode escolher presell sozinha");
 
   // --- Com root explícito: pA1 ---
   await systemPrisma.customDomain.update({
@@ -214,7 +197,7 @@ async function main() {
     select: { id: true, rootPresellId: true },
   });
   const rootExplicit = await resolveRootPresellPageId(cdA1, userA.id);
-  assert.equal(rootExplicit, pA1.id, "root_presell_id deve vencer o fallback");
+  assert.equal(rootExplicit, pA1.id, "só a escolha explícita serve na raiz");
 
   // --- Multi-tenant: utilizador B não "vê" domínio A pelo hostname ---
   const wrongDomain = await systemPrisma.customDomain.findFirst({
@@ -240,17 +223,22 @@ async function main() {
   });
   assert.equal(crossLink, null);
 
-  // --- Conta B: raiz = única presell publicada ---
+  // --- Conta B: tem uma única presell publicada, mas sem escolha manual a raiz continua neutra ---
   const cdB = await systemPrisma.customDomain.findUniqueOrThrow({
     where: { id: domainB.id },
     select: { id: true, rootPresellId: true },
   });
-  const rootB = await resolveRootPresellPageId(cdB, userB.id);
-  assert.equal(rootB, pB1.id);
+  assert.equal(await resolveRootPresellPageId(cdB, userB.id), null);
+  await systemPrisma.customDomain.update({ where: { id: domainB.id }, data: { rootPresellId: pB1.id } });
+  const cdB2 = await systemPrisma.customDomain.findUniqueOrThrow({
+    where: { id: domainB.id },
+    select: { id: true, rootPresellId: true },
+  });
+  assert.equal(await resolveRootPresellPageId(cdB2, userB.id), pB1.id);
 
   await cleanupTestUsers();
 
-  console.log("OK: presell root (automático + explícito) + isolamento multi-tenant.");
+  console.log("OK: presell root (sem automático; só escolha explícita) + isolamento multi-tenant.");
 }
 
 main().catch((e) => {

@@ -1,3 +1,4 @@
+import { presellBelongsToDomain } from "../lib/customDomainRoot";
 import { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
@@ -531,9 +532,10 @@ export const customDomainController = {
     }
 
     const page = await prisma.presellPage.findFirst({
-      where: { id: presellId, userId, customDomainId: domain.id },
+      where: { id: presellId, userId },
+      select: { id: true, userId: true, customDomainId: true },
     });
-    if (!page) {
+    if (!page || !presellBelongsToDomain(page, domain)) {
       return res.status(400).json({
         error: "Presell não encontrada ou não está associada a este domínio (Domínio nos links públicos).",
       });

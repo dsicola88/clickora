@@ -53,6 +53,7 @@ import { enqueuePresellDraftAudit } from "../lib/complianceAuditQueue";
 import { buildPresellLiteHtml, isPresellLiteHtmlEligible } from "../lib/presellLiteHtml";
 import { PRESSELL_LITE_HTML_CSP } from "../lib/sanitizeMirrorEmbedForLiteHtml";
 import { buildLiteImpressionPixelUrl } from "../lib/buildLiteImpressionPixelUrl";
+import { decideRootPresell } from "../lib/customDomainRoot";
 import { invalidateTrackEdgeDest } from "../lib/trackEdgeDestCache";
 import { isPresellUuidParam, publicSpaPresellUrl } from "../lib/publicSpaOrigin";
 import { PUBLIC_DOMAIN_REQUIRED_MESSAGE } from "../lib/publicPresellHost";
@@ -403,8 +404,10 @@ export const presellController = {
   },
 
   /**
-   * Raiz do domínio personalizado: id da presell publicada associada a este host (`custom_domain_id`).
-   * Se `custom_domains.root_presell_id` estiver definido, usa essa; senão a mais recentemente atualizada.
+   * Raiz do domínio personalizado: devolve a presell que o assinante escolheu manualmente em
+   * «Presell ao abrir» (`custom_domains.root_presell_id`). NÃO há modo automático: sem escolha
+   * (ou escolha indisponível) a raiz mostra a página neutra — 404 `ROOT_PRESELL_NONE` para a SPA.
+   * A SPA renderiza a presell em `/` sem redirecionar o browser.
    */
   async getRootPresellForHost(req: Request, res: Response) {
     const host = getRequestHostname(req);
@@ -423,13 +426,20 @@ export const presellController = {
     const variants = hostnameLookupVariants(host);
     const cd = await systemPrisma.customDomain.findFirst({
       where: { status: "verified", userId: ownerId, hostname: { in: variants } },
-      select: { id: true, rootPresellId: true, purpose: true, isDefault: true },
+      select: { id: true, userId: true, rootPresellId: true, purpose: true, isDefault: true },
     });
     if (!cd) {
       return res.status(404).json({ error: "Domínio não encontrado.", code: "ROOT_PRESELL_NO_DOMAIN" });
     }
 
-    if (cd.purpose === "tracking") {
+    const decision = await decideRootPresell(cd, (presellId) =>
+      systemPrisma.presellPage.findFirst({
+        where: { id: presellId, userId: ownerId },
+        include: { user: { include: { subscription: true } } },
+      }),
+    );
+
+    if (decision.kind === "tracking") {
       return res.status(200).json({
         id: null,
         purpose: "tracking",
@@ -439,59 +449,15 @@ export const presellController = {
       });
     }
 
-    let page = null as
-      | Prisma.PresellPageGetPayload<{ include: { user: { include: { subscription: true } } } }>
-      | null;
-
-    if (cd.rootPresellId) {
-      const byRoot = await systemPrisma.presellPage.findFirst({
-        where: {
-          id: cd.rootPresellId,
-          userId: ownerId,
-          customDomainId: cd.id,
-          status: "published",
-        },
-        include: { user: { include: { subscription: true } } },
-      });
-      if (byRoot && evaluateSubscriptionAccess(byRoot.user.subscription).allowed) {
-        page = byRoot;
-      }
-    }
-
-    if (!page) {
-      page = await systemPrisma.presellPage.findFirst({
-        where: {
-          userId: ownerId,
-          customDomainId: cd.id,
-          status: "published",
-        },
-        orderBy: [{ updatedAt: "desc" }],
-        include: { user: { include: { subscription: true } } },
-      });
-    }
-    /**
-     * Presells criadas antes deste domínio ser verificado ficam com `customDomainId = null`, mas o painel
-     * mostra o link no domínio padrão (mesma regra do frontend). Sem isto a raiz dava 404 com presells publicadas.
-     */
-    if (!page && cd.isDefault) {
-      page = await systemPrisma.presellPage.findFirst({
-        where: {
-          userId: ownerId,
-          customDomainId: null,
-          status: "published",
-        },
-        orderBy: [{ updatedAt: "desc" }],
-        include: { user: { include: { subscription: true } } },
-      });
-    }
-
-    if (!page) {
+    if (decision.kind === "neutral") {
       return res.status(404).json({
-        error: "Nenhuma presell publicada neste domínio.",
+        error: "Nenhuma presell escolhida para a raiz deste domínio.",
         code: "ROOT_PRESELL_NONE",
+        reason: decision.reason,
       });
     }
 
+    const page = decision.page;
     const access = evaluateSubscriptionAccess(page.user.subscription);
     if (!access.allowed) return res.status(403).json({ error: "Página indisponível." });
 

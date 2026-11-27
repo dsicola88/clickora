@@ -714,10 +714,13 @@ function normalizePresellRouteParam(raw: string): string {
 type PublicPresellProps = {
   /** Preview privado do dono no painel: sem impressão nem embed de tracking (não conta nas métricas). */
   ownerPreview?: boolean;
+  /** Raiz `/` do domínio do assinante: presell escolhida, renderizada no próprio URL (sem rota `:id`). */
+  presellId?: string;
 };
 
-export default function PublicPresell({ ownerPreview = false }: PublicPresellProps = {}) {
-  const rawId = useParams().id ?? "";
+export default function PublicPresell({ ownerPreview = false, presellId }: PublicPresellProps = {}) {
+  const routeId = useParams().id ?? "";
+  const rawId = presellId ?? routeId;
   const id = useMemo(() => normalizePresellRouteParam(rawId), [rawId]);
   const { search: locationSearch } = useLocation();
 
