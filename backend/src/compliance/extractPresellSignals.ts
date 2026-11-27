@@ -1,4 +1,5 @@
 import { listUntrustedMirrorExternalHosts } from "../lib/mirrorExternalHosts";
+import { analyzeCustomCodeRisk } from "./customCodeRisk";
 import { createHash } from "node:crypto";
 import { isAffiliateTrustFooterEnabled } from "../lib/presellAffiliateTrustFooter";
 import type { PresellComplianceSignals } from "./types";
@@ -187,6 +188,11 @@ export function extractPresellSignals(input: ExtractPresellInput): PresellCompli
   const contactEmail =
     asString(settings.contactEmail || content.contact_email || content.contactEmail).trim() || null;
   const showAffiliateTrustFooter = isAffiliateTrustFooterEnabled(settings);
+  const customCodeRisk = analyzeCustomCodeRisk([
+    asString(settings.headerCode),
+    asString(settings.bodyCode),
+    asString(settings.footerCode),
+  ]);
 
   const claimsText = [salesText, subtitle, productName, ctaText, asString(content.social_proof)].join("\n");
   const bodyFromMirror = mirrorHtml ? stripHtml(mirrorHtml) : "";
@@ -261,6 +267,8 @@ export function extractPresellSignals(input: ExtractPresellInput): PresellCompli
           input.pageHostHint ? asString(input.pageHostHint) : null,
         ]).hosts
       : [],
+    customCodeHijack: customCodeRisk.hijack,
+    customCodeObfuscation: customCodeRisk.obfuscation,
     cloakingEnabled: Boolean(settings.enterpriseCloak),
     exitPopup: Boolean(settings.exitPopup),
     offerHost: hostOf(affiliateLink),

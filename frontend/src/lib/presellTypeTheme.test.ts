@@ -19,10 +19,17 @@ describe("presellTypeTheme", () => {
     expect(ad?.points.some((p) => /não é o site oficial|vendedor/i.test(p))).toBe(true);
   });
 
+  it("nenhum selo/eyebrow público anuncia redirect ou instruções internas", () => {
+    for (const t of PRESELL_TYPE_OPTIONS) {
+      const theme = getPresellTypeTheme(t.id);
+      expect(`${theme.badge} ${theme.eyebrow}`).not.toMatch(/redirect|redirecion|gesto|cloak|antibloqueio|regras da rede/i);
+    }
+  });
+
   it("catálogo de tipos cobre ids estáveis", () => {
     expect(PRESELL_TYPE_OPTIONS.map((t) => t.id)).toContain("fantasma");
     expect(PRESELL_TYPE_OPTIONS.map((t) => t.id)).toContain("segmentacao");
-    expect(PRESELL_TYPE_OPTIONS.find((t) => t.id === "fantasma")?.description).toMatch(/risco elevado/i);
+    expect(PRESELL_TYPE_OPTIONS.find((t) => t.id === "fantasma")?.description).toMatch(/não redireciona/i);
     expect(PRESELL_TYPE_OPTIONS.find((t) => t.id === "segmentacao")?.name).toMatch(/segmentação/i);
   });
 });

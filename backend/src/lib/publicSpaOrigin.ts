@@ -1,7 +1,8 @@
 import type { Request } from "express";
 import { isMainOrPreviewHostname } from "./presellHostAccess";
 import { getRequestHostname } from "./requestHost";
-import { getPublicPresellOrigin, isPlatformMainHostname } from "./publicPresellHost";
+import { getPublicPresellHost, getPublicPresellOrigin, isPlatformMainHostname } from "./publicPresellHost";
+import { getVerifiedOwnerIdForHostname } from "./customDomainCache";
 
 export function isPresellUuidParam(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim());
@@ -16,6 +17,30 @@ function isInfraHostname(h: string): boolean {
     h === "localhost" ||
     h === "127.0.0.1"
   );
+}
+
+/**
+ * Origens vindas do pedido (`spa_origin`, `X-Forwarded-Host`, `Referer`) só servem de destino de
+ * redirect se o host for nosso: dev local, preview Vercel, plataforma, domínio técnico de presells
+ * ou domínio personalizado verificado. Evita open redirect (`?spa_origin=https://outro-site`).
+ */
+function isTrustedRedirectHostname(hostname: string): boolean {
+  const h = hostname.trim().toLowerCase().replace(/\.+$/, "");
+  if (!h) return false;
+  if (isMainOrPreviewHostname(h) || isPlatformMainHostname(h)) return true;
+  const technical = getPublicPresellHost();
+  if (technical && technical.toLowerCase() === h) return true;
+  return getVerifiedOwnerIdForHostname(h) !== null;
+}
+
+function trustedOriginOrNull(raw: string): string | null {
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return isTrustedRedirectHostname(u.hostname) ? u.origin : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -39,12 +64,8 @@ export function resolvePublicAppOrigin(req: Request): string | null {
 
   const q = typeof req.query.spa_origin === "string" ? req.query.spa_origin.trim() : "";
   if (q) {
-    try {
-      const u = new URL(q);
-      if (u.protocol === "http:" || u.protocol === "https:") return u.origin;
-    } catch {
-      /* ignore */
-    }
+    const trusted = trustedOriginOrNull(q);
+    if (trusted) return trusted;
   }
 
   const xfHost = (req.get("x-forwarded-host") || "").split(",")[0]?.trim();
@@ -58,7 +79,8 @@ export function resolvePublicAppOrigin(req: Request): string | null {
 
   if (xfHost && !isApiHost) {
     const proto = (req.get("x-forwarded-proto") || "https").split(",")[0]?.trim() || "https";
-    return `${proto}://${xfHost}`;
+    const trusted = trustedOriginOrNull(`${proto}://${xfHost}`);
+    if (trusted) return trusted;
   }
 
   const ref = req.get("referer") || req.get("referrer") || "";
@@ -66,7 +88,8 @@ export function resolvePublicAppOrigin(req: Request): string | null {
     try {
       const u = new URL(ref);
       if (u.port !== "3001" && u.port !== "3011" && !u.hostname.includes("railway.app")) {
-        return u.origin;
+        const trusted = trustedOriginOrNull(u.origin);
+        if (trusted) return trusted;
       }
     } catch {
       /* ignore */
@@ -76,7 +99,7 @@ export function resolvePublicAppOrigin(req: Request): string | null {
   // Pedido same-host (rewrite Vercel /l → html): origem relativa OK
   if (!isApiHost && host) {
     const proto = (req.get("x-forwarded-proto") || req.protocol || "http").split(",")[0]?.trim() || "http";
-    return `${proto}://${host}`;
+    return trustedOriginOrNull(`${proto}://${host}`);
   }
 
   return null;

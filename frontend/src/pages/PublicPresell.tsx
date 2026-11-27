@@ -1203,7 +1203,7 @@ export default function PublicPresell({ ownerPreview = false }: PublicPresellPro
     content.generation_niche === "white";
   /** Explícito black|white; legado sem nicho + espelho HTML → white (clone + bake /track/). */
   const generationNiche = resolvePresellGenerationNiche(content as Record<string, unknown>);
-  /** Divulgação de afiliado em todas as presells públicas (inclui antigas sem nicho), excepto fantasma. */
+  /** Divulgação de afiliado em todas as presells públicas (inclui antigas sem nicho). */
   /** Conformidade no idioma da presell (anúncio/criação), não no idioma escolhido pelo visitante. */
   const complianceLang = presellComplianceLanguage(page.language, uiLang);
   /** Modal Cookie-Richtlinie → /aviso-cookies (ou URL de cookies dedicada), não /privacidade SaaS nem merchant auto. */

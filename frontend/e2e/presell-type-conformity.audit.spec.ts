@@ -202,7 +202,7 @@ test.describe("auditoria BLACK — todos os tipos", () => {
 
       if (type === "fantasma") {
         await snap(page, "black", type);
-        // Fantasma: página existe; redirect no gesto — não forçar navegação aqui
+        // Fantasma (legado): página existe; nunca navega sem clique
         await expect(page.locator("body")).toBeVisible();
         return;
       }

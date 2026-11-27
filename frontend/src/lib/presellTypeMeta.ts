@@ -79,7 +79,7 @@ export function isDiscountPresellType(presellType: string): boolean {
   return presellType === "desconto";
 }
 
-/** Presell “fantasma”: redireciona ao primeiro movimento do rato/toque/scroll. */
+/** Presell “fantasma” (legado): página curta com CTA; nunca navega sem clique. */
 export function isGhostPresellType(presellType: string): boolean {
   return presellType === "fantasma";
 }

@@ -39,9 +39,9 @@ export const PRESELL_TYPE_GROUPS: PresellTypeGroup[] = [
       },
       {
         id: "fantasma",
-        name: "Fantasma (redirect no 1.º gesto)",
+        name: "Fantasma (página curta — legado)",
         description:
-          "Redireciona no primeiro movimento (só Black). Risco elevado nas políticas de destino (bridge/cloaking). Use só com revisão humana e redes que o permitam — não é “antibloqueio”.",
+          "Página curta com CTA rastreado (/track/r/). Não redireciona sozinha: a oferta só abre com o clique do visitante. Para novas campanhas prefira Review ou Advertorial.",
       },
     ],
   },

@@ -288,6 +288,20 @@ describe("presell compliance engine", () => {
     assert.equal(result("PS-003", ok).status, "PASS");
   });
 
+  it("15c. código personalizado: redirect → PS-004 WARNING, ofuscação → PS-005 WARNING; não bloqueia", () => {
+    const bad = evaluateCompliance({
+      signals: baseSignals({ customCodeHijack: ["window.open (popup/popunder)"], customCodeObfuscation: ["eval()"] }),
+      destination: destOk(),
+    });
+    assert.equal(result("PS-004", bad).status, "WARNING");
+    assert.deepEqual(result("PS-004", bad).evidence.details, ["window.open (popup/popunder)"]);
+    assert.equal(result("PS-005", bad).status, "WARNING");
+    assert.equal(canPublishForAds(bad.gate), true);
+    const ok = evaluateCompliance({ signals: baseSignals(), destination: destOk() });
+    assert.equal(result("PS-004", ok).status, "PASS");
+    assert.equal(result("PS-005", ok).status, "PASS");
+  });
+
   it("16. SSRF localhost FAILs PS-002", () => {
     const signals = baseSignals({ affiliateLink: "http://127.0.0.1/meta" });
     const ev = evaluateCompliance({

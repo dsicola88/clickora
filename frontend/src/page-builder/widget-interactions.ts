@@ -65,9 +65,19 @@ export function widgetHasInteractions(widget: WidgetNode): boolean {
   return Array.isArray(widget.interactions) && widget.interactions.length > 0;
 }
 
+/** Navegar para outro URL exige clique explícito — nunca hover (padrão de sequestro de navegação). */
+export function interactionAllowedForTrigger(
+  action: WidgetInteraction["action"],
+  trigger: WidgetInteraction["trigger"],
+): boolean {
+  return action !== "openUrl" || trigger === "click";
+}
+
 export function interactionsForTrigger(
   widget: WidgetNode,
   trigger: WidgetInteraction["trigger"],
 ): WidgetInteraction[] {
-  return (widget.interactions ?? []).filter((ix) => ix.trigger === trigger);
+  return (widget.interactions ?? []).filter(
+    (ix) => ix.trigger === trigger && interactionAllowedForTrigger(ix.action, trigger),
+  );
 }

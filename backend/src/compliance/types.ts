@@ -121,6 +121,10 @@ export type PresellComplianceSignals = {
   maliciousScriptInImport: boolean;
   /** Domínios externos (links/forms/iframes do espelho) que não são oferta, origem, checkout nem comuns. */
   mirrorExternalHosts: string[];
+  /** Código personalizado (head/body/footer) que redireciona, abre popups, mina ou injeta iframes ocultos. */
+  customCodeHijack: string[];
+  /** Código personalizado com sinais de ofuscação (eval, atob, fromCharCode, …). */
+  customCodeObfuscation: string[];
   cloakingEnabled: boolean;
   exitPopup: boolean;
   offerHost: string | null;

@@ -53,6 +53,24 @@ describe("publicSpaOrigin", () => {
     );
   });
 
+  it("open redirect: spa_origin / Referer / X-Forwarded-Host de terceiros são ignorados", () => {
+    const viaQuery = fakeReq({ host: "localhost:3001", query: { spa_origin: "https://evil.example" } });
+    assert.equal(resolvePublicAppOrigin(viaQuery), null);
+    assert.equal(publicSpaPresellUrl(viaQuery, "11111111-1111-4111-8111-111111111111"), "/p/11111111-1111-4111-8111-111111111111");
+
+    const viaRef = fakeReq({ host: "localhost:3001", headers: { referer: "https://evil.example/x" } });
+    assert.equal(resolvePublicAppOrigin(viaRef), null);
+
+    const viaXfh = fakeReq({
+      host: "www.dclickora.com",
+      headers: { "x-forwarded-host": "evil.example", "x-forwarded-proto": "https" },
+    });
+    assert.notEqual(resolvePublicAppOrigin(viaXfh), "https://evil.example");
+
+    const preview = fakeReq({ host: "localhost:3001", query: { spa_origin: "https://my-app.vercel.app" } });
+    assert.equal(resolvePublicAppOrigin(preview), "https://my-app.vercel.app");
+  });
+
   it("redirect lite no tenant com slug usa path bare", () => {
     const req = fakeReq({
       host: "offer.tenant.com",

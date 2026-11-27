@@ -1,6 +1,7 @@
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import type { WidgetInteraction, WidgetInteractionAction, WidgetInteractionTrigger, WidgetNode } from "../types";
 import { createWidgetInteraction } from "../factory";
+import { interactionAllowedForTrigger } from "../widget-interactions";
 import { SelectField, TextField } from "./PropertyControls";
 import { Plus, Trash2 } from "lucide-react";
 
@@ -74,12 +75,18 @@ export function WidgetInteractionsEditor({
                 label={t("pages.pageBuilder.chrome.interactions.when")}
                 value={ix.trigger}
                 options={triggerOpts}
-                onChange={(v) => patchAt(index, { trigger: v as WidgetInteractionTrigger })}
+                onChange={(v) => {
+                  const trigger = v as WidgetInteractionTrigger;
+                  patchAt(
+                    index,
+                    interactionAllowedForTrigger(ix.action, trigger) ? { trigger } : { trigger, action: "show" },
+                  );
+                }}
               />
               <SelectField
                 label={t("pages.pageBuilder.chrome.interactions.action")}
                 value={ix.action}
-                options={actionOpts}
+                options={actionOpts.filter((o) => interactionAllowedForTrigger(o.value, ix.trigger))}
                 onChange={(v) => patchAt(index, { action: v as WidgetInteractionAction })}
               />
               {ix.action === "openUrl" ? (

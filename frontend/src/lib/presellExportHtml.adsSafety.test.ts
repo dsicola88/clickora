@@ -72,6 +72,20 @@ describe("export estático — segurança Google Ads (defaults)", () => {
     expect(violations(buildPresellStandaloneHtml(page("cookies", { cookieBannerStyle: style }), opts))).toEqual([]);
   });
 
+  it.each(TYPES)("%s: nenhum texto público anuncia redirect/gesto", (type) => {
+    const text = buildPresellStandaloneHtml(page(type), opts).replace(/<[^>]+>/g, " ");
+    expect(text).not.toMatch(/redireciona no primeiro gesto|redirect on the first gesture|antibloqueio|cloaking/i);
+  });
+
+  it("fantasma com rodapé ligado mostra a mesma divulgação que review", () => {
+    const trust = (h: string) => (h.match(/class="pe-trust[^"]*"/g) ?? []).length;
+    const on = { showAffiliateTrustFooter: true };
+    const ghost = buildPresellStandaloneHtml(page("fantasma", on), opts);
+    const review = buildPresellStandaloneHtml(page("review", on), opts);
+    expect(trust(review)).toBeGreaterThan(0);
+    expect(trust(ghost)).toBe(trust(review));
+  });
+
   it("com opt-in o Aceitar continua a ser link nativo (sem JS de navegação)", () => {
     const html = buildPresellStandaloneHtml(page("cookies", { cookieRedirectToOffer: true }), opts);
     expect(html).toMatch(/<a class="pe-cookie-allow" id="pe-cookie-allow" href="[^"]+"/);

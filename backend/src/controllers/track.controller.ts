@@ -1,3 +1,4 @@
+import { CLICKORA_EMBED_JS } from "../lib/clickoraEmbedScript";
 import { randomUUID } from "node:crypto";
 import { Request, Response } from "express";
 import { z } from "zod";
@@ -382,14 +383,6 @@ function expressWildcardPathSuffix(req: Request): string | undefined {
   const t = p["0"];
   return typeof t === "string" && t.length > 0 ? t : undefined;
 }
-
-/**
- * Pageview via POST /track/event.
- * - Funciona com `async` (não depende só de document.currentScript).
- * - presell: data-presell-id ou path /p/{uuid}.
- * - Copia gclid/UTMs da query + _fbp para metadata (Ads → atribuição).
- */
-const CLICKORA_EMBED_JS = `(function(){function findSc(){var s=document.currentScript;if(s&&s.src)return s;var a=document.getElementsByTagName("script");for(var i=a.length-1;i>=0;i--){if(a[i].src&&/clickora\\.min\\.js/i.test(a[i].src))return a[i];}return null;}var sc=findSc();if(!sc||!sc.src)return;var u=new URL(sc.src);var apiBase=sc.getAttribute("data-api-base")||(u.origin+u.pathname.replace(/\\/track\\/v2\\/clickora\\.min\\.js$/i,""));var userId=sc.getAttribute("data-id")||"";var explicit=(sc.getAttribute("data-presell-id")||"").trim();var m=typeof location!=="undefined"?location.pathname.match(/\\/p\\/([a-f0-9-]{36})/i):null;var presellId=explicit||(m&&m[1])||"";if(!presellId)return;var ref=typeof document!=="undefined"&&document.referrer?document.referrer:void 0;var payload={presell_id:presellId,event_type:"pageview",referrer:ref};var md={};if(userId)md.clickora_user_id=userId;try{if(typeof location!=="undefined"&&location.href){md.landing_url=String(location.href).slice(0,2000);md.page_url=md.landing_url;}var q=new URLSearchParams(location.search||"");["gclid","gbraid","wbraid","gad_source","gad_campaignid","fbclid","ttclid","msclkid","utm_source","utm_medium","utm_campaign","utm_term","utm_content"].forEach(function(k){var v=q.get(k);if(v)md[k]=v;});}catch(e){}try{var ck=typeof document!=="undefined"?document.cookie:"";var cm=ck?ck.match(/(?:^|;)\\s*_fbp=([^;]+)/):null;if(cm){var fb=decodeURIComponent(cm[1].trim());if(fb)md.fbp=fb;}var tm=ck?ck.match(/(?:^|;)\\s*_ttp=([^;]+)/):null;if(tm){var tp=decodeURIComponent(tm[1].trim());if(tp)md.ttp=tp;}}catch(e2){}if(Object.keys(md).length)payload.metadata=md;try{fetch(apiBase+"/track/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),credentials:"omit",keepalive:true,mode:"cors"});}catch(e){}})();`;
 
 export const trackController = {
   async redirect(req: Request, res: Response) {

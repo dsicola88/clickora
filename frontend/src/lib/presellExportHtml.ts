@@ -16,7 +16,6 @@ import {
   getPresellGateKind,
   isBuilderPresellType,
   isDiscountPresellType,
-  isGhostPresellType,
   isVideoPresellType,
   isVslOnlyPresellType,
   type InteractivePresellGateKind,
@@ -519,9 +518,6 @@ export type PresellExportOptions = {
 function injectPresellComplianceShell(html: string, page: Presell): string {
   const settings = (page.settings || {}) as Record<string, unknown>;
   const content = (page.content || {}) as Record<string, unknown>;
-  if (isGhostPresellType(page.type)) {
-    return html;
-  }
   if (!isAffiliateTrustFooterEnabled(settings)) {
     return html;
   }
@@ -781,7 +777,6 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
 
   const gateKind = getPresellGateKind(page.type);
   const interactiveKind = getInteractiveGateKind(page.type);
-  const isGhost = isGhostPresellType(page.type);
 
   const gateForCta = interactiveKind;
   const firstHeroCtaDisabled = !!gateForCta;
@@ -895,7 +890,7 @@ export function buildPresellStandaloneHtml(page: Presell, opts: PresellExportOpt
       : "";
   const ctaFooterSection = `<section class="pe-footer-sec"><div class="pe-footer-box">${ctaHtml(href, ctaText, "light", { disabled: !!gateForCta })}<p class="pe-footnote">${escapeHtml(L.footerNote)}</p>${brandingLine}${tenantChrome}</div></section>`;
   const trustFooter =
-    isGhost || !isAffiliateTrustFooterEnabled(settings)
+    !isAffiliateTrustFooterEnabled(settings)
       ? ""
       : buildTrustFooterExportHtml(page.language, settings, content);
   const tenantRootStyle = [

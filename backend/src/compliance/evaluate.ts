@@ -819,6 +819,70 @@ const RULES = [
     },
   }),
   def({
+    id: "PS-004",
+    name: "Código personalizado sem redirect, popup ou iframe oculto",
+    description:
+      "O código colado em head/body/footer não deve redirecionar o visitante, abrir popups/popunders, sequestrar o botão voltar, minar cripto nem carregar iframes invisíveis.",
+    platforms: ["google", "microsoft"],
+    category: "privacy_security",
+    severity: "high",
+    sourceIds: ["gads-policies-overview"],
+    sourceReviewedAt: "2026-11-27",
+    run: ({ signals }) => {
+      const found = signals.customCodeHijack ?? [];
+      if (found.length > 0) {
+        return {
+          status: "WARNING",
+          confidence: 0.8,
+          evidence: {
+            summary: "O código personalizado tem comportamento típico de site comprometido.",
+            details: found,
+          },
+          remediation:
+            "Remova do código personalizado qualquer redirect automático, window.open, popstate, minerador ou iframe oculto. A oferta deve abrir só pelo clique no CTA (/track/r/).",
+        };
+      }
+      return {
+        status: "PASS",
+        confidence: 0.8,
+        evidence: { summary: "Código personalizado sem redirect, popup, minerador nem iframe oculto." },
+        remediation: "Revise o código sempre que colar um snippet novo.",
+      };
+    },
+  }),
+  def({
+    id: "PS-005",
+    name: "Código personalizado sem ofuscação",
+    description:
+      "Snippets com eval, atob, String.fromCharCode, unescape ou document.write são o formato habitual de injeções maliciosas e são sinalizados pelos scanners.",
+    platforms: ["google", "microsoft"],
+    category: "privacy_security",
+    severity: "medium",
+    sourceIds: ["gads-policies-overview"],
+    sourceReviewedAt: "2026-11-27",
+    run: ({ signals }) => {
+      const found = signals.customCodeObfuscation ?? [];
+      if (found.length > 0) {
+        return {
+          status: "WARNING",
+          confidence: 0.6,
+          evidence: {
+            summary: "O código personalizado tem padrões de ofuscação.",
+            details: found,
+          },
+          remediation:
+            "Use apenas snippets oficiais e legíveis (GTM, gtag, Meta Pixel). Se não reconhece este código, remova-o.",
+        };
+      }
+      return {
+        status: "PASS",
+        confidence: 0.6,
+        evidence: { summary: "Código personalizado sem padrões de ofuscação." },
+        remediation: "Revise o código sempre que colar um snippet novo.",
+      };
+    },
+  }),
+  def({
     id: "PS-003",
     name: "Espelho com ligações a domínios externos",
     description:

@@ -59,8 +59,8 @@ const THEMES: Record<string, PresellTypeTheme> = {
   },
   fantasma: {
     id: "fantasma",
-    badge: "Redirect",
-    eyebrow: "Uso avançado: redireciona no primeiro gesto. Avalie as regras da rede antes de anunciar.",
+    badge: "Oferta",
+    eyebrow: "Página independente para decidir com informação clara.",
     heroBg: "bg-gradient-to-b from-zinc-200 via-zinc-100 to-background dark:from-zinc-900 dark:via-zinc-950 dark:to-background",
     badgeClass: "bg-zinc-800 text-zinc-100",
     ctaSurface: "ink",

@@ -167,7 +167,7 @@ test.describe("H8 — gates + VSL browser", () => {
     await page.locator("#sx-m").click({ force: true });
   });
 
-  test("fantasma: CTA track + listeners de gesto activos", async ({ page }) => {
+  test("fantasma: CTA track, sem redirect automático nem texto «Redirect» público", async ({ page }) => {
     const id = "b8e11e11-1111-4111-8111-111111111104";
     await mockPresell(
       page,
@@ -194,7 +194,12 @@ test.describe("H8 — gates + VSL browser", () => {
       }),
     );
     await page.goto(`/p/${id}`, { waitUntil: "domcontentloaded" });
-    await expect(page.getByText(/Redirect|fantasma|gesto/i).first()).toBeVisible({ timeout: 20_000 });
+    const cta0 = page.locator('a[href*="track/r"]').first();
+    await expect(cta0).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/redirect|primeiro gesto|first gesture/i)).toHaveCount(0);
+    await page.mouse.move(200, 200);
+    await page.mouse.wheel(0, 300);
+    await expect(page).toHaveURL(new RegExp(`/p/${id}`));
     const cta = page.locator('a[href*="track/r"]').first();
     await expect(cta).toHaveAttribute("href", /track\/r/);
     await cta.click();
