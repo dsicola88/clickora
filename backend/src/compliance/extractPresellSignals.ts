@@ -1,3 +1,4 @@
+import { listUntrustedMirrorExternalHosts } from "../lib/mirrorExternalHosts";
 import { createHash } from "node:crypto";
 import { isAffiliateTrustFooterEnabled } from "../lib/presellAffiliateTrustFooter";
 import type { PresellComplianceSignals } from "./types";
@@ -253,6 +254,13 @@ export function extractPresellSignals(input: ExtractPresellInput): PresellCompli
     priceMention,
     priceVerifiedFromSource: priceVerified,
     maliciousScriptInImport: MALICIOUS_SCRIPT.test(mirrorHtml),
+    mirrorExternalHosts: mirrorHtml
+      ? listUntrustedMirrorExternalHosts(mirrorHtml, [
+          hostOf(affiliateLink),
+          hostOf(sourceUrl),
+          input.pageHostHint ? asString(input.pageHostHint) : null,
+        ]).hosts
+      : [],
     cloakingEnabled: Boolean(settings.enterpriseCloak),
     exitPopup: Boolean(settings.exitPopup),
     offerHost: hostOf(affiliateLink),

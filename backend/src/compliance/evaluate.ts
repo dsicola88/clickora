@@ -819,6 +819,38 @@ const RULES = [
     },
   }),
   def({
+    id: "PS-003",
+    name: "Espelho com ligações a domínios externos",
+    description:
+      "Lista domínios de terceiros (links, formulários, iframes) no HTML espelhado que não são a oferta, a origem nem um checkout conhecido.",
+    platforms: ["google", "microsoft"],
+    category: "privacy_security",
+    severity: "medium",
+    sourceIds: ["gads-policies-overview"],
+    sourceReviewedAt: "2026-11-27",
+    run: ({ signals }) => {
+      const hosts = signals.mirrorExternalHosts ?? [];
+      if (hosts.length > 0) {
+        return {
+          status: "WARNING",
+          confidence: 0.7,
+          evidence: {
+            summary: `O espelho liga a ${hosts.length} domínio(s) externo(s) não reconhecido(s).`,
+            details: hosts.slice(0, 10),
+          },
+          remediation:
+            "Confirme que estes domínios são legítimos. Se a página de origem foi comprometida, links de terceiros podem ser copiados para a presell. Remova ou reimporte o espelho.",
+        };
+      }
+      return {
+        status: "PASS",
+        confidence: 0.7,
+        evidence: { summary: "Sem ligações do espelho a domínios externos não reconhecidos." },
+        remediation: "Revise o espelho sempre que reimportar a página de origem.",
+      };
+    },
+  }),
+  def({
     id: "PS-002",
     name: "SSRF / destino interno",
     description: "Bloqueia localhost, IPs privados e metadata endpoints.",

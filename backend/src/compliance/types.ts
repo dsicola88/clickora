@@ -119,6 +119,8 @@ export type PresellComplianceSignals = {
   priceMention: string | null;
   priceVerifiedFromSource: boolean | null;
   maliciousScriptInImport: boolean;
+  /** Domínios externos (links/forms/iframes do espelho) que não são oferta, origem, checkout nem comuns. */
+  mirrorExternalHosts: string[];
   cloakingEnabled: boolean;
   exitPopup: boolean;
   offerHost: string | null;

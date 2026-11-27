@@ -41,7 +41,7 @@ const COMMERCE_HOST_MARKERS = [
   "shopify",
 ];
 
-function hostLooksLikeCommerceOrCheckout(hostname: string): boolean {
+export function hostLooksLikeCommerceOrCheckout(hostname: string): boolean {
   const h = hostname.toLowerCase();
   return COMMERCE_HOST_MARKERS.some((m) => h.includes(m));
 }
@@ -70,6 +70,13 @@ export function mirrorUrlShouldUseTrackMarker(abs: URL, hosts: Set<string>): boo
   if (hostLooksLikeCommerceOrCheckout(abs.hostname)) return true;
   if (pathOrQueryLooksLikeCheckout(abs)) return true;
   return false;
+}
+
+/** Mesmo site (ou subdomínio) da página capturada — navegação interna legítima da origem. */
+function mirrorUrlIsSameSiteAsBase(abs: URL, base: URL): boolean {
+  const a = abs.hostname.replace(/^www\./, "").toLowerCase();
+  const b = base.hostname.replace(/^www\./, "").toLowerCase();
+  return !!a && !!b && (a === b || a.endsWith(`.${b}`));
 }
 
 function escapeBaseHref(href: string): string {
@@ -245,7 +252,12 @@ function rewriteOnclickNavigatorsForMirror(root: HTMLElement, base: URL, hosts: 
       return;
     }
     if (abs.protocol !== "http:" && abs.protocol !== "https:") return;
-    const hrefValue = mirrorUrlShouldUseTrackMarker(abs, hosts) ? CLICKORA_MIRROR_TRACK_MARKER : abs.href;
+    // P4: um `onclick` (script da origem) só vira link visível se apontar para a oferta/checkout
+    // (→ marcador de track) ou para o próprio site de origem. Qualquer outro domínio é ignorado:
+    // o manipulador é removido a seguir e nenhum link de terceiros é sintetizado na presell.
+    const toTrack = mirrorUrlShouldUseTrackMarker(abs, hosts);
+    if (!toTrack && !mirrorUrlIsSameSiteAsBase(abs, base)) return;
+    const hrefValue = toTrack ? CLICKORA_MIRROR_TRACK_MARKER : abs.href;
 
     const tag = el.tagName?.toLowerCase() ?? "";
 

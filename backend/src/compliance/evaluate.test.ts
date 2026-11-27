@@ -275,6 +275,19 @@ describe("presell compliance engine", () => {
     assert.equal(result("PS-001", ev).status, "FAIL");
   });
 
+  it("15b. espelho com domínios externos → PS-003 WARNING (não bloqueia); sem eles → PASS", () => {
+    const warn = evaluateCompliance({
+      signals: baseSignals({ mirrorExternalHosts: ["evil.example", "x.test"] }),
+      destination: destOk(),
+    });
+    const r = result("PS-003", warn);
+    assert.equal(r.status, "WARNING");
+    assert.deepEqual(r.evidence.details, ["evil.example", "x.test"]);
+    assert.equal(canPublishForAds(warn.gate), true);
+    const ok = evaluateCompliance({ signals: baseSignals({ mirrorExternalHosts: [] }), destination: destOk() });
+    assert.equal(result("PS-003", ok).status, "PASS");
+  });
+
   it("16. SSRF localhost FAILs PS-002", () => {
     const signals = baseSignals({ affiliateLink: "http://127.0.0.1/meta" });
     const ev = evaluateCompliance({

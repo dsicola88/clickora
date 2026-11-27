@@ -117,6 +117,39 @@ describe("finalizeMirrorSrcDocForImport (onclick → href)", () => {
     assert.ok(!out!.toLowerCase().includes("onclick"));
   });
 
+  it("P4: onclick para domínio de terceiros NÃO vira link visível (nem handler fica)", () => {
+    const html = `<!DOCTYPE html><html><head></head><body>
+<button type="button" class="x" onclick="window.open('https://evil.example/landing')">Free gift</button>
+<div role="button" onclick="location.href='https://evil.example/other'">More</div>
+</body></html>`;
+    const out = finalizeMirrorSrcDocForImport(html, "https://offer.example/land", "https://offer.example/buy");
+    assert.ok(out);
+    assert.ok(!out!.includes("evil.example"), "domínio de terceiros não pode aparecer no HTML guardado");
+    assert.ok(!out!.toLowerCase().includes("onclick"));
+    assert.ok(!out!.includes(CLICKORA_MIRROR_TRACK_MARKER), "nem é trocado pelo track da oferta");
+  });
+
+  it("P4: onclick para o próprio site de origem continua a ser convertido", () => {
+    const html = `<!DOCTYPE html><html><head></head><body>
+<button type="button" onclick="location.href='/faq'">FAQ</button>
+</body></html>`;
+    const out = finalizeMirrorSrcDocForImport(html, "https://source.example/land", "https://offer.example/buy");
+    assert.ok(out);
+    // host da página capturada conta como «de confiança» → marcador de track (comportamento existente)
+    assert.ok(out!.includes(CLICKORA_MIRROR_TRACK_MARKER));
+    assert.ok(!out!.toLowerCase().includes("onclick"));
+  });
+
+  it("P4: onclick para checkout conhecido vai para o marcador de track", () => {
+    const html = `<!DOCTYPE html><html><head></head><body>
+<button type="button" onclick="location.href='https://www.buygoods.com/secure/checkout.html?aff_id=1'">Buy</button>
+</body></html>`;
+    const out = finalizeMirrorSrcDocForImport(html, "https://source.example/land", "https://offer.example/buy");
+    assert.ok(out);
+    assert.ok(out!.includes(CLICKORA_MIRROR_TRACK_MARKER));
+    assert.ok(!out!.includes("buygoods.com"));
+  });
+
   it("rewrites buygoods anchor when affiliate link is another domain", () => {
     const html = `<!DOCTYPE html><html><head></head><body>
 <a href="https://www.buygoods.com/secure/checkout.html?aff_id=190743&vid1=tsl">Buy Now</a>
