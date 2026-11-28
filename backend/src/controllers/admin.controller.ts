@@ -16,6 +16,17 @@ import {
 } from "../lib/planCommercialText";
 import { inspectHotmartPlanMapConfig } from "../lib/hotmartPlanMap";
 
+/** JWTs já emitidos deixam de autenticar (`sessionsRevokedAt` comparado ao ms). */
+async function revokeUserSessions(userId: string): Promise<boolean> {
+  try {
+    await prismaAdmin.user.update({ where: { id: userId }, data: { sessionsRevokedAt: new Date() } });
+    return true;
+  } catch (err) {
+    console.warn("[admin] não foi possível revogar sessões:", err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
 function parseDateInput(s: string): Date {
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
     return new Date(`${s}T12:00:00.000Z`);
@@ -284,8 +295,9 @@ export const adminController = {
       where: { id: sub.id },
       data: { status: "suspended" },
     });
+    const sessionsRevoked = await revokeUserSessions(userId);
 
-    res.json({ message: "Usuário suspenso" });
+    res.json({ message: "Usuário suspenso", sessions_revoked: sessionsRevoked });
   },
 
   async reactivateUser(req: Request, res: Response) {
@@ -488,7 +500,13 @@ export const adminController = {
       where: { id: userId },
       data: { password: hash },
     });
+    const sessionsRevoked = await revokeUserSessions(userId);
 
-    res.json({ message: "Senha redefinida. O utilizador deve usar a nova senha no próximo login." });
+    res.json({
+      message: sessionsRevoked
+        ? "Senha redefinida. As sessões abertas foram terminadas; o utilizador entra com a nova senha."
+        : "Senha redefinida. O utilizador deve usar a nova senha no próximo login.",
+      sessions_revoked: sessionsRevoked,
+    });
   },
 };

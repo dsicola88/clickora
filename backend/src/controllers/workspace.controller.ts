@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { Prisma, WorkspaceRole } from "@prisma/client";
 import { systemPrisma } from "../lib/prisma";
-import { actorUserId, billingUserId } from "../lib/requestContext";
+import { actorUserId } from "../lib/requestContext";
 import { appendWorkspaceAuditLog } from "../lib/workspaceAudit";
 import {
   parseExtraPermissions,
@@ -17,8 +17,45 @@ import {
 import { resolveWorkspaceIdForRequest, loadActorWorkspaceMember } from "../lib/workspaceRequest";
 import { resolveWorkspaceSessionForSwitch } from "../lib/workspaceSession";
 import { signToken } from "../lib/jwt";
-import { assertCanAddWorkspaceMember } from "../lib/planSeatRotatorLimits";
+import {
+  effectiveMaxWorkspaceMembersFromPlan,
+  fallbackMaxWorkspaceMembers,
+} from "../lib/planSeatRotatorLimits";
+import { findUserIdByEmail } from "../lib/userEmailLookup";
 import { serializeUser } from "./auth.controller";
+
+export function workspaceSeatGate(
+  maxMembers: number | null,
+  used: number,
+): { ok: true } | { ok: false; status: 403; body: Record<string, unknown> } {
+  if (maxMembers == null || used < maxMembers) return { ok: true };
+  return {
+    ok: false,
+    status: 403,
+    body: {
+      error: `Limite de ${maxMembers} membro(s) no plano atingido. Faça upgrade para convidar a equipa.`,
+      code: "WORKSPACE_MEMBER_LIMIT",
+      max_members: maxMembers,
+      used,
+    },
+  };
+}
+
+/**
+ * Quota do dono do workspace `:workspaceId`, não do tenant activo de quem convida.
+ * systemPrisma: o cliente tenant-safe só vê o tenant da sessão.
+ */
+async function assertWorkspaceSeatAvailable(workspaceId: string, ownerUserId: string) {
+  const sub = await systemPrisma.subscription.findUnique({
+    where: { userId: ownerUserId },
+    select: { plan: { select: { type: true, maxWorkspaceMembers: true } } },
+  });
+  const maxMembers = sub?.plan
+    ? effectiveMaxWorkspaceMembersFromPlan(sub.plan)
+    : fallbackMaxWorkspaceMembers(null);
+  const used = await systemPrisma.workspaceMember.count({ where: { workspaceId } });
+  return workspaceSeatGate(maxMembers, used);
+}
 
 const addMemberSchema = z.object({
   email: z.string().trim().email(),
@@ -189,12 +226,19 @@ export const workspaceController = {
       return res.status(403).json({ error: "Sem permissão para gerir membros." });
     }
 
-    const target = await systemPrisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    const workspace = await systemPrisma.workspace.findUnique({
+      where: { id: wid },
+      select: { ownerUserId: true },
+    });
+    if (!workspace) return res.status(404).json({ error: "Workspace não encontrado." });
+
+    const targetId = await findUserIdByEmail(email);
+    const target = targetId ? await systemPrisma.user.findUnique({ where: { id: targetId } }) : null;
     if (!target) {
       return res.status(404).json({ error: "Não existe utilizador com este e-mail. A conta tem de estar registada primeiro." });
     }
 
-    if (target.id === billingUserId(req)) {
+    if (target.id === workspace.ownerUserId) {
       return res.status(400).json({ error: "O dono da conta já é membro implícito." });
     }
 
@@ -203,7 +247,7 @@ export const workspaceController = {
     });
     if (dup) return res.status(409).json({ error: "Este utilizador já pertence ao workspace." });
 
-    const seatGate = await assertCanAddWorkspaceMember(billingUserId(req));
+    const seatGate = await assertWorkspaceSeatAvailable(wid, workspace.ownerUserId);
     if (!seatGate.ok) {
       return res.status(seatGate.status).json(seatGate.body);
     }

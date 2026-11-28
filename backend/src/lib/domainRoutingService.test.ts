@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  checkHostnameClaim,
+  pickReplacementPrimaryDomain,
   domainFailThresholdFromEnv,
   domainHealthHttpTimeoutMsFromEnv,
   evaluateDomainHealthTransition,
@@ -213,6 +215,65 @@ describe("planPrimaryDomainSwap & planRollbackTarget & binding host check", () =
     });
     assert.equal(rb.ok, true);
     if (rb.ok) assert.equal(rb.targetDomainId, "d1");
+  });
+
+  it("rollback após failover + recuperação automática volta ao backup (troca mais recente), não ao domínio antigo", () => {
+    const x = makeDomain({ id: "x", hostname: "x.example" });
+    const p = makeDomain({ id: "p", hostname: "p.example", routingRole: "primary", isDefault: true });
+    const b = makeDomain({ id: "b", hostname: "b.example" });
+    const events = [
+      { eventType: "auto_recovery", previousDomainId: "b", targetDomainId: "p" },
+      { eventType: "health_check_passed", previousDomainId: null, targetDomainId: null },
+      { eventType: "auto_failover", previousDomainId: "p", targetDomainId: "b" },
+      { eventType: "manual_swap", previousDomainId: "x", targetDomainId: "p" },
+    ];
+    const rb = planRollbackTarget({ currentPrimaryId: "p", events, domains: [x, p, b] });
+    assert.deepEqual(rb, { ok: true, targetDomainId: "b" });
+  });
+
+  it("rollback só considera a troca mais recente: se ela já aponta para o atual, não salta para trocas antigas", () => {
+    const x = makeDomain({ id: "x", hostname: "x.example" });
+    const p = makeDomain({ id: "p", hostname: "p.example", routingRole: "primary", isDefault: true });
+    const rb = planRollbackTarget({
+      currentPrimaryId: "p",
+      events: [
+        { eventType: "manual_swap", previousDomainId: "p", targetDomainId: "p" },
+        { eventType: "manual_swap", previousDomainId: "x", targetDomainId: "p" },
+      ],
+      domains: [x, p],
+    });
+    assert.equal(rb.ok, false);
+  });
+
+  it("checkHostnameClaim bloqueia a variante www/apex de outra conta e permite a própria", () => {
+    const existing = [{ hostname: "marca.example", userId: "userA" }];
+    assert.deepEqual(checkHostnameClaim({ hostname: "www.marca.example", userId: "userB", existing }), {
+      ok: false,
+      reason: "variant_other",
+      conflictHostname: "marca.example",
+    });
+    assert.deepEqual(checkHostnameClaim({ hostname: "www.marca.example", userId: "userA", existing }), { ok: true });
+    assert.equal(
+      (checkHostnameClaim({ hostname: "marca.example", userId: "userB", existing }) as { reason?: string }).reason,
+      "taken_other",
+    );
+    assert.equal(
+      (checkHostnameClaim({ hostname: "MARCA.example", userId: "userA", existing }) as { reason?: string }).reason,
+      "taken_self",
+    );
+    assert.deepEqual(checkHostnameClaim({ hostname: "lp.marca.example", userId: "userB", existing }), { ok: true });
+  });
+
+  it("pickReplacementPrimaryDomain: só verificado/ativo/não-down/hosting, saudável primeiro", () => {
+    const pending = makeDomain({ id: "pending", hostname: "p.example", status: "pending" });
+    const paused = makeDomain({ id: "paused", hostname: "pa.example", isActive: false });
+    const down = makeDomain({ id: "down", hostname: "d.example", healthStatus: "down" });
+    const tracking = makeDomain({ id: "trk", hostname: "t.example", purpose: "tracking" });
+    const unknown = makeDomain({ id: "unknown", hostname: "u.example", healthStatus: "unknown", routingPriority: 1 });
+    const healthy = makeDomain({ id: "healthy", hostname: "h.example", healthStatus: "healthy", routingPriority: 100 });
+    assert.equal(pickReplacementPrimaryDomain([pending, paused, down, tracking, unknown, healthy])?.id, "healthy");
+    assert.equal(pickReplacementPrimaryDomain([pending, paused, down, tracking, unknown])?.id, "unknown");
+    assert.equal(pickReplacementPrimaryDomain([pending, paused, down, tracking]), null);
   });
 
   it("swap manual recusa destino degradado ou sem HTTPS (SSL inválido/expirado) com motivo claro", () => {

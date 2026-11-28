@@ -9,6 +9,7 @@ import {
   isHostingCapableDomain,
   listVerifiedHostingDomains,
   resolveDefaultCustomDomainIdForAccount,
+  resolvePublicPresellPath,
 } from "./publicPresellOrigin";
 
 function domain(partial: Partial<CustomDomainDto> & Pick<CustomDomainDto, "id" | "hostname">): CustomDomainDto {
@@ -130,6 +131,20 @@ describe("domínio principal NÃO é origem de presells públicas", () => {
       "https://pages.isolado-exemplo.com/p/page-1",
     );
     expect(hasPublicPresellOrigin([], null)).toBe(true);
+  });
+
+  it("domínio técnico usa UUID (/l/ ou /p/), nunca /{slug}", () => {
+    vi.stubEnv("VITE_PUBLIC_SITE_ORIGIN", PROD_SITE);
+    vi.stubEnv("VITE_PUBLIC_PRESELL_HOST", "pages.isolado-exemplo.com");
+    expect(getPublicPresellFullUrl([], null, { id: "page-1", slug: "kera", type: "builder" })).toBe(
+      "https://pages.isolado-exemplo.com/p/page-1",
+    );
+    expect(getPublicPresellFullUrl([], null, { id: "page-2", slug: "kera", type: "tsl" })).toBe(
+      "https://pages.isolado-exemplo.com/l/page-2",
+    );
+    expect(resolvePublicPresellPath({ id: "page-3", slug: "kera" }, "https://pages.isolado-exemplo.com")).toBe(
+      "/p/page-3",
+    );
   });
 
   it("VITE_PUBLIC_PRESELL_HOST apontado ao domínio principal é ignorado", () => {

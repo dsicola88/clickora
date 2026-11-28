@@ -1,6 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { resolvePendingDnsForDisplay } from "./customDomainDnsDisplay";
+import { buildVercelCnameHint, dnsRecordNameForHostname, resolvePendingDnsForDisplay } from "./customDomainDnsDisplay";
 import type { CustomDomainDto } from "@/types/api";
+
+describe("buildVercelCnameHint — domínio registável com sufixos de dois níveis", () => {
+  it("apex .com.br / .co.uk → A 76.76.21.21 em @", () => {
+    for (const h of ["meusite.com.br", "shop.co.uk", "loja.com.au", "promo.co.za", "z.com.pt"]) {
+      const hint = buildVercelCnameHint(h);
+      expect(hint.host, h).toBe("@");
+      expect(hint.target, h).toBe("76.76.21.21");
+    }
+    expect(buildVercelCnameHint("example.com").host).toBe("@");
+  });
+
+  it("subdomínio de vários níveis → CNAME com o nome relativo completo", () => {
+    const hint = buildVercelCnameHint("promo.lp.example.com");
+    expect(hint.host).toBe("promo.lp");
+    expect(hint.target).toBe("cname.vercel-dns.com");
+    expect(buildVercelCnameHint("www.meusite.com.br").host).toBe("www");
+    expect(dnsRecordNameForHostname("a.b.meusite.com.br")).toBe("a.b");
+    expect(dnsRecordNameForHostname("lp.marca.co.uk")).toBe("lp");
+  });
+});
 
 const base = {
   id: "d1",

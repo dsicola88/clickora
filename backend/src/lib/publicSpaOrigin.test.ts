@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import type { Request } from "express";
-import { publicSpaPresellUrl, resolvePublicAppOrigin } from "./publicSpaOrigin";
+import { publicSpaPresellUrl, resolvePublicAppOrigin, withLandingQuery } from "./publicSpaOrigin";
 
 function fakeReq(partial: {
   query?: Record<string, string>;
@@ -157,5 +157,38 @@ describe("publicSpaOrigin", () => {
   it("slug que é UUID não é usado como path bare", () => {
     const req = fakeReq({ host: "x", headers: { "x-vercel-forwarded-host": "oferta.tenant.com" } });
     assert.equal(publicSpaPresellUrl(req, ID, ID), `/p/${ID}`);
+  });
+
+  it("no domínio técnico (PUBLIC_PRESELL_HOST) usa sempre /p/:id, nunca /{slug}", () => {
+    process.env.PUBLIC_PRESELL_HOST = "pages.example-pub.com";
+    try {
+      const req = fakeReq({
+        host: "clickora-production.up.railway.app",
+        headers: { "x-vercel-forwarded-host": "pages.example-pub.com" },
+      });
+      assert.equal(publicSpaPresellUrl(req, ID, "kerassentials"), `/p/${ID}`);
+    } finally {
+      delete process.env.PUBLIC_PRESELL_HOST;
+    }
+  });
+});
+
+describe("withLandingQuery", () => {
+  it("mantém gclid/UTMs e remove visitor_host / spa_origin", () => {
+    const req = {
+      originalUrl: `/api/public/presells/id/x/html?gclid=Cj0&visitor_host=a.com&utm_source=google&spa_origin=http%3A%2F%2Flocalhost%3A8080&gad_source=1`,
+    } as Request;
+    assert.equal(
+      withLandingQuery("/p/abc", req),
+      "/p/abc?gclid=Cj0&utm_source=google&gad_source=1",
+    );
+  });
+
+  it("sem query (ou só internos) devolve o URL intacto", () => {
+    assert.equal(withLandingQuery("https://h.com/p/a", { originalUrl: "/l/a" } as Request), "https://h.com/p/a");
+    assert.equal(
+      withLandingQuery("/p/a", { originalUrl: "/l/a?spa_origin=x&visitor_host=y" } as Request),
+      "/p/a",
+    );
   });
 });

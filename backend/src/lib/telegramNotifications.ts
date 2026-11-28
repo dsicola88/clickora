@@ -43,7 +43,7 @@ export function notifyTelegramSale(
     ].filter(Boolean);
     const r = await sendTelegram(token, chat, lines.join("\n"));
     if (!r.ok) console.warn("[telegram sale]", userId, r.error);
-  })();
+  })().catch((err) => console.warn("[telegram]", err instanceof Error ? err.message : err));
 }
 
 /** Problema no postback (clique inválido, falta de click_id, etc.). */
@@ -68,7 +68,7 @@ export function notifyTelegramPostbackWarning(
     ].join("\n");
     const r = await sendTelegram(token, chat, text);
     if (!r.ok) console.warn("[telegram postback]", userId, r.error);
-  })();
+  })().catch((err) => console.warn("[telegram]", err instanceof Error ? err.message : err));
 }
 
 /** Novo clique (opcional — pode ser frequente). */
@@ -95,5 +95,5 @@ export function notifyTelegramClick(
       .join("\n");
     const r = await sendTelegram(token, chat, text);
     if (!r.ok) console.warn("[telegram click]", userId, r.error);
-  })();
+  })().catch((err) => console.warn("[telegram]", err instanceof Error ? err.message : err));
 }

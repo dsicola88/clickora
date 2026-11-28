@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   autoFailoverEnabled,
   autoRecoveryHoldMs,
+  confirmFailoverTargetLive,
   planAccountFailover,
   planAutoRecoveries,
   planPresellFailovers,
@@ -343,6 +344,29 @@ describe("planAutoRecoveries", () => {
       holdMs: hold,
     });
     assert.equal(backToOrigin.length, 0);
+  });
+});
+
+describe("confirmFailoverTargetLive", () => {
+  type ProbeFn = NonNullable<Parameters<typeof confirmFailoverTargetLive>[1]>;
+
+  it("sonda sempre ao vivo, mesmo com lastHealthCheckAt recente (claim do monitor não prova saúde)", async () => {
+    const calls: string[] = [];
+    const probe = (async (args: { domainId: string }) => {
+      calls.push(args.domainId);
+      return { ok: false };
+    }) as unknown as ProbeFn;
+    const fresh = dom({ id: "bk", userId: "u1", routingRole: "backup", healthStatus: "healthy", lastHealthCheckAt: new Date() });
+    assert.equal(await confirmFailoverTargetLive(fresh, probe), false);
+    assert.deepEqual(calls, ["bk"]);
+  });
+
+  it("sem userId ou com erro na sonda → não confirma", async () => {
+    const throwing = (async () => {
+      throw new Error("boom");
+    }) as unknown as ProbeFn;
+    assert.equal(await confirmFailoverTargetLive(dom({ id: "x" }), throwing), false);
+    assert.equal(await confirmFailoverTargetLive(dom({ id: "x", userId: "u1" }), throwing), false);
   });
 });
 

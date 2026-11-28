@@ -16,17 +16,19 @@ type PostbackPayload = {
   purpose: "postback";
 };
 
+/**
+ * O URL de postback é colado uma vez na rede de afiliados: não pode expirar em silêncio
+ * (vendas recusadas com 401 sem aviso). Tokens antigos com `exp` continuam aceites.
+ */
 export function createPostbackToken(userId: string): string | null {
   if (!JWT_SECRET) return null;
-  return jwt.sign({ userId, purpose: "postback" } satisfies PostbackPayload, JWT_SECRET, {
-    expiresIn: "365d",
-  });
+  return jwt.sign({ userId, purpose: "postback" } satisfies PostbackPayload, JWT_SECRET);
 }
 
 export function verifyPostbackToken(token: string): { userId: string } | null {
   if (!JWT_SECRET) return null;
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as Partial<PostbackPayload>;
+    const payload = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true }) as Partial<PostbackPayload>;
     if (payload?.purpose !== "postback" || !payload.userId) return null;
     return { userId: payload.userId };
   } catch {

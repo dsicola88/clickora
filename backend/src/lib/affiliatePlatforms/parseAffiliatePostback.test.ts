@@ -10,11 +10,25 @@ import {
   jvzooExpectedCverify,
   metadataWithRefundTxn,
   parseAffiliatePostback,
+  parseMoney,
   redactAffiliateFlat,
   refundTransactionIds,
 } from "./parseAffiliatePostback";
 
 const UUID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+
+test("parseMoney: separadores de milhares, vírgula decimal e símbolo de moeda", () => {
+  const v = (s: string) => parseMoney(s)?.toString() ?? null;
+  assert.equal(v("49.90"), "49.9");
+  assert.equal(v("49,90"), "49.9");
+  assert.equal(v("1,234.56"), "1234.56");
+  assert.equal(v("1.234,56"), "1234.56");
+  assert.equal(v("1,234,567"), "1234567");
+  assert.equal(v("R$ 1.997,00"), "1997");
+  assert.equal(v("$1,000.00"), "1000");
+  assert.equal(v("abc"), null);
+  assert.equal(v("-5"), null);
+});
 
 test("Digistore: comissão, não o bruto, e payment_missed não reembolsa", () => {
   const sale = parseAffiliatePostback({

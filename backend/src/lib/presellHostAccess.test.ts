@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import type { Request } from "express";
 import { signToken } from "./jwt";
-import { evaluatePublicPresellAccess } from "./presellHostAccess";
+import { evaluatePublicPresellAccess, pickExactHostnameMatch } from "./presellHostAccess";
 
 const OWNER = "11111111-1111-4111-8111-111111111111";
 const OTHER = "22222222-2222-4222-8222-222222222222";
@@ -60,6 +60,21 @@ describe("evaluatePublicPresellAccess — domínio principal", () => {
       const r = await evaluatePublicPresellAccess(req("www.dclickora.com", token), OWNER);
       assert.deepEqual(r, { allowed: false, reason: "main_host" });
     }
+  });
+});
+
+describe("pickExactHostnameMatch", () => {
+  const rows = [
+    { hostname: "loja.com", userId: "apex" },
+    { hostname: "www.loja.com", userId: "www" },
+  ];
+  it("prefere o hostname exacto do pedido, independentemente da ordem da BD", () => {
+    assert.equal(pickExactHostnameMatch(rows, ["www.loja.com", "loja.com"])?.userId, "www");
+    assert.equal(pickExactHostnameMatch([...rows].reverse(), ["loja.com", "www.loja.com"])?.userId, "apex");
+  });
+  it("sem exacto cai na variante; vazio → null", () => {
+    assert.equal(pickExactHostnameMatch([rows[0]], ["www.loja.com", "loja.com"])?.userId, "apex");
+    assert.equal(pickExactHostnameMatch([], ["loja.com"]), null);
   });
 });
 

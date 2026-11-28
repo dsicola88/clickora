@@ -5,6 +5,7 @@
  * Não dispara Meta CAPI / TikTok Events a partir deste caminho (origem = ads directo) —
  * evita atribuição cruzada falsa. Google continua via `syncDirectGclidConversionToGoogleAds`.
  */
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "./prisma";
 
@@ -13,6 +14,53 @@ export type AdsPostbackOrigin = "google_ads" | "microsoft_ads";
 /** Identidade estável de dedupe para postbacks ads → Conversion. */
 export function adsExternalOrderId(origin: AdsPostbackOrigin, transactionId: string): string {
   return `${origin}:${transactionId}`.slice(0, 190);
+}
+
+/**
+ * Order ID enviado à rede de anúncios e usado no dedupe. Sem `transaction_id`, deriva do
+ * click ID + nome da conversão: retries da rede não duplicam (no máx. 1 conversão por clique e acção).
+ */
+export function adsPostbackOrderId(
+  transactionId: string | null | undefined,
+  adClickId: string,
+  conversionName?: string | null,
+): string {
+  const explicit = transactionId?.trim();
+  if (explicit) return explicit;
+  const digest = createHash("sha256")
+    .update(`${adClickId.trim()}|${(conversionName ?? "").trim()}`)
+    .digest("hex")
+    .slice(0, 32);
+  return `auto-${digest}`;
+}
+
+export type DirectGoogleAdsUploadResult = { attempted: boolean; ok: boolean; error?: string };
+
+/** Regista no ledger o resultado real do upload directo (a UI não pode mostrar «Directo» quando falhou). */
+export async function recordDirectGoogleAdsUpload(
+  conversionId: string,
+  orderId: string,
+  upload: DirectGoogleAdsUploadResult,
+): Promise<void> {
+  const googleAdsSync = upload.ok ? "skipped_direct_upload" : upload.attempted ? "failed" : "skipped_no_config";
+  await systemPrisma.conversion.update({
+    where: { id: conversionId },
+    data: {
+      googleAdsSync,
+      googleAdsSyncedAt: upload.ok ? new Date() : undefined,
+      googleAdsSyncDetail: {
+        direct_upload: upload.ok ? "sent" : upload.attempted ? "failed" : "not_ready",
+        order_id: orderId,
+        ...(upload.ok
+          ? {}
+          : {
+              reason: upload.attempted
+                ? upload.error || "erro"
+                : "Upload Google Ads ainda não pronto — ligue a conta em Integrações → Google Ads.",
+            }),
+      } as Prisma.InputJsonValue,
+    },
+  });
 }
 
 export async function findClickIdByAdClickParam(args: {

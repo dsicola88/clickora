@@ -240,7 +240,9 @@ export default function AdminPanel() {
 
   const suspendMutation = useMutation({
     mutationFn: async ({ userId, isSuspended }: { userId: string; isSuspended: boolean }) => {
-      return isSuspended ? adminService.reactivateUser(userId) : adminService.suspendUser(userId);
+      const res = isSuspended ? await adminService.reactivateUser(userId) : await adminService.suspendUser(userId);
+      if (res.error) throw new Error(res.error);
+      return res;
     },
     onSuccess: (_, { isSuspended }) => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
@@ -251,7 +253,11 @@ export default function AdminPanel() {
   });
 
   const updatePlanMutation = useMutation({
-    mutationFn: ({ userId, planType }: { userId: string; planType: string }) => adminService.updateUserPlan(userId, planType),
+    mutationFn: async ({ userId, planType }: { userId: string; planType: string }) => {
+      const res = await adminService.updateUserPlan(userId, planType);
+      if (res.error) throw new Error(res.error);
+      return res;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       queryClient.invalidateQueries({ queryKey: ["admin-overview"] });

@@ -16,6 +16,7 @@ import {
   assertPresellHostBindingAllowed,
   evaluatePublicPresellAccess,
   isMainOrPreviewHostname,
+  pickExactHostnameMatch,
   resolveVerifiedOwnerUserIdFromDb,
 } from "../lib/presellHostAccess";
 import { getRequestHostname, hostnameLookupVariants } from "../lib/requestHost";
@@ -65,10 +66,14 @@ import {
 import { enqueuePresellDraftAudit } from "../lib/complianceAuditQueue";
 import { buildPresellLiteHtml, isPresellLiteHtmlEligible } from "../lib/presellLiteHtml";
 import { PRESSELL_LITE_HTML_CSP } from "../lib/sanitizeMirrorEmbedForLiteHtml";
-import { buildLiteImpressionPixelUrl, liteLandingAttributionParams } from "../lib/buildLiteImpressionPixelUrl";
+import {
+  buildLiteImpressionPixelUrl,
+  liteOfferForwardParams,
+  liteTrackClickParams,
+} from "../lib/buildLiteImpressionPixelUrl";
 import { decideRootPresell } from "../lib/customDomainRoot";
 import { invalidateTrackEdgeDest } from "../lib/trackEdgeDestCache";
-import { isPresellUuidParam, publicSpaPresellUrl } from "../lib/publicSpaOrigin";
+import { isPresellUuidParam, publicSpaPresellUrl, withLandingQuery } from "../lib/publicSpaOrigin";
 import { PUBLIC_DOMAIN_REQUIRED_MESSAGE } from "../lib/publicPresellHost";
 import { isPublicSafeTenantBrandName } from "../lib/tenantBrandingPublic";
 import { z } from "zod";
@@ -121,6 +126,16 @@ const createSchema = z.object({
     (v) => (v === "" || v === null ? null : v === undefined ? undefined : v),
     z.union([z.string().uuid(), z.null()]).optional(),
   ),
+});
+
+/** PATCH: `""`/`null` em title/slug/language = não alterar (comportamento histórico); video_url `""` limpa. */
+const emptyToUndefined = (v: unknown) => (v === "" || v === null ? undefined : v);
+const updateScalarsSchema = z.object({
+  title: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  slug: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  category: z.union([z.string(), z.null()]).optional(),
+  language: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  video_url: z.preprocess((v) => (v === "" ? null : v), z.union([z.string().url(), z.null()]).optional()),
 });
 
 function isMissingSmartRoutingSchemaError(err: unknown): boolean {
@@ -389,10 +404,11 @@ export const presellController = {
       res.setHeader("X-Robots-Tag", "noindex, nofollow");
       return res.status(404).type("text/plain").send(PUBLIC_DOMAIN_REQUIRED_MESSAGE);
     }
+    const spaUrlWithQuery = withLandingQuery(spaUrl, req);
     if (!isPresellLiteHtmlEligible(page.type)) {
       res.setHeader("Cache-Control", "private, no-store");
       res.setHeader("X-Presell-Lite", "redirect-spa");
-      return res.redirect(302, spaUrl);
+      return res.redirect(302, spaUrlWithQuery);
     }
 
     /**
@@ -423,20 +439,22 @@ export const presellController = {
       tracking: page.tracking,
       offer: (page as { offer?: LinkedOfferSnapshot | null }).offer ?? null,
       trackApiBase,
-      spaPath: spaUrl,
+      spaPath: spaUrlWithQuery,
       impressionPixelUrl: buildLiteImpressionPixelUrl(trackApiBase, page.id, req),
-      landingAttributionQuery: liteLandingAttributionParams(req).toString(),
+      landingAttributionQuery: liteTrackClickParams(req).toString(),
+      offerForwardQuery: liteOfferForwardParams(req, page.settings).toString(),
     });
     if (!built.ok) {
       res.setHeader("Cache-Control", "private, no-store");
       res.setHeader("X-Presell-Lite", built.reason);
-      return res.redirect(302, spaUrl);
+      return res.redirect(302, spaUrlWithQuery);
     }
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
+    /** Pixel/CTA levam referrer e cookies `_fbp`/`_ttp` do visitante: nunca em cache partilhada. */
     res.setHeader(
       "Cache-Control",
-      htmlAccess.ownerPreview ? "private, no-store" : "public, max-age=120, stale-while-revalidate=600",
+      htmlAccess.ownerPreview ? "private, no-store" : "private, max-age=60",
     );
     res.setHeader("Content-Security-Policy", PRESSELL_LITE_HTML_CSP);
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -546,10 +564,11 @@ export const presellController = {
     }
 
     const variants = hostnameLookupVariants(host);
-    const cd = await systemPrisma.customDomain.findFirst({
+    const cdRows = await systemPrisma.customDomain.findMany({
       where: { status: "verified", userId: ownerId, hostname: { in: variants } },
-      select: { id: true, userId: true, rootPresellId: true, purpose: true, isDefault: true },
+      select: { id: true, userId: true, hostname: true, rootPresellId: true, purpose: true, isDefault: true },
     });
+    const cd = pickExactHostnameMatch(cdRows, variants);
     if (!cd) {
       return res.status(404).json({ error: "Domínio não encontrado.", code: "ROOT_PRESELL_NO_DOMAIN" });
     }
@@ -929,6 +948,10 @@ export const presellController = {
 
   async update(req: Request, res: Response) {
     if (await denyIfCannotWritePresells(req, res)) return;
+    const scalars = updateScalarsSchema.safeParse(req.body ?? {});
+    if (!scalars.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: scalars.error.flatten() });
+    }
     const userId = billingUserId(req);
     const page = await prisma.presellPage.findFirst({
       where: { id: req.params.id, userId },
@@ -967,14 +990,15 @@ export const presellController = {
         ? (req.body.status as "draft" | "published" | "paused" | "archived")
         : undefined;
 
+    const { title, slug, category, language, video_url: videoUrl } = scalars.data;
     const data: Record<string, unknown> = {
-      ...(req.body.title && { title: req.body.title }),
-      ...(req.body.slug && { slug: req.body.slug }),
+      ...(title !== undefined && { title }),
+      ...(slug !== undefined && { slug }),
       type: safeType,
-      ...(req.body.category !== undefined && { category: req.body.category }),
-      ...(req.body.language && { language: req.body.language }),
+      ...(category !== undefined && { category }),
+      ...(language !== undefined && { language }),
       ...(nextContent && { content: nextContent as Prisma.InputJsonValue }),
-      ...(req.body.video_url !== undefined && { videoUrl: req.body.video_url }),
+      ...(videoUrl !== undefined && { videoUrl }),
       ...(req.body.settings && { settings: req.body.settings as Prisma.InputJsonValue }),
       ...(req.body.tracking && { tracking: req.body.tracking as Prisma.InputJsonValue }),
     };
@@ -1108,7 +1132,12 @@ export const presellController = {
       // Builder: assertPublishAllowed não bloqueia nem pausa. Outros tipos: a auditoria
       // síncrona pode pausar (gate=blocked) — relemos o estado real antes de responder.
       page.status === "published" &&
-      (nextContent || req.body.settings || req.body.title || req.body.video_url !== undefined)
+      (nextContent ||
+        req.body.settings ||
+        req.body.title ||
+        req.body.tracking ||
+        req.body.video_url !== undefined ||
+        offerLinkChanged)
     ) {
       const gate = await assertPublishAllowed({ page: updated, runIfStale: true });
       if (!gate.ok) {

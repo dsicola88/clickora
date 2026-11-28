@@ -28,6 +28,23 @@ function planTypeLabel(t: UserPlan["plan_type"]): string {
   }
 }
 
+type CancelSubscriptionResult = {
+  message?: string;
+  access_until?: string | null;
+  hotmart_cancel_url?: string | null;
+  billing_note?: string | null;
+};
+
+function safeHttpUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 const APP_THEME_KEY = "clickora:app-theme";
 
 function readAppTheme(): "light" | "dark" {
@@ -50,10 +67,11 @@ function applyAppTheme(next: "light" | "dark") {
 }
 
 export default function Settings() {
-  const { t } = useAppLocale();
+  const { t, locale } = useAppLocale();
   const { userPlan, refreshUser } = useAuth();
   const [theme, setTheme] = useState<"light" | "dark">(() => readAppTheme());
   const [cancelling, setCancelling] = useState(false);
+  const [cancelInfo, setCancelInfo] = useState<CancelSubscriptionResult | null>(null);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
@@ -71,11 +89,12 @@ export default function Settings() {
     if (!ok) return;
     setCancelling(true);
     try {
-      const { error } = await plansService.cancel();
+      const { data, error } = await plansService.cancel();
       if (error) {
         toast.error(error);
         return;
       }
+      setCancelInfo((data as CancelSubscriptionResult | null) ?? {});
       await refreshUser();
       toast.success(t("pages.settings.subscriptionCancelled"));
     } finally {
@@ -165,6 +184,34 @@ export default function Settings() {
           ) : (
             <p className="text-sm text-muted-foreground border-t border-border/50 pt-4">Sem plano associado neste momento.</p>
           )}
+          {cancelInfo ? (
+            <div
+              role="status"
+              className="space-y-1.5 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm text-card-foreground"
+            >
+              <p className="font-medium">{t("pages.settings.subscriptionCancelled")}</p>
+              {cancelInfo.access_until && !Number.isNaN(new Date(cancelInfo.access_until).getTime()) ? (
+                <p>
+                  {fill(t("pages.settings.cancelAccessUntil"), {
+                    date: new Date(cancelInfo.access_until).toLocaleDateString(locale),
+                  })}
+                </p>
+              ) : null}
+              <p className="text-muted-foreground">
+                {cancelInfo.billing_note || t("pages.settings.cancelBillingNoteFallback")}
+              </p>
+              {safeHttpUrl(cancelInfo.hotmart_cancel_url) ? (
+                <a
+                  href={safeHttpUrl(cancelInfo.hotmart_cancel_url)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block font-medium text-primary underline underline-offset-2"
+                >
+                  {t("pages.settings.cancelOnHotmart")}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
           <div className="mt-auto space-y-2 pt-2">
             <Button className="w-full gap-2 rounded-xl" variant="secondary" asChild>
               <Link to="/planos">Ver e alterar planos</Link>

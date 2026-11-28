@@ -262,7 +262,8 @@ export async function syncConversionToTikTokEvents(
       ? Number(conv.amount)
       : 0;
   const currency = (conv.currency || "USD").toUpperCase().slice(0, 3);
-  const eventTimeSec = Math.floor(conv.createdAt.getTime() / 1000);
+  /** Events API rejeita eventos antigos: o reembolso acontece agora, não na data da venda. */
+  const eventTimeSec = Math.floor((adMode === "refund" ? Date.now() : conv.createdAt.getTime()) / 1000);
   const flat = stringFieldsFromJson(conv.metadata);
   const orderId = conv.externalOrderId?.trim() || pickOrderIdFromPayload(flat) || conv.id;
   const pageUrl = eventSourceUrlFromClick({
@@ -313,6 +314,7 @@ export async function syncConversionToTikTokEvents(
         } as Prisma.InputJsonValue,
       },
     });
+    throw new Error(`tiktok_events_refund_failed: ${result.error.slice(0, 300)}`);
   } else {
     await systemPrisma.conversion.update({
       where: { id: conv.id },

@@ -7,7 +7,44 @@ import {
   effectiveMaxWorkspaceMembersFromPlan,
 } from "../lib/planSeatRotatorLimits";
 import { rewriteKnownStalePhrase } from "../lib/planCommercialText";
-import { billingUserId } from "../lib/requestContext";
+import { actorUserId, billingUserId } from "../lib/requestContext";
+
+/** Só o dono da conta de faturação muda ou cancela o plano (membros do workspace não). */
+export function callerIsBillingOwner(req: Request): boolean {
+  return actorUserId(req) === billingUserId(req);
+}
+
+const BILLING_OWNER_ONLY = {
+  error: "Só o dono da conta pode alterar ou cancelar o plano.",
+  code: "BILLING_OWNER_ONLY",
+} as const;
+
+/** Suspensão é decisão do admin: não se sai dela trocando de plano. */
+export function freePlanSwitchBlock(
+  current: { status: string; plan: { type: string; priceCents: number; name: string } } | null,
+): { status: 403 | 409; body: Record<string, unknown> } | null {
+  if (!current) return null;
+  if (current.status === "suspended") {
+    return {
+      status: 403,
+      body: { error: "Conta suspensa. Contacte o suporte.", code: "subscription_suspended" },
+    };
+  }
+  // Conta com plano pago activo não desce sozinha para Starter (evita bypass comercial).
+  // Após cancelar / expirar, pode activar o grátis para continuar com limites Starter.
+  if (current.status === "active" && current.plan.type !== "free_trial" && current.plan.priceCents > 0) {
+    return {
+      status: 409,
+      body: {
+        error:
+          "Tem um plano pago activo. Cancele a assinatura na app (e na Hotmart, se aplicável) antes de passar ao plano Starter.",
+        code: "PAID_PLAN_ACTIVE",
+        current_plan: current.plan.name,
+      },
+    };
+  }
+  return null;
+}
 
 /** Sem `cta_label` — para BD antiga antes de `prisma migrate deploy` (evita P2022). */
 const planSelectLegacy: Prisma.PlanSelect = {
@@ -136,6 +173,7 @@ export const plansController = {
   async subscribe(req: Request, res: Response) {
     const { plan_id } = req.body;
     if (!plan_id) return res.status(400).json({ error: "plan_id é obrigatório" });
+    if (!callerIsBillingOwner(req)) return res.status(403).json(BILLING_OWNER_ONLY);
 
     const plan = await findUniquePlanById(plan_id);
     if (!plan) return res.status(404).json({ error: "Plano não encontrado" });
@@ -147,32 +185,25 @@ export const plansController = {
         where: { userId },
         include: { plan: { select: { type: true, priceCents: true, name: true } } },
       });
-      // Conta com plano pago activo não desce sozinha para Starter (evita bypass comercial).
-      // Após cancelar / expirar, pode activar o grátis para continuar com limites Starter.
-      const paidActive =
-        current &&
-        current.status === "active" &&
-        current.plan.type !== "free_trial" &&
-        current.plan.priceCents > 0;
-      if (paidActive) {
-        return res.status(409).json({
-          error:
-            "Tem um plano pago activo. Cancele a assinatura na app (e na Hotmart, se aplicável) antes de passar ao plano Starter.",
-          code: "PAID_PLAN_ACTIVE",
-          current_plan: current.plan.name,
-        });
-      }
+      const block = freePlanSwitchBlock(current);
+      if (block) return res.status(block.status).json(block.body);
 
+      // Starter sem data de fim (igual ao registo); não herdar endsAt do plano anterior.
+      const startsAt = new Date();
       await prisma.subscription.upsert({
         where: { userId },
         create: {
           userId,
           planId: plan_id,
           status: "active",
+          startsAt,
+          endsAt: null,
         },
         update: {
           planId: plan_id,
           status: "active",
+          startsAt,
+          endsAt: null,
         },
       });
       return res.json({ message: "Plano atualizado com sucesso" });
@@ -206,10 +237,15 @@ export const plansController = {
   },
 
   async cancel(req: Request, res: Response) {
+    if (!callerIsBillingOwner(req)) return res.status(403).json(BILLING_OWNER_ONLY);
     const sub = await prisma.subscription.findUnique({
       where: { userId: billingUserId(req) },
     });
     if (!sub) return res.status(404).json({ error: "Nenhuma assinatura encontrada" });
+    /** canceled + endsAt futuro voltaria a dar acesso a uma conta suspensa. */
+    if (sub.status === "suspended") {
+      return res.status(403).json({ error: "Conta suspensa. Contacte o suporte.", code: "subscription_suspended" });
+    }
 
     /** Mantém acesso até endsAt se ainda no futuro (período pago). */
     const now = new Date();

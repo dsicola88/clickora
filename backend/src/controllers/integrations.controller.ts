@@ -24,22 +24,19 @@ import {
   bootstrapGoogleAdsAfterOAuth,
   getGoogleAdsApiClientConfigFromEnv,
   isGoogleAdsClickUploadReadyForUser,
-  restateConversionToGoogleAds,
-  retractConversionFromGoogleAds,
 } from "../modules/googleAds/googleAds.service";
 import { linkAllPaidProjectsFromIntegrations } from "../paid/google-ads-link-from-integrations";
 import { syncAdCostsForUser } from "../modules/affiliateOps/costSync.service";
 import {
   isMetaCapiReadyForUser,
-  retractConversionFromMetaCapi,
   reportPartialRefundToMetaCapi,
 } from "../modules/metaCapi/metaCapi.service";
 import {
   isTikTokEventsReadyForUser,
-  retractConversionFromTikTokEvents,
   reportPartialRefundToTikTokEvents,
 } from "../modules/tiktokEvents/tiktokEvents.service";
 import {
+  REFUND_SYNC_CHANNELS,
   retryDeadConversionSyncJobs,
   type ConversionSyncChannel,
 } from "../lib/conversionSyncQueue";
@@ -69,6 +66,8 @@ import {
 import { actorUserId, billingUserId } from "../lib/requestContext";
 import { planAllowsAffiliateWebhook } from "../lib/planAffiliateWebhook";
 import { denyIfCannotReadIntegrationSecrets } from "./workspace.controller";
+
+const TEST_SALE_ORDER_PREFIX = "clickora-test-";
 
 const profileNotifySchema = z.object({
   sale_notify_email: z.union([z.string().email(), z.literal("")]).optional(),
@@ -204,6 +203,10 @@ export const integrationsController = {
     const externalOrderId = fallbackExternalId(parsed);
     const amount = parsed.amount;
     const currency = parsed.currency;
+    /** Vendas de teste (ClickBank TEST*, botão «Testar ligação») validam o webhook mas nunca vão para Google/Meta/TikTok. */
+    const isTestSale =
+      (parsed.adapterId === "clickbank" && /^TEST/i.test(statusRaw ?? "")) ||
+      (externalOrderId ?? "").startsWith(TEST_SALE_ORDER_PREFIX);
 
     if (parsed.adapterId === "jvzoo" && (flat.ctransaction || flat.cverify)) {
       const secret = decryptSecretField(user.jvzooIpnSecret);
@@ -332,6 +335,7 @@ export const integrationsController = {
       platform,
       postback_status: statusRaw,
       network_order_id: parsed.networkOrderId,
+      ...(isTestSale ? { test_sale: true } : {}),
     };
 
     async function resolveClickAttribution(): Promise<{
@@ -495,9 +499,11 @@ export const integrationsController = {
         });
         remember(existing);
         const partialAmount = Number(amount);
-        void restateConversionToGoogleAds(existing.id).catch((err) =>
-          console.error("[restateConversionToGoogleAds]", err),
-        );
+        void enqueueConversionSync({
+          conversionId: existing.id,
+          userId: user!.id,
+          channels: ["google_ads_restate"],
+        }).catch((err) => console.error("[enqueueConversionSync:restate]", err));
         void reportPartialRefundToMetaCapi(existing.id, partialAmount, externalOrderId).catch((err) =>
           console.error("[reportPartialRefundToMetaCapi]", err),
         );
@@ -559,15 +565,11 @@ export const integrationsController = {
       createdConversionId = existing.id;
       attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
       presellPageId = existing.presellId;
-      void retractConversionFromGoogleAds(existing.id).catch((err) =>
-        console.error("[retractConversionFromGoogleAds]", err),
-      );
-      void retractConversionFromMetaCapi(existing.id).catch((err) =>
-        console.error("[retractConversionFromMetaCapi]", err),
-      );
-      void retractConversionFromTikTokEvents(existing.id).catch((err) =>
-        console.error("[retractConversionFromTikTokEvents]", err),
-      );
+      void enqueueConversionSync({
+        conversionId: existing.id,
+        userId: user!.id,
+        channels: REFUND_SYNC_CHANNELS,
+      }).catch((err) => console.error("[enqueueConversionSync:refund]", err));
       return "refunded";
     }
 
@@ -604,7 +606,7 @@ export const integrationsController = {
             },
           }),
         ];
-        if (status === "approved" && data.presellId && data.attribution === "attributed") {
+        if (status === "approved" && !isTestSale && data.presellId && data.attribution === "attributed") {
           ops.push(
             systemPrisma.presellPage.update({
               where: { id: data.presellId },
@@ -620,6 +622,7 @@ export const integrationsController = {
         attribution = data.attribution;
         if (data.presellId) presellPageId = data.presellId;
         if (status === "pending") return "pending";
+        if (isTestSale) return data.attribution === "attributed" ? "created" : "created_unattributed";
         // Também unattributed: o worker marca skipped_no_gclid/fbclid/ttclid
         // para Relatórios e sync_health não ficarem «OK» em silêncio.
         void enqueueConversionSync({
@@ -663,7 +666,7 @@ export const integrationsController = {
             },
           }),
         ];
-        if (existing.presellId && existing.attribution === "attributed") {
+        if (!isTestSale && existing.presellId && existing.attribution === "attributed") {
           ops.push(
             systemPrisma.presellPage.update({
               where: { id: existing.presellId },
@@ -675,10 +678,12 @@ export const integrationsController = {
         createdConversionId = existing.id;
         attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
         presellPageId = existing.presellId;
-        void enqueueConversionSync({
-          conversionId: existing.id,
-          userId: user!.id,
-        }).catch((err) => console.error("[enqueueConversionSync]", err));
+        if (!isTestSale) {
+          void enqueueConversionSync({
+            conversionId: existing.id,
+            userId: user!.id,
+          }).catch((err) => console.error("[enqueueConversionSync]", err));
+        }
         return "approved_from_pending";
       }
 
@@ -703,9 +708,13 @@ export const integrationsController = {
           createdConversionId = existing.id;
           attribution = existing.attribution === "unattributed" ? "unattributed" : "attributed";
           presellPageId = existing.presellId;
-          void restateConversionToGoogleAds(existing.id).catch((err) =>
-            console.error("[restateConversionToGoogleAds]", err),
-          );
+          if (!isTestSale) {
+            void enqueueConversionSync({
+              conversionId: existing.id,
+              userId: user!.id,
+              channels: ["google_ads_restate"],
+            }).catch((err) => console.error("[enqueueConversionSync:restate]", err));
+          }
           return "restated";
         }
       }
@@ -923,7 +932,7 @@ export const integrationsController = {
       return res.status(503).json({ error: "JWT_SECRET não configurado no servidor." });
     }
     const base = publicApiBaseFromRequest(req).replace(/\/+$/, "");
-    const orderId = `clickora-test-${Date.now()}`;
+    const orderId = `${TEST_SALE_ORDER_PREFIX}${Date.now()}`;
     const u = new URL(`${base}/integrations/affiliate-webhook`);
     u.searchParams.set("token", token);
     for (const [key, value] of Object.entries(buildTestSaleQuery(platform, lastClick.id, orderId))) {

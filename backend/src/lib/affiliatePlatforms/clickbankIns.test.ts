@@ -41,3 +41,11 @@ test("ClickBank INS decifra a venda e ignora o segredo errado", () => {
   const wrong = decryptClickbankNotification(envelope.notification, envelope.iv, "OUTRA");
   assert.equal(wrong ? clickbankSaleFields(wrong) : null, null);
 });
+
+test("ClickBank INS real: o ID de clique vem em trackingCodes (array)", () => {
+  const fields = clickbankSaleFields(
+    JSON.stringify({ transactionType: "SALE", receipt: "R10", totalAccountAmount: 20, trackingCodes: ["ad1", UUID] }),
+  );
+  assert.equal(fields?.trackingCodes, UUID);
+  assert.equal(fields?.totalAccountAmount, "20");
+});

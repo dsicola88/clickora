@@ -65,9 +65,25 @@ function firstText(flat: Record<string, string>, keys: string[], max = 200): str
   return null;
 }
 
+/**
+ * "1,234.56" / "1.234,56" / "R$ 49,90" / "$1,000" → "1234.56" / "1234.56" / "49.90" / "1000".
+ * Com os dois separadores, o último é o decimal; vírgula repetida = milhares; vírgula única = decimal.
+ */
+function normalizeMoneyText(raw: string): string {
+  let s = raw.trim().replace(/[^\d.,-]/g, "");
+  const lastComma = s.lastIndexOf(",");
+  const lastDot = s.lastIndexOf(".");
+  if (lastComma >= 0 && lastDot >= 0) {
+    s = lastComma > lastDot ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+  } else if (lastComma >= 0) {
+    s = (s.match(/,/g)?.length ?? 0) > 1 ? s.replace(/,/g, "") : s.replace(",", ".");
+  }
+  return s;
+}
+
 export function parseMoney(raw: string | undefined | null): Prisma.Decimal | null {
   if (raw == null) return null;
-  const cleaned = String(raw).trim().replace(/\s/g, "").replace(",", ".");
+  const cleaned = normalizeMoneyText(String(raw));
   if (!cleaned || !/^-?\d+(\.\d+)?$/.test(cleaned)) return null;
   const n = Number.parseFloat(cleaned);
   if (!Number.isFinite(n) || n < 0) return null;

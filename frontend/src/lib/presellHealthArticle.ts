@@ -32,7 +32,7 @@ export function isThinBridgeSalesText(salesText: string | null | undefined): boo
   const uniqueLines = new Set(
     t
       .split(/\n/)
-      .map((l) => l.replace(/^[•*\-]\s*/, "").trim().toLowerCase())
+      .map((l) => l.replace(/^[•*-]\s*/, "").trim().toLowerCase())
       .filter((l) => l.length > 12),
   );
   return uniqueLines.size > 0 && uniqueLines.size <= 4 && t.length < 420;

@@ -34,6 +34,8 @@ export function decryptClickbankNotification(
   }
 }
 
+const UUID_IN_TRACKING = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const CLICKBANK_FIELDS = [
   "transactionType",
   "transaction_type",
@@ -61,6 +63,12 @@ export function clickbankSaleFields(plaintext: string): Record<string, string> |
   for (const key of CLICKBANK_FIELDS) {
     const value = src[key];
     if (typeof value === "string" || typeof value === "number") out[key] = String(value);
+    else if (Array.isArray(value)) {
+      /** INS v6+: `trackingCodes: ["<tid>"]` — o ID de clique vem dentro do array. */
+      const entries = value.filter((v): v is string => typeof v === "string" && v.trim() !== "");
+      const picked = entries.find((v) => UUID_IN_TRACKING.test(v.trim())) ?? entries[0];
+      if (picked) out[key] = picked.trim();
+    }
   }
   return out.transactionType || out.transaction_type ? out : null;
 }

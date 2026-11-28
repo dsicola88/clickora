@@ -4,6 +4,24 @@ import { systemPrisma } from "../lib/prisma";
 import { signToken } from "../lib/jwt";
 import { resolveWorkspaceSessionForLogin } from "../lib/workspaceSession";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
+import { findUserIdByEmail } from "../lib/userEmailLookup";
+
+type OidcUserinfo = { sub?: string; email?: string; email_verified?: unknown; name?: string };
+
+/** Sem e-mail verificado pelo IdP, qualquer conta lá criada com o e-mail da vítima entraria. Alguns IdPs enviam "true". */
+export function oidcEmailVerified(ui: Pick<OidcUserinfo, "email_verified">): boolean {
+  return ui.email_verified === true || ui.email_verified === "true";
+}
+
+/** Conta já ligada a outro `sub` não aceita outra identidade só por coincidir o e-mail. */
+export function oidcEmailLinkDecision(
+  linkedSubject: string | null,
+  sub: string,
+): "link" | "linked" | "conflict" {
+  if (!linkedSubject) return "link";
+  return linkedSubject === sub ? "linked" : "conflict";
+}
+
 type OidcConfig = {
   issuer: string;
   clientId: string;
@@ -152,22 +170,32 @@ export const oidcController = {
       signal: AbortSignal.timeout(15_000),
     });
     if (!uiRes.ok) return res.status(401).send("Falha no userinfo");
-    const ui = (await uiRes.json()) as { sub?: string; email?: string; name?: string };
+    const ui = (await uiRes.json()) as OidcUserinfo;
     const sub = ui.sub?.trim();
-    const email = ui.email?.trim().toLowerCase();
-    if (!sub || !email) return res.status(401).send("OIDC sem email/sub");
+    if (!sub) return res.status(401).send("OIDC sem email/sub");
 
-    let user = await systemPrisma.user.findFirst({
-      where: { OR: [{ oidcSubject: sub }, { email }] },
-      include: { roles: true, subscription: { include: { plan: true } } },
-    });
+    const include = { roles: true, subscription: { include: { plan: true } } } as const;
+    let user = await systemPrisma.user.findUnique({ where: { oidcSubject: sub }, include });
     if (!user) {
-      return res.status(403).send(
-        "Conta não encontrada. O SSO só entra em contas já registadas com o mesmo e-mail.",
-      );
-    }
-    if (!user.oidcSubject) {
-      await systemPrisma.user.update({ where: { id: user.id }, data: { oidcSubject: sub } });
+      const email = ui.email?.trim();
+      if (!email) return res.status(401).send("OIDC sem email/sub");
+      if (!oidcEmailVerified(ui)) {
+        return res.status(403).send("O e-mail tem de estar verificado no fornecedor de SSO.");
+      }
+      const userId = await findUserIdByEmail(email);
+      user = userId ? await systemPrisma.user.findUnique({ where: { id: userId }, include }) : null;
+      if (!user) {
+        return res.status(403).send(
+          "Conta não encontrada. O SSO só entra em contas já registadas com o mesmo e-mail.",
+        );
+      }
+      const link = oidcEmailLinkDecision(user.oidcSubject, sub);
+      if (link === "conflict") {
+        return res.status(403).send("Esta conta já está associada a outra identidade SSO.");
+      }
+      if (link === "link") {
+        await systemPrisma.user.update({ where: { id: user.id }, data: { oidcSubject: sub } });
+      }
     }
 
     const sess = await resolveWorkspaceSessionForLogin(user.id);

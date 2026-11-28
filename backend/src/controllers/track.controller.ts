@@ -32,7 +32,9 @@ import { pickRotatorDestination, stickyRotatorCookieName } from "../lib/trafficR
 import { buildStickyRotatorSetCookie, isSecureRequest } from "../lib/stickyRotatorCookie";
 import { rewriteLocalPresellDestination } from "../lib/rewriteLocalPresellDestination";
 import {
+  adsPostbackOrderId,
   findClickIdByAdClickParam,
+  recordDirectGoogleAdsUpload,
   upsertConversionFromAdsPostback,
 } from "../lib/unifiedAdsConversion";
 import {
@@ -42,6 +44,9 @@ import {
 } from "../lib/conversionLedger";
 import { mergeSubIdsWithPath, parsePublicPathSubTail, pathSubForMetadata } from "../lib/pathSubIds";
 import { billingUserId } from "../lib/requestContext";
+import { parseLenientHopQuery } from "../lib/lenientHopQuery";
+import { hopTrafficSource } from "../lib/hopTrafficSource";
+import { denyIfCannotReadIntegrationSecrets } from "./workspace.controller";
 import { countPlanClicksThisMonth } from "../lib/planClickQuota";
 import {
   voluumStyleMetadata,
@@ -421,8 +426,8 @@ export const trackController = {
     /** Soft: CGNAT Ads nunca recebe JSON 429 no hop de oferta. */
     if (await earlyTrackRateLimit(req, res, { softForOfferHop: true })) return;
     const presellId = req.params.presellId;
-    const parsed = redirectSchema.safeParse(req.query);
-    if (!parsed.success) return res.status(400).json({ error: "Parâmetros inválidos", details: parsed.error.flatten() });
+    const parsed = parseLenientHopQuery(redirectSchema, req.query as Record<string, unknown>);
+    if (parsed.dropped.length) console.info("[track/r] parâmetros inválidos ignorados", { presellId, keys: parsed.dropped });
     const {
       to: toRaw,
       source,
@@ -459,13 +464,10 @@ export const trackController = {
       realUtmDimensionBody(utmCampaignRaw) || realUtmDimensionBody(campaignRaw) || campaignRaw || undefined;
 
     const pathTail = expressWildcardPathSuffix(req);
-    if (pathTail != null && pathTail.trim() !== "" && !parsePublicPathSubTail(pathTail)) {
-      return res.status(400).json({
-        error:
-          "Sufixo de caminho inválido. Use apenas letras, números, ponto, _ e hífen por segmento (até 10 níveis, ex.: /fb/campanha/anuncio).",
-      });
-    }
     const pathSub = parsePublicPathSubTail(pathTail);
+    if (pathTail != null && pathTail.trim() !== "" && !pathSub) {
+      console.info("[track/r] sufixo de caminho inválido ignorado — hop segue", { presellId });
+    }
     const { sub1, sub2, sub3, pathMeta } = mergeSubIdsWithPath(
       { sub1: qSub1, sub2: qSub2, sub3: qSub3 },
       pathSub,
@@ -624,15 +626,22 @@ export const trackController = {
       },
       parentMetadata,
     );
+    const traffic = hopTrafficSource({ source, medium, ...adIds });
+    /** UTMs para o hoplink: só valores reais, nunca inferidos do click ID. */
+    const forwardedUtm = hopTrafficSource({ source: utm_source ?? source, medium });
 
-    const click = await systemPrisma.$transaction(async (tx) => {
-      const ev = await tx.trackingEvent.create({
+    /** O visitante pago segue para a oferta mesmo se a BD falhar; o ID já vai no hoplink. */
+    const click = { id: randomUUID() };
+    let clickRecorded = true;
+    await systemPrisma.$transaction(async (tx) => {
+      await tx.trackingEvent.create({
         data: {
+          id: click.id,
           userId: page.userId,
           presellPageId: page.id,
           eventType: "click",
-          source,
-          medium,
+          source: traffic.source,
+          medium: traffic.medium,
           campaign,
           referrer,
           country: seen.country ?? undefined,
@@ -656,9 +665,9 @@ export const trackController = {
             utm_term,
             utm_content,
             utm_campaign: campaign || undefined,
-            utm_source: utm_source ?? source,
-            source,
-            medium,
+            utm_source: forwardedUtm.source,
+            source: traffic.source,
+            medium: traffic.medium,
             campaign,
             redirect_to: to,
             // Cloud/datacenter → exclude_from_kpi (Situação Cloud alinhada ao KPI). Sem auto-blacklist.
@@ -678,21 +687,25 @@ export const trackController = {
         where: { id: page.id },
         data: { clicks: { increment: 1 } },
       });
-      return ev;
+    }).catch((err) => {
+      clickRecorded = false;
+      console.error("[track.redirect] clique não gravado — hop segue", { presellId, clickId: click.id, err });
     });
 
-    notifyTelegramClick(page.userId, {
-      presellTitle: page.title,
-      clickId: click.id,
-      campaign,
-    });
+    if (clickRecorded) {
+      notifyTelegramClick(page.userId, {
+        presellTitle: page.title,
+        clickId: click.id,
+        campaign,
+      });
+    }
 
     const offerNetwork = await affiliateNetworkForRedirect({
       queryNetwork,
       userId: page.userId,
       presellId: page.id,
       offerNetwork: resolvedOffer.network,
-    });
+    }).catch(() => resolvedOffer.network);
     /**
      * Encaminhar ads IDs / UTM para o hoplink (igual ao hop `/rot`).
      * Não sobrescreve chaves já presentes no `to` (ex. FE já fez merge).
@@ -704,8 +717,8 @@ export const trackController = {
       msclkid: adIds.msclkid,
       fbclid: adIds.fbclid,
       ttclid: adIds.ttclid,
-      utm_source: utm_source ?? source,
-      utm_medium: medium,
+      utm_source: forwardedUtm.source,
+      utm_medium: forwardedUtm.medium,
       utm_campaign: campaign,
       utm_term,
       utm_content,
@@ -723,10 +736,8 @@ export const trackController = {
       return res.status(404).json({ error: "Rotador não encontrado" });
     }
 
-    const parsed = rotatorPublicQuerySchema.safeParse(req.query);
-    if (!parsed.success) {
-      return res.status(400).json({ error: "Parâmetros inválidos", details: parsed.error.flatten() });
-    }
+    const parsed = parseLenientHopQuery(rotatorPublicQuerySchema, req.query as Record<string, unknown>);
+    if (parsed.dropped.length) console.info("[track/rot] parâmetros inválidos ignorados", { keys: parsed.dropped });
     const q = parsed.data;
     const {
       source,
@@ -764,13 +775,10 @@ export const trackController = {
       realUtmDimensionBody(utmCampaignRaw) || realUtmDimensionBody(campaignRaw) || campaignRaw || undefined;
 
     const rPathTail = expressWildcardPathSuffix(req);
-    if (rPathTail != null && rPathTail.trim() !== "" && !parsePublicPathSubTail(rPathTail)) {
-      return res.status(400).json({
-        error:
-          "Sufixo de caminho inválido. Use apenas letras, números, ponto, _ e hífen por segmento (até 10 níveis, ex.: /fb/campanha/anuncio).",
-      });
-    }
     const rPathSub = parsePublicPathSubTail(rPathTail);
+    if (rPathTail != null && rPathTail.trim() !== "" && !rPathSub) {
+      console.info("[track/rot] sufixo de caminho inválido ignorado — hop segue", { rotatorId });
+    }
     const { sub1, sub2, sub3, pathMeta: rotPathMeta } = mergeSubIdsWithPath(
       { sub1: rSub1, sub2: rSub2, sub3: rSub3 },
       rPathSub,
@@ -879,7 +887,9 @@ export const trackController = {
         : null;
     const finalUrl = rewriteLocalPresellDestination(pick.destinationUrl, rotPreferredOrigin);
     // Persistir correcção: braços antigos com localhost deixam de partir anúncios.
+    // Só com domínio verificado da BD — nunca a partir de Host/X-Forwarded-Host do pedido.
     if (
+      landerHost &&
       pick.armId &&
       finalUrl !== pick.destinationUrl &&
       !/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(finalUrl)
@@ -890,9 +900,20 @@ export const trackController = {
     }
 
     const armIdForMeta = pick.usedBackup || pick.viaPolicyRedirect ? null : pick.armId;
+    const rotAdIds = {
+      gclid: cleanAdClickId(gclid),
+      gbraid: cleanAdClickId(gbraid),
+      wbraid: cleanAdClickId(wbraid),
+      msclkid: cleanAdClickId(msclkid),
+      fbclid: cleanAdClickId(fbclid),
+      ttclid: cleanAdClickId(ttclid),
+    };
 
-    const click = await systemPrisma.trackingEvent.create({
+    const click = { id: randomUUID() };
+    let rotClickRecorded = true;
+    await systemPrisma.trackingEvent.create({
       data: {
+        id: click.id,
         userId: rot.userId,
         presellPageId: rot.contextPresellId,
         eventType: "click",
@@ -905,20 +926,20 @@ export const trackController = {
         userAgent,
         device,
         metadata: {
-          gclid,
-          gbraid,
-          wbraid,
+          gclid: rotAdIds.gclid,
+          gbraid: rotAdIds.gbraid,
+          wbraid: rotAdIds.wbraid,
           gad_source:
             typeof rotGadSource === "string" && rotGadSource.trim() ? rotGadSource.trim() : undefined,
           gad_campaignid:
             typeof rotGadCampaignId === "string" && rotGadCampaignId.trim()
               ? rotGadCampaignId.trim()
               : undefined,
-          fbclid,
+          fbclid: rotAdIds.fbclid,
           fbp,
-          ttclid,
+          ttclid: rotAdIds.ttclid,
           ttp,
-          msclkid,
+          msclkid: rotAdIds.msclkid,
           utm_term,
           utm_content,
           utm_campaign: campaign || undefined,
@@ -944,26 +965,26 @@ export const trackController = {
           ...seen.countryMeta,
         } as Prisma.InputJsonValue,
       },
+    }).catch((err) => {
+      rotClickRecorded = false;
+      console.error("[track.rotator] clique não gravado — hop segue", { rotatorId, clickId: click.id, err });
     });
 
-    notifyTelegramClick(rot.userId, {
-      presellTitle: `${rot.name} → ${rot.contextPresell.title}`,
-      clickId: click.id,
-      campaign,
-    });
+    if (rotClickRecorded) {
+      notifyTelegramClick(rot.userId, {
+        presellTitle: `${rot.name} → ${rot.contextPresell.title}`,
+        clickId: click.id,
+        campaign,
+      });
+    }
 
     const offerNetwork = await affiliateNetworkForRedirect({
       queryNetwork: rotatorNetwork,
       userId: rot.userId,
       presellId: rot.contextPresellId,
-    });
+    }).catch(() => null);
     const landed = forwardAdQueryToUrl(finalUrl, {
-      gclid,
-      gbraid,
-      wbraid,
-      msclkid,
-      fbclid,
-      ttclid,
+      ...rotAdIds,
       utm_source,
       utm_medium: medium,
       utm_campaign: campaign,
@@ -992,7 +1013,8 @@ export const trackController = {
   },
 
   async pixel(req: Request, res: Response) {
-    if (await earlyTrackRateLimit(req, res)) return;
+    /** Limite excedido (ex.: CGNAT): GIF normal sem gravar — o browser nunca vê 429. */
+    if (!(await consumeTrackRateLimitAsync(extractClientIp(req)))) return sendTrackingPixelGif(res);
     const presellId = req.params.presellId;
     const attr = impressionAttributionFromPixelQuery(req.query);
     const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
@@ -1211,6 +1233,7 @@ export const trackController = {
       },
       parentMetadata,
     );
+    const clickTraffic = hopTrafficSource({ source, medium, ...adIds });
 
     const click = await systemPrisma.$transaction(async (tx) => {
       const ev = await tx.trackingEvent.create({
@@ -1218,7 +1241,10 @@ export const trackController = {
           userId: page.userId,
           presellPageId: presell_id,
           eventType: "click",
-          source, medium, campaign, referrer,
+          source: clickTraffic.source,
+          medium: clickTraffic.medium,
+          campaign,
+          referrer,
           country: clickCountry ?? undefined,
           ipAddress: ip,
           userAgent,
@@ -1241,9 +1267,9 @@ export const trackController = {
             msclkid: adIds.msclkid,
             utm_term,
             utm_content,
-            utm_source: utm_source ?? source,
-            source,
-            medium,
+            utm_source: hopTrafficSource({ source: utm_source ?? source }).source,
+            source: clickTraffic.source,
+            medium: clickTraffic.medium,
             campaign,
             ...(redirectTo ? { redirect_to: redirectTo } : {}),
             ...(fromEdge ? { via_edge: true } : {}),
@@ -1414,10 +1440,11 @@ export const trackController = {
           value,
           currency: currency?.toUpperCase(),
           transaction_id,
-          gclid,
-          fbclid,
-          ttclid,
-          msclkid,
+          /** O embed envia os click IDs dentro de `metadata`; `undefined` no topo apagava-os. */
+          gclid: gclid ?? metadata?.gclid,
+          fbclid: fbclid ?? metadata?.fbclid,
+          ttclid: ttclid ?? metadata?.ttclid,
+          msclkid: msclkid ?? metadata?.msclkid,
           ...evBotMeta,
           ...seen.countryMeta,
           ...cloudMeta,
@@ -1466,32 +1493,10 @@ export const trackController = {
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
     if (page.userId !== tokenUserId) return res.status(403).json({ error: "Postback não autorizado para esta página" });
 
-    if (data.transaction_id) {
-      const existing = await systemPrisma.trackingEvent.findFirst({
-        where: {
-          userId: page.userId,
-          presellPageId: page.id,
-          eventType: "conversion",
-          metadata: { path: ["transaction_id"], equals: data.transaction_id },
-        },
-      });
-      if (existing) {
-        await logPostback({
-          userId: page.userId,
-          presellPageId: page.id,
-          platform: "google_ads",
-          status: "duplicate",
-          message: "Evento duplicado por transaction_id",
-          payload: req.body,
-        });
-        return res.json({ tracked: true, duplicate: true });
-      }
-    }
-
     const postbackIp = extractClientIp(req);
     const postbackSeen = visitorClickPlace(req, postbackIp);
     const postbackUa = req.headers["user-agent"] || "";
-    const orderIdForGoogle = (data.transaction_id && data.transaction_id.trim()) || randomUUID();
+    const orderIdForGoogle = adsPostbackOrderId(data.transaction_id, data.gclid, data.conversion_name);
     const clickId = await findClickIdByAdClickParam({
       userId: page.userId,
       presellPageId: page.id,
@@ -1510,37 +1515,55 @@ export const trackController = {
       adClickId: data.gclid,
       conversionName: data.conversion_name,
     });
-    await systemPrisma.$transaction([
-      systemPrisma.trackingEvent.create({
-        data: {
+    if (ledger.duplicate) {
+      const prev = await systemPrisma.conversion.findUnique({
+        where: { id: ledger.conversionId },
+        select: { googleAdsSync: true },
+      });
+      if (prev?.googleAdsSync !== "failed") {
+        await logPostback({
           userId: page.userId,
           presellPageId: page.id,
-          eventType: "conversion",
-          source: data.source || "google_ads",
-          medium: data.medium || "cpc",
-          campaign: data.campaign,
-          country: postbackSeen.country ?? undefined,
-          ipAddress: postbackIp,
-          userAgent: postbackUa,
-          device: detectDevice(postbackUa),
-          metadata: {
-            gclid: data.gclid,
-            conversion_name: data.conversion_name,
-            value: data.value,
-            currency: data.currency.toUpperCase(),
-            transaction_id: data.transaction_id,
-            postback_origin: "google_ads",
-            conversion_id: ledger.conversionId,
-            ledger: "unified_ads_postback",
-            ...postbackSeen.countryMeta,
-          } as Prisma.InputJsonValue,
-        },
-      }),
-      systemPrisma.presellPage.update({
-        where: { id: page.id },
-        data: { conversions: { increment: 1 } },
-      }),
-    ]);
+          platform: "google_ads",
+          status: "duplicate",
+          message: "Evento duplicado (mesmo transaction_id / gclid)",
+          payload: req.body,
+        });
+        return res.json({ tracked: true, duplicate: true, conversion_id: ledger.conversionId });
+      }
+    } else {
+      await systemPrisma.$transaction([
+        systemPrisma.trackingEvent.create({
+          data: {
+            userId: page.userId,
+            presellPageId: page.id,
+            eventType: "conversion",
+            source: data.source || "google_ads",
+            medium: data.medium || "cpc",
+            campaign: data.campaign,
+            country: postbackSeen.country ?? undefined,
+            ipAddress: postbackIp,
+            userAgent: postbackUa,
+            device: detectDevice(postbackUa),
+            metadata: {
+              gclid: data.gclid,
+              conversion_name: data.conversion_name,
+              value: data.value,
+              currency: data.currency.toUpperCase(),
+              transaction_id: data.transaction_id,
+              postback_origin: "google_ads",
+              conversion_id: ledger.conversionId,
+              ledger: "unified_ads_postback",
+              ...postbackSeen.countryMeta,
+            } as Prisma.InputJsonValue,
+          },
+        }),
+        systemPrisma.presellPage.update({
+          where: { id: page.id },
+          data: { conversions: { increment: 1 } },
+        }),
+      ]);
+    }
 
     let upload: { attempted: boolean; ok: boolean; error?: string } = {
       attempted: false,
@@ -1565,6 +1588,9 @@ export const trackController = {
         error: err instanceof Error ? err.message : String(err),
       };
     }
+    await recordDirectGoogleAdsUpload(ledger.conversionId, orderIdForGoogle, upload).catch((err) =>
+      console.error("[recordDirectGoogleAdsUpload]", err),
+    );
 
     await logPostback({
       userId: page.userId,
@@ -1628,32 +1654,10 @@ export const trackController = {
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
     if (page.userId !== tokenUserId) return res.status(403).json({ error: "Postback não autorizado para esta página" });
 
-    if (data.transaction_id) {
-      const existing = await systemPrisma.trackingEvent.findFirst({
-        where: {
-          userId: page.userId,
-          presellPageId: page.id,
-          eventType: "conversion",
-          metadata: { path: ["transaction_id"], equals: data.transaction_id },
-        },
-      });
-      if (existing) {
-        await logPostback({
-          userId: page.userId,
-          presellPageId: page.id,
-          platform: "microsoft_ads",
-          status: "duplicate",
-          message: "Evento duplicado por transaction_id",
-          payload: req.body,
-        });
-        return res.json({ tracked: true, duplicate: true });
-      }
-    }
-
     const msIp = extractClientIp(req);
     const msSeen = visitorClickPlace(req, msIp);
     const msUa = req.headers["user-agent"] || "";
-    const orderIdForMs = (data.transaction_id && data.transaction_id.trim()) || randomUUID();
+    const orderIdForMs = adsPostbackOrderId(data.transaction_id, data.msclkid, data.conversion_name);
     const clickId = await findClickIdByAdClickParam({
       userId: page.userId,
       presellPageId: page.id,
@@ -1672,6 +1676,17 @@ export const trackController = {
       adClickId: data.msclkid,
       conversionName: data.conversion_name,
     });
+    if (ledger.duplicate) {
+      await logPostback({
+        userId: page.userId,
+        presellPageId: page.id,
+        platform: "microsoft_ads",
+        status: "duplicate",
+        message: "Evento duplicado (mesmo transaction_id / msclkid)",
+        payload: req.body,
+      });
+      return res.json({ tracked: true, duplicate: true, conversion_id: ledger.conversionId });
+    }
     await systemPrisma.$transaction([
       systemPrisma.trackingEvent.create({
         data: {
@@ -2239,6 +2254,7 @@ export const trackController = {
 
   async getPostbackTemplates(req: Request, res: Response) {
     if (!req.user?.userId) return res.status(401).json({ error: "Não autenticado" });
+    if (await denyIfCannotReadIntegrationSecrets(req, res)) return;
     const userId = billingUserId(req);
 
     const token = createPostbackToken(userId);
@@ -2331,7 +2347,8 @@ export const trackController = {
    * Não redirecciona — só JSON leve para aquecer o edge.
    */
   async getEdgeDest(req: Request, res: Response) {
-    if (await earlyTrackRateLimit(req, res)) return;
+    /** O edge autenticado partilha IPs de saída Cloudflare entre todos os visitantes. */
+    if (!requestFromTrustedTrackEdge(req) && (await earlyTrackRateLimit(req, res))) return;
     const presellId = req.params.presellId;
     if (!presellId || !/^[0-9a-f-]{36}$/i.test(presellId)) {
       return res.status(400).json({ error: "presellId inválido" });

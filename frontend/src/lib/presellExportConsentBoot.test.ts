@@ -3,6 +3,7 @@ import {
   buildExportConsentAwareSnippets,
   buildExportCookieModalBindingsScript,
   buildGoogleConsentModeDefaultScript,
+  jsonForInlineScript,
 } from "./presellExportConsentBoot";
 
 describe("presellExportConsentBoot", () => {
@@ -78,6 +79,35 @@ describe("presellExportConsentBoot", () => {
     expect(out.earlyHead).toContain("USE_GCM=0");
     expect(out.earlyHead).not.toContain("__clickoraGcmDefaultsApplied");
     expect(out.cookieBootInline).toBe(true);
+  });
+
+  it("com gate: `</script>` no payload não fecha o boot nem corre marketing antes do consentimento", () => {
+    const out = buildExportConsentAwareSnippets({
+      cookieGate: true,
+      hasGoogleTags: false,
+      clickoraHead: "",
+      marketing: {
+        headHtml: "<script>fbq('init')</script></script><script>window.__pwned=1</script><!--",
+        bodyHtml: "<p>linha\u2028separador\u2029</p>",
+        footerHtml: "",
+      },
+    });
+    const scripts = out.earlyHead.match(/<script>/gi) ?? [];
+    const closes = out.earlyHead.match(/<\/script>/gi) ?? [];
+    expect(scripts).toHaveLength(1);
+    expect(closes).toHaveLength(1);
+    expect(out.earlyHead).not.toContain("<!--");
+    expect(out.earlyHead).not.toMatch(/[\u2028\u2029]/);
+
+    const payloadJson = out.earlyHead.match(/var PAYLOAD=(\{.*?\});\n/)?.[1] ?? "";
+    const parsed = JSON.parse(payloadJson) as { head: string; body: string };
+    expect(parsed.head).toBe("<script>fbq('init')</script></script><script>window.__pwned=1</script><!--");
+    expect(parsed.body).toBe("<p>linha\u2028separador\u2029</p>");
+  });
+
+  it("jsonForInlineScript escapa < e separadores de linha JS", () => {
+    expect(jsonForInlineScript("</script>")).toBe('"\\u003c/script>"');
+    expect(jsonForInlineScript("a\u2028b\u2029")).toBe('"a\\u2028b\\u2029"');
   });
 
   it("strict sem Google: sem GCM mesmo com applyConsentModeDefaults", () => {

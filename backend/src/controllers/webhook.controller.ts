@@ -4,15 +4,56 @@ import { hashPassword, passwordBcryptRounds } from "../lib/passwordCrypto";
 import { systemPrisma } from "../lib/prisma";
 import { normalizeSubscriptionStatus, periodEndByPlan } from "../lib/subscription";
 import { sendTransactionalEmail } from "../lib/mailer";
-import type { User, UserRole } from "@prisma/client";
+import type { SubscriptionStatus, User, UserRole } from "@prisma/client";
 import { resolvePlanType } from "../lib/hotmartPlanMap";
 import {
   claimHotmartEvent,
   hotmartEventReceiptKey,
 } from "../lib/hotmartWebhookIdempotency";
 import { pickString } from "../lib/stringPrimitives";
+import { findUserIdByEmail } from "../lib/userEmailLookup";
 
 export { resolvePlanType } from "../lib/hotmartPlanMap";
+
+export function hotmartTokenMatches(received: string | null, expected: string): boolean {
+  if (!received) return false;
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+/** Retentativa da Hotmart após falha (500) tem de voltar a ser processada. */
+async function releaseHotmartEvent(eventKey: string): Promise<void> {
+  try {
+    await systemPrisma.$executeRawUnsafe(
+      `DELETE FROM "hotmart_webhook_receipts" WHERE "event_key" = $1`,
+      eventKey,
+    );
+  } catch (e) {
+    console.warn("[hotmart-idempotency] release failed:", e);
+  }
+}
+
+export type HotmartNonActiveDecision = { apply: true } | { apply: false; reason: string };
+
+/**
+ * Cancelamento / reembolso / expiração só toca a assinatura do mesmo plano e nunca troca `planId`.
+ * Sem código de transação guardado, o plano mapeado é a única ligação à compra:
+ * cancelar o mensal antigo depois do upgrade para anual, ou reembolsar outro produto, não corta o acesso.
+ */
+export function hotmartNonActiveDecision(input: {
+  mapMissWithConfiguredMap: boolean;
+  eventPlanId: string | null;
+  current: { planId: string; status: string } | null;
+}): HotmartNonActiveDecision {
+  if (input.mapMissWithConfiguredMap) return { apply: false, reason: "plan_map_miss" };
+  if (!input.current) return { apply: false, reason: "no_subscription" };
+  if (!input.eventPlanId) return { apply: false, reason: "plan_not_configured" };
+  /** Suspensão é do admin; canceled + endsAt futuro voltaria a dar acesso. */
+  if (input.current.status === "suspended") return { apply: false, reason: "subscription_suspended" };
+  if (input.current.planId !== input.eventPlanId) return { apply: false, reason: "plan_mismatch" };
+  return { apply: true };
+}
 
 type HotmartEventData = {
   event: string;
@@ -162,10 +203,10 @@ async function findOrCreateUser(
   email: string,
   buyerName: string | null,
 ): Promise<{ user: UserWithRoles; created: boolean; provisionalPassword: string | null }> {
-  const existing = await systemPrisma.user.findUnique({
-    where: { email },
-    include: { roles: true },
-  });
+  const existingId = await findUserIdByEmail(email);
+  const existing = existingId
+    ? await systemPrisma.user.findUnique({ where: { id: existingId }, include: { roles: true } })
+    : null;
   if (existing) {
     return { user: existing, created: false, provisionalPassword: null };
   }
@@ -212,6 +253,145 @@ async function sendHotmartWelcomeEmail(to: string, provisionalPassword: string):
   return { sent: true };
 }
 
+async function processHotmartEvent(payload: HotmartEventData, status: SubscriptionStatus, res: Response) {
+  const existingUserId = await findUserIdByEmail(payload.email);
+  const existingUser = existingUserId
+    ? await systemPrisma.user.findUnique({ where: { id: existingUserId }, include: { roles: true } })
+    : null;
+  if (!existingUser && status !== "active") {
+    return res.status(200).json({
+      ok: true,
+      ignored: true,
+      reason: "no_account_for_non_purchase",
+    });
+  }
+
+  const { user, created, provisionalPassword } = existingUser
+    ? { user: existingUser, created: false, provisionalPassword: null }
+    : await findOrCreateUser(payload.email, payload.buyerName);
+
+  const planResolution = resolvePlanType(payload.productCode, payload.offerCode);
+  const planType = planResolution.planType;
+
+  /** Mapa presente mas oferta desconhecida: não sub-entregar (ex. anual→mensal). */
+  if (status === "active" && planResolution.mapMissWithConfiguredMap) {
+    console.error(
+      `[hotmart-webhook] CRITICAL plan_map_miss email=${payload.email} key=${planResolution.lookupKey ?? "-"} — entitlement NÃO activado`,
+    );
+    return res.status(200).json({
+      ok: true,
+      ignored: true,
+      reason: "plan_map_miss",
+      plan_type: planType,
+      plan_map_matched: false,
+      plan_map_source: planResolution.source,
+      ...(planResolution.lookupKey ? { plan_map_key: planResolution.lookupKey } : {}),
+      alert: "add_offer_to_hotmart_plan_map",
+    });
+  }
+
+  const plan = await systemPrisma.plan.findFirst({ where: { type: planType } });
+  if (!plan) {
+    console.error(
+      `[hotmart-webhook] CRITICAL plan_not_configured type=${planType} email=${payload.email} — comprador sem entitlement`,
+    );
+    return res.status(200).json({
+      ok: true,
+      ignored: true,
+      reason: "plan_not_configured",
+      plan_type: planType,
+      plan_map_matched: planResolution.matched,
+      plan_map_source: planResolution.source,
+      alert: "configure_hotmart_plan_map",
+    });
+  }
+
+  const startsAt = payload.approvedDate ?? new Date();
+  const now = new Date();
+
+  if (status !== "active") {
+    const current = await systemPrisma.subscription.findUnique({
+      where: { userId: user.id },
+      select: { id: true, planId: true, status: true },
+    });
+    const decision = hotmartNonActiveDecision({
+      mapMissWithConfiguredMap: planResolution.mapMissWithConfiguredMap,
+      eventPlanId: plan.id,
+      current,
+    });
+    if (!decision.apply) {
+      console.warn(
+        `[hotmart-webhook] ${status} ignorado (${decision.reason}) user=${user.id} key=${planResolution.lookupKey ?? "-"}`,
+      );
+      return res.status(200).json({
+        ok: true,
+        ignored: true,
+        reason: decision.reason,
+        plan_type: planType,
+        plan_map_matched: planResolution.matched,
+      });
+    }
+    /** Cancel/refund: respeitar endDate futuro (paid-through); senão cortar agora. */
+    const endsAt =
+      (status === "canceled" || status === "expired") &&
+      payload.endDate &&
+      payload.endDate.getTime() > now.getTime()
+        ? payload.endDate
+        : now;
+    await systemPrisma.subscription.update({
+      where: { id: current!.id },
+      data: { status, endsAt },
+    });
+    return res.status(200).json({
+      ok: true,
+      user_id: user.id,
+      user_created: false,
+      plan_type: planType,
+      plan_map_matched: planResolution.matched,
+      plan_map_source: planResolution.source,
+      ...(planResolution.lookupKey ? { plan_map_key: planResolution.lookupKey } : {}),
+    });
+  }
+
+  const endsAt = payload.endDate ?? periodEndByPlan(plan.type, startsAt);
+  await systemPrisma.subscription.upsert({
+    where: { userId: user.id },
+    create: {
+      userId: user.id,
+      planId: plan.id,
+      status,
+      startsAt,
+      endsAt,
+    },
+    update: {
+      planId: plan.id,
+      status,
+      startsAt,
+      endsAt,
+    },
+  });
+
+  let welcomeEmailSent: boolean | null = null;
+  let welcomeEmailNote: string | undefined;
+  if (created && provisionalPassword) {
+    const mail = await sendHotmartWelcomeEmail(user.email, provisionalPassword);
+    welcomeEmailSent = mail.sent;
+    if (!mail.sent && mail.reason) welcomeEmailNote = mail.reason;
+  }
+
+  return res.status(200).json({
+    ok: true,
+    user_id: user.id,
+    user_created: created,
+    plan_type: planType,
+    plan_map_matched: planResolution.matched,
+    plan_map_source: planResolution.source,
+    ...(planResolution.lookupKey ? { plan_map_key: planResolution.lookupKey } : {}),
+    ...(welcomeEmailSent !== null && { welcome_email_sent: welcomeEmailSent }),
+    ...(welcomeEmailNote && { welcome_email_note: welcomeEmailNote }),
+  });
+}
+
 export const webhookController = {
   async hotmart(req: Request, res: Response) {
     const expectedToken = process.env.HOTMART_WEBHOOK_TOKEN?.trim();
@@ -219,7 +399,7 @@ export const webhookController = {
       return res.status(401).json({ error: "Webhook Hotmart sem token configurado" });
     }
     const hmacSecret = process.env.HOTMART_WEBHOOK_SECRET?.trim() || expectedToken;
-    const plainOk = extractHotmartWebhookToken(req) === expectedToken;
+    const plainOk = hotmartTokenMatches(extractHotmartWebhookToken(req), expectedToken);
     const hmacOk = verifyHotmartSignature(req, hmacSecret);
     if (!plainOk && !hmacOk) {
       return res.status(401).json({ error: "Webhook token inválido" });
@@ -262,108 +442,11 @@ export const webhookController = {
       });
     }
 
-    const existingUser = await systemPrisma.user.findUnique({
-      where: { email: payload.email },
-      include: { roles: true },
-    });
-    if (!existingUser && status !== "active") {
-      return res.status(200).json({
-        ok: true,
-        ignored: true,
-        reason: "no_account_for_non_purchase",
-      });
+    try {
+      return await processHotmartEvent(payload, status, res);
+    } catch (e) {
+      await releaseHotmartEvent(receiptKey);
+      throw e;
     }
-
-    const { user, created, provisionalPassword } = existingUser
-      ? { user: existingUser, created: false, provisionalPassword: null }
-      : await findOrCreateUser(payload.email, payload.buyerName);
-
-    const planResolution = resolvePlanType(payload.productCode, payload.offerCode);
-    const planType = planResolution.planType;
-
-    /** Mapa presente mas oferta desconhecida: não sub-entregar (ex. anual→mensal). */
-    if (status === "active" && planResolution.mapMissWithConfiguredMap) {
-      console.error(
-        `[hotmart-webhook] CRITICAL plan_map_miss email=${payload.email} key=${planResolution.lookupKey ?? "-"} — entitlement NÃO activado`,
-      );
-      return res.status(200).json({
-        ok: true,
-        ignored: true,
-        reason: "plan_map_miss",
-        plan_type: planType,
-        plan_map_matched: false,
-        plan_map_source: planResolution.source,
-        ...(planResolution.lookupKey ? { plan_map_key: planResolution.lookupKey } : {}),
-        alert: "add_offer_to_hotmart_plan_map",
-      });
-    }
-
-    const plan = await systemPrisma.plan.findFirst({ where: { type: planType } });
-    if (!plan) {
-      console.error(
-        `[hotmart-webhook] CRITICAL plan_not_configured type=${planType} email=${payload.email} — comprador sem entitlement`,
-      );
-      return res.status(200).json({
-        ok: true,
-        ignored: true,
-        reason: "plan_not_configured",
-        plan_type: planType,
-        plan_map_matched: planResolution.matched,
-        plan_map_source: planResolution.source,
-        alert: "configure_hotmart_plan_map",
-      });
-    }
-
-    const startsAt = payload.approvedDate ?? new Date();
-    const now = new Date();
-    /** Cancel/refund: respeitar endDate futuro (paid-through); senão cortar agora. */
-    let endsAt: Date | null;
-    if (status === "canceled" || status === "expired") {
-      if (payload.endDate && payload.endDate.getTime() > now.getTime()) {
-        endsAt = payload.endDate;
-      } else {
-        endsAt = now;
-      }
-    } else {
-      endsAt = payload.endDate ?? periodEndByPlan(plan.type, startsAt);
-    }
-
-    await systemPrisma.subscription.upsert({
-      where: { userId: user.id },
-      create: {
-        userId: user.id,
-        planId: plan.id,
-        status,
-        startsAt,
-        endsAt,
-      },
-      update: {
-        planId: plan.id,
-        status,
-        /** Não rebobinar startsAt em eventos de cancel/refund. */
-        ...(status === "active" ? { startsAt } : {}),
-        endsAt,
-      },
-    });
-
-    let welcomeEmailSent: boolean | null = null;
-    let welcomeEmailNote: string | undefined;
-    if (created && provisionalPassword) {
-      const mail = await sendHotmartWelcomeEmail(user.email, provisionalPassword);
-      welcomeEmailSent = mail.sent;
-      if (!mail.sent && mail.reason) welcomeEmailNote = mail.reason;
-    }
-
-    return res.status(200).json({
-      ok: true,
-      user_id: user.id,
-      user_created: created,
-      plan_type: planType,
-      plan_map_matched: planResolution.matched,
-      plan_map_source: planResolution.source,
-      ...(planResolution.lookupKey ? { plan_map_key: planResolution.lookupKey } : {}),
-      ...(welcomeEmailSent !== null && { welcome_email_sent: welcomeEmailSent }),
-      ...(welcomeEmailNote && { welcome_email_note: welcomeEmailNote }),
-    });
   },
 };

@@ -59,8 +59,9 @@ initOpsObservability();
 
 const app = express();
 /** Railway / Vercel / proxies — necessário para `x-forwarded-proto` e URLs `https` corretas (webhooks). */
-/** Vercel → Railway: vários hops; `X-Forwarded-Host` deve refletir o domínio do visitante (presells em domínio próprio). */
-app.set("trust proxy", true);
+/** `X-Forwarded-Host` / `-Proto` só dependem de confiar no hop do socket (proxy Railway).
+ * 1 hop: `req.ip` não fica com o endereço mais à esquerda do XFF (escrito pelo cliente). IP do visitante: `extractClientIp`. */
+app.set("trust proxy", 1);
 
 app.use(
   helmet({
@@ -300,6 +301,11 @@ registerConversionSyncScheduler();
 
 // Escutar **antes** do repair: se ALTER falhar ou a BD estiver lenta, o processo ainda responde
 // (health + rotas com fallback P2022). Esperar repair antes de listen causava process.exit(1) → 502 no Railway/Vercel.
+/** Uma promise esquecida (notificação, sync) não pode derrubar o processo e os hops em curso. */
+process.on("unhandledRejection", (reason) => {
+  console.error("[unhandledRejection]", reason instanceof Error ? reason.stack || reason.message : reason);
+});
+
 app.listen(Number(PORT), "0.0.0.0", () => {
   console.log(`🚀 dclickora API listening on 0.0.0.0:${PORT}`);
   logPaidEnvStatus();

@@ -64,6 +64,82 @@ describe("presellLiteHtml", () => {
     );
   });
 
+  it("espelho: track já bakeado mantém to= e recebe gclid/UTMs; /api relativo não duplica", () => {
+    const OLD = "22222222-2222-4222-8222-222222222222";
+    const to = encodeURIComponent("https://offer.example/buy?aff=1");
+    const built = buildPresellLiteHtml({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Mirror",
+      type: "review",
+      content: {
+        generationNiche: "white",
+        affiliateLink: "https://offer.example/buy?aff=1",
+        importMirrorSrcDoc: `<!DOCTYPE html><html><body>
+          <a id="rel" href="/api/track/r/${OLD}?to=${to}&amp;source=direct">Rel</a>
+          <a id="abs" href="https://old.example.com/api/track/r/${OLD}?to=${to}&source=direct">Abs</a>
+          <a id="bare" href="/track/r/${OLD}">Bare</a>
+          <a id="mk" href="https://clickora.invalid/__TRACK_OFFER__">Marker</a>
+          ${"x".repeat(250)}</body></html>`,
+      },
+      tracking: {},
+      trackApiBase: "https://go.example.com/api",
+      landingAttributionQuery: "gclid=Cj0abc&utm_source=google",
+    });
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+    const base = "https://go.example.com/api/track/r/11111111-1111-4111-8111-111111111111";
+    const withTo = `${base}?to=${to}&amp;gclid=Cj0abc&amp;utm_source=google`;
+    assert.ok(built.html.includes(`id="rel" href="${withTo}"`), built.html);
+    assert.ok(built.html.includes(`id="abs" href="${withTo}"`));
+    assert.ok(built.html.includes(`id="bare" href="${base}?gclid=Cj0abc&amp;utm_source=google"`));
+    assert.ok(built.html.includes(`id="mk" href="${base}?gclid=Cj0abc&amp;utm_source=google"`));
+    assert.doesNotMatch(built.html, /\/api\/api\//);
+    assert.doesNotMatch(built.html, new RegExp(OLD));
+    assert.doesNotMatch(built.html, /old\.example\.com/);
+  });
+
+  it("CTA lite funde sub1/allowlist no hoplink (to=) como a SPA", () => {
+    const built = buildPresellLiteHtml({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Produto X",
+      type: "review",
+      content: {
+        affiliate_link: "https://offer.example/buy?aff=1",
+        article: { headline: "H", intro: "Texto introdutório longo " + "x".repeat(50), cta_label: "Ver oferta" },
+      },
+      tracking: {},
+      trackApiBase: "https://go.example.com/api",
+      landingAttributionQuery: "gclid=Cj0abc",
+      offerForwardQuery: "sub1=s1&tid=T9",
+    });
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+    const to = encodeURIComponent("https://offer.example/buy?aff=1&sub1=s1&tid=T9");
+    assert.ok(
+      built.html.includes(
+        `href="https://go.example.com/api/track/r/11111111-1111-4111-8111-111111111111?to=${to}&amp;gclid=Cj0abc"`,
+      ),
+    );
+  });
+
+  it("link «Versão completa» usa o spaPath com a query da chegada", () => {
+    const built = buildPresellLiteHtml({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Produto X",
+      type: "review",
+      content: {
+        affiliate_link: "https://offer.example/buy",
+        article: { headline: "H", intro: "Texto introdutório longo " + "x".repeat(50), cta_label: "Ver oferta" },
+      },
+      tracking: {},
+      trackApiBase: "https://go.example.com/api",
+      spaPath: "/p/11111111-1111-4111-8111-111111111111?gclid=G1&utm_source=google",
+    });
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+    assert.match(built.html, /href="\/p\/11111111-1111-4111-8111-111111111111\?gclid=G1&amp;utm_source=google">Versão completa/);
+  });
+
   it("embute pixel 1×1 sem script quando impressionPixelUrl definido", () => {
     const built = buildPresellLiteHtml({
       id: "11111111-1111-4111-8111-111111111111",

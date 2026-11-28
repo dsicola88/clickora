@@ -144,14 +144,13 @@ export type FinalUrlSuggestion = {
   suggestedHost: string | null;
 };
 
+/** Host exato primeiro; a variante www/apex só conta quando o host exato não está na conta. */
 function findDomainByHost(domains: ContinuityDomain[], host: string): ContinuityDomain | null {
+  const exact = normalizeHostname(host);
+  const byExact = domains.find((d) => normalizeHostname(d.hostname) === exact);
+  if (byExact) return byExact;
   const variants = new Set(hostnameLookupVariants(host));
-  return (
-    domains.find((d) => {
-      const norm = normalizeHostname(d.hostname);
-      return variants.has(norm) || hostnameLookupVariants(norm).some((v) => variants.has(v));
-    }) ?? null
-  );
+  return domains.find((d) => variants.has(normalizeHostname(d.hostname))) ?? null;
 }
 
 function isServingCandidate(d: ContinuityDomain | null | undefined): d is ContinuityDomain {

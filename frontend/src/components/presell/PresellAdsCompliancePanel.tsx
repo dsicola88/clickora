@@ -228,10 +228,19 @@ export function PresellAdsCompliancePanel({
       if (err || !body) throw new Error(err || t("pages.presells.compliance.packFail"));
 
       const packPages = [body.pages.landing, body.pages.review, body.pages.advertorial];
+      const publishFailures: string[] = [];
       for (const p of packPages) {
         if (p.status !== "published") {
-          await presellService.update(p.id, { status: "published" } as never);
+          const { data: res, error: pubErr } = await presellService.update(p.id, { status: "published" } as never);
+          const blocked = res as { compliance_blocked?: boolean; message?: string } | null;
+          if (pubErr || blocked?.compliance_blocked) {
+            publishFailures.push(`${p.slug || p.id}: ${pubErr || blocked?.message || "não publicada"}`);
+          }
         }
+      }
+      /** Rotador com braços em rascunho mandaria tráfego pago para 404. */
+      if (publishFailures.length) {
+        return { ...body, rotator_url: null as string | null, rotator_error: publishFailures.join(" · ") };
       }
 
       const { data: domains } = await customDomainService.list();

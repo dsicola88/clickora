@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { systemPrisma } from "../lib/prisma";
-import { serializeUser } from "./auth.controller";
+import { invalidPasswordBody, serializeUser } from "./auth.controller";
 import { resolveWorkspaceSessionForLogin } from "../lib/workspaceSession";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { signToken } from "../lib/jwt";
@@ -140,7 +140,7 @@ export const mfaController = {
     const user = await systemPrisma.user.findUnique({ where: { id: userId } });
     if (!user?.mfaEnabled) return res.status(400).json({ error: "MFA não está activo." });
     if (!(await verifyPassword(parsed.data.password, user.password))) {
-      return res.status(401).json({ error: "Senha incorrecta." });
+      return res.status(400).json(invalidPasswordBody("Senha incorrecta."));
     }
     const secret = decryptMfaSecret(user.mfaSecretEnc);
     let ok = secret ? verifyTotp(secret, parsed.data.code) : false;
@@ -185,11 +185,12 @@ export const mfaController = {
     if (!ok) {
       const consumed = await consumeBackupCode(user.mfaBackupCodes, parsed.data.code);
       if (consumed.ok) {
-        ok = true;
-        await systemPrisma.user.update({
-          where: { id: user.id },
+        /** Compare-and-swap: dois pedidos com o mesmo código não passam ambos. */
+        const swapped = await systemPrisma.user.updateMany({
+          where: { id: user.id, mfaBackupCodes: user.mfaBackupCodes },
           data: { mfaBackupCodes: consumed.nextJson },
         });
+        ok = swapped.count === 1;
       }
     }
     if (!ok) return res.status(401).json({ error: "Código MFA incorrecto." });

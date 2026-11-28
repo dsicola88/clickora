@@ -223,24 +223,24 @@ const FAILOVER_DOMAIN_SELECT = {
   lastHealthCheckAt: true,
 } as const;
 
-/** Sondagem saudável mais recente do que isto dispensa nova sondagem do destino antes de promover. */
-const TARGET_FRESH_MS = 2 * 60_000;
-
 export type ConfirmFailoverTarget = (domain: FailoverDomain) => Promise<boolean>;
 
-/** Confirma ao vivo que o destino responde antes de lhe dar tráfego (evita promover um backup que caiu entretanto). */
-export const confirmFailoverTargetLive: ConfirmFailoverTarget = async (d) => {
-  const ageMs = Date.now() - (d.lastHealthCheckAt?.getTime() ?? 0);
-  // Idade negativa (relógio/fuso desalinhado) não conta como sondagem fresca.
-  if (d.healthStatus === "healthy" && ageMs >= 0 && ageMs < TARGET_FRESH_MS) return true;
+/**
+ * Confirma ao vivo que o destino responde antes de lhe dar tráfego (evita promover um backup que caiu entretanto).
+ * Sempre sonda: `lastHealthCheckAt` é escrito no claim do monitor antes da sonda terminar, por isso não prova saúde.
+ */
+export async function confirmFailoverTargetLive(
+  d: FailoverDomain,
+  probe: typeof runDomainHealthProbeAndUpdate = runDomainHealthProbeAndUpdate,
+): Promise<boolean> {
   if (!d.userId) return false;
   try {
-    const r = await runDomainHealthProbeAndUpdate({ domainId: d.id, userId: d.userId });
+    const r = await probe({ domainId: d.id, userId: d.userId });
     return r.ok;
   } catch {
     return false;
   }
-};
+}
 
 export type FailoverActionResult = {
   kind: "account_failover" | "presell_failover" | "account_recovery" | "presell_recovery";

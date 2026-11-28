@@ -401,10 +401,7 @@ async function uploadClickConversionViaDataManager(
     destination.loginAccount = { accountType: "GOOGLE_ADS", accountId: params.login };
   }
 
-  const adIdentifiers: Record<string, string> = {};
-  if (params.gclid?.trim()) adIdentifiers.gclid = params.gclid.trim();
-  if (params.gbraid?.trim()) adIdentifiers.gbraid = params.gbraid.trim();
-  if (params.wbraid?.trim()) adIdentifiers.wbraid = params.wbraid.trim();
+  const adIdentifiers = pickGoogleClickIdentifier(params);
 
   const eventTimestamp = params.conversionDateTime.toISOString().replace(/\.\d{3}Z$/, "Z");
   const body = {
@@ -456,6 +453,21 @@ async function uploadClickConversionViaDataManager(
   }
 }
 
+/** O Google rejeita uploads com mais de um identificador: gclid tem prioridade, depois gbraid, depois wbraid. */
+export function pickGoogleClickIdentifier(ids: {
+  gclid?: string | null;
+  gbraid?: string | null;
+  wbraid?: string | null;
+}): { gclid: string } | { gbraid: string } | { wbraid: string } | Record<string, never> {
+  const gclid = ids.gclid?.trim();
+  if (gclid) return { gclid };
+  const gbraid = ids.gbraid?.trim();
+  if (gbraid) return { gbraid };
+  const wbraid = ids.wbraid?.trim();
+  if (wbraid) return { wbraid };
+  return {};
+}
+
 /** Legacy ConversionUploadService — só para tokens ainda allowlisted. */
 async function uploadClickConversionViaLegacyAdsApi(
   creds: GoogleAdsApiCredentials,
@@ -480,10 +492,8 @@ async function uploadClickConversionViaLegacyAdsApi(
     conversion_value: params.conversionValue,
     currency_code: params.currencyCode.toUpperCase().slice(0, 3),
     order_id: params.orderId.slice(0, 200),
+    ...pickGoogleClickIdentifier(params),
   };
-  if (params.gclid?.trim()) clickConv.gclid = params.gclid.trim();
-  if (params.gbraid?.trim()) clickConv.gbraid = params.gbraid.trim();
-  if (params.wbraid?.trim()) clickConv.wbraid = params.wbraid.trim();
 
   const request = new services.UploadClickConversionsRequest({
     customer_id: params.customerId,
@@ -884,6 +894,7 @@ export async function restateConversionToGoogleAds(conversionId: string): Promis
       } as Prisma.InputJsonValue,
     },
   });
+  if (!result.ok) throw new Error(`google_ads_restatement_failed: ${(result.error || "fail").slice(0, 300)}`);
 }
 
 async function markGoogleAdsSkip(
@@ -1005,7 +1016,8 @@ export async function retractConversionFromGoogleAds(conversionId: string): Prom
   if (!creds) return;
 
   /** Só retracta se a conversão chegou a ser enviada (ou tenta sempre com order_id — Google ignora se não existir). */
-  if (conv.googleAdsSync !== "sent" && conv.googleAdsSync !== "failed") {
+  const countedAtGoogle = conv.googleAdsSync === "sent" || conv.googleAdsSync === "restated";
+  if (!countedAtGoogle && conv.googleAdsSync !== "failed") {
     await systemPrisma.conversion.update({
       where: { id: conv.id },
       data: {
@@ -1062,6 +1074,10 @@ export async function retractConversionFromGoogleAds(conversionId: string): Prom
       } as Prisma.InputJsonValue,
     },
   });
+  /** Upload original falhado → nada a retractar no Google; só repete se a venda lá está contada. */
+  if (!result.ok && countedAtGoogle) {
+    throw new Error(`google_ads_retraction_failed: ${(result.error || "fail").slice(0, 300)}`);
+  }
 }
 
 const CLICKORA_OFFLINE_ACTION_NAME = "Clickora Offline (GCLID)";

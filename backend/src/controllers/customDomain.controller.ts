@@ -1,5 +1,5 @@
 import { presellBelongsToDomain } from "../lib/customDomainRoot";
-import { Prisma } from "@prisma/client";
+import { DomainRoutingEventType, Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 import { billingUserId } from "../lib/requestContext";
@@ -34,6 +34,9 @@ import {
 } from "../lib/customDomainPurpose";
 import {
   DomainRoutingRefusedError,
+  PRIMARY_SWAP_EVENT_TYPES,
+  checkHostnameClaim,
+  pickReplacementPrimaryDomain,
   planPrimaryDomainSwap,
   planRollbackTarget,
   promotePrimaryDomainForUser,
@@ -41,7 +44,23 @@ import {
   runDomainHealthProbeAndUpdate,
   type RoutingDomainCandidate,
 } from "../lib/domainRoutingService";
+import { withUserRoutingLock } from "../lib/domainFailover";
+import { hostnameLookupVariants } from "../lib/requestHost";
+import { invalidateTrackEdgeDest } from "../lib/trackEdgeDestCache";
 import { appendWorkspaceAuditLog } from "../lib/workspaceAudit";
+
+const ROUTING_BUSY_ERROR = "Operação de domínio em curso, tente de novo.";
+
+const ROUTING_EVENT_TYPES = new Set<string>(Object.values(DomainRoutingEventType));
+
+/** Trocas manuais partilham o lock por conta do failover/recuperação automáticos; ocupado → `busy`. */
+async function runWithRoutingLock<T>(
+  userId: string,
+  fn: () => Promise<T>,
+): Promise<{ busy: true } | { busy: false; value: T }> {
+  const out = await withUserRoutingLock(userId, async () => ({ value: await fn() }));
+  return out ? { busy: false, value: out.value } : { busy: true };
+}
 
 function mapRow(
   d: {
@@ -144,8 +163,14 @@ async function persistSslProbeCache(
   });
 }
 
-/** Garante no máximo um `is_default` lander (nunca purpose=tracking). */
-async function ensureDefaultDomainForUser(userId: string): Promise<void> {
+/**
+ * Garante no máximo um `is_default` lander (nunca purpose=tracking). O substituto tem de estar verificado,
+ * ativo e não `down` (saudável primeiro); sem candidato a conta fica sem padrão até um domínio ser verificado.
+ */
+async function ensureDefaultDomainForUser(
+  userId: string,
+  opts: { previousDomainId?: string | null; actorUserId?: string | null } = {},
+): Promise<void> {
   await systemPrisma.customDomain.updateMany({
     where: { userId, purpose: "tracking", isDefault: true },
     data: { isDefault: false },
@@ -154,15 +179,29 @@ async function ensureDefaultDomainForUser(userId: string): Promise<void> {
     where: { userId, isDefault: true, ...hostingCapablePurposeFilter },
   });
   if (hasDefault) return;
-  const first = await systemPrisma.customDomain.findFirst({
-    where: { userId, ...hostingCapablePurposeFilter },
+  const candidates = await systemPrisma.customDomain.findMany({
+    where: { userId, status: "verified", isActive: true, ...hostingCapablePurposeFilter },
     orderBy: { createdAt: "asc" },
   });
-  if (!first) return;
-  await systemPrisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } });
-  await systemPrisma.customDomain.update({
-    where: { id: first.id },
-    data: { isDefault: true, routingRole: "primary" },
+  const next = pickReplacementPrimaryDomain(candidates as unknown as RoutingDomainCandidate[]);
+  if (!next) return;
+  await systemPrisma.$transaction([
+    systemPrisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } }),
+    systemPrisma.customDomain.update({
+      where: { id: next.id },
+      data: { isDefault: true, routingRole: "primary" },
+    }),
+  ]);
+  await recordDomainRoutingEvent({
+    userId,
+    eventType: "role_changed",
+    scope: "domain",
+    customDomainId: next.id,
+    previousDomainId: opts.previousDomainId ?? null,
+    targetDomainId: next.id,
+    actorUserId: opts.actorUserId ?? null,
+    reason: `Domínio ${next.hostname} passou a principal (padrão) porque o anterior deixou de estar disponível.`,
+    metadata: { auto_default_replacement: true, health_status: next.healthStatus },
   });
 }
 
@@ -252,11 +291,20 @@ export const customDomainController = {
       return res.status(400).json({ error: msg });
     }
 
-    const taken = await systemPrisma.customDomain.findFirst({ where: { hostname } });
-    if (taken && taken.userId !== userId) {
+    const existing = await systemPrisma.customDomain.findMany({
+      where: { hostname: { in: hostnameLookupVariants(hostname) } },
+      select: { hostname: true, userId: true },
+    });
+    const claim = checkHostnameClaim({ hostname, userId, existing });
+    if (!claim.ok && claim.reason === "taken_other") {
       return res.status(409).json({ error: "Este domínio já está associado a outra conta." });
     }
-    if (taken && taken.userId === userId) {
+    if (!claim.ok && claim.reason === "variant_other") {
+      return res.status(409).json({
+        error: `A variante ${claim.conflictHostname} deste domínio já está associada a outra conta.`,
+      });
+    }
+    if (!claim.ok) {
       return res.status(409).json({
         error:
           "Este hostname já está na sua lista (veja abaixo). Para voltar a tentar a verificação, use «Verificar agora» no cartão desse domínio. Só pode remover e adicionar de novo se quiser recomeçar o DNS.",
@@ -420,42 +468,49 @@ export const customDomainController = {
         error: "Domínio só de tracking não pode ser o padrão da lander. Use purpose hosting ou both.",
       });
     }
-    if (!row.isDefault) {
-      const gate = planPrimaryDomainSwap({
-        currentPrimary: null,
-        target: row as unknown as RoutingDomainCandidate,
-        scope: "hosting",
+    const locked = await runWithRoutingLock(userId, async (): Promise<string | null> => {
+      const fresh = await systemPrisma.customDomain.findFirst({ where: { id: row.id, userId, status: "verified" } });
+      if (!fresh) return "Domínio verificado não encontrado.";
+      if (!fresh.isDefault) {
+        const gate = planPrimaryDomainSwap({
+          currentPrimary: null,
+          target: fresh as unknown as RoutingDomainCandidate,
+          scope: "hosting",
+        });
+        if (!gate.ok) return gate.error;
+      }
+      const previousDefault = await systemPrisma.customDomain.findFirst({
+        where: { userId, isDefault: true, purpose: { not: "tracking" } },
+        select: { id: true },
       });
-      if (!gate.ok) return res.status(409).json({ error: gate.error });
-    }
-    const previousDefault = await prisma.customDomain.findFirst({
-      where: { userId, isDefault: true, purpose: { not: "tracking" } },
-      select: { id: true },
-    });
 
-    await systemPrisma.$transaction([
-      systemPrisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } }),
-      systemPrisma.customDomain.updateMany({
-        where: { userId, routingRole: "primary", purpose: { not: "tracking" } },
-        data: { routingRole: "backup", routingPriority: 50 },
-      }),
-      systemPrisma.customDomain.update({
-        where: { id: row.id },
-        data: { isDefault: true, routingRole: "primary", routingPriority: 10 },
-      }),
-    ]);
-    await refreshCustomDomainCache();
-    const swapped = previousDefault && previousDefault.id !== row.id;
-    await recordDomainRoutingEvent({
-      userId,
-      eventType: swapped ? "manual_swap" : "role_changed",
-      scope: "domain",
-      customDomainId: row.id,
-      previousDomainId: swapped ? previousDefault.id : null,
-      targetDomainId: row.id,
-      actorUserId: req.user?.userId ?? userId,
-      reason: `Domínio ${row.hostname} definido como primário (padrão).`,
+      await systemPrisma.$transaction([
+        systemPrisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } }),
+        systemPrisma.customDomain.updateMany({
+          where: { userId, routingRole: "primary", purpose: { not: "tracking" } },
+          data: { routingRole: "backup", routingPriority: 50 },
+        }),
+        systemPrisma.customDomain.update({
+          where: { id: fresh.id },
+          data: { isDefault: true, routingRole: "primary", routingPriority: 10 },
+        }),
+      ]);
+      await refreshCustomDomainCache();
+      const swapped = previousDefault && previousDefault.id !== fresh.id;
+      await recordDomainRoutingEvent({
+        userId,
+        eventType: swapped ? "manual_swap" : "role_changed",
+        scope: "domain",
+        customDomainId: fresh.id,
+        previousDomainId: swapped ? previousDefault.id : null,
+        targetDomainId: fresh.id,
+        actorUserId: req.user?.userId ?? userId,
+        reason: `Domínio ${fresh.hostname} definido como primário (padrão).`,
+      });
+      return null;
     });
+    if (locked.busy) return res.status(409).json({ error: ROUTING_BUSY_ERROR });
+    if (locked.value) return res.status(409).json({ error: locked.value });
 
     const list = await prisma.customDomain.findMany({
       where: { userId },
@@ -480,7 +535,7 @@ export const customDomainController = {
     }
 
     await systemPrisma.customDomain.delete({ where: { id: existing.id } });
-    await ensureDefaultDomainForUser(userId);
+    await ensureDefaultDomainForUser(userId, { actorUserId: req.user?.userId ?? userId });
     await ensureDefaultTrackingForUser(userId);
     await refreshCustomDomainCache();
 
@@ -516,12 +571,27 @@ export const customDomainController = {
       data: purposeRaw === "tracking" ? { ...data, rootPresellId: null } : data,
     });
     if (purposeRaw === "tracking") {
-      /** Domínio só-tracking deixa de ser lander: limpa ligações de páginas. */
-      await systemPrisma.presellPage.updateMany({
+      /** Domínio só-tracking deixa de ser lander: limpa ligações de páginas e bindings multi-domínio. */
+      const bound = await systemPrisma.presellDomainBinding.findMany({
         where: { userId, customDomainId: domain.id },
-        data: { customDomainId: null },
+        select: { presellId: true, role: true, isActive: true },
       });
-      await ensureDefaultDomainForUser(userId);
+      const orphanedPresellIds = bound.filter((b) => b.role === "primary" && b.isActive).map((b) => b.presellId);
+      await systemPrisma.$transaction([
+        systemPrisma.presellPage.updateMany({
+          where: { userId, customDomainId: domain.id },
+          data: { customDomainId: null },
+        }),
+        systemPrisma.presellDomainBinding.deleteMany({ where: { userId, customDomainId: domain.id } }),
+        // Sem primário a presell seguiria um backup como «failover»: volta ao padrão da conta (modo legado).
+        // Apagar (não desactivar): binding inactivo bloquearia a presell nesse host e partiria Final URLs.
+        systemPrisma.presellDomainBinding.deleteMany({ where: { userId, presellId: { in: orphanedPresellIds } } }),
+      ]);
+      for (const presellId of new Set(bound.map((b) => b.presellId))) void invalidateTrackEdgeDest(presellId);
+      await ensureDefaultDomainForUser(userId, {
+        previousDomainId: domain.isDefault ? domain.id : null,
+        actorUserId: req.user?.userId ?? userId,
+      });
     }
     if (purposeRaw === "hosting" || purposeRaw === "tracking" || purposeRaw === "both") {
       await ensureDefaultTrackingForUser(userId);
@@ -703,45 +773,58 @@ export const customDomainController = {
         ? Math.max(1, Math.min(10_000, req.body.routing_priority))
         : undefined;
 
-    if (roleRaw === "primary") {
-      if (row.status !== "verified" || !isHostingCapablePurpose(row.purpose)) {
-        return res.status(400).json({ error: "Só um domínio verificado de hosting pode ser primário." });
+    if (roleRaw === "primary" && (row.status !== "verified" || !isHostingCapablePurpose(row.purpose))) {
+      return res.status(400).json({ error: "Só um domínio verificado de hosting pode ser primário." });
+    }
+
+    const locked = await runWithRoutingLock(userId, async (): Promise<{ status: number; error: string } | null> => {
+      const fresh = await systemPrisma.customDomain.findFirst({ where: { id: row.id, userId } });
+      if (!fresh) return { status: 404, error: "Domínio não encontrado." };
+      if ((roleRaw === "backup" || roleRaw === "standby") && fresh.isDefault && fresh.purpose !== "tracking") {
+        return {
+          status: 409,
+          error: "Este domínio é o principal da conta. Promova primeiro outro domínio a primário antes de o passar a backup/standby.",
+        };
       }
-      if (!row.isDefault) {
+      if (roleRaw === "primary" && !fresh.isDefault) {
         try {
           await promotePrimaryDomainForUser({
             userId,
-            targetDomainId: row.id,
+            targetDomainId: fresh.id,
             actorUserId: req.user?.userId ?? userId,
             workspaceId: req.user?.workspaceId,
-            reason: `Papel de ${row.hostname} alterado para primário.`,
+            reason: `Papel de ${fresh.hostname} alterado para primário.`,
           });
         } catch (err) {
-          return res.status(err instanceof DomainRoutingRefusedError ? 409 : 400).json({
+          return {
+            status: err instanceof DomainRoutingRefusedError ? 409 : 400,
             error: err instanceof Error ? err.message : "Não foi possível promover o domínio.",
-          });
+          };
         }
       }
-    }
 
-    if (roleRaw !== undefined || autoRecover !== undefined || priority !== undefined) {
-      await systemPrisma.customDomain.update({
-        where: { id: row.id },
-        data: {
-          ...(roleRaw !== undefined ? { routingRole: roleRaw } : {}),
-          ...(autoRecover !== undefined ? { autoRecover } : {}),
-          ...(priority !== undefined ? { routingPriority: priority } : {}),
-        },
-      });
-      await recordDomainRoutingEvent({
-        userId,
-        eventType: "role_changed",
-        scope: "domain",
-        customDomainId: row.id,
-        actorUserId: req.user?.userId ?? userId,
-        reason: `Configuração de roteamento atualizada (${roleRaw ?? row.routingRole}).`,
-      });
-    }
+      if (roleRaw !== undefined || autoRecover !== undefined || priority !== undefined) {
+        await systemPrisma.customDomain.update({
+          where: { id: fresh.id },
+          data: {
+            ...(roleRaw !== undefined ? { routingRole: roleRaw } : {}),
+            ...(autoRecover !== undefined ? { autoRecover } : {}),
+            ...(priority !== undefined ? { routingPriority: priority } : {}),
+          },
+        });
+        await recordDomainRoutingEvent({
+          userId,
+          eventType: "role_changed",
+          scope: "domain",
+          customDomainId: fresh.id,
+          actorUserId: req.user?.userId ?? userId,
+          reason: `Configuração de roteamento atualizada (${roleRaw ?? fresh.routingRole}).`,
+        });
+      }
+      return null;
+    });
+    if (locked.busy) return res.status(409).json({ error: ROUTING_BUSY_ERROR });
+    if (locked.value) return res.status(locked.value.status).json({ error: locked.value.error });
 
     const list = await prisma.customDomain.findMany({
       where: { userId },
@@ -757,18 +840,21 @@ export const customDomainController = {
     if (!id) return res.status(400).json({ error: "id em falta" });
     const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : null;
     try {
-      const result = await promotePrimaryDomainForUser({
-        userId,
-        targetDomainId: id,
-        actorUserId: req.user?.userId ?? userId,
-        workspaceId: req.user?.workspaceId,
-        reason,
-      });
+      const locked = await runWithRoutingLock(userId, () =>
+        promotePrimaryDomainForUser({
+          userId,
+          targetDomainId: id,
+          actorUserId: req.user?.userId ?? userId,
+          workspaceId: req.user?.workspaceId,
+          reason,
+        }),
+      );
+      if (locked.busy) return res.status(409).json({ error: ROUTING_BUSY_ERROR });
       const list = await prisma.customDomain.findMany({
         where: { userId },
         orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
       });
-      return res.json({ ok: true, ...result, domains: list.map((r) => mapRow(r)) });
+      return res.json({ ok: true, ...locked.value, domains: list.map((r) => mapRow(r)) });
     } catch (err) {
       return res.status(err instanceof DomainRoutingRefusedError ? 409 : 400).json({
         error: err instanceof Error ? err.message : "Não foi possível trocar o domínio principal.",
@@ -779,45 +865,46 @@ export const customDomainController = {
   /** Reverte o domínio primário da conta para o domínio anterior registado em DomainRoutingEvent. */
   async rollbackPrimary(req: Request, res: Response) {
     const userId = billingUserId(req);
-    const [domains, events] = await Promise.all([
-      prisma.customDomain.findMany({ where: { userId } }),
-      prisma.domainRoutingEvent.findMany({
-        /** Só trocas: eventos de sonda durante uma falha empurravam a última troca para fora da janela. */
-        where: { userId, scope: "domain", eventType: { in: ["manual_swap", "auto_failover", "manual_rollback"] } },
-        orderBy: { createdAt: "desc" },
-        take: 30,
-      }),
-    ]);
-    const currentPrimary =
-      domains.find((d) => d.isDefault && d.purpose !== "tracking") ??
-      domains.find((d) => d.routingRole === "primary" && d.purpose !== "tracking") ??
-      null;
-
-    const plan = planRollbackTarget({
-      currentPrimaryId: currentPrimary?.id ?? null,
-      events,
-      domains: domains as unknown as RoutingDomainCandidate[],
-    });
-    if (!plan.ok) {
-      return res.status(409).json({ error: plan.error });
-    }
-
     try {
-      const result = await promotePrimaryDomainForUser({
-        userId,
-        targetDomainId: plan.targetDomainId,
-        actorUserId: req.user?.userId ?? userId,
-        workspaceId: req.user?.workspaceId,
-        reason: typeof req.body?.reason === "string" ? req.body.reason.trim() : undefined,
-        isRollback: true,
+      const locked = await runWithRoutingLock(userId, async () => {
+        const [domains, events] = await Promise.all([
+          systemPrisma.customDomain.findMany({ where: { userId } }),
+          systemPrisma.domainRoutingEvent.findMany({
+            /** Só trocas: eventos de sonda durante uma falha empurravam a última troca para fora da janela. */
+            where: { userId, scope: "domain", eventType: { in: [...PRIMARY_SWAP_EVENT_TYPES] } },
+            orderBy: { createdAt: "desc" },
+            take: 30,
+          }),
+        ]);
+        const currentPrimary =
+          domains.find((d) => d.isDefault && d.purpose !== "tracking") ??
+          domains.find((d) => d.routingRole === "primary" && d.purpose !== "tracking") ??
+          null;
+
+        const plan = planRollbackTarget({
+          currentPrimaryId: currentPrimary?.id ?? null,
+          events,
+          domains: domains as unknown as RoutingDomainCandidate[],
+        });
+        if (!plan.ok) throw new DomainRoutingRefusedError(plan.error);
+
+        return promotePrimaryDomainForUser({
+          userId,
+          targetDomainId: plan.targetDomainId,
+          actorUserId: req.user?.userId ?? userId,
+          workspaceId: req.user?.workspaceId,
+          reason: typeof req.body?.reason === "string" ? req.body.reason.trim() : undefined,
+          isRollback: true,
+        });
       });
+      if (locked.busy) return res.status(409).json({ error: ROUTING_BUSY_ERROR });
       const list = await prisma.customDomain.findMany({
         where: { userId },
         orderBy: [{ isDefault: "desc" }, { hostname: "asc" }],
       });
-      return res.json({ ok: true, ...result, domains: list.map((r) => mapRow(r)) });
+      return res.json({ ok: true, ...locked.value, domains: list.map((r) => mapRow(r)) });
     } catch (err) {
-      return res.status(400).json({
+      return res.status(err instanceof DomainRoutingRefusedError ? 409 : 400).json({
         error: err instanceof Error ? err.message : "Não foi possível executar rollback.",
       });
     }
@@ -829,6 +916,16 @@ export const customDomainController = {
     const domainId = typeof req.query.domain_id === "string" ? req.query.domain_id.trim() : undefined;
     const presellId = typeof req.query.presell_id === "string" ? req.query.presell_id.trim() : undefined;
     const offerId = typeof req.query.offer_id === "string" ? req.query.offer_id.trim() : undefined;
+    const scope = typeof req.query.scope === "string" ? req.query.scope.trim() || undefined : undefined;
+    /** `event_type=manual_swap,auto_failover` — a UI busca as trocas à parte para o rollback não sumir durante uma falha. */
+    const eventTypesRaw = typeof req.query.event_type === "string" ? req.query.event_type : "";
+    const eventTypes = eventTypesRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (eventTypes.some((t) => !ROUTING_EVENT_TYPES.has(t))) {
+      return res.status(400).json({ error: "event_type inválido." });
+    }
     const limitRaw = Number(req.query.limit ?? 50);
     const take = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.floor(limitRaw))) : 50;
 
@@ -838,6 +935,8 @@ export const customDomainController = {
         ...(domainId ? { OR: [{ customDomainId: domainId }, { previousDomainId: domainId }, { targetDomainId: domainId }] } : {}),
         ...(presellId ? { presellId } : {}),
         ...(offerId ? { offerId } : {}),
+        ...(scope ? { scope } : {}),
+        ...(eventTypes.length ? { eventType: { in: eventTypes as DomainRoutingEventType[] } } : {}),
       },
       orderBy: { createdAt: "desc" },
       take,

@@ -15,15 +15,20 @@ export default function LitePresellEntry() {
     const param = id.trim();
     const host = window.location.hostname;
     const isLocalDev = host === "localhost" || host === "127.0.0.1";
+    /** gclid / wbraid / gad_source / UTMs da chegada seguem no salto. */
+    const landing = new URLSearchParams(window.location.search);
+    landing.delete("spa_origin");
+    landing.delete("visitor_host");
     // Fora de dev nunca saltar por JS para outro domínio (API): fica na mesma origem.
     if (!param || !isPresellUuidParam(param) || !isLocalDev) {
-      window.location.replace(`/p/${encodeURIComponent(param || "")}`);
+      const qs = landing.toString();
+      window.location.replace(`/p/${encodeURIComponent(param || "")}${qs ? `?${qs}` : ""}`);
       return;
     }
     const base = getResolvedPublicApiBaseUrl().replace(/\/+$/, "");
-    const spa = encodeURIComponent(window.location.origin);
+    landing.set("spa_origin", window.location.origin);
     window.location.replace(
-      `${base}/public/presells/id/${encodeURIComponent(param)}/html?spa_origin=${spa}`,
+      `${base}/public/presells/id/${encodeURIComponent(param)}/html?${landing.toString()}`,
     );
   }, [id]);
 

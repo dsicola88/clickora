@@ -91,10 +91,39 @@ function edgeAuthHeaders(env) {
   return headers;
 }
 
-function originTrackRedirect(env, presellId, search) {
+function originTrackRedirect(env, presellId, search, pathTail = "") {
   const base = originApiBase(env);
   if (!base) return null;
-  return Response.redirect(`${base}/track/r/${encodeURIComponent(presellId)}${search || ""}`, 302);
+  return Response.redirect(`${base}/track/r/${encodeURIComponent(presellId)}${pathTail}${search || ""}`, 302);
+}
+
+/**
+ * O origin herda gclid do clique pai, grava sub-IDs do caminho e chaves estilo Voluum/ttp.
+ * O edge não replica isso: estes pedidos vão directos ao origin para não perder atribuição.
+ */
+const ORIGIN_ONLY_KEYS = [
+  "parent_click_id",
+  "clickora_click_id",
+  "ttp",
+  "cost",
+  "externalid",
+  "clickid",
+  "cid",
+  "var1",
+  "var2",
+  "var3",
+  "var4",
+  "var5",
+  "var6",
+  "var7",
+  "var8",
+  "var9",
+  "var10",
+];
+
+function needsOriginHop(searchParams, pathTail) {
+  if (pathTail && pathTail !== "/") return true;
+  return ORIGIN_ONLY_KEYS.some((key) => searchParams.has(key));
 }
 
 async function fetchDest(env, presellId) {
@@ -330,30 +359,35 @@ async function createClick(env, presellId, request, url, redirectTo) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const m = url.pathname.match(/\/(?:api\/)?track\/r\/([0-9a-f-]{36})/i);
+    const m = url.pathname.match(/\/(?:api\/)?track\/r\/([0-9a-f-]{36})(\/.*)?$/i);
     if (!m) {
       return json({ error: "Use /api/track/r/:presellId" }, 404);
     }
     const presellId = m[1];
+    const pathTail = m[2] || "";
 
     if (!originApiBase(env)) {
       return json({ error: "ORIGIN_API_BASE em falta" }, 500);
     }
 
+    if (needsOriginHop(url.searchParams, pathTail)) {
+      return originTrackRedirect(env, presellId, url.search, pathTail);
+    }
+
     const dest = await fetchDest(env, presellId);
     if (!dest?.destination) {
-      return originTrackRedirect(env, presellId, url.search);
+      return originTrackRedirect(env, presellId, url.search, pathTail);
     }
 
     const offerDest = resolveOfferDestination(dest.destination, url.searchParams);
     if (!offerDest) {
-      return originTrackRedirect(env, presellId, url.search);
+      return originTrackRedirect(env, presellId, url.search, pathTail);
     }
 
     const clickId = await createClick(env, presellId, request, url, offerDest);
     if (!clickId) {
       // Guard / IP em falta / 5xx: nunca abrir oferta sem atribuição.
-      return originTrackRedirect(env, presellId, url.search);
+      return originTrackRedirect(env, presellId, url.search, pathTail);
     }
 
     const platform =

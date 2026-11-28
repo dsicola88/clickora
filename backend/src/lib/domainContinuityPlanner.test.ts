@@ -102,6 +102,32 @@ describe("planFinalUrlContinuitySuggestion", () => {
     assert.equal(unknown?.suggestedUrl, null);
   });
 
+  it("host exato prevalece sobre a variante www/apex (www em baixo com apex saudável ainda é reportado)", () => {
+    const variantDomains: ContinuityDomain[] = [
+      { id: "apex", hostname: "marca.example", status: "verified", purpose: "both", isActive: true, healthStatus: "healthy" },
+      { id: "www", hostname: "www.marca.example", status: "verified", purpose: "both", isActive: true, healthStatus: "down" },
+      { id: "bk", hostname: "backup.example", status: "verified", purpose: "hosting", isActive: true, healthStatus: "healthy" },
+    ];
+    const run = (finalUrl: string) =>
+      planFinalUrlContinuitySuggestion({
+        finalUrl,
+        domains: variantDomains,
+        accountCanonicalDomainId: "bk",
+        resolvePresell,
+        isPlatformHost: () => false,
+      });
+    assert.equal(run("https://www.marca.example/visiflo")?.issue, "domain_down");
+    assert.equal(run("https://marca.example/visiflo")?.issue, "not_canonical");
+    const onlyApex = planFinalUrlContinuitySuggestion({
+      finalUrl: "https://www.solo.example/visiflo",
+      domains: [{ id: "solo", hostname: "solo.example", status: "verified", purpose: "both", isActive: true, healthStatus: "down" }],
+      accountCanonicalDomainId: null,
+      resolvePresell,
+      isPlatformHost: () => false,
+    });
+    assert.equal(onlyApex?.issue, "domain_down");
+  });
+
   it("caminho que não é presell (link direto) não ganha Final URL inventada", () => {
     const s = plan("https://main.example/a/b?x=1");
     assert.equal(s?.issue, "domain_down");

@@ -119,6 +119,7 @@ function hostnameOfOrigin(origin: string | null): string {
  *
  * - Domínio personalizado do assinante (host do visitante ≠ plataforma/preview/infra):
  *   caminho RELATIVO no mesmo host — `/{slug}` (ou `/p/:id` sem slug).
+ * - Domínio técnico (`PUBLIC_PRESELL_HOST`): sempre `/p/:id` relativo (sem dono verificado, sem slug).
  * - Domínio principal da plataforma (`dclickora.com` / `www`), ou origem que resolve para ele:
  *   NUNCA gera URL pública ali (o SaaS não hospeda presells). Usa o domínio técnico isolado
  *   `PUBLIC_PRESELL_HOST` (`https://<host>/p/:id`) e, sem ele, devolve `null` — o chamador deve
@@ -138,6 +139,10 @@ export function publicSpaPresellUrl(
   const onTenantHost =
     visitorHost.length > 0 && !isMainOrPreviewHostname(visitorHost) && !isInfraHostname(visitorHost);
 
+  // Domínio técnico não é domínio verificado de assinante: `/{slug}` daria 404 (getPublicBySlug).
+  if (onTenantHost && visitorHost === getPublicPresellHost()) {
+    return `/p/${presellId}`;
+  }
   if (onTenantHost) {
     return s.length > 0 && !isPresellUuidParam(s) ? `/${encodeURIComponent(s)}` : `/p/${presellId}`;
   }
@@ -149,4 +154,22 @@ export function publicSpaPresellUrl(
   }
   const path = `/p/${presellId}`;
   return origin ? `${origin}${path}` : path;
+}
+
+/** Parâmetros internos do pedido à API — não pertencem à URL do visitante. */
+const INTERNAL_LANDING_QUERY_KEYS = ["visitor_host", "spa_origin"];
+
+/**
+ * Anexa a query original da chegada (gclid, wbraid, gad_source, UTMs…) a um URL da SPA,
+ * sem os parâmetros internos.
+ */
+export function withLandingQuery(url: string, req: Pick<Request, "originalUrl" | "url">): string {
+  const raw = req.originalUrl || req.url || "";
+  const qIdx = raw.indexOf("?");
+  if (qIdx < 0) return url;
+  const params = new URLSearchParams(raw.slice(qIdx + 1));
+  for (const k of INTERNAL_LANDING_QUERY_KEYS) params.delete(k);
+  const qs = params.toString();
+  if (!qs) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}${qs}`;
 }

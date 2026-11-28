@@ -1,5 +1,12 @@
+import { timingSafeEqual } from "node:crypto";
 import type { Request } from "express";
 import { verifyPostbackToken } from "./postbackToken";
+
+function safeEqual(a: string, b: string): boolean {
+  const ba = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ba.length === bb.length && timingSafeEqual(ba, bb);
+}
 
 export type AdsPostbackAuthResult =
   | { ok: true; userId: string }
@@ -9,6 +16,7 @@ export type AdsPostbackAuthResult =
  * Autentica postbacks Google/Microsoft Ads.
  * Token JWT por conta → userId do token.
  * Token global de env → exige `user_id` no body/query (evita escrita cross-tenant).
+ * Os dois coexistem: definir o token global não invalida os URLs por conta já colados nas redes.
  */
 export function resolveAdsPostbackAuth(
   req: Request,
@@ -16,10 +24,7 @@ export function resolveAdsPostbackAuth(
 ): AdsPostbackAuthResult {
   const incoming = req.headers["x-postback-token"]?.toString() || req.query.token?.toString();
 
-  if (envToken) {
-    if (!incoming || incoming !== envToken) {
-      return { ok: false, status: 401, error: "Token de postback inválido" };
-    }
+  if (envToken && incoming && safeEqual(incoming, envToken)) {
     const rawUser =
       (typeof req.body?.user_id === "string" && req.body.user_id.trim()) ||
       (typeof req.query.user_id === "string" && String(req.query.user_id).trim()) ||

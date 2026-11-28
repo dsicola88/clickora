@@ -1,7 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { Request } from "express";
+import jwt from "jsonwebtoken";
 import { resolveAdsPostbackAuth } from "./adsPostbackAuth";
+import { createPostbackToken, verifyPostbackToken } from "./postbackToken";
 
 function fakeReq(partial: {
   headers?: Record<string, string>;
@@ -47,6 +49,22 @@ describe("resolveAdsPostbackAuth", () => {
     );
     assert.equal(r.ok, false);
     if (!r.ok) assert.equal(r.status, 401);
+  });
+
+  it("token JWT por conta continua aceite com token global definido", () => {
+    const token = createPostbackToken("user-jwt");
+    assert.ok(token);
+    const r = resolveAdsPostbackAuth(fakeReq({ query: { token: token! } }), "secret");
+    assert.equal(r.ok, true);
+    if (r.ok) assert.equal(r.userId, "user-jwt");
+  });
+
+  it("token de postback antigo com exp vencido continua aceite", () => {
+    const old = jwt.sign(
+      { userId: "user-old", purpose: "postback", exp: Math.floor(Date.now() / 1000) - 3600 },
+      process.env.JWT_SECRET || "changeme",
+    );
+    assert.deepEqual(verifyPostbackToken(old), { userId: "user-old" });
   });
 
   it("sem env token e sem header → 401", () => {

@@ -72,5 +72,20 @@ export function isRedirectToAllowedOffer(requestedTo: string, allowedOffer: stri
   for (const [key, val] of al.searchParams.entries()) {
     if (req.searchParams.get(key) !== val) return false;
   }
+  /** Deep-link extra (`?url=https://outro.site`) não presente no hoplink → open redirect via rede. */
+  for (const [key, val] of req.searchParams.entries()) {
+    if (al.searchParams.has(key) || !DEEP_LINK_PARAM_RE.test(key)) continue;
+    const inner = val.trim();
+    if (!/^(https?:)?\/\//i.test(inner)) continue;
+    try {
+      const innerHost = new URL(inner, `${req.protocol}//${req.host}`).hostname;
+      if (normalizeHostname(innerHost) !== normalizeHostname(al.hostname)) return false;
+    } catch {
+      return false;
+    }
+  }
   return true;
 }
+
+const DEEP_LINK_PARAM_RE =
+  /^(redirect|redirect_?url|redirect_?uri|url|u|next|return|return_?url|dest|destination|continue|redir|go|out|target|link|lp|landing)$/i;

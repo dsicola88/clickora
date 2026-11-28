@@ -22,14 +22,29 @@ export function isMainOrPreviewHostname(hostname: string): boolean {
   return h === "dclickora.com" || h === "www.dclickora.com";
 }
 
+/**
+ * Entre linhas de `www.x` / `x`, prefere o hostname exacto do pedido; senão a variante.
+ * `variants[0]` é o hostname normalizado (ver `hostnameLookupVariants`).
+ */
+export function pickExactHostnameMatch<T extends { hostname: string }>(
+  rows: readonly T[],
+  variants: readonly string[],
+): T | null {
+  for (const v of variants) {
+    const hit = rows.find((r) => r.hostname.trim().toLowerCase() === v);
+    if (hit) return hit;
+  }
+  return rows[0] ?? null;
+}
+
 export async function resolveVerifiedOwnerUserIdFromDb(hostname: string): Promise<string | null> {
   const variants = hostnameLookupVariants(hostname);
   if (variants.length === 0) return null;
-  const cd = await systemPrisma.customDomain.findFirst({
+  const rows = await systemPrisma.customDomain.findMany({
     where: { status: "verified", hostname: { in: variants } },
-    select: { userId: true },
+    select: { userId: true, hostname: true },
   });
-  return cd?.userId ?? null;
+  return pickExactHostnameMatch(rows, variants)?.userId ?? null;
 }
 
 /**

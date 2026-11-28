@@ -287,7 +287,11 @@ export default function PresellDashboard() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => presellService.delete(id),
+    mutationFn: async (id: string) => {
+      const res = await presellService.delete(id);
+      if (res.error) throw new Error(res.error);
+      return res;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
       toast.success(t("pages.presells.toastRemoved"));
@@ -408,7 +412,11 @@ export default function PresellDashboard() {
   });
 
   const duplicateMutation = useMutation({
-    mutationFn: (id: string) => presellService.duplicate(id),
+    mutationFn: async (id: string) => {
+      const res = await presellService.duplicate(id);
+      if (res.error) throw new Error(res.error);
+      return res;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["presells"] });
       toast.success(t("pages.presells.toastDuplicated"));

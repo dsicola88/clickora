@@ -21,6 +21,7 @@ import { isTransactionalEmailConfigured, sendTransactionalEmail } from "../lib/m
 import { resolveGoogleLoginClientId } from "../lib/googleLoginClientId";
 import type { JwtPayload } from "../lib/jwt";
 import { isTokenIssuedBeforeRevocation } from "../lib/workspaceSessionGuard";
+import { findUserIdByEmail, normalizeEmail } from "../lib/userEmailLookup";
 
 /** Invalida todos os JWT já emitidos da conta. Falha (ex.: coluna em falta) não bloqueia a operação principal. */
 async function revokeUserSessions(userId: string): Promise<boolean> {
@@ -31,6 +32,11 @@ async function revokeUserSessions(userId: string): Promise<boolean> {
     console.warn("[auth] não foi possível revogar sessões:", err instanceof Error ? err.message : err);
     return false;
   }
+}
+
+/** Senha errada numa sessão válida: 400, porque o cliente trata qualquer 401 como sessão expirada. */
+export function invalidPasswordBody(error: string) {
+  return { error, code: "INVALID_PASSWORD" as const };
 }
 
 /** Novo token para a sessão atual (emitido depois da revogação, por isso continua válido). */
@@ -208,13 +214,16 @@ export const authController = {
     if (!parsed.success) return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
 
     const { email, password } = parsed.data;
-    const user = await systemPrisma.user.findUnique({
-      where: { email },
-      include: {
-        roles: true,
-        subscription: { include: { plan: true } },
-      },
-    });
+    const userId = await findUserIdByEmail(email);
+    const user = userId
+      ? await systemPrisma.user.findUnique({
+          where: { id: userId },
+          include: {
+            roles: true,
+            subscription: { include: { plan: true } },
+          },
+        })
+      : null;
 
     if (!user || !(await verifyPassword(password, user.password))) {
       return res.status(401).json({ error: "E-mail ou senha incorretos" });
@@ -350,16 +359,18 @@ export const authController = {
       return res.status(401).json({ error: "O e-mail da conta Google tem de estar verificado." });
     }
 
-    const email = payload.email.toLowerCase().trim();
     const googleSub = payload.sub;
 
-    let user = await systemPrisma.user.findUnique({
-      where: { email },
-      include: {
-        roles: true,
-        subscription: { include: { plan: true } },
-      },
-    });
+    const existingId = await findUserIdByEmail(payload.email);
+    let user = existingId
+      ? await systemPrisma.user.findUnique({
+          where: { id: existingId },
+          include: {
+            roles: true,
+            subscription: { include: { plan: true } },
+          },
+        })
+      : null;
 
     if (!user) {
       return res.status(403).json({
@@ -491,10 +502,10 @@ export const authController = {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
 
-    const { email, password, full_name } = parsed.data;
+    const { password, full_name } = parsed.data;
+    const email = normalizeEmail(parsed.data.email);
 
-    const existing = await systemPrisma.user.findUnique({ where: { email } });
-    if (existing) return res.status(409).json({ error: "E-mail já cadastrado" });
+    if (await findUserIdByEmail(email)) return res.status(409).json({ error: "E-mail já cadastrado" });
 
     const hashedPassword = await hashPassword(password, passwordBcryptRounds());
 
@@ -629,7 +640,7 @@ export const authController = {
     const user = await systemPrisma.user.findUnique({ where: { id: req.user!.userId } });
     if (!user) return res.status(404).json({ error: "Usuário não encontrado" });
     if (!(await verifyPassword(parsed.data.current_password, user.password))) {
-      return res.status(401).json({ error: "Senha atual incorreta" });
+      return res.status(400).json(invalidPasswordBody("Senha atual incorreta"));
     }
 
     await systemPrisma.user.update({
@@ -825,7 +836,7 @@ export const authController = {
       });
     }
     if (!(await verifyPassword(parsed.data.password, user.password))) {
-      return res.status(401).json({ error: "Senha incorreta." });
+      return res.status(400).json(invalidPasswordBody("Senha incorreta."));
     }
 
     removeUserAvatarFiles(userId);
@@ -852,7 +863,6 @@ export const authController = {
       return res.status(400).json({ error: "E-mail é obrigatório" });
     }
 
-    const email = parsed.data.email.toLowerCase().trim();
     const generic = {
       message: "Se o e-mail existir, enviaremos um link de recuperação.",
     };
@@ -864,7 +874,8 @@ export const authController = {
       });
     }
 
-    const user = await systemPrisma.user.findUnique({ where: { email } });
+    const resetUserId = await findUserIdByEmail(parsed.data.email);
+    const user = resetUserId ? await systemPrisma.user.findUnique({ where: { id: resetUserId } }) : null;
     if (!user) {
       return res.json(generic);
     }

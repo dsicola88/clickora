@@ -1,10 +1,52 @@
 import type { CustomDomainDto, CustomDomainPendingDns } from "@/types/api";
 
+/**
+ * Sufixos públicos de dois níveis mais usados por afiliados (subconjunto da Public Suffix List).
+ * Manter igual a `MULTI_LABEL_PUBLIC_SUFFIXES` em `backend/src/lib/vercelProjectDomains.ts`.
+ */
+export const MULTI_LABEL_PUBLIC_SUFFIXES: ReadonlySet<string> = new Set([
+  // Brasil
+  "com.br", "net.br", "org.br", "app.br", "art.br", "blog.br", "dev.br", "eco.br", "emp.br", "eng.br",
+  "ind.br", "inf.br", "log.br", "med.br", "nom.br", "ong.br", "pro.br", "rec.br", "srv.br", "tec.br",
+  "tur.br", "tv.br", "vlog.br", "wiki.br", "adv.br", "arq.br", "psi.br", "seg.br", "edu.br", "gov.br",
+  // Reino Unido
+  "co.uk", "org.uk", "me.uk", "ltd.uk", "plc.uk", "net.uk", "ac.uk", "gov.uk",
+  // Austrália / Nova Zelândia
+  "com.au", "net.au", "org.au", "id.au", "asn.au", "edu.au", "gov.au",
+  "co.nz", "net.nz", "org.nz", "ac.nz", "gen.nz", "school.nz", "govt.nz",
+  // América Latina
+  "com.mx", "net.mx", "org.mx", "edu.mx", "gob.mx",
+  "com.ar", "net.ar", "org.ar", "edu.ar", "gob.ar",
+  "com.co", "net.co", "org.co", "edu.co", "gov.co",
+  "com.pe", "net.pe", "org.pe", "com.cl", "com.uy", "com.py", "com.bo", "com.ec", "com.ve",
+  "com.gt", "com.do", "com.sv", "com.pa", "co.cr",
+  // África do Sul / Japão / Índia
+  "co.za", "net.za", "org.za", "web.za", "ac.za", "gov.za",
+  "co.jp", "ne.jp", "or.jp", "ac.jp", "go.jp", "gr.jp",
+  "co.in", "net.in", "org.in", "firm.in", "gen.in", "ind.in", "ac.in", "edu.in", "gov.in",
+  // Europa
+  "com.pt", "org.pt", "edu.pt", "gov.pt",
+  "com.es", "nom.es", "org.es", "edu.es", "gob.es",
+  "com.tr", "net.tr", "org.tr", "biz.tr", "info.tr", "gen.tr", "web.tr", "edu.tr", "gov.tr",
+  "com.pl", "net.pl", "org.pl", "com.ua", "co.il", "org.il",
+  // Ásia / outros
+  "com.cn", "net.cn", "org.cn", "com.hk", "com.tw", "com.sg", "com.my", "co.id", "co.th", "com.ph",
+  "co.kr", "com.vn", "com.pk", "com.sa", "com.eg", "com.ng", "co.ke",
+]);
+
+/** Nome relativo do registo DNS na zona do domínio registável (`@` no apex, `promo.lp` em `promo.lp.example.com`). */
+export function dnsRecordNameForHostname(hostname: string): string {
+  const parts = hostname.trim().toLowerCase().replace(/\.+$/, "").split(".").filter(Boolean);
+  const suffixLabels = parts.length >= 3 && MULTI_LABEL_PUBLIC_SUFFIXES.has(parts.slice(-2).join(".")) ? 2 : 1;
+  const registrableLabels = suffixLabels + 1;
+  if (parts.length <= registrableLabels) return "@";
+  return parts.slice(0, parts.length - registrableLabels).join(".");
+}
+
 /** Alinhado com `vercelCnameHint` no backend — garante CNAME/A na UI mesmo se `pending_dns` não vier na API. */
 export function buildVercelCnameHint(hostname: string): { host: string; target: string; note: string } {
-  const parts = hostname.toLowerCase().split(".").filter(Boolean);
-  if (parts.length >= 3) {
-    const sub = parts[0];
+  const sub = dnsRecordNameForHostname(hostname);
+  if (sub !== "@") {
     if (sub === "www") {
       return {
         host: "www",

@@ -310,16 +310,28 @@ export function isMainPlatformPresellOrigin(origin: string): boolean {
   }
 }
 
+function isTechnicalPresellOrigin(origin: string): boolean {
+  const technical = getPublicPresellTechnicalOrigin();
+  if (!technical) return false;
+  try {
+    const h = new URL(origin.includes("://") ? origin : `https://${origin}`).hostname.toLowerCase();
+    return h === new URL(technical).hostname;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Segmento do path público: no domínio verificado com slug → `/{slug}` (estilo SuperPresell);
- * senão UUID em dclickora / lite `/l/` quando elegível; fallback `/p/<uuid>`.
+ * senão UUID em dclickora / domínio técnico / lite `/l/` quando elegível; fallback `/p/<uuid>`.
+ * O domínio técnico não tem dono verificado — a API de slug devolveria 404.
  */
 export function resolvePublicPresellPath(
   page: { id: string; slug?: string | null; type?: string | null },
   origin: string,
 ): string {
   const slug = (page.slug ?? "").trim();
-  const onCustomLander = !isMainPlatformPresellOrigin(origin);
+  const onCustomLander = !isMainPlatformPresellOrigin(origin) && !isTechnicalPresellOrigin(origin);
   const canUseSlug = onCustomLander && slug.length > 0 && !isPresellUuidParam(slug);
 
   if (canUseSlug) {

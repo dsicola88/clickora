@@ -21,7 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { customDomainService } from "@/services/customDomainService";
 import { presellService } from "@/services/presellService";
-import type { CustomDomainDto, DomainRoutingRole } from "@/types/api";
+import { apiClient } from "@/lib/apiClient";
+import type { CustomDomainDto, DomainRoutingEventDto, DomainRoutingRole } from "@/types/api";
 import {
   inferDnsRecordKind,
   normalizeDomainStatus,
@@ -32,6 +33,9 @@ import { CustomDomainDnsTable } from "@/components/settings/CustomDomainDnsTable
 import { CustomDomainSslBadge } from "@/components/settings/CustomDomainSslBadge";
 import { shouldPollCustomDomainSsl } from "@/lib/customDomainSslDisplay";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
+
+/** Igual a `PRIMARY_SWAP_EVENT_TYPES` no backend (`domainRoutingService`). */
+const ROLLBACK_SWAP_EVENT_TYPES = ["manual_swap", "auto_failover", "auto_recovery", "manual_rollback"];
 
 export function CustomDomainSettings() {
   const { t, m } = useAppLocale();
@@ -228,6 +232,19 @@ export function CustomDomainSettings() {
     staleTime: 20_000,
   });
 
+  /** Só trocas da conta: durante uma falha as sondas encheriam a lista acima e o rollback desapareceria. */
+  const { data: latestAccountSwap = null } = useQuery({
+    queryKey: ["custom-domain-routing-events", tenantKey, "account-swaps"],
+    queryFn: async () => {
+      const q = new URLSearchParams({ scope: "domain", event_type: ROLLBACK_SWAP_EVENT_TYPES.join(","), limit: "1" });
+      const { data, error } = await apiClient.get<DomainRoutingEventDto[]>(`/custom-domain/routing-events?${q}`);
+      if (error) return null;
+      return data?.[0] ?? null;
+    },
+    enabled: !!tenantKey,
+    staleTime: 20_000,
+  });
+
   const healthCheckMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await customDomainService.healthCheck(id);
@@ -309,15 +326,10 @@ export function CustomDomainSettings() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : cd.rollbackNone),
   });
 
-  /** Espelha `planRollbackTarget` + `rollbackPrimary`: só eventos de conta e com domínio anterior ≠ primário atual. */
+  /** Espelha `planRollbackTarget` + `rollbackPrimary`: só a troca de conta mais recente, com anterior ≠ primário atual. */
   const currentAccountPrimaryId = domains.find((d) => d.is_default && d.purpose !== "tracking")?.id ?? null;
-  const hasRollbackCandidate = routingEvents.some(
-    (ev) =>
-      ev.scope === "domain" &&
-      (ev.event_type === "manual_swap" || ev.event_type === "auto_failover" || ev.event_type === "manual_rollback") &&
-      Boolean(ev.previous_domain_id) &&
-      ev.previous_domain_id !== currentAccountPrimaryId,
-  );
+  const hasRollbackCandidate =
+    Boolean(latestAccountSwap?.previous_domain_id) && latestAccountSwap?.previous_domain_id !== currentAccountPrimaryId;
   const eventTypeLabel: Record<string, string> = {
     auto_failover: m.pages.continuity.panel.event_auto_failover,
     auto_recovery: m.pages.continuity.panel.event_auto_recovery,

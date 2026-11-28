@@ -47,7 +47,7 @@ const RELATORIO_PLATFORM_OPTIONS = [...new Set([...AFFILIATE_PLATFORMS, ...EXTRA
 );
 
 function platformFilterValue(label: string) {
-  return label.toLowerCase().replace(/[\s_\-]+/g, "");
+  return label.toLowerCase().replace(/[\s_-]+/g, "");
 }
 
 function visitorSituationClass(kind: ClickVisitorKind): string {
@@ -198,7 +198,7 @@ function CheckoutPageCell({ url, host }: { url?: string | null; host?: string | 
 
 function platformMatches(rowPlatform: string, selected: string) {
   if (!selected || selected === "all") return true;
-  const norm = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, "");
+  const norm = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, "");
   const row = norm(rowPlatform);
   const sel = norm(selected);
   return row === sel || row.includes(sel) || sel.includes(row);

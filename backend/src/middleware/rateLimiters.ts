@@ -1,18 +1,81 @@
-import rateLimit from "express-rate-limit";
-import type { Request } from "express";
+import crypto from "crypto";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
+import { extractClientIp, normalizeClientIp } from "../lib/clientIp";
 
-/** Rotas de credenciais (login, registo, recuperação) — por IP.
- * Staging/load: AUTH_RATE_LIMIT_MAX / AUTH_RATE_LIMIT_WINDOW_MS.
+const AUTH_LIMIT_MESSAGE = { error: "Demasiadas tentativas. Tente novamente dentro de alguns minutos." };
+
+/** IP do visitante sem o XFF escrito pelo browser (mesma regra do tracking). */
+export function authClientIpKey(req: Request): string {
+  const ip = extractClientIp(req) || normalizeClientIp(req.socket?.remoteAddress || "");
+  return ip ? ipKeyGenerator(ip) : "anon";
+}
+
+function shortHash(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex").slice(0, 40);
+}
+
+/** Conta visada: token MFA pendente ou e-mail (minúsculas). `null` = sem tecto por conta. */
+export function authAccountKey(req: Request): string | null {
+  const body = (req.body && typeof req.body === "object" ? req.body : {}) as Record<string, unknown>;
+  const mfaToken = typeof body.mfa_token === "string" ? body.mfa_token.trim() : "";
+  if (mfaToken) return `mfa:${shortHash(mfaToken)}`;
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  if (email) return `email:${shortHash(email)}`;
+  return null;
+}
+
+export type AuthCredentialLimiterOptions = {
+  windowMs: number;
+  ipMax: number;
+  accountMax: number;
+};
+
+export function resolveAuthCredentialLimiterOptions(
+  env: NodeJS.ProcessEnv = process.env,
+): AuthCredentialLimiterOptions {
+  return {
+    windowMs: Math.max(60_000, Number(env.AUTH_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000) || 15 * 60 * 1000),
+    ipMax: Math.max(10, Number(env.AUTH_RATE_LIMIT_MAX ?? 80) || 80),
+    accountMax: Math.max(5, Number(env.AUTH_ACCOUNT_RATE_LIMIT_MAX ?? 10) || 10),
+  };
+}
+
+/**
+ * Por IP (todas as tentativas) e por conta (só falhas: e-mail ou token MFA).
+ * Staging/load: AUTH_RATE_LIMIT_MAX / AUTH_RATE_LIMIT_WINDOW_MS / AUTH_ACCOUNT_RATE_LIMIT_MAX.
  */
-export const authCredentialLimiter = rateLimit({
-  windowMs: Math.max(60_000, Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000) || 15 * 60 * 1000),
-  max: Math.max(10, Number(process.env.AUTH_RATE_LIMIT_MAX ?? 80) || 80),
-  standardHeaders: true,
-  legacyHeaders: false,
-  /** trust proxy é intencional (Vercel/Railway); desactiva o throw ERR_ERL_PERMISSIVE_TRUST_PROXY. */
-  validate: { trustProxy: false },
-  message: { error: "Demasiadas tentativas. Tente novamente dentro de alguns minutos." },
-});
+export function createAuthCredentialLimiter(opts: AuthCredentialLimiterOptions): RequestHandler {
+  const byIp = rateLimit({
+    windowMs: opts.windowMs,
+    max: opts.ipMax,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: authClientIpKey,
+    validate: { keyGeneratorIpFallback: false, xForwardedForHeader: false },
+    message: AUTH_LIMIT_MESSAGE,
+  });
+  const byAccount = rateLimit({
+    windowMs: opts.windowMs,
+    max: opts.accountMax,
+    standardHeaders: false,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    skip: (req) => authAccountKey(req) === null,
+    keyGenerator: (req) => authAccountKey(req) ?? "none",
+    validate: { keyGeneratorIpFallback: false, xForwardedForHeader: false },
+    message: AUTH_LIMIT_MESSAGE,
+  });
+  return (req: Request, res: Response, next: NextFunction) => {
+    byIp(req, res, (err?: unknown) => {
+      if (err) return next(err);
+      byAccount(req, res, next);
+    });
+  };
+}
+
+/** Rotas de credenciais (login, registo, recuperação, MFA). */
+export const authCredentialLimiter = createAuthCredentialLimiter(resolveAuthCredentialLimiterOptions());
 
 function accountKey(req: Request): string {
   const u = req.user;

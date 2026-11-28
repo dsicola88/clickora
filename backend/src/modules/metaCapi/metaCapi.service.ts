@@ -61,8 +61,8 @@ export async function sendMetaPurchaseEvent(params: {
   if (params.userAgent?.trim()) user_data.client_user_agent = params.userAgent.trim().slice(0, 512);
   if (params.fbp?.trim()) user_data.fbp = params.fbp.trim();
   if (params.fbclid?.trim()) {
-    const ts = params.clickCreatedAtSec || Math.floor(Date.now() / 1000);
-    user_data.fbc = `fb.1.${ts}.${params.fbclid.trim()}`;
+    const creationMs = params.clickCreatedAtSec ? params.clickCreatedAtSec * 1000 : Date.now();
+    user_data.fbc = `fb.1.${creationMs}.${params.fbclid.trim()}`;
   }
 
   const custom_data: Record<string, unknown> = {
@@ -259,7 +259,8 @@ export async function syncConversionToMetaCapi(
       ? Number(conv.amount)
       : 0;
   const currency = (conv.currency || "USD").toUpperCase().slice(0, 3);
-  const eventTimeSec = Math.floor(conv.createdAt.getTime() / 1000);
+  /** Meta rejeita event_time > 7 dias: o reembolso acontece agora, não na data da venda. */
+  const eventTimeSec = Math.floor((adMode === "refund" ? Date.now() : conv.createdAt.getTime()) / 1000);
   const flat = stringFieldsFromJson(conv.metadata);
   const orderId = conv.externalOrderId?.trim() || pickOrderIdFromPayload(flat) || conv.id;
   const eventSourceUrl = eventSourceUrlFromClick({
@@ -310,6 +311,7 @@ export async function syncConversionToMetaCapi(
         } as Prisma.InputJsonValue,
       },
     });
+    throw new Error(`meta_capi_refund_failed: ${result.error.slice(0, 300)}`);
   } else {
     await systemPrisma.conversion.update({
       where: { id: conv.id },

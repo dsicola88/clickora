@@ -34,21 +34,60 @@ function isWhiteNiche(content: Record<string, unknown>): boolean {
   return content.generationNiche === "white" || content.generation_niche === "white";
 }
 
-/** Substitui marcador / track antigo pelo track desta página (evita IDs da irmã no pacote). */
-function rewriteMirrorTrackHrefs(html: string, trackHref: string, markerHref: string = trackHref): string {
-  let out = html.split(MIRROR_TRACK_MARKER).join(markerHref);
-  // Track de outra presell já bakeado → apontar a esta
-  out = out.replace(/\/track\/r\/[0-9a-f-]{36}/gi, () => {
-    try {
-      const u = new URL(trackHref);
-      return u.pathname;
-    } catch {
-      return trackHref;
+/** URL de track (absoluto, `//host`, `/api/…` ou só `/track/r/…`) + query até ao fim do atributo. */
+const MIRROR_TRACK_URL_RE =
+  /(?:https?:)?(?:\/\/[^"'<>\s()/]+)?(?:\/[\w.~%-]+)*?\/track\/r\/[0-9a-f-]{36}(?:\?[^"'<>\s#]*)?/gi;
+
+function mergeMissingParams(url: string, params: URLSearchParams): string {
+  if ([...params.keys()].length === 0) return url;
+  try {
+    const u = new URL(url);
+    let changed = false;
+    for (const [k, v] of params) {
+      if (u.searchParams.has(k)) continue;
+      u.searchParams.set(k, v);
+      changed = true;
     }
+    return changed ? u.toString() : url;
+  } catch {
+    return url;
+  }
+}
+
+function buildTrackCtaHref(trackHref: string, attribution: URLSearchParams, to?: string | null): string {
+  const params = new URLSearchParams();
+  if (to) params.set("to", to);
+  for (const [k, v] of attribution) params.set(k, v);
+  const qs = params.toString();
+  return qs ? `${trackHref}?${qs}` : trackHref;
+}
+
+function escapeAttrAmp(s: string): string {
+  return s.replace(/&/g, "&amp;");
+}
+
+/**
+ * Substitui marcador / track antigo pelo track desta página (evita IDs da irmã no pacote).
+ * Cada `/track/r/…` mantém o seu `to=` e recebe a mesma atribuição da chegada que o CTA principal.
+ */
+function rewriteMirrorTrackHrefs(
+  html: string,
+  trackHref: string,
+  attribution: URLSearchParams,
+  offerForward: URLSearchParams,
+  markerHref: string,
+): string {
+  const out = html.replace(MIRROR_TRACK_URL_RE, (match) => {
+    let to: string | null = null;
+    const qIdx = match.indexOf("?");
+    if (qIdx >= 0) {
+      const query = match.slice(qIdx + 1).replace(/&amp;|&#0*38;|&#x0*26;/gi, "&");
+      const raw = new URLSearchParams(query).get("to")?.trim();
+      if (raw && /^https?:\/\//i.test(raw)) to = mergeMissingParams(raw, offerForward);
+    }
+    return escapeAttrAmp(buildTrackCtaHref(trackHref, attribution, to));
   });
-  // Absolute track URLs with old ids
-  out = out.replace(/https?:\/\/[^"'>\s]+\/track\/r\/[0-9a-f-]{36}/gi, trackHref);
-  return out;
+  return out.split(MIRROR_TRACK_MARKER).join(escapeAttrAmp(markerHref));
 }
 
 export function isPresellLiteHtmlEligible(type: string | null | undefined): boolean {
@@ -164,6 +203,8 @@ export type PresellLiteHtmlInput = {
   impressionPixelUrl?: string | null;
   /** Click IDs / UTMs da URL de chegada: a página lite não tem JS para os passar ao hop. */
   landingAttributionQuery?: string | null;
+  /** sub1/sub2 + `offerQueryForwardAllowlist` da chegada — fundidos no hoplink (`to=`), como na SPA. */
+  offerForwardQuery?: string | null;
 };
 
 export type PresellLiteHtmlResult =
@@ -194,8 +235,14 @@ export function buildPresellLiteHtml(input: PresellLiteHtmlInput): PresellLiteHt
 
   const trackBase = input.trackApiBase.replace(/\/+$/, "");
   const trackHref = `${trackBase}/track/r/${encodeURIComponent(input.id)}`;
-  const attribution = (input.landingAttributionQuery || "").replace(/^\?/, "").trim();
-  const ctaHref = attribution ? `${trackHref}?${attribution}` : trackHref;
+  const attribution = new URLSearchParams((input.landingAttributionQuery || "").replace(/^\?/, "").trim());
+  const offerForward = new URLSearchParams((input.offerForwardQuery || "").replace(/^\?/, "").trim());
+  const forwardedTo = mergeMissingParams(resolvedOffer.destination, offerForward);
+  const ctaHref = buildTrackCtaHref(
+    trackHref,
+    attribution,
+    forwardedTo !== resolvedOffer.destination ? forwardedTo : null,
+  );
   const { headline, intro, cta } = articleBits(content);
   const title = str(input.title, 160) || headline;
   const img = firstImage(content);
@@ -206,7 +253,9 @@ export function buildPresellLiteHtml(input: PresellLiteHtmlInput): PresellLiteHt
     isWhiteNiche(content) && !isEssentialsImportPresentation(content) ? extractMirrorHtml(content) : "";
   const mirrorSanitized =
     mirrorRaw.length > 200 && mirrorRaw.length < 450_000
-      ? sanitizeMirrorEmbedForLiteHtml(rewriteMirrorTrackHrefs(mirrorRaw, trackHref, ctaHref))
+      ? sanitizeMirrorEmbedForLiteHtml(
+          rewriteMirrorTrackHrefs(mirrorRaw, trackHref, attribution, offerForward, ctaHref),
+        )
       : "";
   const useMirror = mirrorSanitized.length > 200;
 

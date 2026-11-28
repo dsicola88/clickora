@@ -49,9 +49,9 @@ function fakeDb(opts: {
       fn({
         trafficRotator: {
           findFirst: async () => ({ ...rot, arms: [...arms] }),
-          update: async (args: { data: { sequenceCursor: number } }) => {
-            seqUpdates.push(args.data.sequenceCursor);
-            rot.sequenceCursor = args.data.sequenceCursor;
+          update: async (args: { data: { sequenceCursor: { increment: number } } }) => {
+            rot.sequenceCursor += args.data.sequenceCursor.increment;
+            seqUpdates.push(rot.sequenceCursor);
             return {};
           },
         },

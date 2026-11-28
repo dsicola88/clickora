@@ -134,7 +134,7 @@ export async function loadSyncQueueHealth(args: {
     const out = emptySyncQueueHealth(periodDays);
     for (const row of rows) {
       const n = row._count._all;
-      const ch = row.channel as keyof SyncQueueHealth["by_channel"];
+      const ch = row.channel.replace(/_(refund|restate)$/, "") as keyof SyncQueueHealth["by_channel"];
       if (row.status === "pending") out.pending += n;
       if (row.status === "processing") out.processing += n;
       if (row.status === "dead") out.dead += n;

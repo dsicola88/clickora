@@ -5,11 +5,31 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "./prisma";
-import { syncConversionToGoogleAds } from "../modules/googleAds/googleAds.service";
-import { syncConversionToMetaCapi } from "../modules/metaCapi/metaCapi.service";
-import { syncConversionToTikTokEvents } from "../modules/tiktokEvents/tiktokEvents.service";
+import {
+  restateConversionToGoogleAds,
+  retractConversionFromGoogleAds,
+  syncConversionToGoogleAds,
+} from "../modules/googleAds/googleAds.service";
+import { retractConversionFromMetaCapi, syncConversionToMetaCapi } from "../modules/metaCapi/metaCapi.service";
+import {
+  retractConversionFromTikTokEvents,
+  syncConversionToTikTokEvents,
+} from "../modules/tiktokEvents/tiktokEvents.service";
 
-export type ConversionSyncChannel = "google_ads" | "meta_capi" | "tiktok_events";
+export type ConversionSyncChannel =
+  | "google_ads"
+  | "meta_capi"
+  | "tiktok_events"
+  | "google_ads_restate"
+  | "google_ads_refund"
+  | "meta_capi_refund"
+  | "tiktok_events_refund";
+
+export const REFUND_SYNC_CHANNELS: ConversionSyncChannel[] = [
+  "google_ads_refund",
+  "meta_capi_refund",
+  "tiktok_events_refund",
+];
 
 const MAX_ATTEMPTS = Math.max(1, Math.min(10, Number(process.env.CONVERSION_SYNC_MAX_ATTEMPTS || "5") || 5));
 const LEASE_MS = Math.max(15_000, Math.min(300_000, Number(process.env.CONVERSION_SYNC_LEASE_MS || "60000") || 60_000));
@@ -63,16 +83,20 @@ export async function enqueueConversionSync(args: {
   return { enqueued };
 }
 
+const CHANNEL_RUNNERS: Record<ConversionSyncChannel, (conversionId: string) => Promise<void>> = {
+  google_ads: syncConversionToGoogleAds,
+  meta_capi: syncConversionToMetaCapi,
+  tiktok_events: syncConversionToTikTokEvents,
+  google_ads_restate: restateConversionToGoogleAds,
+  google_ads_refund: retractConversionFromGoogleAds,
+  meta_capi_refund: retractConversionFromMetaCapi,
+  tiktok_events_refund: retractConversionFromTikTokEvents,
+};
+
 async function runChannel(channel: ConversionSyncChannel, conversionId: string): Promise<void> {
-  if (channel === "google_ads") {
-    await syncConversionToGoogleAds(conversionId);
-    return;
-  }
-  if (channel === "meta_capi") {
-    await syncConversionToMetaCapi(conversionId);
-    return;
-  }
-  await syncConversionToTikTokEvents(conversionId);
+  const run = CHANNEL_RUNNERS[channel];
+  if (!run) throw new Error(`canal de sync desconhecido: ${channel}`);
+  await run(conversionId);
 }
 
 /**
@@ -86,12 +110,20 @@ export async function processConversionSyncBatch(owner = `api-${process.pid}`): 
 }> {
   const now = new Date();
   const leaseUntil = new Date(now.getTime() + LEASE_MS);
+  /** `processing` com lease expirado há mais de um lease: o worker caiu a meio (redeploy/crash). Reenvio é idempotente (order_id / event_id). */
+  const staleProcessingBefore = new Date(now.getTime() - LEASE_MS);
+  const claimable: Prisma.ConversionSyncJobWhereInput = {
+    OR: [
+      {
+        status: "pending",
+        runAfter: { lte: now },
+        OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }],
+      },
+      { status: "processing", leaseUntil: { lt: staleProcessingBefore } },
+    ],
+  };
   const candidates = await systemPrisma.conversionSyncJob.findMany({
-    where: {
-      status: "pending",
-      runAfter: { lte: now },
-      OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }],
-    },
+    where: claimable,
     orderBy: { runAfter: "asc" },
     take: BATCH,
   });
@@ -103,11 +135,7 @@ export async function processConversionSyncBatch(owner = `api-${process.pid}`): 
 
   for (const job of candidates) {
     const upd = await systemPrisma.conversionSyncJob.updateMany({
-      where: {
-        id: job.id,
-        status: "pending",
-        OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }],
-      },
+      where: { id: job.id, ...claimable },
       data: {
         status: "processing",
         leaseOwner: owner,

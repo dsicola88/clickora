@@ -7,6 +7,9 @@ import { Label } from "@/components/ui/label";
 import type { DomainRoutingRole } from "@/types/api";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
 
+/** Igual a `PRIMARY_SWAP_EVENT_TYPES` no backend (`domainRoutingService`). */
+const ROLLBACK_SWAP_EVENT_TYPES = new Set(["manual_swap", "auto_failover", "auto_recovery", "manual_rollback"]);
+
 export function PresellDomainBindingsControl({
   presellId,
   onPrimaryChanged,
@@ -103,12 +106,10 @@ export function PresellDomainBindingsControl({
       : data.custom_domain_id ??
         data.available_domains.find((d) => d.is_default && d.status === "verified")?.id ??
         null;
-  const canRollback = data.routing_events.some(
-    (ev) =>
-      (ev.event_type === "manual_swap" || ev.event_type === "auto_failover" || ev.event_type === "manual_rollback") &&
-      Boolean(ev.previous_domain_id) &&
-      ev.previous_domain_id !== data.custom_domain_id,
-  );
+  /** Espelha `planRollbackTarget`: só a troca mais recente (eventos vêm do mais novo para o mais antigo). */
+  const latestSwap = data.routing_events.find((ev) => ROLLBACK_SWAP_EVENT_TYPES.has(ev.event_type));
+  const canRollback =
+    Boolean(latestSwap?.previous_domain_id) && latestSwap?.previous_domain_id !== data.custom_domain_id;
 
   const toggleBackup = (domainId: string, currentlyBound: boolean) => {
     const next = [...data.bindings].map((b) => ({

@@ -699,6 +699,13 @@ function YoutubeCornerClickShield({ embedSrc }: { embedSrc: string }) {
   );
 }
 
+const VISITOR_UNAVAILABLE_CODES = new Set(["PRESHELL_NOT_PUBLISHED", "PRESHELL_COMPLIANCE_BLOCKED"]);
+
+function visitorUnavailableCode(err: unknown): boolean {
+  const code = err && typeof err === "object" ? (err as { code?: unknown }).code : null;
+  return typeof code === "string" && VISITOR_UNAVAILABLE_CODES.has(code);
+}
+
 function normalizePresellRouteParam(raw: string): string {
   const t = raw.trim();
   if (!t) return "";
@@ -741,15 +748,11 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
       const pref = await getPublicPresellPrefetchResult(param);
       if (pref) return pref;
 
-      if (isPresellUuidParam(param)) {
-        const { data, error } = await presellService.getPublicById(param);
-        if (data) return data;
-        if (error) throw new Error(error);
-        throw new Error("Página não encontrada");
-      }
-      const { data, error } = await presellService.getPublicBySlug(param);
+      const { data, error, errorCode } = isPresellUuidParam(param)
+        ? await presellService.getPublicById(param)
+        : await presellService.getPublicBySlug(param);
       if (data) return data;
-      throw new Error(error || "Página não encontrada");
+      throw Object.assign(new Error(error || "Página não encontrada"), { code: errorCode ?? null });
     },
     select: (data) => {
       const accountBase = data.track_api_base?.trim();
@@ -766,7 +769,7 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
     staleTime: 0,
     refetchOnMount: "always",
     /** Railway a acordar: 502/timeout no 1.º pedido — repetir antes de mostrar erro. */
-    retry: 3,
+    retry: (failures, err) => !visitorUnavailableCode(err) && failures < 3,
     retryDelay: (n) => Math.min(1000 * 2 ** n, 8000),
   });
 
@@ -932,7 +935,11 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
         (page.content || {}) as Record<string, unknown>,
       ),
     });
-    const allowAds = !consentPolicy.gateMarketingUntilAccept || marketingAllowed;
+    /**
+     * Preview do dono corre na origem do painel (token em localStorage): código das settings
+     * (editável por membros do workspace) nunca executa aqui. CSS acima é só texto de <style>.
+     */
+    const allowAds = !ownerPreview && (!consentPolicy.gateMarketingUntilAccept || marketingAllowed);
     /** GCM só com Google configurado — não inventar gtag/dataLayer sem Ads/GA/GTM. */
     const builderTracking = parsePresellBuilderPageDocument(page.content)?.tracking ?? null;
     const hasGoogleTags = presellHasConfiguredGoogleTags({
@@ -945,7 +952,7 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
       optionalMarketingBodyHtml: optionalMarketing.bodyHtml,
       builderTracking,
     });
-    if (consentPolicy.applyConsentModeDefaults && hasGoogleTags) {
+    if (!ownerPreview && consentPolicy.applyConsentModeDefaults && hasGoogleTags) {
       ensureGoogleConsentModeDefaults({
         defaultDenied: consentPolicy.consentModeDefaultDenied,
       });
@@ -1114,6 +1121,10 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
     ) {
       msg = "Esta página não está disponível.";
     } else if (/domínio personalizado|PRESHELL_SLUG|identificador \(UUID\)/i.test(raw)) {
+      msg = "Esta página não está disponível.";
+    }
+    /** Texto destes códigos é para o operador (painel); o visitante vê só a mensagem neutra. */
+    if (!ownerPreview && visitorUnavailableCode(loadError)) {
       msg = "Esta página não está disponível.";
     }
     const isNotFound =
@@ -1329,8 +1340,8 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
                 ? affiliateLink.trim()
                 : undefined
             }
-            marketingAllowed={marketingAllowed}
-            gateMarketingUntilAccept={gateKind === "cookies"}
+            marketingAllowed={marketingAllowed && !ownerPreview}
+            gateMarketingUntilAccept={gateKind === "cookies" || ownerPreview}
           />
         </Suspense>
         {showTrustFooter ? (
@@ -1434,8 +1445,8 @@ export default function PublicPresell({ ownerPreview = false, presellId }: Publi
               trackOfferHref={href || undefined}
               offerUrl={offerUrl}
               interactionLocked={Boolean(interactiveKind && !ctaEnabled)}
-              marketingAllowed={marketingAllowed}
-              gateMarketingUntilAccept={gateKind === "cookies"}
+              marketingAllowed={marketingAllowed && !ownerPreview}
+              gateMarketingUntilAccept={gateKind === "cookies" || ownerPreview}
             />
           </Suspense>
         ) : null}

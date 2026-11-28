@@ -17,6 +17,14 @@ function joinHtml(parts: string[]): string {
   return parts.map((p) => p.trim()).filter(Boolean).join("\n");
 }
 
+/** JSON seguro dentro de `<script>`: `</script>` / `<!--` no payload não fecham a tag; U+2028/9 não partem o JS. */
+export function jsonForInlineScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 /** Stub GCM + default denied (idempotente no browser). */
 export function buildGoogleConsentModeDefaultScript(): string {
   return `<script>(function(){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}window.gtag=window.gtag||gtag;if(!window.__clickoraGcmDefaultsApplied){gtag("consent","default",{ad_storage:"denied",ad_user_data:"denied",ad_personalization:"denied",analytics_storage:"denied",wait_for_update:500});window.__clickoraGcmDefaultsApplied=1;}})();</script>`;
@@ -60,14 +68,14 @@ export function buildExportConsentAwareSnippets(opts: {
     };
   }
 
-  const payload = JSON.stringify({
+  const payload = jsonForInlineScript({
     head: headM,
     body: bodyM,
     footer: footM,
   });
   const key = DEFAULT_COOKIE_CONSENT_STORAGE_KEY;
   const boot = `<script>(function(){
-var KEY=${JSON.stringify(key)};
+var KEY=${jsonForInlineScript(key)};
 var CHOICE=KEY+":choice";
 var PAYLOAD=${payload};
 var USE_GCM=${useGcm ? "1" : "0"};
@@ -114,9 +122,9 @@ else{update(false);}
 export function buildExportCookieModalBindingsScript(
   layout: PresellCookieLayout = "bar",
 ): string {
-  const key = JSON.stringify(DEFAULT_COOKIE_CONSENT_STORAGE_KEY);
+  const key = jsonForInlineScript(DEFAULT_COOKIE_CONSENT_STORAGE_KEY);
   return `<script>(function(){
-var KEY=${key};var LAYOUT=${JSON.stringify(layout)};
+var KEY=${key};var LAYOUT=${jsonForInlineScript(layout)};
 function showPolicy(on){var s=document.getElementById("pe-cookie-policy-sheet");if(!s)return;s.hidden=!on;s.style.display=on?"flex":"none";}
 function reserve(){var o=document.getElementById("pe-cookie-overlay"),c=document.getElementById("pe-cookie-card");if(!o||!c)return;var h=0;if(o.style.display!=="none"){var r=c.getBoundingClientRect();if(r.height>0){var full=r.width>=window.innerWidth*0.9;if(!(LAYOUT==="corner"&&!full))h=Math.ceil(r.height+(LAYOUT==="floating"?24:0));}}var bs=document.body.style,rs=document.documentElement.style;if(h){bs.setProperty("padding-bottom",h+"px");rs.setProperty("scroll-padding-bottom",h+"px");}else{bs.removeProperty("padding-bottom");rs.removeProperty("scroll-padding-bottom");}}
 function hasAll(){try{return localStorage.getItem(KEY+":choice")==="all";}catch(e){return false;}}

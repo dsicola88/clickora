@@ -69,6 +69,47 @@ function pickAccountFallbackDomain(domains: RoutingDomainCandidate[]): RoutingDo
 }
 
 /**
+ * Pode `userId` registar `hostname`? Exato primeiro; a variante www/apex de outra conta também bloqueia
+ * (o cache de host e o roteamento tratam `www.x` e `x` como o mesmo dono).
+ */
+export function checkHostnameClaim(input: {
+  hostname: string;
+  userId: string;
+  existing: Array<{ hostname: string; userId: string }>;
+}): { ok: true } | { ok: false; reason: "taken_other" | "taken_self" | "variant_other"; conflictHostname: string } {
+  const host = normalizeHostname(input.hostname);
+  const variants = new Set(hostnameLookupVariants(host));
+  const rows = input.existing.map((r) => ({ ...r, hostname: normalizeHostname(r.hostname) }));
+  const exact = rows.find((r) => r.hostname === host);
+  if (exact) {
+    return { ok: false, reason: exact.userId === input.userId ? "taken_self" : "taken_other", conflictHostname: exact.hostname };
+  }
+  const variant = rows.find((r) => variants.has(r.hostname) && r.userId !== input.userId);
+  if (variant) return { ok: false, reason: "variant_other", conflictHostname: variant.hostname };
+  return { ok: true };
+}
+
+const HEALTH_RANK: Record<string, number> = { healthy: 0, unknown: 1, degraded: 2 };
+
+/**
+ * Substituto do domínio padrão quando o atual sai (removido / passou a tracking): só verificado, ativo,
+ * não `down` e de hosting; saudável → unknown → degradado, depois `routingPriority` e a ordem de entrada.
+ */
+export function pickReplacementPrimaryDomain<T extends RoutingDomainCandidate>(domains: T[]): T | null {
+  const ranked = domains
+    .map((d, idx) => ({ d, idx }))
+    .filter(({ d }) => isUsableHostingDomain(d))
+    .sort((a, b) => {
+      const ha = HEALTH_RANK[String(a.d.healthStatus)] ?? 3;
+      const hb = HEALTH_RANK[String(b.d.healthStatus)] ?? 3;
+      if (ha !== hb) return ha - hb;
+      if (a.d.routingPriority !== b.d.routingPriority) return a.d.routingPriority - b.d.routingPriority;
+      return a.idx - b.idx;
+    });
+  return ranked[0]?.d ?? null;
+}
+
+/**
  * Seleciona o domínio autorizado para uma presell seguindo:
  * 1) Se houver bindings explícitos ativos (`PresellDomainBinding`):
  *    - primeiro `primary` utilizável
@@ -287,6 +328,19 @@ export function planPrimaryDomainSwap(input: {
   };
 }
 
+/** Eventos que trocam o primário (conta ou presell) — base do rollback. */
+export const PRIMARY_SWAP_EVENT_TYPES = ["manual_swap", "auto_failover", "auto_recovery", "manual_rollback"] as const;
+
+const PRIMARY_SWAP_EVENT_SET = new Set<string>(PRIMARY_SWAP_EVENT_TYPES);
+
+export function isPrimarySwapEventType(eventType: string): boolean {
+  return PRIMARY_SWAP_EVENT_SET.has(eventType);
+}
+
+/**
+ * Rollback desfaz só a troca mais recente (`events` do mais novo para o mais antigo): saltar para trocas
+ * antigas promoveria um domínio que já não era o anterior (ex.: X→P, P→B failover, B→P recuperação → B).
+ */
 export function planRollbackTarget(input: {
   currentPrimaryId: string | null;
   events: Array<{
@@ -297,15 +351,8 @@ export function planRollbackTarget(input: {
   domains: RoutingDomainCandidate[];
 }): { ok: true; targetDomainId: string } | { ok: false; error: string } {
   const byId = new Map(input.domains.map((d) => [d.id, d]));
-  const swapEvent = input.events.find(
-    (e) =>
-      (e.eventType === "manual_swap" ||
-        e.eventType === "auto_failover" ||
-        e.eventType === "manual_rollback") &&
-      e.previousDomainId &&
-      e.previousDomainId !== input.currentPrimaryId,
-  );
-  if (!swapEvent?.previousDomainId) {
+  const swapEvent = input.events.find((e) => isPrimarySwapEventType(String(e.eventType)));
+  if (!swapEvent?.previousDomainId || swapEvent.previousDomainId === input.currentPrimaryId) {
     return { ok: false, error: "Não há domínio anterior registado no histórico para rollback." };
   }
   const target = byId.get(swapEvent.previousDomainId);

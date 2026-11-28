@@ -314,7 +314,7 @@ export async function pickRotatorDestination(
     if (advanceSequential) {
       await tx.trafficRotator.update({
         where: { id: rot.id },
-        data: { sequenceCursor: rot.sequenceCursor + 1 },
+        data: { sequenceCursor: { increment: 1 } },
       });
     }
     await tx.trafficRotatorArm.update({

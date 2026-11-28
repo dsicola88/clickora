@@ -8,7 +8,7 @@ export function mergeClickoraTrackingIntoHeader(headerCode: string, clickoraScri
   const s = (clickoraScript || "").trim();
   if (!s) return (headerCode || "").trim();
 
-  let h = stripClickoraEmbedScripts(headerCode || "");
+  const h = stripClickoraEmbedScripts(headerCode || "");
 
   if (h.includes(s)) return h;
   return h ? `${s}\n\n${h}` : s;
