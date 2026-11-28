@@ -35,8 +35,8 @@ function isWhiteNiche(content: Record<string, unknown>): boolean {
 }
 
 /** Substitui marcador / track antigo pelo track desta página (evita IDs da irmã no pacote). */
-function rewriteMirrorTrackHrefs(html: string, trackHref: string): string {
-  let out = html.split(MIRROR_TRACK_MARKER).join(trackHref);
+function rewriteMirrorTrackHrefs(html: string, trackHref: string, markerHref: string = trackHref): string {
+  let out = html.split(MIRROR_TRACK_MARKER).join(markerHref);
   // Track de outra presell já bakeado → apontar a esta
   out = out.replace(/\/track\/r\/[0-9a-f-]{36}/gi, () => {
     try {
@@ -162,6 +162,8 @@ export type PresellLiteHtmlInput = {
   spaPath?: string;
   /** Pixel 1×1 (impressão) — sem JS; opcional se ausente. */
   impressionPixelUrl?: string | null;
+  /** Click IDs / UTMs da URL de chegada: a página lite não tem JS para os passar ao hop. */
+  landingAttributionQuery?: string | null;
 };
 
 export type PresellLiteHtmlResult =
@@ -192,6 +194,8 @@ export function buildPresellLiteHtml(input: PresellLiteHtmlInput): PresellLiteHt
 
   const trackBase = input.trackApiBase.replace(/\/+$/, "");
   const trackHref = `${trackBase}/track/r/${encodeURIComponent(input.id)}`;
+  const attribution = (input.landingAttributionQuery || "").replace(/^\?/, "").trim();
+  const ctaHref = attribution ? `${trackHref}?${attribution}` : trackHref;
   const { headline, intro, cta } = articleBits(content);
   const title = str(input.title, 160) || headline;
   const img = firstImage(content);
@@ -202,7 +206,7 @@ export function buildPresellLiteHtml(input: PresellLiteHtmlInput): PresellLiteHt
     isWhiteNiche(content) && !isEssentialsImportPresentation(content) ? extractMirrorHtml(content) : "";
   const mirrorSanitized =
     mirrorRaw.length > 200 && mirrorRaw.length < 450_000
-      ? sanitizeMirrorEmbedForLiteHtml(rewriteMirrorTrackHrefs(mirrorRaw, trackHref))
+      ? sanitizeMirrorEmbedForLiteHtml(rewriteMirrorTrackHrefs(mirrorRaw, trackHref, ctaHref))
       : "";
   const useMirror = mirrorSanitized.length > 200;
 
@@ -213,13 +217,13 @@ export function buildPresellLiteHtml(input: PresellLiteHtmlInput): PresellLiteHt
   const body = useMirror
     ? `<div class="mirror">${mirrorSanitized}</div>
        <p style="text-align:center;margin:24px 0">
-         <a class="cta" href="${escapeHtml(trackHref)}">${escapeHtml(cta)}</a>
+         <a class="cta" href="${escapeHtml(ctaHref)}">${escapeHtml(cta)}</a>
        </p>`
     : `<article>
          ${hero}
          <h1>${escapeHtml(headline)}</h1>
          ${intro ? `<p class="intro">${escapeHtml(intro)}</p>` : ""}
-         <p><a class="cta" href="${escapeHtml(trackHref)}">${escapeHtml(cta)}</a></p>
+         <p><a class="cta" href="${escapeHtml(ctaHref)}">${escapeHtml(cta)}</a></p>
        </article>`;
 
   const impressionPixel = str(input.impressionPixelUrl, 4000);

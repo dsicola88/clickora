@@ -98,7 +98,35 @@ describe("planFinalUrlContinuitySuggestion", () => {
     assert.equal(paused?.suggestedHost, "backup.example");
     const unknown = plan("https://antigo-removido.example/visiflo");
     assert.equal(unknown?.issue, "unknown_host");
-    assert.notEqual(unknown?.suggestedHost, "go.example");
+    assert.equal(unknown?.severity, "info");
+    assert.equal(unknown?.suggestedUrl, null);
+  });
+
+  it("caminho que não é presell (link direto) não ganha Final URL inventada", () => {
+    const s = plan("https://main.example/a/b?x=1");
+    assert.equal(s?.issue, "domain_down");
+    assert.equal(s?.suggestedUrl, null);
+  });
+
+  it("raiz só migra para domínio que serve a mesma presell em `/`", () => {
+    const rootDomains: ContinuityDomain[] = [
+      { id: "a", hostname: "a.example", status: "verified", purpose: "both", isActive: true, healthStatus: "down", rootPresellId: "p1" },
+      { id: "b", hostname: "b.example", status: "verified", purpose: "both", isActive: true, healthStatus: "healthy", rootPresellId: null },
+      { id: "c", hostname: "c.example", status: "verified", purpose: "both", isActive: true, healthStatus: "healthy", rootPresellId: "p1" },
+    ];
+    const run = (domains: ContinuityDomain[]) =>
+      planFinalUrlContinuitySuggestion({
+        finalUrl: "https://a.example/?utm_source=google",
+        domains,
+        accountCanonicalDomainId: "b",
+        resolvePresell: (ref, d) =>
+          ref.kind === "root" && d?.rootPresellId === "p1"
+            ? { id: "p1", title: "V", status: "published", canonicalDomainId: "a" }
+            : null,
+        isPlatformHost: () => false,
+      });
+    assert.equal(run(rootDomains)?.suggestedUrl, "https://c.example/?utm_source=google");
+    assert.equal(run(rootDomains.filter((d) => d.id !== "c"))?.suggestedUrl, null);
   });
 
   it("nunca sugere destino degradado; `unknown` só na falta de domínio saudável", () => {

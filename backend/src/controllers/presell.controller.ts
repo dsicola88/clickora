@@ -22,6 +22,7 @@ import { getRequestHostname, hostnameLookupVariants } from "../lib/requestHost";
 import { getVerifiedOwnerIdForHostname, refreshCustomDomainCache } from "../lib/customDomainCache";
 import {
   alignPresellBindingsWithLegacyDomain,
+  DomainRoutingRefusedError,
   planRollbackTarget,
   swapPresellPrimaryDomain,
   syncPresellDomainBindings,
@@ -64,7 +65,7 @@ import {
 import { enqueuePresellDraftAudit } from "../lib/complianceAuditQueue";
 import { buildPresellLiteHtml, isPresellLiteHtmlEligible } from "../lib/presellLiteHtml";
 import { PRESSELL_LITE_HTML_CSP } from "../lib/sanitizeMirrorEmbedForLiteHtml";
-import { buildLiteImpressionPixelUrl } from "../lib/buildLiteImpressionPixelUrl";
+import { buildLiteImpressionPixelUrl, liteLandingAttributionParams } from "../lib/buildLiteImpressionPixelUrl";
 import { decideRootPresell } from "../lib/customDomainRoot";
 import { invalidateTrackEdgeDest } from "../lib/trackEdgeDestCache";
 import { isPresellUuidParam, publicSpaPresellUrl } from "../lib/publicSpaOrigin";
@@ -424,6 +425,7 @@ export const presellController = {
       trackApiBase,
       spaPath: spaUrl,
       impressionPixelUrl: buildLiteImpressionPixelUrl(trackApiBase, page.id, req),
+      landingAttributionQuery: liteLandingAttributionParams(req).toString(),
     });
     if (!built.ok) {
       res.setHeader("Cache-Control", "private, no-store");
@@ -1064,12 +1066,6 @@ export const presellController = {
     if (req.body.custom_domain_id !== undefined) {
       const oldId = page.customDomainId;
       const newId = updated.customDomainId;
-      if (oldId && oldId !== newId) {
-        await systemPrisma.customDomain.updateMany({
-          where: { id: oldId, rootPresellId: page.id },
-          data: { rootPresellId: null },
-        });
-      }
       if (newId !== oldId) {
         try {
           await alignPresellBindingsWithLegacyDomain({
@@ -1414,7 +1410,9 @@ export const presellController = {
         target_domain_id: result.targetDomainId,
       });
     } catch (e) {
-      return res.status(400).json({ error: e instanceof Error ? e.message : "Falha na troca de domínio." });
+      return res
+        .status(e instanceof DomainRoutingRefusedError ? 409 : 400)
+        .json({ error: e instanceof Error ? e.message : "Falha na troca de domínio." });
     }
   },
 
@@ -1469,7 +1467,9 @@ export const presellController = {
         target_domain_id: result.targetDomainId,
       });
     } catch (e) {
-      return res.status(400).json({ error: e instanceof Error ? e.message : "Falha no rollback." });
+      return res
+        .status(e instanceof DomainRoutingRefusedError ? 409 : 400)
+        .json({ error: e instanceof Error ? e.message : "Falha no rollback." });
     }
   },
 };
@@ -1702,7 +1702,10 @@ async function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
     ...base,
     settings: mergeAccountPixelsIntoSettings(base.settings, page.user),
     content: publicContent,
-    offer: resolvedOffer.ok ? base.offer : null,
+    /** Nome interno, hoplink de backup e bindings são privados do dono. */
+    offer: undefined,
+    offer_id: undefined,
+    domain_bindings: undefined,
     clicks: undefined,
     impressions: undefined,
     conversions: undefined,

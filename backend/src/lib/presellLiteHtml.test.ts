@@ -43,6 +43,27 @@ describe("presellLiteHtml", () => {
     assert.match(built.html, /Como avaliar Produto X/);
   });
 
+  it("CTA lite leva gclid/wbraid/UTMs da chegada para o hop (página sem JS)", () => {
+    const built = buildPresellLiteHtml({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Produto X",
+      type: "review",
+      content: {
+        affiliate_link: "https://offer.example/buy",
+        article: { headline: "H", intro: "Texto introdutório longo " + "x".repeat(50), cta_label: "Ver oferta" },
+      },
+      tracking: {},
+      trackApiBase: "https://go.example.com/api",
+      landingAttributionQuery: "gclid=Cj0abc&wbraid=W1&utm_source=google",
+    });
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+    assert.match(
+      built.html,
+      /href="https:\/\/go\.example\.com\/api\/track\/r\/11111111-1111-4111-8111-111111111111\?gclid=Cj0abc&amp;wbraid=W1&amp;utm_source=google"/,
+    );
+  });
+
   it("embute pixel 1×1 sem script quando impressionPixelUrl definido", () => {
     const built = buildPresellLiteHtml({
       id: "11111111-1111-4111-8111-111111111111",

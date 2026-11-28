@@ -301,6 +301,49 @@ describe("planAutoRecoveries", () => {
       { scope: "presell", presellId: "p1", fromDomainId: "bk", toDomainId: "main", failoverEventId: "e3" },
     ]);
   });
+
+  it("anti-flapping conta desde a última falha do original, não desde o failover", () => {
+    const domainsById = new Map([dom({ id: "main" }), dom({ id: "bk" })].map((d) => [d.id, d]));
+    const run = (failMinutesAgo: number) =>
+      planAutoRecoveries({
+        events: [ev({ id: "e1", minutesAgo: 60 })],
+        domainsById,
+        currentPrimaryByScope: new Map([["domain", "bk"]]),
+        now,
+        holdMs: hold,
+        lastFailureAtByDomain: new Map([["main", new Date(now.getTime() - failMinutesAgo * 60_000)]]),
+      }).length;
+    assert.equal(run(4), 0);
+    assert.equal(run(15), 1);
+  });
+
+  it("failovers em cadeia recuperam para o primário original; voltar ao original encerra o incidente", () => {
+    const domainsById = new Map([dom({ id: "main" }), dom({ id: "bk" }), dom({ id: "c" })].map((d) => [d.id, d]));
+    const chained = planAutoRecoveries({
+      events: [
+        ev({ id: "e1", minutesAgo: 60 }),
+        ev({ id: "e2", minutesAgo: 40, previousDomainId: "bk", targetDomainId: "c" }),
+      ],
+      domainsById,
+      currentPrimaryByScope: new Map([["domain", "c"]]),
+      now,
+      holdMs: hold,
+    });
+    assert.deepEqual(chained, [
+      { scope: "domain", presellId: null, fromDomainId: "c", toDomainId: "main", failoverEventId: "e2" },
+    ]);
+    const backToOrigin = planAutoRecoveries({
+      events: [
+        ev({ id: "e1", minutesAgo: 60 }),
+        ev({ id: "e2", minutesAgo: 40, previousDomainId: "bk", targetDomainId: "main" }),
+      ],
+      domainsById,
+      currentPrimaryByScope: new Map([["domain", "main"]]),
+      now,
+      holdMs: hold,
+    });
+    assert.equal(backToOrigin.length, 0);
+  });
 });
 
 describe("configuração de failover", () => {

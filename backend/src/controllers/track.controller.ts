@@ -510,12 +510,9 @@ export const trackController = {
       return sendSafeVisitorPage(res, page.settings);
     }
     const configuredOffer = resolvedOffer.destination;
-    const to = (toRaw && toRaw.trim()) || configuredOffer;
-    if (!to || !/^https?:\/\//i.test(to)) {
-      console.warn("[track.redirect] sem hoplink configurado", { presellId });
-      return sendSafeVisitorPage(res, page.settings);
-    }
+    let to = (toRaw && toRaw.trim()) || configuredOffer;
     if (
+      to !== configuredOffer &&
       !isRedirectAllowedForEffectiveOffer(
         to,
         configuredOffer,
@@ -523,7 +520,8 @@ export const trackController = {
         resolvedOffer.alternateDestinations,
       )
     ) {
-      console.warn("[track.redirect] parâmetro to não autorizado", {
+      /** Como o edge: `to` antigo (hoplink editado, HTML/CDN em cache) segue para o destino configurado. */
+      console.warn("[track.redirect] parâmetro to não autorizado → destino configurado", {
         presellId,
         host: (() => {
           try {
@@ -533,6 +531,10 @@ export const trackController = {
           }
         })(),
       });
+      to = configuredOffer;
+    }
+    if (!to || !/^https?:\/\//i.test(to)) {
+      console.warn("[track.redirect] sem hoplink configurado", { presellId });
       return sendSafeVisitorPage(res, page.settings);
     }
     const accessCheck = await validateOwnerCanTrack(page.userId);

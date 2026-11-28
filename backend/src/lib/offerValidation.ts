@@ -187,19 +187,28 @@ export function resolveEffectiveOfferForPresell(input: {
     if (!input.offer.isActive) {
       return { ok: false, reason: "offer_inactive", offerId: input.offer.id };
     }
+    const backup =
+      input.offer.backupHoplinkUrl &&
+      validateOfferSafety({ hoplinkUrl: input.offer.backupHoplinkUrl }).ok
+        ? input.offer.backupHoplinkUrl.trim()
+        : null;
     if (input.offer.validationStatus === "blocked") {
-      return { ok: false, reason: "offer_blocked", offerId: input.offer.id };
+      if (!backup) return { ok: false, reason: "offer_blocked", offerId: input.offer.id };
+      return {
+        ok: true,
+        destination: backup,
+        backupDestination: null,
+        alternateDestinations: [],
+        network: input.offer.network?.trim() || null,
+        offerId: input.offer.id,
+        source: "offer_entity",
+      };
     }
     const offerUrl = isHttpUrl(input.offer.hoplinkUrl) ? input.offer.hoplinkUrl.trim() : null;
     const destination = legacyUrl ?? offerUrl;
     if (!destination) {
       return { ok: false, reason: "offer_invalid_url", offerId: input.offer.id };
     }
-    const backup =
-      input.offer.backupHoplinkUrl &&
-      validateOfferSafety({ hoplinkUrl: input.offer.backupHoplinkUrl }).ok
-        ? input.offer.backupHoplinkUrl.trim()
-        : null;
     return {
       ok: true,
       destination,

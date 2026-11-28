@@ -10,7 +10,7 @@ Este documento descreve a arquitetura SaaS de continuidade de presells, gestão 
 2. **Sem Redirect Silencioso Entre Domínios de Final URL**: Failover nunca injeta `301/302` enganoso do domínio A para o domínio B para tráfego de anúncio pago. O sistema promove/troca o domínio ativo nos registos de roteamento e links gerados no painel, e gera alertas/auditoria para atualização controlada.
 3. **Sem Mutação Automática de Campanhas de Anúncios**: A Dclickora nunca altera Final URLs em campanhas ativas no Google Ads / Meta / TikTok sem aprovação explícita do operador.
 4. **Compatibilidade Total com Dados Legados**: Presells e campanhas antigas que usam `content.affiliateLink`, `tracking.offerUrl`, `custom_domain_id` ou `affiliate_campaigns.offer_url` continuam 100% operacionais durante e após o backfill.
-5. **Preservação End-to-End de Atribuição**: `gclid`, `gbraid`, `wbraid`, `gad_source`, `msclkid`, `fbclid`, `ttclid`, UTMs e `sub1..sub3` mantêm-se intactos entre domínio, `/track/r/`, edge worker e postback.
+5. **Preservação End-to-End de Atribuição**: `gclid`, `gbraid`, `wbraid`, `msclkid`, `fbclid`, `ttclid`, UTMs e `sub1..sub3` mantêm-se intactos entre domínio, `/track/r/`, edge worker e postback. `gad_source` e `gad_campaignid` ficam nos metadados do clique na Clickora e não seguem para o hoplink de terceiros.
 
 ---
 
@@ -182,7 +182,7 @@ Correções aplicadas antes de avançar:
 - Medição essencial (`/track/r/`, pixel, impressões) nunca depende de bindings, pausa de domínio nem consentimento.
 - Nenhum domínio serve conteúdo diferente por IP/UA/bot; AdsBot vê sempre a Final URL real.
 - Nenhum 301/302 automático entre domínios de Final URL; nenhuma escrita na Google Ads a partir da continuidade.
-- `gclid` / `gbraid` / `wbraid` / `gad_source` / UTMs / SubIDs preservados no hop; sugestões de Final URL sem `gclid` manual.
+- `gclid` / `gbraid` / `wbraid` / UTMs / SubIDs preservados no hop (`gad_source` registado no clique); sugestões de Final URL sem `gclid` manual.
 
 ### Verificação contra Postgres real (base descartável local)
 
@@ -210,7 +210,7 @@ Backend (`:3101`) e frontend (`:5273`, `VITE_API_URL` apontado ao backend local)
 - **Auto-recuperação:** com o nome original de volta, após o período de espera, o domínio e a presell regressam ao original, com evento `auto_recovery` por scope.
 - **Ações manuais na UI:** pausar/ativar oferta foi testado nesta base (gravou `is_active`; o hop reagiu: pausada → 403 com página neutra sem hoplink; ativa → 302). Promover a primário (`manual_swap`) e rollback (`manual_rollback`) foram testados na sessão anterior, antes do reinício da máquina, com eventos gravados e o painel a refletir a troca.
 - **Assistente de Final URL:** sugere o mesmo caminho e query no domínio ativo, remove `gclid`, não altera nada automaticamente. Corrigido: se o caminho aponta para uma presell que não existe na conta, **não** se inventa URL (antes sugeria uma página que podia dar 404).
-- **Conformidade do funil público:** a presell pública devolve o mesmo corpo para utilizador, AdsBot, Googlebot, Google-InspectionTool e facebookexternalhit. O hop `/track/r/` faz um único 302 para o hoplink, preservando `gclid`, `gbraid`, `wbraid`, `gad_source` e UTMs, idêntico para humanos e bots. Pixel e impressão respondem 200. Um domínio pausado continua a aceitar medição (CORS).
+- **Conformidade do funil público:** a presell pública devolve o mesmo corpo para utilizador, AdsBot, Googlebot, Google-InspectionTool e facebookexternalhit. O hop `/track/r/` faz um único 302 para o hoplink, preservando `gclid`, `gbraid`, `wbraid` e UTMs (com `gad_source` registado no clique), idêntico para humanos e bots. Pixel e impressão respondem 200. Um domínio pausado continua a aceitar medição (CORS).
 - **Segurança das rotas:** rotas de continuidade e ofertas exigem autenticação (401 sem token) e não recebem CORS de origens fora da allowlist.
 - **Copy:** o risco de presell legada passou de "Primário offline" para "Domínio configurado offline" (presells sem bindings usam o domínio configurado, que pode ser um backup), nas quatro locales.
 - **Editor de presell — domínios autorizados (failover/backup):** "+ Autorizar backup", "Remover backup", "Tornar primário" e "Rollback" persistem em `presell_domain_bindings`, mostram toast e atualizam o link público. Verificado na UI: backup autorizado; failover automático do monitor (primário offline → backup `example.net` a primário, link público atualizado); troca manual de volta para `example.com` com o anterior preservado como backup. Um "não persiste" anterior foi causado pela base de teste (ids de domínio não-UUID); com UUIDs reais o fluxo funciona.

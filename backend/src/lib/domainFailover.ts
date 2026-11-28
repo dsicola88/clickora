@@ -141,9 +141,10 @@ function scopeKey(ev: { scope: string; presellId: string | null }): string {
 }
 
 /**
- * Recuperações pendentes: `auto_failover` cujo domínio original voltou a estar saudável,
- * passou a janela anti-flapping, tem `autoRecover` ligado e o primário atual ainda é o alvo do failover
- * (se o dono trocou manualmente entretanto, a escolha humana prevalece).
+ * Recuperações pendentes: `auto_failover` cujo domínio original voltou a estar saudável, sem falhas há
+ * pelo menos `holdMs` (anti-flapping), tem `autoRecover` ligado e o primário atual ainda é o alvo do
+ * failover (se o dono trocou manualmente entretanto, a escolha humana prevalece).
+ * Failovers em cadeia (P→B, B→C) recordam o primário original P; voltar a P encerra o incidente.
  */
 export function planAutoRecoveries(input: {
   events: RoutingEventForRecovery[];
@@ -151,20 +152,30 @@ export function planAutoRecoveries(input: {
   currentPrimaryByScope: Map<string, string | null>;
   now: Date;
   holdMs: number;
+  /** Última sondagem falhada/degradada por domínio. */
+  lastFailureAtByDomain?: Map<string, Date>;
 }): Array<{ scope: "domain" | "presell"; presellId: string | null; fromDomainId: string; toDomainId: string; failoverEventId: string }> {
   const sorted = [...input.events].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  const latestFailoverByScope = new Map<string, RoutingEventForRecovery>();
+  const incidentByScope = new Map<string, { ev: RoutingEventForRecovery; originId: string | null }>();
   for (const ev of sorted) {
     const key = scopeKey(ev);
-    if (ev.eventType === "auto_failover") latestFailoverByScope.set(key, ev);
-    else if (RESOLVING_EVENTS.has(String(ev.eventType))) latestFailoverByScope.delete(key);
+    if (ev.eventType === "auto_failover") {
+      const open = incidentByScope.get(key);
+      const originId = open?.originId ?? ev.previousDomainId;
+      if (originId && ev.targetDomainId === originId) incidentByScope.delete(key);
+      else incidentByScope.set(key, { ev, originId });
+    } else if (RESOLVING_EVENTS.has(String(ev.eventType))) {
+      incidentByScope.delete(key);
+    }
   }
 
   const out: Array<{ scope: "domain" | "presell"; presellId: string | null; fromDomainId: string; toDomainId: string; failoverEventId: string }> = [];
-  for (const [key, ev] of latestFailoverByScope) {
-    if (!ev.previousDomainId || !ev.targetDomainId) continue;
-    if (input.now.getTime() - ev.createdAt.getTime() < input.holdMs) continue;
-    const original = input.domainsById.get(ev.previousDomainId);
+  for (const [key, { ev, originId }] of incidentByScope) {
+    if (!originId || !ev.targetDomainId) continue;
+    const lastFailure = input.lastFailureAtByDomain?.get(originId)?.getTime() ?? 0;
+    const stableSince = Math.max(ev.createdAt.getTime(), lastFailure);
+    if (input.now.getTime() - stableSince < input.holdMs) continue;
+    const original = input.domainsById.get(originId);
     if (!original || !original.autoRecover) continue;
     if (original.healthStatus !== "healthy" || !isUsableFailoverTarget(original)) continue;
     const currentPrimary = input.currentPrimaryByScope.get(key) ?? null;
@@ -173,11 +184,26 @@ export function planAutoRecoveries(input: {
       scope: key === "domain" ? "domain" : "presell",
       presellId: key === "domain" ? null : ev.presellId,
       fromDomainId: ev.targetDomainId,
-      toDomainId: ev.previousDomainId,
+      toDomainId: originId,
       failoverEventId: ev.id,
     });
   }
   return out;
+}
+
+/**
+ * Serializa failover/recuperação por conta entre réplicas: `pg_try_advisory_xact_lock` fica preso à
+ * transação aberta enquanto `fn` corre (noutras ligações). Outra réplica com o lock ocupado salta a conta.
+ */
+export async function withUserRoutingLock<T>(userId: string, fn: () => Promise<T>): Promise<T | null> {
+  return systemPrisma.$transaction(
+    async (tx) => {
+      const rows = await tx.$queryRaw<Array<{ ok: boolean }>>`SELECT pg_try_advisory_xact_lock(hashtext(${`domain-routing:${userId}`})) AS ok`;
+      if (!rows[0]?.ok) return null;
+      return fn();
+    },
+    { maxWait: 10_000, timeout: 300_000 },
+  );
 }
 
 const FAILOVER_DOMAIN_SELECT = {
@@ -234,6 +260,15 @@ export async function executeFailoverForDownDomain(args: {
   confirmTarget?: ConfirmFailoverTarget;
 }): Promise<FailoverActionResult[]> {
   if (!autoFailoverEnabled()) return [];
+  return (await withUserRoutingLock(args.userId, () => executeFailoverLocked(args))) ?? [];
+}
+
+async function executeFailoverLocked(args: {
+  userId: string;
+  failedDomainId: string;
+  reason: string;
+  confirmTarget?: ConfirmFailoverTarget;
+}): Promise<FailoverActionResult[]> {
   const domains = await systemPrisma.customDomain.findMany({
     where: { userId: args.userId },
     select: FAILOVER_DOMAIN_SELECT,
@@ -268,6 +303,7 @@ export async function executeFailoverForDownDomain(args: {
         automaticEventType: "auto_failover",
         reason: `Failover automático: ${host(args.failedDomainId) ?? "domínio"} indisponível (${args.reason}).`,
         metadata: { failed_domain_id: args.failedDomainId },
+        expectedCurrentPrimaryId: args.failedDomainId,
       });
       results.push({
         kind: "account_failover",
@@ -316,6 +352,7 @@ export async function executeFailoverForDownDomain(args: {
         automaticEventType: "auto_failover",
         reason: `Failover automático da presell: ${host(plan.fromDomainId) ?? "domínio"} indisponível.`,
         metadata: { failed_domain_id: plan.fromDomainId },
+        expectedCurrentPrimaryId: plan.fromDomainId,
       });
       results.push({
         kind: "presell_failover",
@@ -346,7 +383,7 @@ export async function processPendingAutoRecoveries(now: Date = new Date()): Prom
   const results: FailoverActionResult[] = [];
   for (const { userId } of failovers) {
     try {
-      results.push(...(await processUserAutoRecoveries(userId, now, since)));
+      results.push(...((await withUserRoutingLock(userId, () => processUserAutoRecoveries(userId, now, since))) ?? []));
     } catch (err) {
       console.warn("[domainFailover] auto-recovery falhou:", userId, err instanceof Error ? err.message : err);
     }
@@ -387,12 +424,28 @@ async function processUserAutoRecoveries(userId: string, now: Date, since: Date)
   );
   for (const p of primaries) currentPrimaryByScope.set(`presell:${p.presellId}`, p.customDomainId);
 
+  const lastFailures = await systemPrisma.domainRoutingEvent.groupBy({
+    by: ["customDomainId"],
+    where: {
+      userId,
+      createdAt: { gte: since },
+      eventType: { in: ["health_check_failed", "health_check_degraded"] },
+      customDomainId: { not: null },
+    },
+    _max: { createdAt: true },
+  });
+  const lastFailureAtByDomain = new Map<string, Date>();
+  for (const row of lastFailures) {
+    if (row.customDomainId && row._max.createdAt) lastFailureAtByDomain.set(row.customDomainId, row._max.createdAt);
+  }
+
   const plans = planAutoRecoveries({
     events,
     domainsById: byId,
     currentPrimaryByScope,
     now,
     holdMs: autoRecoveryHoldMs(),
+    lastFailureAtByDomain,
   });
   const host = (id: string) => byId.get(id)?.hostname ?? null;
   const results: FailoverActionResult[] = [];
@@ -406,6 +459,7 @@ async function processUserAutoRecoveries(userId: string, now: Date, since: Date)
           automaticEventType: "auto_recovery",
           reason: `Recuperação automática: ${host(plan.toDomainId) ?? "domínio"} voltou a responder.`,
           metadata: { failover_event_id: plan.failoverEventId },
+          expectedCurrentPrimaryId: plan.fromDomainId,
         });
       } else if (plan.presellId) {
         await swapPresellPrimaryDomain({
@@ -416,6 +470,7 @@ async function processUserAutoRecoveries(userId: string, now: Date, since: Date)
           automaticEventType: "auto_recovery",
           reason: `Recuperação automática da presell: ${host(plan.toDomainId) ?? "domínio"} voltou a responder.`,
           metadata: { failover_event_id: plan.failoverEventId },
+          expectedCurrentPrimaryId: plan.fromDomainId,
         });
       }
       results.push({

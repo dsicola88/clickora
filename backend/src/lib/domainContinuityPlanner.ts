@@ -115,6 +115,8 @@ export type ContinuityDomain = {
   purpose: string;
   isActive: boolean;
   healthStatus: string;
+  /** Presell servida em `/`. Uma Final URL de raiz só migra para um domínio com a mesma escolha. */
+  rootPresellId?: string | null;
 };
 
 export type ContinuityPresellInfo = {
@@ -157,8 +159,9 @@ function isServingCandidate(d: ContinuityDomain | null | undefined): d is Contin
 }
 
 /**
- * Avalia uma Final URL de um anúncio. Devolve `null` quando está OK ou não pertence ao dono.
- * A sugestão troca só o host (mesmo path/query), por isso a landing revista pelo Google não muda.
+ * Avalia uma Final URL de um anúncio. Devolve `null` quando está OK; host fora da conta só gera aviso, sem sugestão.
+ * A sugestão troca só o host (mesmo path/query) e só quando a presell está resolvida e o destino a serve
+ * no mesmo caminho, por isso a landing revista pelo Google não muda.
  */
 export function planFinalUrlContinuitySuggestion(input: {
   finalUrl: string;
@@ -187,18 +190,21 @@ export function planFinalUrlContinuitySuggestion(input: {
   // Destino sugerido para os anúncios: saudável primeiro; `unknown` (ainda por sondar) só na falta de um saudável.
   // Nunca `degraded` — mesma regra do failover automático (não enviar tráfego pago para um domínio a falhar).
   const ordered = [canonicalForPresell, accountCanonical, ...input.domains];
+  // Raiz (`/`): o destino tem de servir a mesma presell em `/`, senão a landing revista muda.
+  const servesSameRoot = (d: ContinuityDomain) => ref?.kind !== "root" || (presell !== null && d.rootPresellId === presell.id);
   const pickTarget = (allowUnknown: boolean) =>
     ordered.find(
       (d) =>
         isServingCandidate(d) &&
         d.id !== domain?.id &&
+        servesSameRoot(d) &&
         (d.healthStatus === "healthy" || (allowUnknown && d.healthStatus === "unknown")),
     ) ?? null;
   const target = pickTarget(false) ?? pickTarget(true);
 
   // Se o caminho aponta para uma presell que não existe na conta, não há página garantida no destino:
   // não inventamos uma Final URL (evita enviar tráfego pago para um 404 / página errada).
-  const unresolvedPresellRef = ref !== null && ref.kind !== "root" && presell === null;
+  const unresolvedPresellRef = ref === null || presell === null;
 
   const suggestion = (issue: FinalUrlIssue, severity: FinalUrlSuggestion["severity"], withTarget: boolean): FinalUrlSuggestion => {
     let suggestedUrl: string | null = null;
@@ -220,7 +226,7 @@ export function planFinalUrlContinuitySuggestion(input: {
     };
   };
 
-  if (!domain) return suggestion("unknown_host", "warning", true);
+  if (!domain) return suggestion("unknown_host", "info", false);
   if (domain.status !== "verified") return suggestion("domain_unverified", "critical", true);
   if (presell && presell.status !== "published") return suggestion("presell_unpublished", "critical", false);
   if (domain.healthStatus === "down") return suggestion("domain_down", "critical", true);

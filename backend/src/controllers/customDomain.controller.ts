@@ -33,6 +33,8 @@ import {
   trackingCapablePurposeFilter,
 } from "../lib/customDomainPurpose";
 import {
+  DomainRoutingRefusedError,
+  planPrimaryDomainSwap,
   planRollbackTarget,
   promotePrimaryDomainForUser,
   recordDomainRoutingEvent,
@@ -418,6 +420,18 @@ export const customDomainController = {
         error: "Domínio só de tracking não pode ser o padrão da lander. Use purpose hosting ou both.",
       });
     }
+    if (!row.isDefault) {
+      const gate = planPrimaryDomainSwap({
+        currentPrimary: null,
+        target: row as unknown as RoutingDomainCandidate,
+        scope: "hosting",
+      });
+      if (!gate.ok) return res.status(409).json({ error: gate.error });
+    }
+    const previousDefault = await prisma.customDomain.findFirst({
+      where: { userId, isDefault: true, purpose: { not: "tracking" } },
+      select: { id: true },
+    });
 
     await systemPrisma.$transaction([
       systemPrisma.customDomain.updateMany({ where: { userId }, data: { isDefault: false } }),
@@ -431,11 +445,13 @@ export const customDomainController = {
       }),
     ]);
     await refreshCustomDomainCache();
+    const swapped = previousDefault && previousDefault.id !== row.id;
     await recordDomainRoutingEvent({
       userId,
-      eventType: "role_changed",
+      eventType: swapped ? "manual_swap" : "role_changed",
       scope: "domain",
       customDomainId: row.id,
+      previousDomainId: swapped ? previousDefault.id : null,
       targetDomainId: row.id,
       actorUserId: req.user?.userId ?? userId,
       reason: `Domínio ${row.hostname} definido como primário (padrão).`,
@@ -687,14 +703,25 @@ export const customDomainController = {
         ? Math.max(1, Math.min(10_000, req.body.routing_priority))
         : undefined;
 
-    if (roleRaw === "primary" && row.status === "verified" && isHostingCapablePurpose(row.purpose)) {
-      await promotePrimaryDomainForUser({
-        userId,
-        targetDomainId: row.id,
-        actorUserId: req.user?.userId ?? userId,
-        workspaceId: req.user?.workspaceId,
-        reason: `Papel de ${row.hostname} alterado para primário.`,
-      });
+    if (roleRaw === "primary") {
+      if (row.status !== "verified" || !isHostingCapablePurpose(row.purpose)) {
+        return res.status(400).json({ error: "Só um domínio verificado de hosting pode ser primário." });
+      }
+      if (!row.isDefault) {
+        try {
+          await promotePrimaryDomainForUser({
+            userId,
+            targetDomainId: row.id,
+            actorUserId: req.user?.userId ?? userId,
+            workspaceId: req.user?.workspaceId,
+            reason: `Papel de ${row.hostname} alterado para primário.`,
+          });
+        } catch (err) {
+          return res.status(err instanceof DomainRoutingRefusedError ? 409 : 400).json({
+            error: err instanceof Error ? err.message : "Não foi possível promover o domínio.",
+          });
+        }
+      }
     }
 
     if (roleRaw !== undefined || autoRecover !== undefined || priority !== undefined) {
@@ -743,7 +770,7 @@ export const customDomainController = {
       });
       return res.json({ ok: true, ...result, domains: list.map((r) => mapRow(r)) });
     } catch (err) {
-      return res.status(400).json({
+      return res.status(err instanceof DomainRoutingRefusedError ? 409 : 400).json({
         error: err instanceof Error ? err.message : "Não foi possível trocar o domínio principal.",
       });
     }
@@ -755,7 +782,8 @@ export const customDomainController = {
     const [domains, events] = await Promise.all([
       prisma.customDomain.findMany({ where: { userId } }),
       prisma.domainRoutingEvent.findMany({
-        where: { userId, scope: "domain" },
+        /** Só trocas: eventos de sonda durante uma falha empurravam a última troca para fora da janela. */
+        where: { userId, scope: "domain", eventType: { in: ["manual_swap", "auto_failover", "manual_rollback"] } },
         orderBy: { createdAt: "desc" },
         take: 30,
       }),

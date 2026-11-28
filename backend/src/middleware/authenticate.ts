@@ -1,6 +1,26 @@
 import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 import { verifyToken, JwtPayload } from "../lib/jwt";
-import { resolveLiveWorkspaceClaims, SessionRevokedError } from "../lib/workspaceSessionGuard";
+import {
+  resolveLiveWorkspaceClaims,
+  SessionRevokedError,
+  SessionUserGoneError,
+} from "../lib/workspaceSessionGuard";
+
+/** 401 só quando o token é de facto inválido; falhas de infraestrutura (BD) não podem terminar a sessão no cliente. */
+export function respondSessionAuthError(err: unknown, res: Response) {
+  if (err instanceof SessionRevokedError) {
+    return res.status(401).json({ error: "Sessão terminada. Inicie sessão novamente.", code: "SESSION_REVOKED" });
+  }
+  if (err instanceof SessionUserGoneError || err instanceof jwt.JsonWebTokenError) {
+    return res.status(401).json({ error: "Token inválido ou expirado" });
+  }
+  console.error("[auth] falha ao validar sessão:", err);
+  return res.status(503).json({
+    error: "Autenticação temporariamente indisponível. Tente de novo dentro de instantes.",
+    code: "AUTH_UNAVAILABLE",
+  });
+}
 
 // Extend Express Request
 declare global {
@@ -38,9 +58,6 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     };
     next();
   } catch (err) {
-    if (err instanceof SessionRevokedError) {
-      return res.status(401).json({ error: "Sessão terminada. Inicie sessão novamente.", code: "SESSION_REVOKED" });
-    }
-    return res.status(401).json({ error: "Token inválido ou expirado" });
+    return respondSessionAuthError(err, res);
   }
 }

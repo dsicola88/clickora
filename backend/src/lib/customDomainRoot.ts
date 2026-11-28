@@ -37,9 +37,13 @@ export function presellBelongsToDomain(
   return page.customDomainId === null && domain.isDefault;
 }
 
-/** Elegível para servir na raiz: do mesmo dono/domínio e publicada. */
+/**
+ * Elegível para servir na raiz: do mesmo dono e publicada. A escolha explícita (`rootPresellId`) basta —
+ * troca de domínio principal, failover e rollback mudam `customDomainId`, e a raiz que está como
+ * Final URL no Ads tem de continuar a servir a mesma página.
+ */
 export function isEligibleRootPresell(page: RootPage, domain: RootDomain): boolean {
-  return page.status === "published" && presellBelongsToDomain(page, domain);
+  return page.status === "published" && page.userId === domain.userId;
 }
 
 export type RootDecision<P extends RootPage> =

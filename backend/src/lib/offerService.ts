@@ -97,14 +97,17 @@ export async function validateAndPersistOffer(args: {
       error_code: probe.errorCode ?? null,
     };
 
-    if (probe.redirectCycle || probe.openRedirectSuspect || probe.errorCode === "ssrf_blocked") {
+    if (probe.errorCode === "ssrf_blocked") {
       validationStatus = "blocked";
       compliancePassed = false;
-      lastValidationError =
-        probe.errorMessage ||
-        (probe.redirectCycle
-          ? "Loop de redirecionamentos detetado na oferta."
-          : "Destino bloqueado por segurança / open-redirect.");
+      lastValidationError = probe.errorMessage || "Destino bloqueado por segurança.";
+    } else if (probe.redirectCycle || probe.openRedirectSuspect) {
+      /** Heurísticas (sonda sem cookies, regex de redirect) não bloqueiam: um falso positivo cortaria tráfego pago. */
+      validationStatus = "warning";
+      compliancePassed = true;
+      lastValidationError = probe.redirectCycle
+        ? "Possível loop de redirecionamentos na verificação (sem cookies). Confirme o hoplink no browser."
+        : "O destino tem um parâmetro de redirecionamento para outro site. Confirme que é o da rede de afiliados.";
     } else if (!probe.ok && !probe.crawlerBlocked) {
       validationStatus = "warning";
       compliancePassed = true;

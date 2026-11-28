@@ -73,6 +73,12 @@ export function healthCheckIntervalFor(status: string, cfg: Pick<MonitorConfig, 
   return status === "degraded" || status === "down" ? cfg.recheckIntervalMs : cfg.healthyIntervalMs;
 }
 
+/**
+ * `lastHealthCheckAt` é escrito no claim e no fim da sonda, depois do início do tick: sem folga, um intervalo
+ * igual ao período do cron só vence no tick seguinte (2 min viravam 4).
+ */
+export const HEALTH_CHECK_DUE_SLACK_MS = 45_000;
+
 /** Seleciona os domínios vencidos (mais antigos primeiro; nunca sondados à frente), limitado ao lote. */
 export function selectDomainsDueForHealthCheck(
   rows: MonitorCandidate[],
@@ -81,7 +87,10 @@ export function selectDomainsDueForHealthCheck(
 ): MonitorCandidate[] {
   const due = rows.filter((r) => {
     if (!r.lastHealthCheckAt) return true;
-    return now.getTime() - r.lastHealthCheckAt.getTime() >= healthCheckIntervalFor(r.healthStatus, cfg);
+    return (
+      now.getTime() - r.lastHealthCheckAt.getTime() >=
+      healthCheckIntervalFor(r.healthStatus, cfg) - HEALTH_CHECK_DUE_SLACK_MS
+    );
   });
   due.sort((a, b) => {
     const ta = a.lastHealthCheckAt?.getTime() ?? 0;
@@ -194,7 +203,9 @@ export async function runDomainHealthMonitorTick(
   const pendingFailovers: Array<{ candidate: MonitorCandidate; reason: string }> = [];
 
   await runWithConcurrency(due, cfg.concurrency, async (candidate) => {
-    const cutoff = new Date(now.getTime() - healthCheckIntervalFor(candidate.healthStatus, cfg) + 1_000);
+    const cutoff = new Date(
+      now.getTime() - healthCheckIntervalFor(candidate.healthStatus, cfg) + HEALTH_CHECK_DUE_SLACK_MS + 1_000,
+    );
     try {
       if (!(await deps.claim(candidate, cutoff))) {
         skippedClaim += 1;
@@ -316,6 +327,9 @@ export async function runDomainHealthMonitorTick(
   return { candidates: due.length, checked, failures, skippedClaim, errors, alerts, failovers, recoveries, durationMs };
 }
 
+/** Eventos de sonda: o painel usa 7 dias; trocas e failovers nunca são apagados. */
+const HEALTH_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000;
+
 let tickInFlight = false;
 
 /** Guarda de sobreposição: um tick lento nunca corre em paralelo com o seguinte no mesmo processo. */
@@ -366,6 +380,22 @@ export function registerDomainHealthMonitor(): cron.ScheduledTask | null {
       }
     },
     { timezone: "UTC", name: "domain-health-monitor" },
+  );
+  cron.schedule(
+    "17 * * * *",
+    async () => {
+      try {
+        await systemPrisma.domainRoutingEvent.deleteMany({
+          where: {
+            eventType: { in: ["health_check_passed", "health_check_degraded", "health_check_failed"] },
+            createdAt: { lt: new Date(Date.now() - HEALTH_EVENT_RETENTION_MS) },
+          },
+        });
+      } catch (e) {
+        console.warn("[domain-monitor] retenção de eventos falhou:", e instanceof Error ? e.message : e);
+      }
+    },
+    { timezone: "UTC", name: "domain-health-events-retention" },
   );
   console.info(
     `[domain-monitor] cron «${expr}» · intervalo ${cfg.healthyIntervalMs / 60_000}min · re-check ${cfg.recheckIntervalMs / 60_000}min · lote ${cfg.batchSize} · concorrência ${cfg.concurrency}`,

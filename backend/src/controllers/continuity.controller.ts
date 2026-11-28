@@ -90,7 +90,8 @@ export const continuityController = {
           eventType: { in: ["health_check_passed", "health_check_degraded", "health_check_failed"] },
         },
         select: { customDomainId: true, createdAt: true, eventType: true, metadata: true },
-        orderBy: { createdAt: "asc" },
+        /** Mais recentes primeiro (o limite corta o passado, não o presente); invertido abaixo. */
+        orderBy: { createdAt: "desc" },
         take: 10_000,
       }),
       prisma.presellPage.findMany({
@@ -110,7 +111,7 @@ export const continuityController = {
         where: {
           userId,
           eventType: {
-            in: ["auto_failover", "auto_recovery", "manual_swap", "manual_rollback", "health_check_failed", "role_changed", "domain_disabled", "domain_enabled"],
+            in: ["auto_failover", "auto_recovery", "manual_swap", "manual_rollback", "role_changed", "domain_disabled", "domain_enabled"],
           },
         },
         orderBy: { createdAt: "desc" },
@@ -132,7 +133,7 @@ export const continuityController = {
 
     const byId = new Map(domains.map((d) => [d.id, d]));
     const eventsByDomain = new Map<string, typeof healthEvents>();
-    for (const ev of healthEvents) {
+    for (const ev of [...healthEvents].reverse()) {
       if (!ev.customDomainId) continue;
       const arr = eventsByDomain.get(ev.customDomainId) ?? [];
       arr.push(ev);
@@ -196,6 +197,7 @@ export const continuityController = {
       purpose: String(d.purpose),
       isActive: d.isActive,
       healthStatus: d.healthStatus,
+      rootPresellId: d.rootPresellId ?? null,
     }));
 
     type AdRow = {

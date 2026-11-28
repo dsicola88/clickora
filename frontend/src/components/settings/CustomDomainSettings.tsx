@@ -740,7 +740,9 @@ export function CustomDomainSettings() {
                           .filter(
                             (p) =>
                               p.status === "published" &&
-                              (p.custom_domain_id === d.id || (p.custom_domain_id == null && d.is_default)),
+                              (p.id === d.root_presell_id ||
+                                p.custom_domain_id === d.id ||
+                                (p.custom_domain_id == null && d.is_default)),
                           )
                           .map((p) => (
                             <SelectItem key={p.id} value={p.id}>

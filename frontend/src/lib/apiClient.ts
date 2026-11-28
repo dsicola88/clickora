@@ -13,6 +13,14 @@ class ApiClient {
     return localStorage.getItem("clickora_token");
   }
 
+  /** Um 401 de um pedido antigo não pode apagar o token emitido depois (troca de password, outro separador). */
+  private logoutIfTokenUnchanged(sentToken: string | null): void {
+    if (sentToken !== null && this.getToken() !== sentToken) return;
+    localStorage.removeItem("clickora_token");
+    localStorage.removeItem("clickora_user");
+    window.dispatchEvent(new CustomEvent("auth:logout"));
+  }
+
   private getHeaders(extraHeaders?: Record<string, string>): HeadersInit {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -66,6 +74,7 @@ class ApiClient {
 
       /** Evita `/path/` → 404 em proxies/Express quando a rota está registada sem barra final. */
       const path = endpoint.length > 1 ? endpoint.replace(/\/+$/, "") : endpoint;
+      const sentToken = this.getToken();
       const response = await fetch(`${this.baseUrl}${path}`, {
         method,
         headers: isFormData ? this.getFormDataHeaders(headers) : this.getHeaders(headers),
@@ -115,9 +124,7 @@ class ApiClient {
         }
 
         if (response.status === 401) {
-          localStorage.removeItem("clickora_token");
-          localStorage.removeItem("clickora_user");
-          window.dispatchEvent(new CustomEvent("auth:logout"));
+          this.logoutIfTokenUnchanged(sentToken);
         } else if (
           response.status === 403 &&
           typeof errCode === "string" &&
@@ -167,6 +174,7 @@ class ApiClient {
     error: string | null;
   }> {
     try {
+      const sentToken = this.getToken();
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: "GET",
         headers: this.getAuthHeaders(),
@@ -181,9 +189,7 @@ class ApiClient {
         const message = errorData.message || errorData.error || `Erro ${response.status}`;
         const errCode = typeof errorData.code === "string" ? errorData.code : null;
         if (response.status === 401) {
-          localStorage.removeItem("clickora_token");
-          localStorage.removeItem("clickora_user");
-          window.dispatchEvent(new CustomEvent("auth:logout"));
+          this.logoutIfTokenUnchanged(sentToken);
         } else if (
           response.status === 403 &&
           typeof errCode === "string" &&

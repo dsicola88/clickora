@@ -3,7 +3,8 @@ import { systemPrisma } from "../lib/prisma";
 import { verifyToken, type JwtPayload } from "../lib/jwt";
 import { apiKeyMatches, looksLikeApiKey } from "../lib/apiKeys";
 import { normalizeApiKeyScopes, type ApiKeyScope } from "../lib/apiKeyScopes";
-import { resolveLiveWorkspaceClaims, SessionRevokedError } from "../lib/workspaceSessionGuard";
+import { resolveLiveWorkspaceClaims } from "../lib/workspaceSessionGuard";
+import { respondSessionAuthError } from "./authenticate";
 
 declare global {
   namespace Express {
@@ -99,9 +100,6 @@ export async function authenticateJwtOrApiKey(req: Request, res: Response, next:
     req.apiKeyId = undefined;
     next();
   } catch (err) {
-    if (err instanceof SessionRevokedError) {
-      return res.status(401).json({ error: "Sessão terminada. Inicie sessão novamente.", code: "SESSION_REVOKED" });
-    }
-    return res.status(401).json({ error: "Token inválido ou expirado" });
+    return respondSessionAuthError(err, res);
   }
 }

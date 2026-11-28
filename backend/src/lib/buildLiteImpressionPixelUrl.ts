@@ -8,22 +8,9 @@ import {
 
 const CLICK_KEYS = new Set(["gclid", "gbraid", "wbraid", "fbclid", "ttclid", "msclkid"]);
 
-/**
- * URL do pixel 1×1 para HTML lite — mesma atribuição que a SPA (`PublicPresell` / `pixel.gif`).
- * Sem `<script>`: só `<img>` no documento estático.
- */
-export function buildLiteImpressionPixelUrl(
-  trackApiBase: string,
-  presellId: string,
-  req: Pick<Request, "query" | "headers">,
-): string {
-  const base = trackApiBase.replace(/\/+$/, "");
+/** Click IDs, UTMs e subs da URL de chegada (sem macros por substituir). */
+export function liteLandingAttributionParams(req: Pick<Request, "query">): URLSearchParams {
   const params = new URLSearchParams();
-  const referer = req.headers.referer;
-  if (typeof referer === "string" && referer.trim()) {
-    params.set("referrer", referer.trim());
-  }
-
   const keys = [
     "utm_source",
     "utm_medium",
@@ -57,6 +44,25 @@ export function buildLiteImpressionPixelUrl(
     }
     if (v) params.set(k, v);
   }
+  return params;
+}
+
+/**
+ * URL do pixel 1×1 para HTML lite — mesma atribuição que a SPA (`PublicPresell` / `pixel.gif`).
+ * Sem `<script>`: só `<img>` no documento estático.
+ */
+export function buildLiteImpressionPixelUrl(
+  trackApiBase: string,
+  presellId: string,
+  req: Pick<Request, "query" | "headers">,
+): string {
+  const base = trackApiBase.replace(/\/+$/, "");
+  const params = new URLSearchParams();
+  const referer = req.headers.referer;
+  if (typeof referer === "string" && referer.trim()) {
+    params.set("referrer", referer.trim());
+  }
+  for (const [k, v] of liteLandingAttributionParams(req)) params.set(k, v);
 
   const fbp = requestCookieValue(req as Request, "_fbp");
   if (fbp) params.set("fbp", fbp);

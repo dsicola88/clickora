@@ -16,6 +16,7 @@ import {
   verifyTotp,
 } from "../lib/mfa";
 import { verifyPassword } from "../lib/passwordCrypto";
+import { isTokenIssuedBeforeRevocation } from "../lib/workspaceSessionGuard";
 
 async function issueSession(userId: string, req: Request, res: Response) {
   const user = await systemPrisma.user.findUnique({
@@ -175,6 +176,9 @@ export const mfaController = {
       return res.status(401).json({ error: "Sessão MFA expirada. Faça login novamente." });
     }
     const user = await systemPrisma.user.findUnique({ where: { id: pending.userId } });
+    if (user && isTokenIssuedBeforeRevocation(pending.iat, user.sessionsRevokedAt, pending.iatMs)) {
+      return res.status(401).json({ error: "Sessão MFA expirada. Faça login novamente." });
+    }
     if (!user?.mfaEnabled) return res.status(400).json({ error: "MFA não activo." });
     const secret = decryptMfaSecret(user.mfaSecretEnc);
     let ok = secret ? verifyTotp(secret, parsed.data.code) : false;

@@ -51,13 +51,16 @@ describe("raiz do domínio personalizado — sem modo automático", () => {
     assert.deepEqual(out, { kind: "neutral", reason: "selection_unavailable" });
   });
 
-  it("escolha de outro assinante ou de outro domínio → neutra (isolamento multi-tenant)", async () => {
+  it("escolha de outro assinante → neutra (isolamento multi-tenant)", async () => {
     const otherUser = await decideRootPresell(domain({ rootPresellId: "p1" }), async () => page({ userId: "u2" }));
     assert.equal(otherUser.kind, "neutral");
-    const otherDomain = await decideRootPresell(domain({ rootPresellId: "p1" }), async () =>
+  });
+
+  it("presell escolhida que mudou de domínio (troca/failover) continua na raiz", async () => {
+    const moved = await decideRootPresell(domain({ rootPresellId: "p1" }), async () =>
       page({ customDomainId: "d2" }),
     );
-    assert.equal(otherDomain.kind, "neutral");
+    assert.equal(moved.kind, "page");
   });
 
   it("domínio só de tracking nunca serve lander", async () => {

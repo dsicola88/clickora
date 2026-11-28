@@ -241,6 +241,16 @@ export function describeUnavailablePrimaryTarget(
   return null;
 }
 
+/** Troca recusada pelo estado atual (gate de saúde, já principal, principal mudou) → HTTP 409. */
+export class DomainRoutingRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DomainRoutingRefusedError";
+  }
+}
+
+const PRIMARY_CHANGED_MESSAGE = "O domínio principal mudou entretanto. Nada foi alterado.";
+
 export function planPrimaryDomainSwap(input: {
   currentPrimary: RoutingDomainCandidate | null;
   target: RoutingDomainCandidate | null;
@@ -757,6 +767,8 @@ export async function swapPresellPrimaryDomain(args: {
   isRollback?: boolean;
   automaticEventType?: "auto_failover" | "auto_recovery";
   metadata?: Record<string, unknown> | null;
+  /** Ações automáticas: só aplica se o primário ainda for este (uma troca manual entretanto prevalece). */
+  expectedCurrentPrimaryId?: string | null;
 }): Promise<{ previousDomainId: string | null; targetDomainId: string }> {
   const page = await systemPrisma.presellPage.findFirst({
     where: { id: args.presellId, userId: args.userId },
@@ -783,9 +795,21 @@ export async function swapPresellPrimaryDomain(args: {
     target: target as RoutingDomainCandidate,
     scope: "hosting",
   });
-  if (!check.ok) throw new Error(check.error);
+  if (!check.ok) throw new DomainRoutingRefusedError(check.error);
+  if (args.expectedCurrentPrimaryId !== undefined && currentPrimaryId !== args.expectedCurrentPrimaryId) {
+    throw new DomainRoutingRefusedError(PRIMARY_CHANGED_MESSAGE);
+  }
 
   await systemPrisma.$transaction(async (tx) => {
+    if (args.expectedCurrentPrimaryId !== undefined) {
+      const fresh = await tx.presellDomainBinding.findFirst({
+        where: { presellId: page.id, userId: args.userId, role: "primary", isActive: true },
+        select: { customDomainId: true },
+      });
+      if ((fresh?.customDomainId ?? currentPrimaryId) !== args.expectedCurrentPrimaryId) {
+        throw new DomainRoutingRefusedError(PRIMARY_CHANGED_MESSAGE);
+      }
+    }
     await tx.presellDomainBinding.updateMany({
       where: { presellId: page.id, userId: args.userId, role: "primary" },
       data: { role: "backup", priority: 50 },
@@ -859,6 +883,8 @@ export async function promotePrimaryDomainForUser(args: {
   /** Ações automáticas do monitor (failover / recuperação) — sem ator humano. */
   automaticEventType?: "auto_failover" | "auto_recovery";
   metadata?: Record<string, unknown> | null;
+  /** Ações automáticas: só aplica se o primário ainda for este (uma troca manual entretanto prevalece). */
+  expectedCurrentPrimaryId?: string | null;
 }): Promise<{ previousDomainId: string | null; targetDomainId: string }> {
   const domains = await systemPrisma.customDomain.findMany({
     where: { userId: args.userId },
@@ -874,9 +900,21 @@ export async function promotePrimaryDomainForUser(args: {
     target: target as RoutingDomainCandidate | null,
     scope: "hosting",
   });
-  if (!check.ok) throw new Error(check.error);
+  if (!check.ok) throw new DomainRoutingRefusedError(check.error);
+  if (args.expectedCurrentPrimaryId !== undefined && (currentPrimary?.id ?? null) !== args.expectedCurrentPrimaryId) {
+    throw new DomainRoutingRefusedError(PRIMARY_CHANGED_MESSAGE);
+  }
 
   await systemPrisma.$transaction(async (tx) => {
+    if (args.expectedCurrentPrimaryId !== undefined) {
+      const fresh = await tx.customDomain.findFirst({
+        where: { userId: args.userId, isDefault: true, purpose: { not: "tracking" } },
+        select: { id: true },
+      });
+      if ((fresh?.id ?? null) !== args.expectedCurrentPrimaryId) {
+        throw new DomainRoutingRefusedError(PRIMARY_CHANGED_MESSAGE);
+      }
+    }
     await tx.customDomain.updateMany({
       where: { userId: args.userId, purpose: { not: "tracking" } },
       data: { isDefault: false },
