@@ -9,7 +9,7 @@ const E2E_PASSWORD =
   process.env.CI_SEED_PASSWORD ||
   process.env.E2E_PASSWORD ||
   process.env.LOAD_TEST_PASSWORD ||
-  "Dpa211088@";
+  "";
 
 test.describe("tracking dashboard / P&L", () => {
   test("utilizador seed vê o P&L sem erro 503", async ({ page }) => {

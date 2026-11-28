@@ -59,3 +59,10 @@ frontend/public/qa/
 
 # Postgres efémero auditoria master (nunca Railway)
 .audit-fase-b-pg/
+
+# Scripts pontuais contra a BD (repositório público) e documentos pessoais na raiz
+backend/scripts/tmp-*
+/*.pdf
+
+# Auditoria forense interna (não publicar)
+docs/FORENSIC_AUDIT_GOOGLE_ADS_COMPROMISED_SITE.md

@@ -7,6 +7,7 @@ import {
   SessionUserGoneError,
   type SessionGuardDb,
 } from "./workspaceSessionGuard";
+import { signToken, verifyToken } from "./jwt";
 
 type FakeUser = { id: string; sessionsRevokedAt?: Date | null };
 
@@ -105,6 +106,43 @@ describe("revogação de sessões (sessionsRevokedAt)", () => {
       db,
     );
     assert.equal(live.tenantUserId, "u1");
+  });
+
+  it("com iatMs, token do mesmo segundo mas anterior à revogação é recusado", async () => {
+    const { db } = fakeDb({ user: { id: "u1", sessionsRevokedAt: revokedAt } });
+    await assert.rejects(
+      resolveLiveWorkspaceClaims(
+        {
+          userId: "u1",
+          email: "u@example.com",
+          iat: sec("2026-11-28T12:00:00Z"),
+          iatMs: Date.parse("2026-11-28T12:00:00.300Z"),
+        },
+        db,
+      ),
+      SessionRevokedError,
+    );
+  });
+
+  it("com iatMs, token emitido depois da revogação no mesmo segundo continua válido", async () => {
+    const { db } = fakeDb({ user: { id: "u1", sessionsRevokedAt: revokedAt } });
+    const live = await resolveLiveWorkspaceClaims(
+      {
+        userId: "u1",
+        email: "u@example.com",
+        iat: sec("2026-11-28T12:00:00Z"),
+        iatMs: Date.parse("2026-11-28T12:00:00.701Z"),
+      },
+      db,
+    );
+    assert.equal(live.tenantUserId, "u1");
+  });
+
+  it("signToken grava iatMs para a comparação ao milissegundo", () => {
+    const before = Date.now();
+    const payload = verifyToken(signToken({ userId: "u1", email: "u@example.com", purpose: "session" }));
+    assert.equal(typeof payload.iatMs, "number");
+    assert.ok(payload.iatMs! >= before && payload.iatMs! <= Date.now());
   });
 
   it("token sem iat é recusado quando a conta tem revogação", () => {

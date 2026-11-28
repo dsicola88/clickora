@@ -6,7 +6,7 @@
 import { expect, test } from "@playwright/test";
 
 const EMAIL = process.env.E2E_EMAIL || process.env.LOAD_TEST_EMAIL || "danielclickora1@gmail.com";
-const PASSWORD = process.env.E2E_PASSWORD || process.env.LOAD_TEST_PASSWORD || "Dpa211088@";
+const PASSWORD = process.env.E2E_PASSWORD || process.env.LOAD_TEST_PASSWORD || "";
 
 test.describe("H9 — app autenticado mobile", () => {
   test.describe.configure({ mode: "serial" });

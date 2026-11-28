@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { systemPrisma } from "../src/lib/prisma";
@@ -79,19 +80,24 @@ function jsonFeatures(lines: string[]) {
   return JSON.parse(JSON.stringify(lines)) as Prisma.InputJsonValue;
 }
 
+/**
+ * Sem password definida no ambiente, a conta é criada com um segredo aleatório (entrar via «Esqueci a senha»).
+ * Contas existentes só têm a password reescrita com SEED_RESET_PASSWORDS=true.
+ */
 async function upsertUserWithRoleAndPlan(args: {
   email: string;
-  passwordPlain: string;
+  passwordPlain: string | null;
   fullName: string;
   role: "super_admin" | "admin" | "moderator" | "user";
   planId: string;
 }) {
-  const password = await bcrypt.hash(args.passwordPlain, 12);
+  const password = await bcrypt.hash(args.passwordPlain ?? randomBytes(32).toString("hex"), 12);
+  const resetExisting = process.env.SEED_RESET_PASSWORDS === "true" && args.passwordPlain !== null;
   /** `select` evita RETURNING * — sem isto, P2022 se colunas novas (ex. google_ads_*) ainda não existirem na BD. */
   const user = await prisma.user.upsert({
     where: { email: args.email },
     update: {
-      password,
+      ...(resetExisting ? { password } : {}),
       fullName: args.fullName,
     },
     create: {
@@ -231,11 +237,17 @@ async function main() {
   const planMonthly = plans.find((p) => p.id === "plan_monthly")!;
   const planAnnual = plans.find((p) => p.id === "plan_annual")!;
 
-  /** Mesma password para as contas de seed legadas. Em CI usa CI_SEED_PASSWORD (nunca produção). */
+  /** Nunca embutir passwords: o repositório é público. */
   const seedPassword =
-    process.env.CI === "true" && process.env.CI_SEED_PASSWORD
-      ? process.env.CI_SEED_PASSWORD
-      : "Dpa211088@";
+    process.env.SEED_PASSWORD?.trim() ||
+    (process.env.CI === "true" ? process.env.CI_SEED_PASSWORD?.trim() : "") ||
+    null;
+  const managerPassword = process.env.SEED_MANAGER_PASSWORD?.trim() || seedPassword;
+  if (!seedPassword) {
+    console.warn(
+      "⚠️ SEED_PASSWORD não definido: contas novas ficam com password aleatória; contas existentes mantêm a password.",
+    );
+  }
 
   await upsertUserWithRoleAndPlan({
     email: "danielclickora@gmail.com",
@@ -264,7 +276,7 @@ async function main() {
   /** Gerenciador da app (superadmin) — email/password pedidos para operação. */
   await upsertUserWithRoleAndPlan({
     email: "dclickora2026@gmail.com",
-    passwordPlain: "Datoda@",
+    passwordPlain: managerPassword,
     fullName: "dclickora Gerenciador",
     role: "super_admin",
     planId: planAnnual.id,

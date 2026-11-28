@@ -31,10 +31,12 @@ export interface JwtPayload {
   purpose?: "mfa" | "session" | "password_reset";
   /** Preenchido por `jsonwebtoken` ao assinar (segundos). */
   iat?: number;
+  /** Emissão em milissegundos: a revogação de sessões compara ao ms (`iat` só tem segundos). */
+  iatMs?: number;
 }
 
 export function signToken(payload: JwtPayload, expiresIn?: SignOptions["expiresIn"]): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: expiresIn ?? JWT_EXPIRES_IN });
+  return jwt.sign({ ...payload, iatMs: Date.now() }, JWT_SECRET, { expiresIn: expiresIn ?? JWT_EXPIRES_IN });
 }
 
 export function verifyToken(token: string): JwtPayload {

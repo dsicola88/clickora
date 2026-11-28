@@ -18,7 +18,8 @@ const BASE = (process.env.E2E_API_BASE || "https://clickora-production.up.railwa
   "",
 );
 const EMAIL = process.env.E2E_EMAIL || "danielclickora@gmail.com";
-const PASS = process.env.E2E_PASSWORD || "Dpa211088@";
+const PASS = process.env.E2E_PASSWORD || "";
+if (!PASS) throw new Error("Defina E2E_PASSWORD (sem password por defeito no script).");
 /** Destino real da conta seed — `example.com` / destinos bloqueados devolvem cloak 403. */
 const OFFER = process.env.E2E_OFFER_URL || "https://mwebkivo.com/12531/5082/10/?";
 const UA =

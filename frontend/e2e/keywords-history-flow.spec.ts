@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 async function loginSeed(page: import("@playwright/test").Page): Promise<void> {
   await page.goto("/auth");
   await page.getByLabel("E-mail").fill("danielclickora@gmail.com");
-  await page.getByLabel("Senha").fill("Dpa211088@");
+  await page.getByLabel("Senha").fill(process.env.E2E_PASSWORD ?? "");
   await page.getByRole("button", { name: /^(Continuar|Entrar|Continue|Sign in)$/i }).click();
   await page.waitForURL((url) => !url.pathname.includes("/auth"), { timeout: 25_000 });
 }

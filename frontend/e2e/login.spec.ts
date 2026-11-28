@@ -9,7 +9,7 @@ const E2E_PASSWORD =
   process.env.CI_SEED_PASSWORD ||
   process.env.E2E_PASSWORD ||
   process.env.LOAD_TEST_PASSWORD ||
-  "Dpa211088@";
+  "";
 
 test.describe("login e-mail/senha", () => {
   test("utilizador seed entra e sai de /auth", async ({ page }) => {

@@ -32,9 +32,17 @@ type LiveWorkspaceClaims = {
   workspacePermissions: string[];
 };
 
-/** `iat` (segundos) anterior ao corte de revogação → token revogado. Mesmo segundo conta como válido. */
-export function isTokenIssuedBeforeRevocation(iat: number | undefined, revokedAt: Date | null | undefined): boolean {
+/**
+ * Token emitido antes do corte de revogação → revogado. Com `iatMs` a comparação é ao milissegundo;
+ * tokens sem `iatMs` (emitidos antes desta claim) usam `iat` em segundos, onde o mesmo segundo conta como válido.
+ */
+export function isTokenIssuedBeforeRevocation(
+  iat: number | undefined,
+  revokedAt: Date | null | undefined,
+  iatMs?: number,
+): boolean {
   if (!revokedAt) return false;
+  if (typeof iatMs === "number" && Number.isFinite(iatMs)) return iatMs < revokedAt.getTime();
   const cutoff = Math.floor(revokedAt.getTime() / 1000);
   if (typeof iat !== "number" || !Number.isFinite(iat)) return true;
   return iat < cutoff;
@@ -70,7 +78,7 @@ export async function resolveLiveWorkspaceClaims(
   if (!raw.userId) throw new SessionUserGoneError();
   const actor = await findSessionActor(db, raw.userId);
   if (!actor) throw new SessionUserGoneError();
-  if (isTokenIssuedBeforeRevocation(raw.iat, actor.sessionsRevokedAt)) throw new SessionRevokedError();
+  if (isTokenIssuedBeforeRevocation(raw.iat, actor.sessionsRevokedAt, raw.iatMs)) throw new SessionRevokedError();
   return resolveWorkspaceMembershipClaims(raw, db);
 }
 

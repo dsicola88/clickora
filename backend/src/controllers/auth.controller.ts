@@ -933,7 +933,7 @@ export const authController = {
     if (!user || user.email.toLowerCase() !== (payload.email || "").toLowerCase()) {
       return res.status(400).json({ error: "Link de recuperação inválido ou expirado." });
     }
-    if (isTokenIssuedBeforeRevocation(payload.iat, user.sessionsRevokedAt)) {
+    if (isTokenIssuedBeforeRevocation(payload.iat, user.sessionsRevokedAt, payload.iatMs)) {
       return res.status(400).json({ error: "Este link de recuperação já foi utilizado. Peça um novo." });
     }
 

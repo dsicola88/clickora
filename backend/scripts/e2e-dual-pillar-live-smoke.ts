@@ -9,7 +9,8 @@ import assert from "node:assert/strict";
 
 const API = (process.env.E2E_API_BASE || "http://127.0.0.1:3001/api").replace(/\/$/, "");
 const EMAIL = process.env.E2E_EMAIL || "danielclickora@gmail.com";
-const PASS = process.env.E2E_PASSWORD || "Dpa211088@";
+const PASS = process.env.E2E_PASSWORD || "";
+if (!PASS) throw new Error("Defina E2E_PASSWORD (sem password por defeito no script).");
 
 type Row = { id: string; ok: boolean; detail: string };
 const rows: Row[] = [];

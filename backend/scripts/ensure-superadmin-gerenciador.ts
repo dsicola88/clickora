@@ -4,13 +4,18 @@
  * Produção (host interno não alcançável fora da Railway):
  *   `DATABASE_URL="$DATABASE_PUBLIC_URL" npx tsx scripts/ensure-superadmin-gerenciador.ts`
  *   (com as variáveis do serviço clickora / Postgres)
+ * Password obrigatória via SUPERADMIN_PASSWORD (mín. 12 caracteres) — nunca no código.
  */
 import bcrypt from "bcryptjs";
 import { systemPrisma } from "../src/lib/prisma";
 
 const EMAIL = "dclickora2026@gmail.com";
-const PASSWORD = "Datoda@";
+const PASSWORD = process.env.SUPERADMIN_PASSWORD?.trim() ?? "";
 const FULL_NAME = "dclickora Gerenciador";
+
+if (PASSWORD.length < 12) {
+  throw new Error("Defina SUPERADMIN_PASSWORD (mín. 12 caracteres).");
+}
 
 async function main() {
   const plan =
