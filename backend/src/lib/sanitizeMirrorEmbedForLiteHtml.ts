@@ -3,6 +3,7 @@
  * O AdsBot vê esta página sem sandbox — deve estar alinhada ao iframe público (sem executáveis).
  */
 import { parse, type HTMLElement } from "node-html-parser";
+import { sanitizeMirrorUntrustedAnchors } from "./mirrorExternalHosts";
 import { stripHtmlMarketingExecutors } from "./stripHtmlMarketingExecutors";
 
 /** CSP para documento lite — declarada em `getPublicHtml` quando o espelho é servido. */
@@ -98,6 +99,7 @@ export function sanitizeMirrorEmbedForLiteHtml(html: string): string {
     stripDangerousMetaAndBase(root);
     sanitizeLiteIframes(root);
     stripInlineEventHandlers(root);
+    sanitizeMirrorUntrustedAnchors(root, { stripUnknownExternal: false });
     out = root.toString();
   } catch {
     /* regex fallback acima */

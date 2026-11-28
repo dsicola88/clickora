@@ -1,6 +1,6 @@
 # Variáveis de ambiente — DClickora
 
-**Actualizado:** 2026-10-30 (Etapa 6)  
+**Actualizado:** 2026-11-26 (host de presells públicas). Restante tabela: Etapa 6, 2026-10-30.  
 **Não colocar credenciais reais neste ficheiro.** Exemplos são placeholders.
 
 Referências: `backend/.env.example`, `frontend/.env.example`, [ENV-SETUP.md](./ENV-SETUP.md), [DEPLOYMENT.md](./DEPLOYMENT.md).
@@ -12,6 +12,8 @@ Referências: `backend/.env.example`, `frontend/.env.example`, [ENV-SETUP.md](./
 | `VITE_PUBLIC_API_URL` | Produção: sim | `https://api.exemplo.com/api` | Preferida; embed no build |
 | `VITE_API_URL` | Alternativa | `http://localhost:3001/api` | Legado / local |
 | `VITE_GOOGLE_CLIENT_ID` | OAuth login Google (opcional) | `….apps.googleusercontent.com` | Se vazio, o FE lê `GET /api/auth/google-config` (Railway `GOOGLE_OAUTH_CLIENT_ID` ou fallback `GOOGLE_ADS_CLIENT_ID`) |
+| `VITE_PUBLIC_SITE_ORIGIN` | Não | `https://www.dclickora.com` | Origem do **site** institucional. Não é URL de presell |
+| `VITE_PUBLIC_PRESELL_HOST` | Não | `pages.exemplo-isolado.com` | Domínio técnico só de páginas publicadas. Tem de coincidir com `PUBLIC_PRESELL_HOST`. Ignorado se for `dclickora.com` |
 
 ## 2. Backend — núcleo
 
@@ -25,6 +27,7 @@ Referências: `backend/.env.example`, `frontend/.env.example`, [ENV-SETUP.md](./
 | `FRONTEND_URL` | Sim (CORS) | `http://localhost:8080,https://www.dclickora.com` | Vírgula-separado |
 | `ENCRYPTION_KEY` | **Sim em produção** | `openssl rand -hex 32` | AES-256-GCM; boot falha sem chave em `NODE_ENV=production` (`fieldEncryption.assertProductionEncryptionKey`) |
 | `PUBLIC_API_URL` / `API_PUBLIC_URL` | Paid OAuth | `https://….up.railway.app` ou com `/api` | Callbacks `/api/paid/oauth/*/callback` |
+| `PUBLIC_PRESELL_HOST` | Não | `pages.exemplo-isolado.com` | Host técnico de presells. `dclickora.com` / `www` não servem presells públicas. Sem domínio do assinante nem esta variável, não há URL pública. Ver [OPERACAO_PRESELL_DOMINIO_TRACKING.md](./OPERACAO_PRESELL_DOMINIO_TRACKING.md) |
 
 ## 3. Pagamentos (Hotmart)
 

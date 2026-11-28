@@ -138,5 +138,31 @@ describe("bakeHtmlOfferHrefs", () => {
       const html = `<form action="/subscribe"><input name="e"></form>`;
       expect(bakeHtmlOfferHrefs(html, TRACK)).toBe(html);
     });
+
+    it("remove Unsubscribe / opt-out de mailer mas preserva checkout, termos, privacidade e suporte", () => {
+      const html = `
+        <a href="${CLICKORA_MIRROR_TRACK_MARKER}">buy now</a>
+        <ul>
+          <li><a href="https://visiflora.example/contact">Contact</a></li>
+          <li><a href="https://visiflora.example/terms">Terms</a></li>
+          <li><a href="/privacy">Privacy</a></li>
+          <li><a href="https://visiflora.example/disclaimer">Disclaimer</a></li>
+          <li><a href="https://support.zendesk.com/hc">Support</a></li>
+          <li><a class="btn_primary w-100" href="https://www.redwindowrock.com/o-jlfr-j63-06c48ebf33160ccd043a8bbd3f74d911">Unsubscribe</a></li>
+          <li><a href="https://mailer.example/unsubscribe?id=9">Manage Email Preferences</a></li>
+        </ul>
+      `;
+      const out = bakeHtmlOfferHrefs(html, TRACK, "https://mwzenith.com/12271/11202/7/?");
+      expect(out).not.toMatch(/redwindowrock\.com/i);
+      expect(out).not.toMatch(/unsubscribe/i);
+      expect(out).not.toMatch(/Manage Email Preferences/i);
+      expect(out).not.toMatch(/<li\b[^>]*>\s*<\/li>/i);
+      expect(out).toContain(`href="${TRACK}"`);
+      expect(out).toContain("https://visiflora.example/contact");
+      expect(out).toContain("https://visiflora.example/terms");
+      expect(out).toContain('href="/privacy"');
+      expect(out).toContain("https://visiflora.example/disclaimer");
+      expect(out).toContain("https://support.zendesk.com/hc");
+    });
   });
 });

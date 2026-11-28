@@ -209,4 +209,31 @@ describe("presellLiteHtml", () => {
     assert.doesNotMatch(built.html, /CLONE SALES/);
     assert.match(built.html, /How to review the Portal offer with transparency/);
   });
+
+  it("remove Unsubscribe legado no lite HTML preservando checkout, termos e privacidade", () => {
+    const built = buildPresellLiteHtml({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "VisiFlora",
+      type: "review",
+      content: {
+        generationNiche: "white",
+        affiliateLink: "https://mwzenith.com/12271/11202/7/?",
+        importMirrorSrcDoc: `<!DOCTYPE html><html><body>
+          <a href="https://clickora.invalid/__TRACK_OFFER__">Buy Now</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+          <a href="https://www.redwindowrock.com/o-jlfr-j63-06c48ebf33160ccd043a8bbd3f74d911">Unsubscribe</a>
+          ${"x".repeat(250)}</body></html>`,
+      },
+      tracking: {},
+      trackApiBase: "https://honestverdictguide.online/api",
+    });
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+    assert.doesNotMatch(built.html, /redwindowrock\.com/i);
+    assert.doesNotMatch(built.html, /unsubscribe/i);
+    assert.match(built.html, /Buy Now/);
+    assert.match(built.html, /href="\/privacy"/);
+    assert.match(built.html, /href="\/terms"/);
+  });
 });

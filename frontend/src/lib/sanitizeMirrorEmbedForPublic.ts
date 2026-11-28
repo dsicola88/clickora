@@ -61,6 +61,34 @@ function stripDangerousNodes(doc: Document): void {
       if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
     }
   });
+  const OPTOUT_TEXT_RE =
+    /\b(unsubscribe|opt[\s-]?out|manage\s+(?:email\s+)?preferences|email\s+preferences|stop\s+receiving|remove\s+(?:me\s+)?from\s+(?:this\s+)?list|cancelar\s+subscri[cç][aã]o|descadastrar)\b/i;
+  const OPTOUT_URL_RE =
+    /(?:\/o-[a-z0-9]{2,}-[a-z0-9]{2,}-[0-9a-f]{12,}(?:[/?#]|$)|(?:^|[/?&._-])(unsubscribe|opt[-_]?out|list[-_]?unsubscribe|email[-_]?preferences)(?:$|[/?=&#._-]))/i;
+  const OPEN_REDIRECT_PARAM_RE =
+    /[?&](redirect|url|next|return|dest|destination|continue|redir|go|out)=https?:\/\//i;
+  doc.querySelectorAll("a, area").forEach((el) => {
+    const href = (el.getAttribute("href") || "").trim();
+    const label = `${el.textContent || ""} ${el.getAttribute("aria-label") || ""} ${el.getAttribute("title") || ""}`
+      .replace(/\s+/g, " ")
+      .trim();
+    if ((label && OPTOUT_TEXT_RE.test(label)) || (href && OPTOUT_URL_RE.test(href))) {
+      const parent = el.parentElement;
+      el.remove();
+      if (parent && parent.tagName === "LI" && !parent.textContent?.trim() && !parent.querySelector("a,button,img,svg,input")) {
+        parent.remove();
+      }
+      return;
+    }
+    if (href && /^(javascript|vbscript|data):/i.test(href)) {
+      el.removeAttribute("href");
+      if (!label) el.remove();
+      return;
+    }
+    if (href && OPEN_REDIRECT_PARAM_RE.test(href) && !/\/track\/r\//i.test(href) && !href.includes("__TRACK_OFFER__")) {
+      el.remove();
+    }
+  });
 }
 
 function serializeSanitized(doc: Document, originalHadHtml: boolean): string {

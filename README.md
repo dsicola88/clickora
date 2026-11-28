@@ -61,6 +61,7 @@ Checklist de deploy: **[docs/DEPLOYMENT.md — §6](docs/DEPLOYMENT.md)**.
 | Métricas honestas | [METRICAS-HONESTAS](docs/METRICAS-HONESTAS.md) |
 | Afiliado | [AFILIADO-PROFISSIONAL](docs/AFILIADO-PROFISSIONAL.md) |
 | Compliance presells | [compliance/README](docs/compliance/README.md) |
+| Funil actual (domínio, presell, tracking) | [OPERACAO_PRESELL_DOMINIO_TRACKING](docs/OPERACAO_PRESELL_DOMINIO_TRACKING.md) |
 
 ## Requisitos
 

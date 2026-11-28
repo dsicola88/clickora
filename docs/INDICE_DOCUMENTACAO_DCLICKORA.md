@@ -1,6 +1,6 @@
 # Índice da documentação — DClickora
 
-**Data:** 2026-10-30  
+**Data:** 2026-11-26  
 **Objectivo de manutenção:** qualquer programador competente instalar, testar, corrigir e continuar o desenvolvimento sem depender do autor original.
 
 ---
@@ -28,7 +28,8 @@
 | Backups Postgres | [POSTGRES-BACKUP.md](./POSTGRES-BACKUP.md) |
 | Imagens / R2 | [IMAGENS-E-ARMAZENAMENTO.md](./IMAGENS-E-ARMAZENAMENTO.md) |
 | Hoplink Knownwalk vs sales page | [PRESELL_HOPLINKS.md](./PRESELL_HOPLINKS.md) |
-
+| **Funil actual (domínio, presell, cookies, hop)** | [OPERACAO_PRESELL_DOMINIO_TRACKING.md](./OPERACAO_PRESELL_DOMINIO_TRACKING.md) |
+| **Smart Domain Routing, Ofertas e Continuidade** | [SMART_DOMAIN_ROUTING_AND_OFFERS.md](./SMART_DOMAIN_ROUTING_AND_OFFERS.md) |
 ---
 
 ## Programa de hardening (7 etapas)
@@ -74,7 +75,7 @@ LOAD_TEST_BASE_URL=http://127.0.0.1:3001 npm run load:smoke
 | Domínio | Docs |
 |---------|------|
 | Auth / planos / Hotmart | GUIA §6, `PAGAMENTOS-ANGOLA.md`, `subscription.hotmart.test.ts` |
-| Presells / compliance | GUIA §6, `docs/compliance/` |
+| Presells / domínio / hop (estado 26 Nov) | `OPERACAO_PRESELL_DOMINIO_TRACKING.md`, GUIA §6, `docs/compliance/` |
 | Tracking / SLO | GUIA §6, `TRACKING-SLO.md`, `METRICAS-HONESTAS.md` |
 | Paid ads | `PAID-ADS-ARCHITECTURE.md`, `PAID-AUTOPILOT-PRODUCT-ROADMAP.md` |
 | Enterprise / OIDC | `ENTERPRISE.md` |

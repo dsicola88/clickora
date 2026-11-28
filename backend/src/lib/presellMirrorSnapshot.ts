@@ -1,5 +1,10 @@
 import { type HTMLElement, parse } from "node-html-parser";
 import { injectMirrorTailHeightStyle, trimMirrorTrailingSpacerNodes } from "./presellMirrorTailTrim";
+import {
+  isAuthorizedLegalOrSupportAnchor,
+  isOptOutOrUnsubscribeAnchor,
+  sanitizeMirrorUntrustedAnchors,
+} from "./mirrorExternalHosts";
 
 /** Substituído no cliente pelo href real de tracking (evita dados sensíveis no HTML guardado). */
 export const CLICKORA_MIRROR_TRACK_MARKER = "https://clickora.invalid/__TRACK_OFFER__";
@@ -842,6 +847,17 @@ export function finalizeMirrorSrcDocForImport(
   root.querySelectorAll("a").forEach((a) => {
     const href = a.getAttribute("href");
     const label = `${a.textContent || ""} ${a.getAttribute("aria-label") || ""}`;
+    if (
+      isOptOutOrUnsubscribeAnchor({
+        href: href || "",
+        label: a.textContent || "",
+        ariaLabel: a.getAttribute("aria-label") || "",
+        title: a.getAttribute("title") || "",
+      })
+    ) {
+      a.remove();
+      return;
+    }
     const offerCta =
       /order\s*now|buy\s*now|add to cart|comprar agora|shop now|checkout|get started|go directly|official site|official shop|get\s+[\w\s]{0,48}official|claim\s+offer|secure\s+order|ver oferta|continuar/i.test(
         label,
@@ -855,10 +871,23 @@ export function finalizeMirrorSrcDocForImport(
       return;
     }
     if (href.startsWith("#")) return;
+    if (/^(mailto|tel):/i.test(href)) return;
     let abs: URL;
     try {
       abs = new URL(href, base);
     } catch {
+      return;
+    }
+    const isLegalOrSupport =
+      !offerCta && isAuthorizedLegalOrSupportAnchor({ abs, label, trustedHosts: hosts });
+    if (isLegalOrSupport) {
+      if (href.startsWith("/") && !href.startsWith("//")) {
+        a.setAttribute("href", href);
+      } else {
+        a.setAttribute("href", abs.href);
+        a.setAttribute("target", "_top");
+        a.setAttribute("rel", "noopener noreferrer");
+      }
       return;
     }
     a.setAttribute("target", "_top");
@@ -873,6 +902,11 @@ export function finalizeMirrorSrcDocForImport(
   rewriteFormActionsForMirror(root, base, hosts);
   rewriteDataAttrNavigatorsForMirror(root, base, hosts);
   rewriteOnclickNavigatorsForMirror(root, base, hosts);
+  sanitizeMirrorUntrustedAnchors(root, {
+    base,
+    trustedHosts: hosts,
+    stripUnknownExternal: true,
+  });
   ensureMirrorOfferAnchorLabels(root);
 
   const mirrorBody = root.querySelector("body");

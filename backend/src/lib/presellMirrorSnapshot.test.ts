@@ -311,4 +311,81 @@ describe("finalizeMirrorSrcDocForImport — navegação nativa", () => {
     assert.doesNotMatch(cta, /onclick/i);
     assert.match(out!, /<form\b[^>]*target="_top"/);
   });
+
+  it("remove Unsubscribe / opt-out de mailer (ex.: redwindowrock) preservando checkout, legal e suporte", () => {
+    const html = `<!DOCTYPE html><html><head></head><body>
+      <a href="https://www.buygoods.com/secure/checkout.html?aff_id=1">Buy Now</a>
+      <footer>
+        <a href="https://visiflora.example/contact">Contact</a>
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://www.nih.gov/health">References</a>
+        <a href="https://support.zendesk.com/hc/en-us">Support</a>
+        <a href="mailto:support@visiflora.example">Email Support</a>
+        <a class="btn_primary w-100" href="https://www.redwindowrock.com/o-jlfr-j63-06c48ebf33160ccd043a8bbd3f74d911">Unsubscribe</a>
+        <a href="https://mailer.example.org/opt-out?u=123">Opt out</a>
+        <a href="https://external-bridge.example/?redirect=https://evil.example/x">Promo</a>
+      </footer>
+    </body></html>`;
+    const out = finalizeMirrorSrcDocForImport(
+      html,
+      "https://visiflora.example/",
+      "https://mwzenith.com/12271/11202/7/?",
+    );
+    assert.ok(out);
+    assert.ok(out!.includes(CLICKORA_MIRROR_TRACK_MARKER), "CTA checkout deve ir para track");
+    assert.ok(!out!.includes("redwindowrock.com"), "domínio de opt-out deve sair");
+    assert.ok(!/unsubscribe/i.test(out!), "link Unsubscribe deve sair");
+    assert.ok(!/mailer\.example\.org/i.test(out!), "link Opt out deve sair");
+    assert.ok(!/external-bridge\.example/i.test(out!), "open redirect externo deve sair");
+    assert.ok(out!.includes('href="/terms"'), "Terms preservado");
+    assert.ok(out!.includes('href="/privacy"'), "Privacy preservado");
+    assert.ok(out!.includes("https://www.nih.gov/health"), "referência .gov preservada");
+    assert.ok(out!.includes("https://support.zendesk.com/hc/en-us"), "suporte autorizado preservado");
+    assert.ok(out!.includes("mailto:support@visiflora.example"), "mailto suporte preservado");
+  });
+
+  it("sanitizeMirrorInContentRecord limpa tanto importMirrorSrcDoc quanto widget html no pageDocument", async () => {
+    const { sanitizeMirrorInContentRecord } = await import("./presellMirrorSanitizeContent");
+    const dirtyHtml = `<!DOCTYPE html><html><body>
+      <a href="https://clickora.invalid/__TRACK_OFFER__">Buy Now</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="https://www.redwindowrock.com/o-jlfr-j63-06c48ebf33160ccd043a8bbd3f74d911">Unsubscribe</a>
+      ${"x".repeat(250)}
+    </body></html>`;
+    const out = sanitizeMirrorInContentRecord({
+      affiliateLink: "https://mwzenith.com/12271/11202/7/?",
+      sourceUrl: "https://visiflora.example/",
+      importMirrorSrcDoc: dirtyHtml,
+      pageDocument: {
+        sections: [
+          {
+            id: "s1",
+            columns: [
+              {
+                id: "c1",
+                widgets: [{ id: "w1", type: "html", content: { code: dirtyHtml } }],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const mirror = String(out.importMirrorSrcDoc || "");
+    const widgetCode = String(
+      (
+        out.pageDocument as {
+          sections: Array<{ columns: Array<{ widgets: Array<{ content: { code: string } }> }> }>;
+        }
+      ).sections[0].columns[0].widgets[0].content.code || "",
+    );
+    assert.ok(!mirror.includes("redwindowrock.com"));
+    assert.ok(!/unsubscribe/i.test(mirror));
+    assert.ok(mirror.includes("__TRACK_OFFER__"));
+    assert.ok(!widgetCode.includes("redwindowrock.com"), "widget HTML do pageDocument deve ficar limpo");
+    assert.ok(!/unsubscribe/i.test(widgetCode));
+    assert.ok(widgetCode.includes("__TRACK_OFFER__"));
+    assert.ok(widgetCode.includes('href="/privacy"'));
+  });
 });

@@ -43,11 +43,33 @@ const BUTTONISH_CLASS =
   /\b(btn|button|cta|elementor-button|wp-block-button|shop-button|buy-button|offer-button|add-to-cart|anchor_to_product)\b/i;
 
 const SOFT_NAV =
-  /privacy|terms|cookie|contacto|contact|about|faq|unsubscribe|login|signin|sign-in|account|policy|disclaimer|shipping|returns|refund|#(top|content|main|inicio|topo|footer|nav)\b/i;
+  /privacy|terms|cookie|contacto|contact|about|faq|login|signin|sign-in|account|policy|disclaimer|shipping|returns|refund|support|suporte|references|#(top|content|main|inicio|topo|footer|nav)\b/i;
 
 /** Labels de rodapé/legal — nunca devem ir para `/track/r/` (mesmo se o import marcou o marcador). */
 const SOFT_NAV_LABEL =
-  /^(contact|contacto|terms(\s+of\s+(service|use))?|privacy(\s+policy)?|return(\s+policy)?|returns|refund(\s+policy)?|disclaimer|shipping(\s+policy)?|cookie(\s+policy)?|about(\s+us)?|faq|support)$/i;
+  /^(contact|contacto|terms(\s+of\s+(service|use))?|privacy(\s+policy)?|return(\s+policy)?|returns|refund(\s+policy)?|disclaimer|shipping(\s+policy)?|cookie(\s+policy)?|about(\s+us)?|faq|support|references)$/i;
+
+const OPTOUT_TEXT_RE =
+  /\b(unsubscribe|opt[\s-]?out|manage\s+(?:email\s+)?preferences|email\s+preferences|stop\s+receiving|remove\s+(?:me\s+)?from\s+(?:this\s+)?list|cancelar\s+subscri[cç][aã]o|descadastrar)\b/i;
+
+const OPTOUT_URL_RE =
+  /(?:\/o-[a-z0-9]{2,}-[a-z0-9]{2,}-[0-9a-f]{12,}(?:[/?#]|$)|(?:^|[/?&._-])(unsubscribe|opt[-_]?out|list[-_]?unsubscribe|email[-_]?preferences)(?:$|[/?=&#._-]))/i;
+
+const OPEN_REDIRECT_PARAM_RE =
+  /[?&](redirect|url|next|return|dest|destination|continue|redir|go|out)=https?:\/\//i;
+
+function isOptOutOrUnsafeExternalAnchor(attrs: string, inner: string, affiliateHref: string): boolean {
+  const href = htmlTagAttr(attrs, "href");
+  const aria = htmlTagAttr(attrs, "aria-label");
+  const title = htmlTagAttr(attrs, "title");
+  const text = `${plainInnerText(inner)} ${aria} ${title}`.replace(/\s+/g, " ").trim();
+  if (text && OPTOUT_TEXT_RE.test(text)) return true;
+  if (href && OPTOUT_URL_RE.test(href)) return true;
+  if (href && OPEN_REDIRECT_PARAM_RE.test(href) && !hrefLooksLikeOfferLink(href, affiliateHref)) {
+    return true;
+  }
+  return false;
+}
 
 const CHECKOUT_PATH =
   /(\/secure\/checkout|\/checkout\.html|\/checkout\/|\/checkout\?|\/cart\/|\/cart\?|\/order\/|\/buy\b|\/purchase|\/pay\b|aff_id=|affiliate[_-]?id=|vendor[_-]?id=|cbfid=|cbexit|cbtimer|tid=|item[_-]?number=)/i;
@@ -148,6 +170,7 @@ export function bakeHtmlOfferHrefs(code: string, trackHref: string, affiliateHre
   );
 
   out = out.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (full, attrs: string, inner: string) => {
+    if (isOptOutOrUnsafeExternalAnchor(attrs, inner, affiliateHref)) return "";
     const hrefMatch = attrs.match(/\bhref\s*=\s*(["'])([\s\S]*?)\1/i);
     const href = (hrefMatch?.[2] || "").trim();
     const labelHit = isCtaLabel(inner);
@@ -223,6 +246,9 @@ export function bakeHtmlOfferHrefs(code: string, trackHref: string, affiliateHre
     next = upsertAttr(next, "rel", "noopener noreferrer");
     return `<a${next}>${inner}</a>`;
   });
+
+  // Remove <li> vazios criados após remoção de opt-out / skip-links.
+  out = out.replace(/<li\b[^>]*>\s*<\/li>/gi, "");
 
   return stripNetworkFooterChrome(out);
 }

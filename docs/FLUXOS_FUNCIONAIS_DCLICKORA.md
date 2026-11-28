@@ -41,6 +41,8 @@ Legenda:
 
 ## 6–8. Presell manual / automática / publicar
 
+Comportamento em vigor a 2026-11-26 (domínio próprio, três modos, cookies, hop): [OPERACAO_PRESELL_DOMINIO_TRACKING.md](./OPERACAO_PRESELL_DOMINIO_TRACKING.md). O estado abaixo é o da auditoria de Outubro.
+
 - **Código:** wizard + `presell.controller` + `assertPublishAllowed`
 - **Estado:** Parcial — compliance unit/e2e-in-process **aprovados** em `npm run test:unit` (incl. `wizardPublish.e2e.test.ts`)
 - **HTTP completo:** Bloqueado sem API+BD local; script `test:e2e-presell-flow` / Playwright disponíveis
