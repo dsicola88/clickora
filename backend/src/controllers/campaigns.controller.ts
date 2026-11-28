@@ -14,6 +14,7 @@ const createSchema = z.object({
   offer_url: z.union([z.string().url(), z.literal("")]).optional().nullable(),
   platform: z.string().max(64).optional().nullable(),
   presell_id: z.string().uuid().optional().nullable(),
+  offer_id: z.string().uuid().optional().nullable(),
   status: z.enum(["draft", "active", "paused"]).optional(),
   /** Gasto de ads lifetime na ficha (memo) — não entra no ROAS do período. */
   spend_amount: z.union([z.number().nonnegative(), z.null()]).optional(),
@@ -32,12 +33,21 @@ type CampaignRow = {
   offerUrl: string | null;
   platform: string | null;
   presellId: string | null;
+  offerId?: string | null;
   status: string;
   spendAmount: Prisma.Decimal | null;
   spendCurrency: string | null;
   createdAt: Date;
   updatedAt: Date;
   presell?: { id: string; title: string; status: string; slug: string; customDomainId: string | null } | null;
+  offer?: {
+    id: string;
+    name: string;
+    network: string | null;
+    hoplinkUrl: string;
+    validationStatus: string;
+    isActive: boolean;
+  } | null;
 };
 
 function spendNumber(v: Prisma.Decimal | null | undefined): number | null {
@@ -57,6 +67,7 @@ function mapCampaign(c: CampaignRow, stats?: CampaignPerf | null) {
     offer_url: c.offerUrl,
     platform: c.platform,
     presell_id: c.presellId,
+    offer_id: c.offerId ?? null,
     status: c.status,
     spend_amount: spend,
     spend_currency: c.spendCurrency || "EUR",
@@ -69,6 +80,16 @@ function mapCampaign(c: CampaignRow, stats?: CampaignPerf | null) {
           status: c.presell.status,
           slug: c.presell.slug,
           custom_domain_id: c.presell.customDomainId,
+        }
+      : null,
+    offer: c.offer
+      ? {
+          id: c.offer.id,
+          name: c.offer.name,
+          network: c.offer.network,
+          hoplink_url: c.offer.hoplinkUrl,
+          validation_status: c.offer.validationStatus,
+          is_active: c.offer.isActive,
         }
       : null,
     ...(stats
@@ -114,6 +135,16 @@ function isMissingTableError(e: unknown): boolean {
 
 const presellInclude = {
   presell: { select: { id: true, title: true, status: true, slug: true, customDomainId: true } },
+  offer: {
+    select: {
+      id: true,
+      name: true,
+      network: true,
+      hoplinkUrl: true,
+      validationStatus: true,
+      isActive: true,
+    },
+  },
 } as const;
 
 /** Lista campanhas; se a migração spend_* ainda não correu em produção, não derruba a página. */
@@ -269,6 +300,15 @@ export const campaignsController = {
     const userId = billingUserId(req);
     const d = parsed.data;
 
+    let linkedOffer: { id: string; hoplinkUrl: string; network: string | null } | null = null;
+    if (d.offer_id) {
+      linkedOffer = await systemPrisma.offer.findFirst({
+        where: { id: d.offer_id, userId },
+        select: { id: true, hoplinkUrl: true, network: true },
+      });
+      if (!linkedOffer) return res.status(400).json({ error: "Oferta inválida" });
+    }
+
     if (d.presell_id) {
       const p = await systemPrisma.presellPage.findFirst({ where: { id: d.presell_id, userId } });
       if (!p) return res.status(400).json({ error: "Presell inválida" });
@@ -281,9 +321,10 @@ export const campaignsController = {
         trafficSource: d.traffic_source.trim(),
         country: d.country?.trim() || null,
         language: d.language?.trim() || null,
-        offerUrl: d.offer_url?.trim() || null,
-        platform: d.platform?.trim() || null,
+        offerUrl: d.offer_url?.trim() || linkedOffer?.hoplinkUrl || null,
+        platform: d.platform?.trim() || linkedOffer?.network || null,
         presellId: d.presell_id || null,
+        offerId: d.offer_id || null,
         status: d.status || "draft",
         ...(d.spend_amount !== undefined
           ? {
@@ -292,9 +333,7 @@ export const campaignsController = {
             }
           : {}),
       },
-      include: {
-        presell: { select: { id: true, title: true, status: true, slug: true, customDomainId: true } },
-      },
+      include: presellInclude,
     });
     res.status(201).json(mapCampaign({ ...created, spendAmount: created.spendAmount ?? null, spendCurrency: created.spendCurrency ?? null } as CampaignRow));
   },
@@ -310,6 +349,14 @@ export const campaignsController = {
     if (!existing) return res.status(404).json({ error: "Campanha não encontrada" });
 
     const d = parsed.data;
+    let linkedOffer: { id: string; hoplinkUrl: string; network: string | null } | null = null;
+    if (d.offer_id) {
+      linkedOffer = await systemPrisma.offer.findFirst({
+        where: { id: d.offer_id, userId },
+        select: { id: true, hoplinkUrl: true, network: true },
+      });
+      if (!linkedOffer) return res.status(400).json({ error: "Oferta inválida" });
+    }
     if (d.presell_id) {
       const p = await systemPrisma.presellPage.findFirst({ where: { id: d.presell_id, userId } });
       if (!p) return res.status(400).json({ error: "Presell inválida" });
@@ -321,10 +368,17 @@ export const campaignsController = {
     if (d.country !== undefined) data.country = d.country?.trim() || null;
     if (d.language !== undefined) data.language = d.language?.trim() || null;
     if (d.offer_url !== undefined) data.offerUrl = d.offer_url?.trim() || null;
+    else if (linkedOffer && !existing.offerUrl) data.offerUrl = linkedOffer.hoplinkUrl;
     if (d.platform !== undefined) data.platform = d.platform?.trim() || null;
+    else if (linkedOffer && !existing.platform && linkedOffer.network) data.platform = linkedOffer.network;
     if (d.presell_id !== undefined) {
       data.presell = d.presell_id
         ? { connect: { id: d.presell_id } }
+        : { disconnect: true };
+    }
+    if (d.offer_id !== undefined) {
+      data.offer = d.offer_id
+        ? { connect: { id: d.offer_id } }
         : { disconnect: true };
     }
     if (d.status !== undefined) data.status = d.status;
@@ -339,9 +393,7 @@ export const campaignsController = {
       const updated = await systemPrisma.affiliateCampaign.update({
         where: { id: existing.id },
         data,
-        include: {
-          presell: { select: { id: true, title: true, status: true, slug: true, customDomainId: true } },
-        },
+        include: presellInclude,
       });
 
       const range = parseRange(req);

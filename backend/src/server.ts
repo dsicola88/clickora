@@ -12,6 +12,8 @@ import { adminRouter } from "./routes/admin.routes";
 import { trackRouter } from "./routes/track.routes";
 import { webhookRouter } from "./routes/webhook.routes";
 import { campaignsRouter } from "./routes/campaigns.routes";
+import { offerRouter } from "./routes/offer.routes";
+import { continuityRouter } from "./routes/continuity.routes";
 import { publicRouter } from "./routes/public.routes";
 import { integrationsRouter } from "./routes/integrations.routes";
 import { customDomainRouter } from "./routes/customDomain.routes";
@@ -39,6 +41,7 @@ import { logR2EnvStatus } from "./lib/r2Storage";
 import { optimizerEnabled } from "./paid/optimizer/config";
 import { registerPaidOptimizerScheduler } from "./paid/optimizer/scheduler";
 import { registerAffiliateOpsScheduler } from "./modules/affiliateOps/scheduler";
+import { registerDomainHealthMonitor } from "./lib/domainHealthMonitor";
 import { registerKeepAlivePing } from "./modules/affiliateOps/keepAlive";
 import { registerConversionSyncScheduler } from "./lib/conversionSyncQueue";
 import {
@@ -240,6 +243,8 @@ app.get("/api", (_req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/enterprise", enterpriseRouter);
 app.use("/api/presells", presellRouter);
+app.use("/api/offers", offerRouter);
+app.use("/api/continuity", continuityRouter);
 app.use("/api/campaigns", campaignsRouter);
 app.use("/api/keyword-researches", keywordResearchRouter);
 app.use("/api/demand-radar", demandRadarRouter);
@@ -289,6 +294,7 @@ if (optimizerEnabled()) {
   registerPaidOptimizerScheduler();
 }
 registerAffiliateOpsScheduler();
+registerDomainHealthMonitor();
 registerKeepAlivePing();
 registerConversionSyncScheduler();
 

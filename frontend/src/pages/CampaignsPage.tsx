@@ -20,6 +20,7 @@ import { useAppLocale } from "@/i18n/AppLocaleProvider";
 import { fill } from "@/i18n";
 import { useAuth } from "@/contexts/AuthContext";
 import { userCanWriteCampaigns } from "@/lib/workspaceCapabilities";
+import { OffersRegistryPanel } from "@/components/offers/OffersRegistryPanel";
 
 function money(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n)) return "—";
@@ -68,15 +69,18 @@ export default function CampaignsPage() {
 
   if (data.length === 0) {
     return (
-      <EmptyState
-        title={t("pages.campaigns.emptyTitle")}
-        description={
-          canWrite ? t("pages.campaigns.emptyDesc") : t("pages.presells.noPermissionDesc")
-        }
-        actionLabel={canWrite ? t("pages.campaigns.createPresellAction") : undefined}
-        onAction={canWrite ? () => navigate("/presells/nova") : undefined}
-        icon={<Megaphone className="h-8 w-8 text-muted-foreground" />}
-      />
+      <div className={PRO_PAGE_SHELL}>
+        <EmptyState
+          title={t("pages.campaigns.emptyTitle")}
+          description={
+            canWrite ? t("pages.campaigns.emptyDesc") : t("pages.presells.noPermissionDesc")
+          }
+          actionLabel={canWrite ? t("pages.campaigns.createPresellAction") : undefined}
+          onAction={canWrite ? () => navigate("/presells/nova") : undefined}
+          icon={<Megaphone className="h-8 w-8 text-muted-foreground" />}
+        />
+        <OffersRegistryPanel canWrite={canWrite} />
+      </div>
     );
   }
 
@@ -157,6 +161,8 @@ export default function CampaignsPage() {
           </tbody>
         </ProTable>
       </ProPanel>
+
+      <OffersRegistryPanel canWrite={canWrite} />
     </div>
   );
 }

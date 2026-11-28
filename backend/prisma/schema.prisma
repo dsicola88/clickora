@@ -109,6 +109,46 @@ enum WorkspaceRole {
   viewer
 }
 
+/** Papel de roteamento do domínio na continuidade de presells e tracking. */
+enum DomainRoutingRole {
+  primary
+  backup
+  standby
+}
+
+/** Estado de saúde operacional do domínio (DNS / SSL / HTTP). */
+enum DomainHealthStatus {
+  healthy
+  degraded
+  down
+  unknown
+}
+
+/** Estado de validação técnica/conformidade de uma oferta independente. */
+enum OfferValidationStatus {
+  unchecked
+  valid
+  warning
+  blocked
+}
+
+/** Eventos auditáveis de saúde, troca, failover, recovery e validação. */
+enum DomainRoutingEventType {
+  health_check_passed
+  health_check_degraded
+  health_check_failed
+  auto_failover
+  auto_recovery
+  manual_swap
+  manual_rollback
+  role_changed
+  domain_disabled
+  domain_enabled
+  offer_validated
+  offer_blocked
+  binding_updated
+}
+
 // ========================
 // Models
 // ========================
@@ -172,6 +212,8 @@ model User {
   mfaSecretEnc  String? @map("mfa_secret_enc") @db.Text
   /** Backup codes bcrypt JSON array (one-time). */
   mfaBackupCodes String? @map("mfa_backup_codes") @db.Text
+  /** JWTs emitidos antes deste instante (segundos) deixam de autenticar: troca de senha, reposição, «terminar outras sessões». */
+  sessionsRevokedAt DateTime? @map("sessions_revoked_at")
   /** Subject OIDC externo (SSO enterprise). */
   oidcSubject   String? @unique @map("oidc_subject")
   /**
@@ -220,6 +262,10 @@ model User {
   complianceAudits     PresellComplianceAudit[]
   complianceDecisions  PresellComplianceDecision[]
   complianceJobs       PresellComplianceJob[]
+  offers               Offer[]
+  presellDomainBindings PresellDomainBinding[]
+  offerDomainBindings  OfferDomainBinding[]
+  domainRoutingEvents  DomainRoutingEvent[]
 
   /** Módulo anúncios (ex-Dpiloto) — dados escopados ao dono da conta (tenant). */
   paidAdsProjects              PaidAdsProject[]
@@ -300,14 +346,33 @@ model CustomDomain {
   httpsReadyCheckedAt  DateTime?        @map("https_ready_checked_at")
   /** Presell publicada que abre em `https://hostname/`; nulo = usar a mais recentemente atualizada. Vários domínios podem usar a mesma presell na raiz. */
   rootPresellId String? @map("root_presell_id")
+  /** Papel de roteamento na conta: primary (principal), backup (contingência autorizada), standby (reserva). */
+  routingRole          DomainRoutingRole  @default(standby) @map("routing_role")
+  /** Saúde operacional calculada por sondagens DNS/SSL/HTTP. */
+  healthStatus         DomainHealthStatus @default(unknown) @map("health_status")
+  lastHealthCheckAt    DateTime?          @map("last_health_check_at")
+  lastHealthError      String?            @map("last_health_error") @db.VarChar(500)
+  lastHttpStatus       Int?               @map("last_http_status")
+  consecutiveFailures  Int                @default(0) @map("consecutive_failures")
+  autoRecover          Boolean            @default(true) @map("auto_recover")
+  /** Permite desativar um domínio sem apagar DNS/Vercel. */
+  isActive             Boolean            @default(true) @map("is_active")
+  disabledReason       String?            @map("disabled_reason") @db.VarChar(240)
+  routingPriority      Int                @default(100) @map("routing_priority")
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   rootPresell  PresellPage?  @relation("DomainRootPresell", fields: [rootPresellId], references: [id], onDelete: SetNull)
   presellPages PresellPage[] @relation("DomainPresellLinks")
+  presellBindings    PresellDomainBinding[]
+  offerBindings      OfferDomainBinding[]
+  routingEvents      DomainRoutingEvent[] @relation("RoutingEventDomain")
+  fallbackFromEvents DomainRoutingEvent[] @relation("RoutingEventPreviousDomain")
+  promotedToEvents   DomainRoutingEvent[] @relation("RoutingEventTargetDomain")
 
   @@index([userId])
+  @@index([userId, isActive, healthStatus])
   @@index([hostname])
   @@map("custom_domains")
 }
@@ -418,6 +483,8 @@ model PresellPage {
   updatedAt   DateTime      @updatedAt @map("updated_at")
   /** Domínio público preferido para links desta presell; nulo = usar domínio padrão da conta. */
   customDomainId String?  @map("custom_domain_id")
+  /** Oferta independente opcional ligada a esta presell (null = fallback legado em content/tracking). */
+  offerId        String?  @map("offer_id")
   /** Estado das verificações internas de conformidade publicitária. */
   complianceGate PresellComplianceGate @default(unchecked) @map("compliance_gate")
   lastComplianceAuditAt DateTime? @map("last_compliance_audit_at")
@@ -427,8 +494,11 @@ model PresellPage {
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   customDomain   CustomDomain?   @relation("DomainPresellLinks", fields: [customDomainId], references: [id], onDelete: SetNull)
+  offer          Offer?          @relation(fields: [offerId], references: [id], onDelete: SetNull)
   /** Domínios personalizados que abrem esta presell em `https://hostname/` (pode ser mais do que um). */
   rootForDomains CustomDomain[] @relation("DomainRootPresell")
+  domainBindings PresellDomainBinding[]
+  routingEvents  DomainRoutingEvent[]
   trackingEvents TrackingEvent[]
   postbackLogs PostbackLog[]
   linkedConversions Conversion[]
@@ -444,6 +514,7 @@ model PresellPage {
   @@index([status])
   @@index([userId, status])
   @@index([customDomainId])
+  @@index([offerId])
   @@index([complianceGate])
   @@map("presell_pages")
 }
@@ -535,6 +606,7 @@ model AffiliateCampaign {
   offerUrl      String?  @map("offer_url") @db.Text
   platform      String?  @db.VarChar(64)
   presellId     String?  @map("presell_id")
+  offerId       String?  @map("offer_id")
   status        String   @default("draft") @db.VarChar(32)
   /** Gasto de ads reportado pelo utilizador (para ROI quando a rede não envia custo). */
   spendAmount   Decimal? @map("spend_amount") @db.Decimal(14, 4)
@@ -544,10 +616,119 @@ model AffiliateCampaign {
 
   user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   presell PresellPage? @relation(fields: [presellId], references: [id], onDelete: SetNull)
+  offer   Offer?       @relation(fields: [offerId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([presellId])
+  @@index([offerId])
   @@map("affiliate_campaigns")
+}
+
+/**
+ * Oferta independente por conta (separa hoplink/rede/validação da presell e da campanha).
+ * Alterar o hoplink aqui atualiza presells e o hop `/track/r/` sem mexer na Final URL dos anúncios.
+ */
+model Offer {
+  id                  String                @id @default(uuid())
+  userId              String                @map("user_id")
+  name                String                @db.VarChar(200)
+  network             String?               @db.VarChar(64)
+  hoplinkUrl          String                @map("hoplink_url") @db.Text
+  backupHoplinkUrl    String?               @map("backup_hoplink_url") @db.Text
+  validationStatus    OfferValidationStatus @default(unchecked) @map("validation_status")
+  compliancePassed    Boolean               @default(false) @map("compliance_passed")
+  lastValidatedAt     DateTime?             @map("last_validated_at")
+  lastValidationError String?               @map("last_validation_error") @db.VarChar(500)
+  resolvedFinalHost   String?               @map("resolved_final_host") @db.VarChar(255)
+  isActive            Boolean               @default(true) @map("is_active")
+  metadata            Json?
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  presellPages       PresellPage[]
+  affiliateCampaigns AffiliateCampaign[]
+  domainBindings     OfferDomainBinding[]
+  routingEvents      DomainRoutingEvent[]
+
+  @@index([userId, isActive])
+  @@index([userId, createdAt])
+  @@map("offers")
+}
+
+/** Associação múltipla Presell ↔ Domínio com papel (primary/backup/standby) e prioridade de contingência. */
+model PresellDomainBinding {
+  id             String            @id @default(uuid())
+  userId         String            @map("user_id")
+  presellId      String            @map("presell_id")
+  customDomainId String            @map("custom_domain_id")
+  role           DomainRoutingRole @default(backup)
+  priority       Int               @default(100)
+  isActive       Boolean           @default(true) @map("is_active")
+  lastUsedAt     DateTime?         @map("last_used_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  presell      PresellPage  @relation(fields: [presellId], references: [id], onDelete: Cascade)
+  customDomain CustomDomain @relation(fields: [customDomainId], references: [id], onDelete: Cascade)
+
+  @@unique([presellId, customDomainId])
+  @@index([userId, presellId, isActive])
+  @@index([customDomainId])
+  @@map("presell_domain_bindings")
+}
+
+/** Associação múltipla Oferta ↔ Domínio autorizados (primary/backup/standby). */
+model OfferDomainBinding {
+  id             String            @id @default(uuid())
+  userId         String            @map("user_id")
+  offerId        String            @map("offer_id")
+  customDomainId String            @map("custom_domain_id")
+  role           DomainRoutingRole @default(backup)
+  priority       Int               @default(100)
+  isActive       Boolean           @default(true) @map("is_active")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offer        Offer        @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  customDomain CustomDomain @relation(fields: [customDomainId], references: [id], onDelete: Cascade)
+
+  @@unique([offerId, customDomainId])
+  @@index([userId, offerId, isActive])
+  @@index([customDomainId])
+  @@map("offer_domain_bindings")
+}
+
+/** Histórico auditável de saúde, failover, troca manual, rollback e validação de ofertas. */
+model DomainRoutingEvent {
+  id               String                 @id @default(uuid())
+  userId           String                 @map("user_id")
+  eventType        DomainRoutingEventType @map("event_type")
+  scope            String                 @default("domain") @db.VarChar(32)
+  customDomainId   String?                @map("custom_domain_id")
+  previousDomainId String?                @map("previous_domain_id")
+  targetDomainId   String?                @map("target_domain_id")
+  presellId        String?                @map("presell_id")
+  offerId          String?                @map("offer_id")
+  actorUserId      String?                @map("actor_user_id")
+  reason           String?                @db.VarChar(500)
+  metadata         Json?
+  createdAt        DateTime               @default(now()) @map("created_at")
+
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customDomain   CustomDomain? @relation("RoutingEventDomain", fields: [customDomainId], references: [id], onDelete: SetNull)
+  previousDomain CustomDomain? @relation("RoutingEventPreviousDomain", fields: [previousDomainId], references: [id], onDelete: SetNull)
+  targetDomain   CustomDomain? @relation("RoutingEventTargetDomain", fields: [targetDomainId], references: [id], onDelete: SetNull)
+  presell        PresellPage?  @relation(fields: [presellId], references: [id], onDelete: SetNull)
+  offer          Offer?        @relation(fields: [offerId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([customDomainId, createdAt])
+  @@index([presellId, createdAt])
+  @@index([offerId, createdAt])
+  @@map("domain_routing_events")
 }
 
 /** Gerador de palavras-chave para afiliados — isolado por tenant; não liga a campanhas/ads. */

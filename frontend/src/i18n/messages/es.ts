@@ -1,5 +1,6 @@
 /** Auto-synced leaf-key parity with en.ts — do not drop keys. */
 import { cmOpsEs } from "./fragments/cmOps.es";
+import { continuityEs } from "./fragments/continuity.es";
 
 export const es = {
   "language": {
@@ -424,6 +425,7 @@ export const es = {
       "toastCreatedContinue": "Presell creada. Sigue en Campañas o usa «Nueva presell» para el asistente completo con el enlace del anuncio.",
       "toastCreatedAuto": "Página creada. El texto y las imágenes se generaron automáticamente.",
       "toastUpdatedWarnings": "Presell actualizada. Sigue publicada, pero hay avisos de conformidad — revísalos antes de escalar anuncios.",
+      "toastUpdatedPausedCompliance": "Cambios guardados. La presell se pausó por conformidad — corrige los problemas y publícala de nuevo.",
       "toastUpdated": "Presell actualizada.",
       "toastSaveError": "No se pudieron guardar los cambios.",
       "toastPausedRetry": " Haz clic en «Pausada» en la lista para intentar publicar de nuevo.",
@@ -2126,6 +2128,12 @@ export const es = {
       "passwordShort": "La nueva contraseña debe tener al menos 6 caracteres.",
       "passwordMismatch": "La confirmación de la nueva contraseña no coincide.",
       "passwordChanged": "Contraseña cambiada.",
+      "passwordChangedOthersRevoked": "Contraseña cambiada. Las sesiones en otros dispositivos se cerraron.",
+      "sessionsTitle": "Sesiones",
+      "sessionsDesc": "Si usó la cuenta en un dispositivo que ya no controla, cierre las otras sesiones. Este dispositivo sigue con la sesión iniciada.",
+      "revokeOtherSessions": "Cerrar sesiones en otros dispositivos",
+      "revokingSessions": "Cerrando…",
+      "otherSessionsRevoked": "Sesiones en otros dispositivos cerradas.",
       "privacyTitle": "Datos y privacidad",
       "privacyDesc": "Exporta los metadatos de tu cuenta (portabilidad) o elimina la cuenta de forma permanente en esta instalación.",
       "exportJson": "Descargar mis datos (JSON)",
@@ -5545,6 +5553,7 @@ export const es = {
         "seedIntroHtml": "<p>Arrastra widgets del panel izquierdo para empezar a construir. Haz clic en cualquier elemento para editarlo en el panel derecho.</p>",
       },
     },
+    "continuity": continuityEs,
     "notFound": {
       "title": "Página no encontrada",
       "subtitle": "Esta ruta no existe.",

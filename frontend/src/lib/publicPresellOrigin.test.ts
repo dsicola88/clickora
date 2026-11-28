@@ -167,6 +167,55 @@ describe("domínio principal NÃO é origem de presells públicas", () => {
   });
 });
 
+describe("Etapa 1: saúde, ativação e multi-domínio (domain_bindings)", () => {
+  it("ignora domínios desativados (is_active=false) ou down na resolução pública", () => {
+    const domains = [
+      domain({
+        id: "d-down",
+        hostname: "down.cliente.com",
+        purpose: "hosting",
+        is_default: true,
+        health_status: "down",
+      }),
+      domain({
+        id: "d-off",
+        hostname: "off.cliente.com",
+        purpose: "hosting",
+        is_active: false,
+      }),
+      domain({
+        id: "d-ok",
+        hostname: "backup.cliente.com",
+        purpose: "hosting",
+        routing_role: "backup",
+        health_status: "healthy",
+      }),
+    ];
+    expect(getPublicPresellFullUrl(domains, "d-down", { id: "p1", slug: "visiflo", type: "builder" })).toBe(
+      "https://backup.cliente.com/visiflo",
+    );
+  });
+
+  it("respeita ordem primary -> backup de domain_bindings da presell", () => {
+    const domains = [
+      domain({ id: "d1", hostname: "a.cliente.com", purpose: "hosting", is_default: true, health_status: "down" }),
+      domain({ id: "d2", hostname: "b.cliente.com", purpose: "hosting", health_status: "healthy" }),
+      domain({ id: "d3", hostname: "c.cliente.com", purpose: "hosting", health_status: "healthy" }),
+    ];
+    const url = getPublicPresellFullUrl(domains, "d1", {
+      id: "p1",
+      slug: "visiflo",
+      type: "builder",
+      domain_bindings: [
+        { id: "b1", custom_domain_id: "d1", role: "primary", priority: 10, is_active: true },
+        { id: "b3", custom_domain_id: "d3", role: "backup", priority: 50, is_active: true },
+        { id: "b2", custom_domain_id: "d2", role: "backup", priority: 20, is_active: true },
+      ],
+    });
+    expect(url).toBe("https://b.cliente.com/visiflo");
+  });
+});
+
 describe("rehomePlatformTrackUrls", () => {
   const content = {
     mirrorHtml:

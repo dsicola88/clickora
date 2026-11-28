@@ -17,6 +17,8 @@ export type CampaignStats = {
   spend_note?: "lifetime_memo" | "manual_period_estimate";
 };
 
+import type { OfferSummaryDto } from "@/types/api";
+
 export type AffiliateCampaign = {
   id: string;
   name: string;
@@ -26,6 +28,7 @@ export type AffiliateCampaign = {
   offer_url: string | null;
   platform: string | null;
   presell_id: string | null;
+  offer_id?: string | null;
   status: string;
   spend_amount: number | null;
   spend_currency: string;
@@ -38,6 +41,7 @@ export type AffiliateCampaign = {
     slug: string;
     custom_domain_id?: string | null;
   } | null;
+  offer?: OfferSummaryDto | null;
   stats?: CampaignStats;
 };
 
@@ -49,6 +53,7 @@ export type AffiliateCampaignInput = {
   offer_url?: string | null;
   platform?: string | null;
   presell_id?: string | null;
+  offer_id?: string | null;
   status?: "draft" | "active" | "paused";
   spend_amount?: number | null;
   spend_currency?: string | null;

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyToken, JwtPayload } from "../lib/jwt";
-import { resolveLiveWorkspaceClaims } from "../lib/workspaceSessionGuard";
+import { resolveLiveWorkspaceClaims, SessionRevokedError } from "../lib/workspaceSessionGuard";
 
 // Extend Express Request
 declare global {
@@ -37,7 +37,10 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       workspacePermissions: live.workspacePermissions ?? [],
     };
     next();
-  } catch {
+  } catch (err) {
+    if (err instanceof SessionRevokedError) {
+      return res.status(401).json({ error: "Sessão terminada. Inicie sessão novamente.", code: "SESSION_REVOKED" });
+    }
     return res.status(401).json({ error: "Token inválido ou expirado" });
   }
 }

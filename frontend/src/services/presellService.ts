@@ -1,6 +1,6 @@
 import { apiClient } from "@/lib/apiClient";
 import { getApiBaseUrl } from "@/lib/apiOrigin";
-import type { Presell } from "@/types/api";
+import type { DomainBindingDto, DomainRoutingEventDto, DomainRoutingRole, Presell } from "@/types/api";
 
 export type PresellComplianceResultDto = {
   ruleId: string;
@@ -283,6 +283,61 @@ export const presellService = {
 
   async getCount() {
     return apiClient.get<{ count: number }>("/presells/count");
+  },
+
+  async getDomains(id: string) {
+    return apiClient.get<{
+      presell_id: string;
+      custom_domain_id: string | null;
+      bindings: DomainBindingDto[];
+      available_domains: Array<{
+        id: string;
+        hostname: string;
+        status: string;
+        purpose: string;
+        is_default: boolean;
+        is_active: boolean;
+        health_status: string;
+        routing_role: DomainRoutingRole;
+        routing_priority: number;
+        https_reachable_cached: boolean | null;
+      }>;
+      routing_events: DomainRoutingEventDto[];
+    }>(`/presells/${encodeURIComponent(id)}/domains`);
+  },
+
+  async setDomains(
+    id: string,
+    bindings: Array<{
+      custom_domain_id: string;
+      role: DomainRoutingRole;
+      priority?: number;
+      is_active?: boolean;
+    }>,
+  ) {
+    return apiClient.put<{
+      presell_id: string;
+      primary_domain_id: string | null;
+      bindings: DomainBindingDto[];
+    }>(`/presells/${encodeURIComponent(id)}/domains`, { bindings });
+  },
+
+  async swapPrimaryDomain(id: string, payload: { target_domain_id: string; reason?: string }) {
+    return apiClient.post<{
+      ok: boolean;
+      presell_id: string;
+      previous_domain_id: string | null;
+      target_domain_id: string;
+    }>(`/presells/${encodeURIComponent(id)}/domains/swap-primary`, payload);
+  },
+
+  async rollbackPrimaryDomain(id: string, reason?: string) {
+    return apiClient.post<{
+      ok: boolean;
+      presell_id: string;
+      previous_domain_id: string | null;
+      target_domain_id: string;
+    }>(`/presells/${encodeURIComponent(id)}/domains/rollback`, reason ? { reason } : {});
   },
 
   /** Upload de imagem para o editor manual (galeria, imagem, depoimentos, etc.). */

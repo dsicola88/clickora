@@ -110,8 +110,20 @@ export const authService = {
     return result;
   },
 
+  /** O backend revoga as outras sessões e devolve um token novo para esta. */
   async changePassword(current_password: string, new_password: string) {
-    return apiClient.post<{ message: string }>("/auth/change-password", { current_password, new_password });
+    const result = await apiClient.post<{ message: string; token?: string; other_sessions_revoked?: boolean }>(
+      "/auth/change-password",
+      { current_password, new_password },
+    );
+    if (result.data?.token) apiClient.setToken(result.data.token);
+    return result;
+  },
+
+  async revokeOtherSessions() {
+    const result = await apiClient.post<{ message: string; token: string }>("/auth/sessions/revoke-others", {});
+    if (result.data?.token) apiClient.setToken(result.data.token);
+    return result;
   },
 
   async uploadAvatar(file: File) {

@@ -1,5 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Globe, Loader2, Trash2, Star } from "lucide-react";
+import {
+  Globe,
+  Loader2,
+  Trash2,
+  Star,
+  Activity,
+  Power,
+  RotateCcw,
+  ArrowUpCircle,
+  History,
+} from "lucide-react";
 import { useState } from "react";
 import { fill } from "@/i18n";
 import { useAppLocale } from "@/i18n/AppLocaleProvider";
@@ -11,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { customDomainService } from "@/services/customDomainService";
 import { presellService } from "@/services/presellService";
-import type { CustomDomainDto } from "@/types/api";
+import type { CustomDomainDto, DomainRoutingRole } from "@/types/api";
 import {
   inferDnsRecordKind,
   normalizeDomainStatus,
@@ -24,7 +34,8 @@ import { shouldPollCustomDomainSsl } from "@/lib/customDomainSslDisplay";
 import { tenantQueryKey } from "@/lib/tenantQueryKey";
 
 export function CustomDomainSettings() {
-  const { t } = useAppLocale();
+  const { t, m } = useAppLocale();
+  const cd = m.pages.continuity.domains;
   const { user } = useAuth();
   const tenantKey = tenantQueryKey(user);
   const queryClient = useQueryClient();
@@ -206,6 +217,118 @@ export function CustomDomainSettings() {
     onError: () => toast.error(t("pages.settings.trackingDefaultFailed")),
   });
 
+  const { data: routingEvents = [] } = useQuery({
+    queryKey: ["custom-domain-routing-events", tenantKey],
+    queryFn: async () => {
+      const { data, error } = await customDomainService.routingEvents({ limit: 15 });
+      if (error) return [];
+      return data ?? [];
+    },
+    enabled: !!tenantKey,
+    staleTime: 20_000,
+  });
+
+  const healthCheckMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await customDomainService.healthCheck(id);
+      if (res.error || !res.data) throw new Error(res.error || cd.healthCheckFailed);
+      return res.data;
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      queryClient.invalidateQueries({ queryKey: ["custom-domain-routing-events"] });
+      queryClient.invalidateQueries({ queryKey: ["continuity-overview"] });
+      if (res.check.ok) {
+        toast.success(fill(cd.healthyToast, { host: res.domain.hostname, status: res.check.httpStatus ?? "OK" }));
+      } else {
+        toast.warning(
+          fill(cd.unhealthyToast, { host: res.domain.hostname, detail: res.check.error || res.check.healthStatus }),
+        );
+      }
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : cd.healthCheckError),
+  });
+
+  const setActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const res = await customDomainService.setActive(id, isActive);
+      if (res.error) throw new Error(res.error);
+      return res.data ?? [];
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      queryClient.invalidateQueries({ queryKey: ["custom-domain-routing-events"] });
+      queryClient.invalidateQueries({ queryKey: ["continuity-overview"] });
+      toast.success(vars.isActive ? cd.reactivatedToast : cd.pausedToast);
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : cd.stateError),
+  });
+
+  const setRoutingMutation = useMutation({
+    mutationFn: async ({ id, role }: { id: string; role: DomainRoutingRole }) => {
+      const res = await customDomainService.setRouting(id, { routing_role: role });
+      if (res.error) throw new Error(res.error);
+      return res.data ?? [];
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      queryClient.invalidateQueries({ queryKey: ["custom-domain-routing-events"] });
+      queryClient.invalidateQueries({ queryKey: ["continuity-overview"] });
+      toast.success(cd.roleUpdated);
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : cd.roleError),
+  });
+
+  const promotePrimaryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await customDomainService.promotePrimary(id);
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      queryClient.invalidateQueries({ queryKey: ["custom-domain-routing-events"] });
+      queryClient.invalidateQueries({ queryKey: ["continuity-overview"] });
+      toast.success(cd.promotedToast);
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : cd.promoteError),
+  });
+
+  const rollbackPrimaryMutation = useMutation({
+    mutationFn: async () => {
+      const res = await customDomainService.rollbackPrimary();
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["custom-domain"] });
+      queryClient.invalidateQueries({ queryKey: ["custom-domain-routing-events"] });
+      queryClient.invalidateQueries({ queryKey: ["continuity-overview"] });
+      toast.success(cd.rollbackDone);
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : cd.rollbackNone),
+  });
+
+  /** Espelha `planRollbackTarget` + `rollbackPrimary`: só eventos de conta e com domínio anterior ≠ primário atual. */
+  const currentAccountPrimaryId = domains.find((d) => d.is_default && d.purpose !== "tracking")?.id ?? null;
+  const hasRollbackCandidate = routingEvents.some(
+    (ev) =>
+      ev.scope === "domain" &&
+      (ev.event_type === "manual_swap" || ev.event_type === "auto_failover" || ev.event_type === "manual_rollback") &&
+      Boolean(ev.previous_domain_id) &&
+      ev.previous_domain_id !== currentAccountPrimaryId,
+  );
+  const eventTypeLabel: Record<string, string> = {
+    auto_failover: m.pages.continuity.panel.event_auto_failover,
+    auto_recovery: m.pages.continuity.panel.event_auto_recovery,
+    manual_swap: m.pages.continuity.panel.event_manual_swap,
+    manual_rollback: m.pages.continuity.panel.event_manual_rollback,
+    health_check_failed: m.pages.continuity.panel.event_health_check_failed,
+    role_changed: m.pages.continuity.panel.event_role_changed,
+    domain_disabled: m.pages.continuity.panel.event_domain_disabled,
+    domain_enabled: m.pages.continuity.panel.event_domain_enabled,
+  };
+
   const copy = async (label: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -330,6 +453,32 @@ export function CustomDomainSettings() {
                     {normalizeDomainStatus(d.status) === "verified" ? (
                       <CustomDomainSslBadge domain={d} tenantKey={tenantKey} />
                     ) : null}
+                    {normalizeDomainStatus(d.status) === "verified" ? (
+                      <span
+                        title={d.last_health_error || undefined}
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          d.is_active === false
+                            ? "bg-muted text-muted-foreground"
+                            : d.health_status === "healthy"
+                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                              : d.health_status === "degraded"
+                                ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
+                                : d.health_status === "down"
+                                  ? "bg-destructive/15 text-destructive"
+                                  : "bg-muted/70 text-muted-foreground"
+                        }`}
+                      >
+                        {d.is_active === false
+                          ? cd.statusPaused
+                          : d.health_status === "healthy"
+                            ? `${cd.statusHealthy}${d.last_http_status ? ` · ${d.last_http_status}` : ""}`
+                            : d.health_status === "degraded"
+                              ? cd.statusDegraded
+                              : d.health_status === "down"
+                                ? cd.statusDown
+                                : cd.statusUnknown}
+                      </span>
+                    ) : null}
                     {normalizeDomainStatus(d.status) === "verified" && d.is_default && (
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Star className="h-3 w-3 fill-amber-400 text-amber-500" /> {t("pages.settings.defaultLander")}
@@ -338,6 +487,27 @@ export function CustomDomainSettings() {
                     {d.is_default_tracking && (d.purpose === "tracking" || d.purpose === "both" || !d.purpose) && (
                       <span className="text-xs text-sky-700 dark:text-sky-400">{t("pages.settings.defaultTracking")}</span>
                     )}
+                    {normalizeDomainStatus(d.status) === "verified" && d.purpose !== "tracking" ? (
+                      <Select
+                        value={d.routing_role ?? (d.is_default ? "primary" : "standby")}
+                        onValueChange={(v) =>
+                          setRoutingMutation.mutate({
+                            id: d.id,
+                            role: v as DomainRoutingRole,
+                          })
+                        }
+                        disabled={setRoutingMutation.isPending}
+                      >
+                        <SelectTrigger className="h-7 w-[7.2rem] text-[11px]" title={cd.roleHint}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="primary">{cd.rolePrimary}</SelectItem>
+                          <SelectItem value="backup">{cd.roleBackup}</SelectItem>
+                          <SelectItem value="standby">{cd.roleStandby}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : null}
                     <Select
                       value={d.purpose ?? "both"}
                       onValueChange={(v) =>
@@ -358,18 +528,52 @@ export function CustomDomainSettings() {
                     </Select>
                   </div>
                   <div className="flex flex-wrap gap-1 shrink-0">
+                    {normalizeDomainStatus(d.status) === "verified" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-xs gap-1"
+                        disabled={healthCheckMutation.isPending}
+                        onClick={() => healthCheckMutation.mutate(d.id)}
+                        title={cd.healthButtonTitle}
+                      >
+                        <Activity className="h-3.5 w-3.5" />
+                        {cd.healthButton}
+                      </Button>
+                    )}
+                    {normalizeDomainStatus(d.status) === "verified" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-xs gap-1"
+                        disabled={setActiveMutation.isPending}
+                        onClick={() =>
+                          setActiveMutation.mutate({ id: d.id, isActive: d.is_active === false })
+                        }
+                        title={
+                          d.is_active === false ? cd.reactivateTitle : cd.pauseTitle
+                        }
+                      >
+                        <Power className="h-3.5 w-3.5" />
+                        {d.is_active === false ? cd.reactivate : cd.pause}
+                      </Button>
+                    )}
                     {normalizeDomainStatus(d.status) === "verified" &&
                       !d.is_default &&
+                      d.is_active !== false &&
                       d.purpose !== "tracking" && (
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="text-xs"
-                        disabled={defaultMutation.isPending}
-                        onClick={() => defaultMutation.mutate(d.id)}
+                        className="text-xs gap-1"
+                        disabled={promotePrimaryMutation.isPending || defaultMutation.isPending}
+                        onClick={() => promotePrimaryMutation.mutate(d.id)}
                       >
-                        {t("pages.settings.setDefaultLander")}
+                        <ArrowUpCircle className="h-3.5 w-3.5" />
+                        {cd.promote}
                       </Button>
                     )}
                     {normalizeDomainStatus(d.status) === "verified" &&
@@ -553,6 +757,53 @@ export function CustomDomainSettings() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {(hasRollbackCandidate || routingEvents.length > 0) && (
+        <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <History className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-sm font-medium text-card-foreground">
+                {cd.historyTitle}
+              </h4>
+            </div>
+            {hasRollbackCandidate ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1.5"
+                disabled={rollbackPrimaryMutation.isPending}
+                onClick={() => rollbackPrimaryMutation.mutate()}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                {rollbackPrimaryMutation.isPending ? cd.rollbackRunning : cd.rollbackButton}
+              </Button>
+            ) : null}
+          </div>
+          {routingEvents.length > 0 ? (
+            <ul className="space-y-1.5 text-xs text-muted-foreground">
+              {routingEvents.slice(0, 8).map((ev) => (
+                <li
+                  key={ev.id}
+                  className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/30 pb-1 last:border-b-0 last:pb-0"
+                >
+                  <span className="text-foreground/90">
+                    <span className="text-[11px] font-medium text-primary mr-1.5">{eventTypeLabel[ev.event_type] ?? ev.event_type}</span>
+                    {ev.reason ||
+                      (ev.previous_domain?.hostname && ev.target_domain?.hostname
+                        ? `${ev.previous_domain.hostname} → ${ev.target_domain.hostname}`
+                        : ev.custom_domain?.hostname || cd.eventFallback)}
+                  </span>
+                  <span className="text-[11px] tabular-nums shrink-0">
+                    {new Date(ev.created_at).toLocaleString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       )}
     </div>

@@ -32,6 +32,10 @@ export const USER_ID_MODELS = [
   "presellComplianceAudit",
   "presellComplianceDecision",
   "presellComplianceJob",
+  "offer",
+  "presellDomainBinding",
+  "offerDomainBinding",
+  "domainRoutingEvent",
   /** PK = userId — findUnique tratado como subscription. */
   "tenantBranding",
   /** Paid: defense-in-depth se alguém usar o cliente tenant por engano. */

@@ -32,6 +32,7 @@ authRouter.patch("/me", authenticate, tenantIsolation, authController.patchProfi
 authRouter.get("/me/data-export", authenticate, tenantIsolation, authController.exportMyData);
 authRouter.post("/me/delete-account", authenticate, tenantIsolation, authController.deleteAccount);
 authRouter.post("/change-password", authenticate, authController.changePassword);
+authRouter.post("/sessions/revoke-others", authenticate, authController.revokeOtherSessions);
 authRouter.post("/avatar", authenticate, tenantIsolation, handleAvatarUpload, authController.uploadAvatar);
 authRouter.delete("/avatar", authenticate, tenantIsolation, authController.deleteAvatar);
 authRouter.post("/reset-password", authCredentialLimiter, authController.resetPassword);

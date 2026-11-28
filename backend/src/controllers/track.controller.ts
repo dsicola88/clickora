@@ -67,9 +67,10 @@ import { isFunnelStep, recordAffiliateFunnelStep } from "../lib/funnelStepEvent"
 import { fillMissingAdClickIds, forwardAdQueryToUrl, rotatorMetaFromParentClick } from "../lib/rotatorParentAttribution";
 import { isForbiddenPublicTrackEventType } from "../lib/trackPublicEventPolicy";
 import {
-  affiliateLinkFromPresellPage,
-  isRedirectToAllowedOffer,
-} from "../lib/trackOfferRedirectGuard";
+  isRedirectAllowedForEffectiveOffer,
+  resolveEffectiveOfferForPresell,
+  type LinkedOfferSnapshot,
+} from "../lib/offerValidation";
 import { resolveTrackEdgeDest } from "../lib/trackEdgeDestCache";
 import {
   cloudflareVisitorCountryFromRequest,
@@ -336,10 +337,40 @@ function impressionAttributionFromPixelQuery(query: Request["query"]) {
   return { referrer, source, medium, campaign, metadata };
 }
 
+async function findPresellWithOfferById(presellId: string) {
+  try {
+    return await systemPrisma.presellPage.findUnique({
+      where: { id: presellId },
+      include: {
+        offer: {
+          select: {
+            id: true,
+            hoplinkUrl: true,
+            backupHoplinkUrl: true,
+            network: true,
+            validationStatus: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+  } catch (e) {
+    if (
+      !(e instanceof Prisma.PrismaClientKnownRequestError) ||
+      (e.code !== "P2021" && e.code !== "P2022")
+    ) {
+      throw e;
+    }
+    const row = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
+    return row ? { ...row, offer: null as LinkedOfferSnapshot | null } : null;
+  }
+}
+
 async function affiliateNetworkForRedirect(args: {
   queryNetwork?: string;
   userId: string;
   presellId: string;
+  offerNetwork?: string | null;
 }): Promise<string | null> {
   const fromQuery = args.queryNetwork?.trim();
   if (fromQuery && canonicalPlatformId(fromQuery)) return fromQuery;
@@ -348,7 +379,7 @@ async function affiliateNetworkForRedirect(args: {
     orderBy: { updatedAt: "desc" },
     select: { platform: true },
   });
-  return camp?.platform?.trim() || fromQuery || null;
+  return camp?.platform?.trim() || args.offerNetwork?.trim() || fromQuery || null;
 }
 
 /**
@@ -444,7 +475,7 @@ export const trackController = {
     const fbp = (typeof fbpRaw === "string" && fbpRaw.trim()) || requestCookieValue(req, "_fbp");
     const ttp = (typeof ttpRaw === "string" && ttpRaw.trim()) || requestCookieValue(req, "_ttp");
 
-    const page = await systemPrisma.presellPage.findUnique({ where: { id: presellId } });
+    const page = await findPresellWithOfferById(presellId);
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
     if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
       return res.status(404).json({ error: "Página não encontrada" });
@@ -466,13 +497,32 @@ export const trackController = {
       });
       return sendSafeVisitorPage(res, page.settings);
     }
-    const configuredOffer = affiliateLinkFromPresellPage(page.content, page.tracking);
+    const resolvedOffer = resolveEffectiveOfferForPresell({
+      offer: page.offer ?? null,
+      content: page.content,
+      tracking: page.tracking,
+    });
+    if (!resolvedOffer.ok) {
+      console.warn("[track.redirect] oferta indisponível/bloqueada → sem oferta", {
+        presellId,
+        reason: resolvedOffer.reason,
+      });
+      return sendSafeVisitorPage(res, page.settings);
+    }
+    const configuredOffer = resolvedOffer.destination;
     const to = (toRaw && toRaw.trim()) || configuredOffer;
     if (!to || !/^https?:\/\//i.test(to)) {
       console.warn("[track.redirect] sem hoplink configurado", { presellId });
       return sendSafeVisitorPage(res, page.settings);
     }
-    if (!isRedirectToAllowedOffer(to, configuredOffer)) {
+    if (
+      !isRedirectAllowedForEffectiveOffer(
+        to,
+        configuredOffer,
+        resolvedOffer.backupDestination,
+        resolvedOffer.alternateDestinations,
+      )
+    ) {
       console.warn("[track.redirect] parâmetro to não autorizado", {
         presellId,
         host: (() => {
@@ -639,6 +689,7 @@ export const trackController = {
       queryNetwork,
       userId: page.userId,
       presellId: page.id,
+      offerNetwork: resolvedOffer.network,
     });
     /**
      * Encaminhar ads IDs / UTM para o hoplink (igual ao hop `/rot`).
@@ -1043,7 +1094,7 @@ export const trackController = {
     const utm_content = realUtmDimensionBody(bodyUtmContentRaw);
 
     // Get page owner
-    const page = await systemPrisma.presellPage.findUnique({ where: { id: presell_id } });
+    const page = await findPresellWithOfferById(presell_id);
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
     if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
       return res.status(404).json({ error: "Página não encontrada" });
@@ -1103,9 +1154,21 @@ export const trackController = {
       : seen.countryMeta;
     const { device, botMeta } = deviceAndBotMeta(userAgent, { headers: req.headers as Record<string, string | string[] | undefined>, ip });
 
-    const configuredOffer = affiliateLinkFromPresellPage(page.content, page.tracking);
+    const resolvedOffer = resolveEffectiveOfferForPresell({
+      offer: page.offer ?? null,
+      content: page.content,
+      tracking: page.tracking,
+    });
+    const configuredOffer = resolvedOffer.ok ? resolvedOffer.destination : "";
     const redirectTo =
-      redirectToRaw && configuredOffer && isRedirectToAllowedOffer(redirectToRaw, configuredOffer)
+      redirectToRaw &&
+      configuredOffer &&
+      isRedirectAllowedForEffectiveOffer(
+        redirectToRaw,
+        configuredOffer,
+        resolvedOffer.ok ? resolvedOffer.backupDestination : null,
+        resolvedOffer.ok ? resolvedOffer.alternateDestinations : null,
+      )
         ? redirectToRaw.trim()
         : configuredOffer || undefined;
 
@@ -1675,25 +1738,76 @@ export const trackController = {
       });
     }
     const q = parsed.data;
-    const page = await systemPrisma.presellPage.findFirst({
-      where: { id: presellId, userId },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        userId: true,
-        content: true,
-        tracking: true,
-        settings: true,
-      },
-    });
+    let page: {
+      id: string;
+      title: string;
+      status: string;
+      userId: string;
+      content: unknown;
+      tracking: unknown;
+      settings: unknown;
+      offer?: LinkedOfferSnapshot | null;
+    } | null = null;
+    try {
+      page = await systemPrisma.presellPage.findFirst({
+        where: { id: presellId, userId },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          userId: true,
+          content: true,
+          tracking: true,
+          settings: true,
+          offer: {
+            select: {
+              id: true,
+              hoplinkUrl: true,
+              backupHoplinkUrl: true,
+              network: true,
+              validationStatus: true,
+              isActive: true,
+            },
+          },
+        },
+      });
+    } catch (e) {
+      if (
+        !(e instanceof Prisma.PrismaClientKnownRequestError) ||
+        (e.code !== "P2021" && e.code !== "P2022")
+      ) {
+        throw e;
+      }
+      page = await systemPrisma.presellPage.findFirst({
+        where: { id: presellId, userId },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          userId: true,
+          content: true,
+          tracking: true,
+          settings: true,
+        },
+      });
+    }
     if (!page) return res.status(404).json({ error: "Presell não encontrada" });
 
-    const configuredOffer = affiliateLinkFromPresellPage(page.content, page.tracking);
+    const resolvedOffer = resolveEffectiveOfferForPresell({
+      offer: page.offer ?? null,
+      content: page.content,
+      tracking: page.tracking,
+    });
+    const configuredOffer = resolvedOffer.ok ? resolvedOffer.destination : "";
     const toCandidate =
       (typeof q.to === "string" && q.to.trim() && q.to !== "#" ? q.to.trim() : "") || configuredOffer;
-    const toAllowed = toCandidate
-      ? isRedirectToAllowedOffer(toCandidate, configuredOffer)
+    const toAllowed = toCandidate && configuredOffer
+      ? isRedirectAllowedForEffectiveOffer(
+          toCandidate,
+          configuredOffer,
+          resolvedOffer.ok ? resolvedOffer.backupDestination : null,
+          resolvedOffer.ok ? resolvedOffer.alternateDestinations : null,
+        )
       : false;
     const adIds = {
       gclid: cleanAdClickId(q.gclid),
@@ -1715,6 +1829,7 @@ export const trackController = {
       queryNetwork: q.network,
       userId: page.userId,
       presellId: page.id,
+      offerNetwork: resolvedOffer.ok ? resolvedOffer.network : null,
     });
     const landed = toCandidate
       ? forwardAdQueryToUrl(toCandidate, {
@@ -1786,6 +1901,8 @@ export const trackController = {
         },
       },
       offer: {
+        offer_id: resolvedOffer.ok ? resolvedOffer.offerId : page.offer?.id ?? null,
+        source: resolvedOffer.ok ? resolvedOffer.source : resolvedOffer.reason,
         configured: configuredOffer || null,
         requested_to: typeof q.to === "string" ? q.to : null,
         to_used: toCandidate || null,

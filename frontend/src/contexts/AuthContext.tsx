@@ -59,9 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       localStorage.setItem("clickora_user", JSON.stringify(data));
     } else if (error) {
-      setUser(null);
-      authService.logout();
-      queryClient.clear();
+      // Só termina a sessão se o token foi de facto invalidado (um 401 já o limpa em apiClient).
+      // Falhas transitórias (rede, backend a reiniciar, 5xx) não devem desligar o utilizador.
+      if (!authService.isAuthenticated()) {
+        setUser(null);
+        queryClient.clear();
+      }
     }
     setLoading(false);
   }, [queryClient]);

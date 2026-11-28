@@ -3,7 +3,7 @@
  * Tipos com gate interativo ficam na SPA `/p/:id`.
  */
 import { isEssentialsImportPresentation } from "./presellImportPresentation";
-import { affiliateLinkFromPresellPage } from "./trackOfferRedirectGuard";
+import { resolveEffectiveOfferForPresell, type LinkedOfferSnapshot } from "./offerValidation";
 import { sanitizeMirrorEmbedForLiteHtml } from "./sanitizeMirrorEmbedForLiteHtml";
 
 /** Gates / builder / overlays — não servem como HTML lite por defeito. */
@@ -155,6 +155,7 @@ export type PresellLiteHtmlInput = {
   language?: string | null;
   content: unknown;
   tracking: unknown;
+  offer?: LinkedOfferSnapshot | null;
   /** Base absoluta da API de track, ex. https://go.exemplo.com/api ou https://api…/api */
   trackApiBase: string;
   /** Fallback SPA se o visitante precisar da experiência completa */
@@ -176,9 +177,17 @@ export function buildPresellLiteHtml(input: PresellLiteHtmlInput): PresellLiteHt
     return { ok: false, eligible: false, reason: `type_not_lite:${input.type}` };
   }
   const content = asRecord(input.content);
-  const offer = affiliateLinkFromPresellPage(input.content, input.tracking);
-  if (!offer) {
-    return { ok: false, eligible: false, reason: "missing_offer" };
+  const resolvedOffer = resolveEffectiveOfferForPresell({
+    offer: input.offer ?? null,
+    content: input.content,
+    tracking: input.tracking,
+  });
+  if (!resolvedOffer.ok) {
+    return {
+      ok: false,
+      eligible: false,
+      reason: resolvedOffer.reason === "missing_offer" ? "missing_offer" : resolvedOffer.reason,
+    };
   }
 
   const trackBase = input.trackApiBase.replace(/\/+$/, "");

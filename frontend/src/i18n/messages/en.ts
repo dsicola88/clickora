@@ -1,5 +1,6 @@
 /** English — source of truth for app i18n keys (en / pt / pt-BR must match). */
 import { cmOpsEn } from "./fragments/cmOps.en";
+import { continuityEn } from "./fragments/continuity.en";
 
 export const en = {
   language: {
@@ -431,6 +432,7 @@ export const en = {
       toastCreatedContinue: "Presell created. Continue in Campaigns, or use «New presell» for the full wizard with the ad link.",
       toastCreatedAuto: "Page created. Copy and images were generated automatically.",
       toastUpdatedWarnings: "Presell updated. It stays published, but there are compliance warnings — review before scaling ads.",
+      toastUpdatedPausedCompliance: "Changes saved. The presell was paused for compliance — fix the issues and publish again.",
       toastUpdated: "Presell updated.",
       toastSaveError: "Could not save changes.",
       toastPausedRetry: " Click «Paused» in the list to try publishing again.",
@@ -2164,6 +2166,12 @@ export const en = {
       passwordShort: "The new password must be at least 6 characters.",
       passwordMismatch: "The new password confirmation does not match.",
       passwordChanged: "Password changed.",
+      passwordChangedOthersRevoked: "Password changed. Sessions on other devices were signed out.",
+      sessionsTitle: "Sessions",
+      sessionsDesc: "If you used your account on a device you no longer control, sign out the other sessions. This device stays signed in.",
+      revokeOtherSessions: "Sign out other devices",
+      revokingSessions: "Signing out…",
+      otherSessionsRevoked: "Other devices signed out.",
       privacyTitle: "Data and privacy",
       privacyDesc: "Export your account metadata (portability) or permanently delete the account on this installation.",
       exportJson: "Download my data (JSON)",
@@ -5615,6 +5623,7 @@ export const en = {
           "<p>Drag widgets from the left panel to start building. Click any element to edit it in the right panel.</p>",
       },
     },
+    continuity: continuityEn,
     notFound: {
       title: "Page not found",
       subtitle: "This route does not exist.",

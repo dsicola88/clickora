@@ -233,4 +233,52 @@ CREATE TABLE IF NOT EXISTS "hotmart_webhook_receipts" (
   } catch (e) {
     console.warn("[schemaRepair] hotmart_webhook_receipts (ignorado):", e);
   }
+  await repairSmartDomainRoutingSchema();
+}
+
+async function repairSmartDomainRoutingSchema(): Promise<void> {
+  const statements = [
+    `DO $$ BEGIN CREATE TYPE "DomainRoutingRole" AS ENUM ('primary', 'backup', 'standby'); EXCEPTION WHEN duplicate_object THEN null; END $$`,
+    `DO $$ BEGIN CREATE TYPE "DomainHealthStatus" AS ENUM ('healthy', 'degraded', 'down', 'unknown'); EXCEPTION WHEN duplicate_object THEN null; END $$`,
+    `DO $$ BEGIN CREATE TYPE "OfferValidationStatus" AS ENUM ('unchecked', 'valid', 'warning', 'blocked'); EXCEPTION WHEN duplicate_object THEN null; END $$`,
+    `DO $$ BEGIN CREATE TYPE "DomainRoutingEventType" AS ENUM ('health_check_passed','health_check_degraded','health_check_failed','auto_failover','auto_recovery','manual_swap','manual_rollback','role_changed','domain_disabled','domain_enabled','offer_validated','offer_blocked','binding_updated'); EXCEPTION WHEN duplicate_object THEN null; END $$`,
+    `ALTER TABLE "custom_domains" ADD COLUMN IF NOT EXISTS "routing_role" "DomainRoutingRole" NOT NULL DEFAULT 'standby'`,
+    `ALTER TABLE "custom_domains" ADD COLUMN IF NOT EXISTS "health_status" "DomainHealthStatus" NOT NULL DEFAULT 'unknown'`,
+    `ALTER TABLE "custom_domains" ADD COLUMN IF NOT EXISTS "last_health_check_at" TIMESTAMP(3)`,
+    `ALTER TABLE "custom_domains" ADD COLUMN IF NOT EXISTS "last_health_error" VARCHAR(500)`,
+    `ALTER TABLE "custom_domains" ADD COLUMN IF NOT EXISTS "last_http_status" INTEGER`,
+    `ALTER TABLE "custom_domains" ADD COLUMN IF NOT EXISTS "consecutive_failures" INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE "custom_domains" ADD COLUMN IF NOT EXISTS "auto_recover" BOOLEAN NOT NULL DEFAULT true`,
+    `ALTER TABLE "custom_domains" ADD COLUMN IF NOT EXISTS "is_active" BOOLEAN NOT NULL DEFAULT true`,
+    `ALTER TABLE "custom_domains" ADD COLUMN IF NOT EXISTS "disabled_reason" VARCHAR(240)`,
+    `ALTER TABLE "custom_domains" ADD COLUMN IF NOT EXISTS "routing_priority" INTEGER NOT NULL DEFAULT 100`,
+    `CREATE INDEX IF NOT EXISTS "custom_domains_user_id_is_active_health_status_idx" ON "custom_domains"("user_id", "is_active", "health_status")`,
+    `CREATE TABLE IF NOT EXISTS "offers" ("id" TEXT NOT NULL, "user_id" TEXT NOT NULL, "name" VARCHAR(200) NOT NULL, "network" VARCHAR(64), "hoplink_url" TEXT NOT NULL, "backup_hoplink_url" TEXT, "validation_status" "OfferValidationStatus" NOT NULL DEFAULT 'unchecked', "compliance_passed" BOOLEAN NOT NULL DEFAULT false, "last_validated_at" TIMESTAMP(3), "last_validation_error" VARCHAR(500), "resolved_final_host" VARCHAR(255), "is_active" BOOLEAN NOT NULL DEFAULT true, "metadata" JSONB, "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "offers_pkey" PRIMARY KEY ("id"))`,
+    `CREATE INDEX IF NOT EXISTS "offers_user_id_is_active_idx" ON "offers"("user_id", "is_active")`,
+    `CREATE INDEX IF NOT EXISTS "offers_user_id_created_at_idx" ON "offers"("user_id", "created_at")`,
+    `ALTER TABLE "presell_pages" ADD COLUMN IF NOT EXISTS "offer_id" TEXT`,
+    `CREATE INDEX IF NOT EXISTS "presell_pages_offer_id_idx" ON "presell_pages"("offer_id")`,
+    `ALTER TABLE "affiliate_campaigns" ADD COLUMN IF NOT EXISTS "offer_id" TEXT`,
+    `CREATE INDEX IF NOT EXISTS "affiliate_campaigns_offer_id_idx" ON "affiliate_campaigns"("offer_id")`,
+    `CREATE TABLE IF NOT EXISTS "presell_domain_bindings" ("id" TEXT NOT NULL, "user_id" TEXT NOT NULL, "presell_id" TEXT NOT NULL, "custom_domain_id" TEXT NOT NULL, "role" "DomainRoutingRole" NOT NULL DEFAULT 'backup', "priority" INTEGER NOT NULL DEFAULT 100, "is_active" BOOLEAN NOT NULL DEFAULT true, "last_used_at" TIMESTAMP(3), "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "presell_domain_bindings_pkey" PRIMARY KEY ("id"))`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "presell_domain_bindings_presell_id_custom_domain_id_key" ON "presell_domain_bindings"("presell_id", "custom_domain_id")`,
+    `CREATE INDEX IF NOT EXISTS "presell_domain_bindings_user_id_presell_id_is_active_idx" ON "presell_domain_bindings"("user_id", "presell_id", "is_active")`,
+    `CREATE INDEX IF NOT EXISTS "presell_domain_bindings_custom_domain_id_idx" ON "presell_domain_bindings"("custom_domain_id")`,
+    `CREATE TABLE IF NOT EXISTS "offer_domain_bindings" ("id" TEXT NOT NULL, "user_id" TEXT NOT NULL, "offer_id" TEXT NOT NULL, "custom_domain_id" TEXT NOT NULL, "role" "DomainRoutingRole" NOT NULL DEFAULT 'backup', "priority" INTEGER NOT NULL DEFAULT 100, "is_active" BOOLEAN NOT NULL DEFAULT true, "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "offer_domain_bindings_pkey" PRIMARY KEY ("id"))`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "offer_domain_bindings_offer_id_custom_domain_id_key" ON "offer_domain_bindings"("offer_id", "custom_domain_id")`,
+    `CREATE INDEX IF NOT EXISTS "offer_domain_bindings_user_id_offer_id_is_active_idx" ON "offer_domain_bindings"("user_id", "offer_id", "is_active")`,
+    `CREATE INDEX IF NOT EXISTS "offer_domain_bindings_custom_domain_id_idx" ON "offer_domain_bindings"("custom_domain_id")`,
+    `CREATE TABLE IF NOT EXISTS "domain_routing_events" ("id" TEXT NOT NULL, "user_id" TEXT NOT NULL, "event_type" "DomainRoutingEventType" NOT NULL, "scope" VARCHAR(32) NOT NULL DEFAULT 'domain', "custom_domain_id" TEXT, "previous_domain_id" TEXT, "target_domain_id" TEXT, "presell_id" TEXT, "offer_id" TEXT, "actor_user_id" TEXT, "reason" VARCHAR(500), "metadata" JSONB, "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "domain_routing_events_pkey" PRIMARY KEY ("id"))`,
+    `CREATE INDEX IF NOT EXISTS "domain_routing_events_user_id_created_at_idx" ON "domain_routing_events"("user_id", "created_at")`,
+    `CREATE INDEX IF NOT EXISTS "domain_routing_events_custom_domain_id_created_at_idx" ON "domain_routing_events"("custom_domain_id", "created_at")`,
+    `CREATE INDEX IF NOT EXISTS "domain_routing_events_presell_id_created_at_idx" ON "domain_routing_events"("presell_id", "created_at")`,
+    `CREATE INDEX IF NOT EXISTS "domain_routing_events_offer_id_created_at_idx" ON "domain_routing_events"("offer_id", "created_at")`,
+  ];
+  for (const sql of statements) {
+    try {
+      await systemPrisma.$executeRawUnsafe(sql);
+    } catch (e) {
+      console.warn("[schemaRepair] smartDomainRouting (ignorado):", e);
+    }
+  }
 }

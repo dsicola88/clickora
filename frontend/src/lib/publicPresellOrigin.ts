@@ -1,4 +1,4 @@
-import type { CustomDomainDto } from "@/types/api";
+import type { CustomDomainDto, DomainBindingDto } from "@/types/api";
 
 /** Mensagem quando não existe onde publicar (sem domínio próprio nem domínio técnico isolado). */
 export const PUBLIC_DOMAIN_REQUIRED_MESSAGE =
@@ -64,13 +64,22 @@ export function isHostingCapableDomain(d: {
 }
 
 /**
+ * Domínio utilizável no roteamento público: ativo (`is_active !== false`) e não marcado `down`.
+ */
+export function isDomainActiveAndHealthy(d: Pick<CustomDomainDto, "is_active" | "health_status">): boolean {
+  if (d.is_active === false) return false;
+  if (d.health_status === "down") return false;
+  return true;
+}
+
+/**
  * Pronto para Final URL / ads:
  * - DNS verificado sem Vercel (SSL do próprio host), ou
  * - Vercel com `https_ready` / `ssl_state === https_ready`.
- * Domínio Vercel só «DNS verificado» NÃO entra — evita https:// partido em anúncios.
+ * Domínio Vercel só «DNS verificado», desativado ou `down` NÃO entra — evita https:// partido em anúncios.
  */
 export function isCustomDomainAdReady(d: CustomDomainDto): boolean {
-  if (d.status !== "verified" || !isHostingCapableDomain(d)) return false;
+  if (d.status !== "verified" || !isHostingCapableDomain(d) || !isDomainActiveAndHealthy(d)) return false;
   if (d.https_ready === true || d.ssl_state === "https_ready") return true;
   if (!d.vercel_domain_registered) return true;
   return false;
@@ -79,7 +88,9 @@ export function isCustomDomainAdReady(d: CustomDomainDto): boolean {
 export function listVerifiedHostingDomains(
   domains: CustomDomainDto[] | null | undefined,
 ): CustomDomainDto[] {
-  return (domains ?? []).filter((d) => d.status === "verified" && isHostingCapableDomain(d));
+  return (domains ?? []).filter(
+    (d) => d.status === "verified" && isHostingCapableDomain(d) && isDomainActiveAndHealthy(d),
+  );
 }
 
 /** Hosting verificado e seguro para colar em anúncios. */
@@ -105,10 +116,16 @@ export function isCustomDomainHttpsPendingForPresell(
   return !isCustomDomainAdReady(d);
 }
 
+const ROLE_ORDER: Record<string, number> = {
+  primary: 0,
+  backup: 1,
+  standby: 2,
+};
+
 /**
  * ID do domínio verificado quando a presell não tem `custom_domain_id` explícito.
- * Alinhado com o backend e a migração: `is_default` primeiro, depois o mais antigo (`created_at`).
- * Ignora domínios só de tracking.
+ * Alinhado com o backend e a migração: `is_default` primeiro, depois `routing_role` / `routing_priority`, depois o mais antigo (`created_at`).
+ * Ignora domínios só de tracking, desativados ou `down`.
  */
 export function resolveDefaultCustomDomainIdForAccount(
   domains: CustomDomainDto[] | null | undefined,
@@ -118,6 +135,12 @@ export function resolveDefaultCustomDomainIdForAccount(
   if (pool.length === 0) return null;
   const sorted = [...pool].sort((a, b) => {
     if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
+    const roleA = ROLE_ORDER[a.routing_role ?? "standby"] ?? 9;
+    const roleB = ROLE_ORDER[b.routing_role ?? "standby"] ?? 9;
+    if (roleA !== roleB) return roleA - roleB;
+    const prioA = a.routing_priority ?? 100;
+    const prioB = b.routing_priority ?? 100;
+    if (prioA !== prioB) return prioA - prioB;
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
   return sorted[0]?.id ?? null;
@@ -169,13 +192,29 @@ function isLocalDevOrigin(origin: string): boolean {
 export function getPublicPresellOriginForPresell(
   domains: CustomDomainDto[] | null | undefined,
   presellCustomDomainId: string | null | undefined,
+  domainBindings?: DomainBindingDto[] | null,
 ): string {
   const list = domains ?? [];
   const adReady = listAdReadyHostingDomains(list);
+
+  // 1) Bindings explícitos da presell: respeita primary -> backup -> standby e prioridade.
+  const activeBindings = [...(domainBindings ?? [])]
+    .filter((b) => b.is_active !== false)
+    .sort((a, b) => {
+      const roleDiff = (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9);
+      if (roleDiff !== 0) return roleDiff;
+      return (a.priority ?? 100) - (b.priority ?? 100);
+    });
+  for (const b of activeBindings) {
+    const match = adReady.find((d) => d.id === b.custom_domain_id);
+    if (match) return `https://${match.hostname}`;
+  }
+
+  // 2) Override legado da presell (`custom_domain_id`).
   if (presellCustomDomainId) {
     const pick = adReady.find((d) => d.id === presellCustomDomainId);
     if (pick) return `https://${pick.hostname}`;
-    /** Domínio tracking / SSL ainda a provisionar: não usar como lander. */
+    /** Domínio tracking / desativado / down / SSL a provisionar: tenta contingência. */
   }
   const defaultId = resolveDefaultCustomDomainIdForAccount(domains);
   if (defaultId) {
@@ -186,6 +225,10 @@ export function getPublicPresellOriginForPresell(
 
   const verified = listVerifiedHostingDomains(list);
   const pending = (): string => {
+    for (const b of activeBindings) {
+      const match = verified.find((d) => d.id === b.custom_domain_id);
+      if (match) return `https://${match.hostname}`;
+    }
     if (presellCustomDomainId) {
       const p = verified.find((d) => d.id === presellCustomDomainId);
       if (p) return `https://${p.hostname}`;
@@ -206,8 +249,9 @@ export function getPublicPresellOriginForPresell(
 export function hasPublicPresellOrigin(
   domains: CustomDomainDto[] | null | undefined,
   presellCustomDomainId?: string | null,
+  domainBindings?: DomainBindingDto[] | null,
 ): boolean {
-  return getPublicPresellOriginForPresell(domains, presellCustomDomainId).length > 0;
+  return getPublicPresellOriginForPresell(domains, presellCustomDomainId, domainBindings).length > 0;
 }
 
 /** Parâmetro de rota `/p/:id` — UUID da presell ou slug (API suporta ambos no domínio verificado). */
@@ -297,9 +341,18 @@ export function resolvePublicPresellPath(
 export function getPublicPresellFullUrl(
   domains: CustomDomainDto[] | null | undefined,
   presellCustomDomainId: string | null | undefined,
-  page: { id: string; slug?: string | null; type?: string | null },
+  page: {
+    id: string;
+    slug?: string | null;
+    type?: string | null;
+    domain_bindings?: DomainBindingDto[] | null;
+  },
 ): string {
-  const origin = getPublicPresellOriginForPresell(domains, presellCustomDomainId).replace(/\/+$/, "");
+  const origin = getPublicPresellOriginForPresell(
+    domains,
+    presellCustomDomainId,
+    page.domain_bindings,
+  ).replace(/\/+$/, "");
   if (!origin) return "";
   const path = resolvePublicPresellPath(page, origin);
   return `${origin}${path}`;

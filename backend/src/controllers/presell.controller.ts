@@ -13,12 +13,24 @@ import {
 import { isR2Configured, r2PublicUrl } from "../lib/r2Storage";
 import {
   assertPresellAllowedOnRequestHost,
+  assertPresellHostBindingAllowed,
   evaluatePublicPresellAccess,
   isMainOrPreviewHostname,
   resolveVerifiedOwnerUserIdFromDb,
 } from "../lib/presellHostAccess";
 import { getRequestHostname, hostnameLookupVariants } from "../lib/requestHost";
-import { getVerifiedOwnerIdForHostname } from "../lib/customDomainCache";
+import { getVerifiedOwnerIdForHostname, refreshCustomDomainCache } from "../lib/customDomainCache";
+import {
+  alignPresellBindingsWithLegacyDomain,
+  planRollbackTarget,
+  swapPresellPrimaryDomain,
+  syncPresellDomainBindings,
+} from "../lib/domainRoutingService";
+import { affiliateLinkFromPresellPage } from "../lib/trackOfferRedirectGuard";
+import {
+  resolveEffectiveOfferForPresell,
+  type LinkedOfferSnapshot,
+} from "../lib/offerValidation";
 import { evaluateSubscriptionAccess } from "../lib/subscription";
 import { importPresellFromProductUrl } from "../lib/presellImporter";
 import { mergeAccountPixelsIntoSettings } from "../lib/accountPixelsMerge";
@@ -103,6 +115,66 @@ const createSchema = z.object({
     (v) => (v === "" || v === null ? null : v === undefined ? undefined : v),
     z.union([z.string().uuid(), z.null()]).optional(),
   ),
+  /** Oferta associada (entidade independente Offer); opcional para compatibilidade legada. */
+  offer_id: z.preprocess(
+    (v) => (v === "" || v === null ? null : v === undefined ? undefined : v),
+    z.union([z.string().uuid(), z.null()]).optional(),
+  ),
+});
+
+function isMissingSmartRoutingSchemaError(err: unknown): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    (err.code === "P2021" || err.code === "P2022")
+  );
+}
+
+const presellOfferSelect = {
+  id: true,
+  name: true,
+  network: true,
+  hoplinkUrl: true,
+  backupHoplinkUrl: true,
+  validationStatus: true,
+  isActive: true,
+} as const;
+
+const presellBindingInclude: Prisma.PresellPage$domainBindingsArgs = {
+  include: {
+    customDomain: {
+      select: {
+        id: true,
+        hostname: true,
+        status: true,
+        purpose: true,
+        isActive: true,
+        healthStatus: true,
+        routingRole: true,
+        isDefault: true,
+      },
+    },
+  },
+  orderBy: [{ role: "asc" }, { priority: "asc" }],
+};
+
+const setPresellDomainsSchema = z.object({
+  bindings: z
+    .array(
+      z.object({
+        custom_domain_id: z.string().uuid(),
+        role: z.enum(["primary", "backup", "standby"]).default("backup"),
+        priority: z.number().int().min(1).max(999).optional(),
+        is_active: z.boolean().optional(),
+      }),
+    )
+    .max(25),
+});
+
+const swapPresellPrimarySchema = z.object({
+  target_domain_id: z.string().uuid(),
+  reason: z.string().trim().min(1).max(160).optional(),
+  notes: z.string().trim().max(500).optional(),
+  demote_previous_to: z.enum(["backup", "standby"]).optional(),
 });
 
 async function resolveCustomDomainIdForUser(userId: string, raw: string | null): Promise<string | null> {
@@ -177,21 +249,30 @@ const importFromUrlSchema = z.object({
   ),
 });
 
-function findLitePageByUuid(id: string) {
-  return systemPrisma.presellPage.findFirst({
-    where: { id },
-    include: { user: { include: { subscription: { include: { plan: true } } } } },
-  });
+async function findLitePageByUuid(id: string) {
+  try {
+    return await systemPrisma.presellPage.findFirst({
+      where: { id },
+      include: {
+        offer: { select: presellOfferSelect },
+        user: { include: { subscription: { include: { plan: true } } } },
+      },
+    });
+  } catch (e) {
+    if (!isMissingSmartRoutingSchemaError(e)) throw e;
+    const row = await systemPrisma.presellPage.findFirst({
+      where: { id },
+      include: { user: { include: { subscription: { include: { plan: true } } } } },
+    });
+    return row ? { ...row, offer: null } : null;
+  }
 }
 
 export const presellController = {
   async getPublicById(req: Request, res: Response) {
     const id = req.params.id;
     /** Rota pública sem JWT / ALS — usar systemPrisma com filtro explícito por id. */
-    const page = await systemPrisma.presellPage.findFirst({
-      where: { id },
-      include: { user: { include: { subscription: { include: { plan: true } } } } },
-    });
+    const page = await findLitePageByUuid(id);
 
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
 
@@ -203,6 +284,9 @@ export const presellController = {
     const access = await evaluatePublicPresellAccess(req, page.userId);
     if (!access.allowed) {
       return sendPresellNotPublic(res, access.reason, "json");
+    }
+    if (!access.ownerPreview && !(await assertPresellHostBindingAllowed(req, page.id))) {
+      return sendPresellNotPublic(res, "host_mismatch", "json");
     }
     if (page.status !== "published") {
       const hint =
@@ -254,10 +338,22 @@ export const presellController = {
         let ownerId = getVerifiedOwnerIdForHostname(host);
         if (!ownerId) ownerId = await resolveVerifiedOwnerUserIdFromDb(host);
         if (ownerId) {
-          page = await systemPrisma.presellPage.findFirst({
-            where: { userId: ownerId, status: "published", slug: { equals: slug, mode: "insensitive" } },
-            include: { user: { include: { subscription: { include: { plan: true } } } } },
-          });
+          try {
+            page = await systemPrisma.presellPage.findFirst({
+              where: { userId: ownerId, status: "published", slug: { equals: slug, mode: "insensitive" } },
+              include: {
+                offer: { select: presellOfferSelect },
+                user: { include: { subscription: { include: { plan: true } } } },
+              },
+            });
+          } catch (e) {
+            if (!isMissingSmartRoutingSchemaError(e)) throw e;
+            const fallback = await systemPrisma.presellPage.findFirst({
+              where: { userId: ownerId, status: "published", slug: { equals: slug, mode: "insensitive" } },
+              include: { user: { include: { subscription: { include: { plan: true } } } } },
+            });
+            page = fallback ? { ...fallback, offer: null } : null;
+          }
         }
       }
     }
@@ -265,6 +361,9 @@ export const presellController = {
     const htmlAccess = await evaluatePublicPresellAccess(req, page.userId);
     if (!htmlAccess.allowed) {
       return sendPresellNotPublic(res, htmlAccess.reason, "text");
+    }
+    if (!htmlAccess.ownerPreview && !(await assertPresellHostBindingAllowed(req, page.id))) {
+      return sendPresellNotPublic(res, "host_mismatch", "text");
     }
     if (page.status !== "published") {
       return res.status(404).type("text/plain").send("Página não publicada");
@@ -321,6 +420,7 @@ export const presellController = {
       language: page.language,
       content: page.content,
       tracking: page.tracking,
+      offer: (page as { offer?: LinkedOfferSnapshot | null }).offer ?? null,
       trackApiBase,
       spaPath: spaUrl,
       impressionPixelUrl: buildLiteImpressionPixelUrl(trackApiBase, page.id, req),
@@ -371,17 +471,37 @@ export const presellController = {
       return res.status(404).json({ error: "Página não encontrada" });
     }
 
-    const page = await systemPrisma.presellPage.findFirst({
-      where: {
-        userId: ownerId,
-        status: "published",
-        slug: { equals: slug, mode: "insensitive" },
-      },
-      include: { user: { include: { subscription: { include: { plan: true } } } } },
-    });
+    let page: PresellPageWithOwnerPlan | null = null;
+    try {
+      page = await systemPrisma.presellPage.findFirst({
+        where: {
+          userId: ownerId,
+          status: "published",
+          slug: { equals: slug, mode: "insensitive" },
+        },
+        include: {
+          offer: { select: presellOfferSelect },
+          user: { include: { subscription: { include: { plan: true } } } },
+        },
+      });
+    } catch (e) {
+      if (!isMissingSmartRoutingSchemaError(e)) throw e;
+      const fallback = await systemPrisma.presellPage.findFirst({
+        where: {
+          userId: ownerId,
+          status: "published",
+          slug: { equals: slug, mode: "insensitive" },
+        },
+        include: { user: { include: { subscription: { include: { plan: true } } } } },
+      });
+      page = fallback ? ({ ...fallback, offer: null } as PresellPageWithOwnerPlan) : null;
+    }
 
     if (!page) return res.status(404).json({ error: "Página não encontrada" });
     if (!(await assertPresellAllowedOnRequestHost(req, page.userId))) {
+      return res.status(404).json({ error: "Página não encontrada" });
+    }
+    if (!(await assertPresellHostBindingAllowed(req, page.id))) {
       return res.status(404).json({ error: "Página não encontrada" });
     }
     if (
@@ -532,37 +652,78 @@ export const presellController = {
 
   async getAll(req: Request, res: Response) {
     /** Sem `content` na lista — JSON gigante por página fazia GET lento e 502 no proxy; detalhe em GET /:id. */
-    const pages = await prisma.presellPage.findMany({
-      where: { userId: billingUserId(req) },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        type: true,
-        category: true,
-        language: true,
-        status: true,
-        clicks: true,
-        impressions: true,
-        conversions: true,
-        videoUrl: true,
-        customDomainId: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    res.json(pages.map(mapPresellListRow));
+    const userId = billingUserId(req);
+    try {
+      const pages = await prisma.presellPage.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          type: true,
+          category: true,
+          language: true,
+          status: true,
+          clicks: true,
+          impressions: true,
+          conversions: true,
+          videoUrl: true,
+          customDomainId: true,
+          offerId: true,
+          offer: { select: presellOfferSelect },
+          domainBindings: presellBindingInclude,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      return res.json(pages.map(mapPresellListRow));
+    } catch (e) {
+      if (!isMissingSmartRoutingSchemaError(e)) throw e;
+      const pages = await prisma.presellPage.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          type: true,
+          category: true,
+          language: true,
+          status: true,
+          clicks: true,
+          impressions: true,
+          conversions: true,
+          videoUrl: true,
+          customDomainId: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      return res.json(pages.map(mapPresellListRow));
+    }
   },
 
   async getById(req: Request, res: Response) {
-    const page = await prisma.presellPage.findFirst({
-      where: { id: req.params.id, userId: billingUserId(req) },
-    });
-
-    if (!page) return res.status(404).json({ error: "Página não encontrada" });
-    res.json(mapPresell(page));
+    const userId = billingUserId(req);
+    try {
+      const page = await prisma.presellPage.findFirst({
+        where: { id: req.params.id, userId },
+        include: {
+          offer: { select: presellOfferSelect },
+          domainBindings: presellBindingInclude,
+        },
+      });
+      if (!page) return res.status(404).json({ error: "Página não encontrada" });
+      return res.json(mapPresell(page));
+    } catch (e) {
+      if (!isMissingSmartRoutingSchemaError(e)) throw e;
+      const page = await prisma.presellPage.findFirst({
+        where: { id: req.params.id, userId },
+      });
+      if (!page) return res.status(404).json({ error: "Página não encontrada" });
+      return res.json(mapPresell(page));
+    }
   },
 
   async create(req: Request, res: Response) {
@@ -613,12 +774,35 @@ export const presellController = {
         return res.status(pageLimit.status).json(pageLimit.body);
       }
 
+      let linkedOffer: {
+        id: string;
+        name: string;
+        network: string | null;
+        hoplinkUrl: string;
+        backupHoplinkUrl: string | null;
+        validationStatus: string;
+        isActive: boolean;
+      } | null = null;
+      if (parsed.data.offer_id) {
+        linkedOffer = await prisma.offer.findFirst({
+          where: { id: parsed.data.offer_id, userId },
+          select: presellOfferSelect,
+        });
+        if (!linkedOffer) {
+          return res.status(400).json({ error: "Oferta inválida ou não pertence à conta." });
+        }
+      }
+
       let page: PresellPage;
       try {
         let contentPayload: Record<string, unknown> =
           parsed.data.content && typeof parsed.data.content === "object" && !Array.isArray(parsed.data.content)
             ? (parsed.data.content as Record<string, unknown>)
             : {};
+
+        if (linkedOffer && !String(contentPayload.affiliateLink ?? "").trim()) {
+          contentPayload = { ...contentPayload, affiliateLink: linkedOffer.hoplinkUrl };
+        }
 
         const tSanitize = Date.now();
         contentPayload = sanitizeMirrorInContentRecord(contentPayload);
@@ -647,6 +831,14 @@ export const presellController = {
         recordCreateStage("06_enrich_identity", Date.now() - tIdent);
         const settingsPayload = identityEnriched.settings;
 
+        const trackingPayload =
+          parsed.data.tracking && typeof parsed.data.tracking === "object" && !Array.isArray(parsed.data.tracking)
+            ? { ...(parsed.data.tracking as Record<string, unknown>) }
+            : {};
+        if (linkedOffer && !String(trackingPayload.offerUrl ?? "").trim()) {
+          trackingPayload.offerUrl = linkedOffer.hoplinkUrl;
+        }
+
         const requestedStatus = parsed.data.status || "draft";
         page = await timedCreateStage("07_db_insert", () =>
           prisma.presellPage.create({
@@ -660,13 +852,22 @@ export const presellController = {
               content: contentPayload as Prisma.InputJsonValue,
               videoUrl: parsed.data.video_url,
               settings: settingsPayload as Prisma.InputJsonValue,
-              tracking: (parsed.data.tracking || {}) as Prisma.InputJsonValue,
+              tracking: trackingPayload as Prisma.InputJsonValue,
               status: "draft",
               complianceGate: "unchecked",
               ...customDomainIdField,
+              ...(parsed.data.offer_id !== undefined ? { offerId: parsed.data.offer_id } : {}),
             },
           }),
         );
+
+        if (page.customDomainId) {
+          void syncPresellDomainBindings({
+            userId,
+            presellId: page.id,
+            bindings: [{ customDomainId: page.customDomainId, role: "primary", priority: 10 }],
+          }).catch(() => {});
+        }
 
         if (requestedStatus === "published") {
           page = await timedCreateStage("08_publish_identity", () => ensurePresellOperatorIdentityOnPage(page));
@@ -790,13 +991,58 @@ export const presellController = {
       }
     }
 
+    let finalOffer: { id: string; hoplinkUrl: string } | null = null;
+    if (req.body.offer_id !== undefined) {
+      const rawOfferId = req.body.offer_id;
+      if (rawOfferId === null || rawOfferId === "") {
+        data.offerId = null;
+      } else {
+        const linkedOffer = await prisma.offer.findFirst({
+          where: { id: String(rawOfferId), userId },
+          select: presellOfferSelect,
+        });
+        if (!linkedOffer) {
+          return res.status(400).json({ error: "Oferta inválida ou não pertence à conta." });
+        }
+        data.offerId = linkedOffer.id;
+        finalOffer = linkedOffer;
+      }
+    } else if (page.offerId) {
+      finalOffer = await prisma.offer
+        .findFirst({ where: { id: page.offerId, userId }, select: presellOfferSelect })
+        .catch(() => null);
+    }
+    const offerChanged = data.offerId !== undefined && data.offerId !== (page.offerId ?? null);
+
+    const previousLink = affiliateLinkFromPresellPage(page.content, page.tracking);
+    const nextLink = affiliateLinkFromPresellPage(
+      nextContent ?? page.content,
+      req.body.tracking ?? page.tracking,
+    );
+    if (finalOffer) {
+      const offerHoplink = finalOffer.hoplinkUrl.trim();
+      if (offerChanged && !nextLink) {
+        // Oferta escolhida agora e presell sem link: semear como no create.
+        const seededContent = { ...(nextContent ?? (contentForNiche as Record<string, unknown>)) };
+        seededContent.affiliateLink = offerHoplink;
+        data.content = seededContent as Prisma.InputJsonValue;
+        nextContent = seededContent;
+      } else if (!offerChanged && nextLink !== previousLink && nextLink && nextLink !== offerHoplink) {
+        // Link editado manualmente para outro destino: a presell deixa de seguir a Offer
+        // (evita que uma edição futura da Offer sobrescreva o link escolhido pelo dono).
+        data.offerId = null;
+      }
+    }
+    const offerLinkChanged = data.offerId !== undefined && data.offerId !== (page.offerId ?? null);
+
     // Conteúdo/destino alterado invalida a gate até nova auditoria.
     if (
       nextContent ||
       req.body.settings ||
       req.body.title ||
       req.body.tracking ||
-      req.body.video_url !== undefined
+      req.body.video_url !== undefined ||
+      offerLinkChanged
     ) {
       data.complianceGate = "unchecked";
       data.contentFingerprint = null;
@@ -823,6 +1069,21 @@ export const presellController = {
           where: { id: oldId, rootPresellId: page.id },
           data: { rootPresellId: null },
         });
+      }
+      if (newId !== oldId) {
+        try {
+          await alignPresellBindingsWithLegacyDomain({
+            userId,
+            presellId: page.id,
+            customDomainId: newId,
+            actorUserId: req.user?.userId ?? userId,
+          });
+        } catch (err) {
+          console.warn(
+            "[presell.update] falha ao alinhar bindings de domínio:",
+            err instanceof Error ? err.message : err,
+          );
+        }
       }
     }
 
@@ -919,6 +1180,7 @@ export const presellController = {
           tracking: page.tracking || {},
           status: "draft",
           customDomainId: page.customDomainId,
+          offerId: page.offerId,
         },
       });
     } catch (error) {
@@ -997,7 +1259,277 @@ export const presellController = {
       return res.status(422).json({ error: message });
     }
   },
+
+  async getDomains(req: Request, res: Response) {
+    const userId = billingUserId(req);
+    const page = await prisma.presellPage.findFirst({
+      where: { id: req.params.id, userId },
+      select: { id: true, title: true, slug: true, customDomainId: true },
+    });
+    if (!page) return res.status(404).json({ error: "Página não encontrada" });
+
+    const [bindings, availableDomains, events] = await Promise.all([
+      prisma.presellDomainBinding.findMany({
+        where: { presellId: page.id, userId },
+        include: presellBindingInclude.include,
+        orderBy: presellBindingInclude.orderBy,
+      }),
+      prisma.customDomain.findMany({
+        where: { userId, purpose: { in: ["hosting", "both"] } },
+        orderBy: [{ isDefault: "desc" }, { routingPriority: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          hostname: true,
+          status: true,
+          purpose: true,
+          isDefault: true,
+          isActive: true,
+          healthStatus: true,
+          routingRole: true,
+          routingPriority: true,
+          httpsReachableCached: true,
+        },
+      }),
+      prisma.domainRoutingEvent.findMany({
+        where: { userId, presellId: page.id },
+        orderBy: { createdAt: "desc" },
+        take: 25,
+      }),
+    ]);
+
+    return res.json({
+      presell_id: page.id,
+      custom_domain_id: page.customDomainId,
+      bindings: bindings.map(mapPresellBindingDto),
+      available_domains: availableDomains.map((d) => ({
+        id: d.id,
+        hostname: d.hostname,
+        status: d.status,
+        purpose: d.purpose,
+        is_default: d.isDefault,
+        is_active: d.isActive,
+        health_status: d.healthStatus,
+        routing_role: d.routingRole,
+        routing_priority: d.routingPriority,
+        https_reachable_cached: d.httpsReachableCached,
+      })),
+      routing_events: events.map((ev) => ({
+        id: ev.id,
+        event_type: ev.eventType,
+        scope: ev.scope,
+        custom_domain_id: ev.customDomainId,
+        previous_domain_id: ev.previousDomainId,
+        target_domain_id: ev.targetDomainId,
+        presell_id: ev.presellId,
+        offer_id: ev.offerId,
+        actor_user_id: ev.actorUserId,
+        reason: ev.reason,
+        metadata: ev.metadata ?? null,
+        created_at: ev.createdAt.toISOString(),
+      })),
+    });
+  },
+
+  async setDomains(req: Request, res: Response) {
+    if (await denyIfCannotWritePresells(req, res)) return;
+    const userId = billingUserId(req);
+    const page = await prisma.presellPage.findFirst({
+      where: { id: req.params.id, userId },
+      select: { id: true, customDomainId: true },
+    });
+    if (!page) return res.status(404).json({ error: "Página não encontrada" });
+
+    const parsed = setPresellDomainsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Payload inválido", details: parsed.error.flatten() });
+    }
+
+    const ids = [...new Set(parsed.data.bindings.map((b) => b.custom_domain_id))];
+    if (ids.length > 0) {
+      const owned = await prisma.customDomain.findMany({
+        where: { id: { in: ids }, userId },
+        select: { id: true, purpose: true, status: true },
+      });
+      if (owned.length !== ids.length) {
+        return res.status(400).json({ error: "Um ou mais domínios não pertencem à conta." });
+      }
+      const trackingOnly = owned.find((d) => d.purpose === "tracking");
+      if (trackingOnly) {
+        return res.status(400).json({
+          error: "Domínios exclusivos de tracking não podem alojar presells.",
+        });
+      }
+    }
+
+    try {
+      const synced = await syncPresellDomainBindings({
+        userId,
+        presellId: page.id,
+        actorUserId: req.user?.userId ?? userId,
+        bindings: parsed.data.bindings.map((b) => ({
+          customDomainId: b.custom_domain_id,
+          role: b.role,
+          priority: b.priority,
+          isActive: b.is_active,
+        })),
+      });
+      const updatedBindings = await prisma.presellDomainBinding.findMany({
+        where: { presellId: page.id, userId },
+        include: presellBindingInclude.include,
+        orderBy: presellBindingInclude.orderBy,
+      });
+      void refreshCustomDomainCache().catch(() => {});
+      void invalidateTrackEdgeDest(page.id);
+      return res.json({
+        presell_id: page.id,
+        primary_domain_id: synced.primaryDomainId,
+        bindings: updatedBindings.map(mapPresellBindingDto),
+      });
+    } catch (e) {
+      return res.status(400).json({ error: e instanceof Error ? e.message : "Erro ao atualizar domínios." });
+    }
+  },
+
+  async swapPrimaryDomain(req: Request, res: Response) {
+    if (await denyIfCannotWritePresells(req, res)) return;
+    const userId = billingUserId(req);
+    const parsed = swapPresellPrimarySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Payload inválido", details: parsed.error.flatten() });
+    }
+    try {
+      const result = await swapPresellPrimaryDomain({
+        userId,
+        presellId: req.params.id,
+        targetDomainId: parsed.data.target_domain_id,
+        actorUserId: req.user?.userId ?? userId,
+        reason: parsed.data.reason ?? "manual_presell_swap",
+      });
+      void refreshCustomDomainCache().catch(() => {});
+      void invalidateTrackEdgeDest(req.params.id);
+      return res.json({
+        ok: true,
+        presell_id: req.params.id,
+        previous_domain_id: result.previousDomainId,
+        target_domain_id: result.targetDomainId,
+      });
+    } catch (e) {
+      return res.status(400).json({ error: e instanceof Error ? e.message : "Falha na troca de domínio." });
+    }
+  },
+
+  async rollbackPrimaryDomain(req: Request, res: Response) {
+    if (await denyIfCannotWritePresells(req, res)) return;
+    const userId = billingUserId(req);
+    const page = await prisma.presellPage.findFirst({
+      where: { id: req.params.id, userId },
+      select: { id: true, customDomainId: true },
+    });
+    if (!page) return res.status(404).json({ error: "Página não encontrada" });
+
+    const [events, domains] = await Promise.all([
+      prisma.domainRoutingEvent.findMany({
+        where: { userId, presellId: page.id },
+        orderBy: { createdAt: "desc" },
+        take: 25,
+      }),
+      prisma.customDomain.findMany({
+        where: { userId },
+      }),
+    ]);
+    const plan = planRollbackTarget({
+      currentPrimaryId: page.customDomainId,
+      events: events.map((ev) => ({
+        eventType: ev.eventType,
+        previousDomainId: ev.previousDomainId,
+        targetDomainId: ev.targetDomainId,
+      })),
+      domains,
+    });
+    if (!plan.ok) {
+      return res.status(409).json({
+        error: plan.error,
+      });
+    }
+    try {
+      const result = await swapPresellPrimaryDomain({
+        userId,
+        presellId: page.id,
+        targetDomainId: plan.targetDomainId,
+        actorUserId: req.user?.userId ?? userId,
+        reason: typeof req.body?.reason === "string" ? req.body.reason : "manual_rollback",
+        isRollback: true,
+      });
+      void refreshCustomDomainCache().catch(() => {});
+      void invalidateTrackEdgeDest(page.id);
+      return res.json({
+        ok: true,
+        presell_id: page.id,
+        previous_domain_id: result.previousDomainId,
+        target_domain_id: result.targetDomainId,
+      });
+    } catch (e) {
+      return res.status(400).json({ error: e instanceof Error ? e.message : "Falha no rollback." });
+    }
+  },
 };
+
+type PresellOfferSummaryRow = {
+  id: string;
+  name?: string | null;
+  network?: string | null;
+  hoplinkUrl: string;
+  backupHoplinkUrl?: string | null;
+  validationStatus: string;
+  isActive: boolean;
+} | null;
+
+type PresellBindingSummaryRow = {
+  id: string;
+  customDomainId: string;
+  role: string;
+  priority: number;
+  isActive: boolean;
+  customDomain?: {
+    id: string;
+    hostname: string;
+    status: string;
+    purpose: string;
+    isActive?: boolean;
+    healthStatus?: string;
+    routingRole?: string;
+    isDefault?: boolean;
+  } | null;
+};
+
+function mapPresellOfferSummary(offer: PresellOfferSummaryRow | undefined) {
+  if (!offer) return null;
+  return {
+    id: offer.id,
+    name: offer.name ?? null,
+    network: offer.network ?? null,
+    hoplink_url: offer.hoplinkUrl,
+    backup_hoplink_url: offer.backupHoplinkUrl ?? null,
+    validation_status: offer.validationStatus,
+    is_active: offer.isActive,
+  };
+}
+
+function mapPresellBindingDto(b: PresellBindingSummaryRow) {
+  return {
+    id: b.id,
+    custom_domain_id: b.customDomainId,
+    hostname: b.customDomain?.hostname ?? null,
+    role: b.role,
+    priority: b.priority,
+    is_active: b.isActive,
+    domain_active: b.customDomain?.isActive ?? true,
+    health_status: b.customDomain?.healthStatus ?? "unknown",
+    status: b.customDomain?.status ?? "pending",
+    purpose: b.customDomain?.purpose ?? "both",
+    is_default: b.customDomain?.isDefault ?? false,
+  };
+}
 
 function mapPresellListRow(p: {
   id: string;
@@ -1012,6 +1544,9 @@ function mapPresellListRow(p: {
   conversions: number;
   videoUrl: string | null;
   customDomainId: string | null;
+  offerId?: string | null;
+  offer?: PresellOfferSummaryRow;
+  domainBindings?: PresellBindingSummaryRow[];
   createdAt: Date;
   updatedAt: Date;
 }) {
@@ -1029,6 +1564,9 @@ function mapPresellListRow(p: {
     conversions: p.conversions,
     video_url: p.videoUrl ?? undefined,
     custom_domain_id: p.customDomainId ?? null,
+    offer_id: p.offerId ?? null,
+    offer: mapPresellOfferSummary(p.offer),
+    domain_bindings: Array.isArray(p.domainBindings) ? p.domainBindings.map(mapPresellBindingDto) : undefined,
     settings: {} as Record<string, unknown>,
     tracking: {} as Record<string, unknown>,
     created_at: p.createdAt?.toISOString?.() || String(p.createdAt),
@@ -1036,7 +1574,12 @@ function mapPresellListRow(p: {
   };
 }
 
-function mapPresell(p: PresellPage) {
+function mapPresell(
+  p: PresellPage & {
+    offer?: PresellOfferSummaryRow;
+    domainBindings?: PresellBindingSummaryRow[];
+  },
+) {
   return {
     id: p.id,
     title: p.title,
@@ -1051,6 +1594,9 @@ function mapPresell(p: PresellPage) {
     conversions: p.conversions,
     video_url: p.videoUrl,
     custom_domain_id: p.customDomainId ?? null,
+    offer_id: p.offerId ?? null,
+    offer: mapPresellOfferSummary(p.offer),
+    domain_bindings: Array.isArray(p.domainBindings) ? p.domainBindings.map(mapPresellBindingDto) : undefined,
     settings: p.settings,
     tracking: p.tracking,
     compliance_gate: p.complianceGate ?? "unchecked",
@@ -1062,7 +1608,7 @@ function mapPresell(p: PresellPage) {
 
 type PresellPageWithOwnerPlan = Prisma.PresellPageGetPayload<{
   include: { user: { include: { subscription: { include: { plan: true } } } } };
-}>;
+}> & { offer?: LinkedOfferSnapshot | null };
 
 /** Resposta pública: rodapé dclickora + white-label do tenant. */
 /**
@@ -1135,10 +1681,28 @@ async function mapPresellForPublic(page: PresellPageWithOwnerPlan) {
     hidePoweredBy: branding?.hidePoweredBy,
   });
   const base = mapPresell(page);
+  const resolvedOffer = resolveEffectiveOfferForPresell({
+    offer: page.offer ?? null,
+    content: base.content,
+    tracking: base.tracking,
+  });
+  const slimContent = slimPublicContent(base.content);
+  const publicContent =
+    slimContent && typeof slimContent === "object" && !Array.isArray(slimContent)
+      ? {
+          ...(slimContent as Record<string, unknown>),
+          ...(resolvedOffer.ok
+            ? { affiliateLink: resolvedOffer.destination }
+            : page.offer
+              ? { affiliateLink: "" }
+              : {}),
+        }
+      : slimContent;
   return {
     ...base,
     settings: mergeAccountPixelsIntoSettings(base.settings, page.user),
-    content: slimPublicContent(base.content),
+    content: publicContent,
+    offer: resolvedOffer.ok ? base.offer : null,
     clicks: undefined,
     impressions: undefined,
     conversions: undefined,

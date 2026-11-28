@@ -9,6 +9,7 @@ import { freemem, totalmem, cpus } from "node:os";
 import { randomUUID } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import { getCreateStageSnapshot } from "./createStageMetrics";
+import { getDomainContinuitySnapshot } from "./domainContinuityMetrics";
 import { getComplianceJobQueueSnapshot } from "./complianceJobs";
 import {
   isEmbeddedComplianceWorkerConfigured,
@@ -288,6 +289,7 @@ export function getOpsSnapshot() {
       };
     })(),
     presell_create_stages: getCreateStageSnapshot(),
+    domain_continuity: getDomainContinuitySnapshot(),
     compliance_audit_queue: complianceQueueCache,
     compliance_worker: {
       embed_configured: isEmbeddedComplianceWorkerConfigured(),

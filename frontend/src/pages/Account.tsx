@@ -354,6 +354,7 @@ export default function Account() {
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
+  const [revokingSessions, setRevokingSessions] = useState(false);
   const [exportingJson, setExportingJson] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -466,17 +467,33 @@ export default function Account() {
     }
     setChangingPw(true);
     try {
-      const { error } = await authService.changePassword(currentPassword, newPassword);
+      const { data, error } = await authService.changePassword(currentPassword, newPassword);
       if (error) {
         toast.error(error);
         return;
       }
-      toast.success(t("pages.account.passwordChanged"));
+      toast.success(
+        t(data?.other_sessions_revoked ? "pages.account.passwordChangedOthersRevoked" : "pages.account.passwordChanged"),
+      );
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } finally {
       setChangingPw(false);
+    }
+  };
+
+  const revokeOtherSessions = async () => {
+    setRevokingSessions(true);
+    try {
+      const { error } = await authService.revokeOtherSessions();
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      toast.success(t("pages.account.otherSessionsRevoked"));
+    } finally {
+      setRevokingSessions(false);
     }
   };
 
@@ -628,6 +645,18 @@ export default function Account() {
               <Button type="button" onClick={() => changePassword()} disabled={changingPw}>
                 {changingPw ? t("pages.account.changing") : t("pages.account.changePassword")}
               </Button>
+              <div className="space-y-2 border-t border-border/60 pt-4">
+                <p className="text-sm font-medium">{t("pages.account.sessionsTitle")}</p>
+                <p className="text-sm text-muted-foreground">{t("pages.account.sessionsDesc")}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void revokeOtherSessions()}
+                  disabled={revokingSessions}
+                >
+                  {revokingSessions ? t("pages.account.revokingSessions") : t("pages.account.revokeOtherSessions")}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

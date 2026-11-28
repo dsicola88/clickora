@@ -3,8 +3,12 @@ import { getRequestHostname, hostnameLookupVariants } from "./requestHost";
 import { getVerifiedOwnerIdForHostname } from "./customDomainCache";
 import { systemPrisma } from "./prisma";
 import { verifyToken } from "./jwt";
-import { resolveLiveWorkspaceClaims } from "./workspaceSessionGuard";
+import { resolveWorkspaceMembershipClaims } from "./workspaceSessionGuard";
 import { isPlatformMainHostname } from "./publicPresellHost";
+import {
+  isRequestHostAllowedForPresellBindings,
+  loadPresellActiveBindingsForHostCheck,
+} from "./domainRoutingService";
 
 /**
  * Resolve o dono (userId) de um hostname com domínio personalizado verificado na BD.
@@ -67,7 +71,8 @@ export async function resolveOptionalSessionTenantUserId(req: Request): Promise<
   try {
     const raw = verifyToken(header.slice("Bearer ".length).trim());
     if (raw.purpose === "mfa" || raw.purpose === "password_reset") return null;
-    const live = await resolveLiveWorkspaceClaims(raw);
+    // Conta apagada não precisa de verificação extra: as presells dela já não existem (cascade).
+    const live = await resolveWorkspaceMembershipClaims(raw);
     return live.tenantUserId || null;
   } catch {
     return null;
@@ -106,4 +111,24 @@ export async function evaluatePublicPresellAccess(
     return { allowed: false, reason: "host_mismatch" };
   }
   return { allowed: true, ownerPreview: false };
+}
+
+/**
+ * Se a presell definir bindings explícitos de domínios (`presell_domain_bindings`),
+ * garante em domínios personalizados que o host do pedido pertence a um binding ativo/verificado.
+ * Presells legadas (0 bindings) continuam a funcionar em qualquer domínio verificado do dono.
+ */
+export async function assertPresellHostBindingAllowed(
+  req: Request,
+  presellId: string,
+): Promise<boolean> {
+  const host = getRequestHostname(req);
+  if (!host || isMainOrPreviewHostname(host)) return true;
+  const ownerId = getVerifiedOwnerIdForHostname(host) ?? (await resolveVerifiedOwnerUserIdFromDb(host));
+  if (!ownerId) return true;
+  const bindings = await loadPresellActiveBindingsForHostCheck(presellId);
+  return isRequestHostAllowedForPresellBindings({
+    requestHost: host,
+    bindings,
+  });
 }

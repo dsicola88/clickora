@@ -15,6 +15,7 @@ const SQLS = [
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "keyword_automizer_lookback_days" INTEGER NOT NULL DEFAULT 3`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "meta_ads_account_id" TEXT`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok_advertiser_id" TEXT`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "sessions_revoked_at" TIMESTAMP(3)`,
   `CREATE TABLE IF NOT EXISTS "ad_platform_cost_daily" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,

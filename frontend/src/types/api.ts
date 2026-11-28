@@ -21,6 +21,185 @@ export type CustomDomainPendingDns =
       note: string;
     };
 
+export type DomainRoutingRole = "primary" | "backup" | "standby";
+export type DomainHealthStatus = "healthy" | "degraded" | "down" | "unknown";
+export type OfferValidationStatus = "valid" | "warning" | "blocked" | "unknown";
+
+export interface OfferSummaryDto {
+  id: string;
+  name?: string | null;
+  network?: string | null;
+  hoplink_url: string;
+  backup_hoplink_url?: string | null;
+  validation_status: OfferValidationStatus | string;
+  is_active: boolean;
+}
+
+export interface OfferDto {
+  id: string;
+  name: string;
+  network: string | null;
+  hoplink_url: string;
+  backup_hoplink_url: string | null;
+  validation_status: OfferValidationStatus | string;
+  compliance_passed?: boolean;
+  last_validated_at: string | null;
+  last_validation_error?: string | null;
+  resolved_final_host?: string | null;
+  is_active: boolean;
+  metadata?: Record<string, unknown> | null;
+  presells_count?: number;
+  campaigns_count?: number;
+  domain_bindings?: DomainBindingDto[];
+  propagated_presell_ids?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OfferDetailDto extends OfferDto {
+  presells?: Array<{
+    id: string;
+    title: string;
+    slug: string;
+    status: string;
+    custom_domain_id: string | null;
+  }>;
+  campaigns?: Array<{
+    id: string;
+    name: string;
+    status: string;
+    traffic_source: string;
+  }>;
+}
+
+export interface DomainBindingDto {
+  id: string;
+  custom_domain_id: string;
+  hostname?: string | null;
+  role: DomainRoutingRole;
+  priority: number;
+  is_active: boolean;
+  domain_active?: boolean;
+  health_status?: DomainHealthStatus | string;
+  status?: string;
+  purpose?: string;
+  is_default?: boolean;
+}
+
+export interface DomainRoutingEventDto {
+  id: string;
+  event_type: string;
+  scope: string;
+  custom_domain_id?: string | null;
+  previous_domain_id?: string | null;
+  target_domain_id?: string | null;
+  presell_id?: string | null;
+  offer_id?: string | null;
+  reason?: string | null;
+  metadata?: Record<string, unknown> | null;
+  actor_user_id?: string | null;
+  created_at: string;
+}
+
+export type ContinuityPresellRisk = "ok" | "no_domain" | "primary_down" | "primary_paused" | "on_backup";
+export type ContinuityFinalUrlIssue =
+  | "domain_down"
+  | "domain_paused"
+  | "domain_unverified"
+  | "unknown_host"
+  | "presell_unpublished"
+  | "not_canonical";
+
+/** GET /continuity/overview — painel de continuidade (só leitura, sem mutações em anúncios). */
+export interface ContinuityOverviewDto {
+  generated_at: string;
+  monitor: {
+    enabled: boolean;
+    check_interval_min: number;
+    recheck_interval_min: number;
+    fail_threshold: number;
+    auto_failover_enabled: boolean;
+    auto_recovery_hold_min: number;
+    alerts_enabled: boolean;
+  };
+  account_canonical_domain_id: string | null;
+  domains: Array<{
+    id: string;
+    hostname: string;
+    status: string;
+    purpose: string;
+    is_default: boolean;
+    is_default_tracking: boolean;
+    is_active: boolean;
+    routing_role: DomainRoutingRole;
+    routing_priority: number;
+    health_status: DomainHealthStatus;
+    consecutive_failures: number;
+    auto_recover: boolean;
+    last_health_check_at: string | null;
+    last_health_error: string | null;
+    last_http_status: number | null;
+    disabled_reason: string | null;
+    uptime_24h: number | null;
+    uptime_7d: number | null;
+    presell_count: number;
+  }>;
+  presells: Array<{
+    id: string;
+    title: string;
+    slug: string | null;
+    status: string;
+    canonical_domain_id: string | null;
+    canonical_hostname: string | null;
+    primary_domain_id: string | null;
+    primary_hostname: string | null;
+    backup_count: number;
+    selection_reason: string;
+    risk: ContinuityPresellRisk;
+  }>;
+  ads: {
+    available: boolean;
+    /** DTO de Final URL em camelCase (único bloco camelCase do overview; o resto segue snake_case). */
+    suggestions: Array<{
+      rsaId: string;
+      externalAdId: string | null;
+      campaignName: string;
+      adGroupName: string;
+      currentUrl: string;
+      currentHost: string;
+      issue: ContinuityFinalUrlIssue;
+      severity: "critical" | "warning" | "info";
+      presellId: string | null;
+      presellTitle: string | null;
+      suggestedUrl: string | null;
+      suggestedHost: string | null;
+    }>;
+  };
+  recent_events: Array<{
+    id: string;
+    event_type: string;
+    scope: string;
+    presell_id: string | null;
+    custom_domain_id: string | null;
+    previous_domain_id: string | null;
+    target_domain_id: string | null;
+    previous_hostname: string | null;
+    target_hostname: string | null;
+    domain_hostname: string | null;
+    reason: string | null;
+    automatic: boolean;
+    created_at: string;
+  }>;
+  metrics: {
+    checks_total: number;
+    checks_failed: number;
+    failovers: number;
+    recoveries: number;
+    failover_latency: { samples: number; p50_ms: number | null; p95_ms: number | null; max_ms: number | null };
+    last_tick: { age_s: number; duration_ms: number; checked: number } | null;
+  };
+}
+
 /** Domínio personalizado (Tracking → Configurações). GET /custom-domain devolve lista. */
 export interface CustomDomainDto {
   id: string;
@@ -35,6 +214,17 @@ export interface CustomDomainDto {
   is_default_tracking?: boolean;
   /** Presell que abre em `https://hostname/`; null/omitido = automático (mais recentemente atualizada publicada). */
   root_presell_id?: string | null;
+  /** Roteamento inteligente (Etapa 1): papel, saúde e ativação não destrutiva. */
+  routing_role?: DomainRoutingRole;
+  health_status?: DomainHealthStatus;
+  last_health_check_at?: string | null;
+  last_health_error?: string | null;
+  last_http_status?: number | null;
+  consecutive_failures?: number;
+  auto_recover?: boolean;
+  is_active?: boolean;
+  disabled_reason?: string | null;
+  routing_priority?: number;
   created_at: string;
   updated_at: string;
   /** Presente quando o servidor regista o hostname no projeto Vercel (CNAME + TXT da Vercel). */
@@ -157,6 +347,11 @@ export interface Presell {
   video_url?: string;
   /** Domínio público para links; omitido ou null = usar o domínio padrão da conta. */
   custom_domain_id?: string | null;
+  /** Oferta associada (entidade independente Offer). */
+  offer_id?: string | null;
+  offer?: OfferSummaryDto | null;
+  /** Domínios autorizados (primary + backup + standby) desta presell. */
+  domain_bindings?: DomainBindingDto[];
   settings: Record<string, unknown>;
   tracking: Record<string, unknown>;
   /** Gate de conformidade publicitária (verificações internas). */

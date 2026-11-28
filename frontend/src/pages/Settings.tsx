@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { CustomDomainSettings } from "@/components/settings/CustomDomainSettings";
+import { DomainContinuityPanel } from "@/components/settings/DomainContinuityPanel";
 import { APP_PAGE_SHELL } from "@/lib/appPageLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { plansService } from "@/services/plansService";
@@ -184,6 +185,7 @@ export default function Settings() {
       </div>
 
       <CustomDomainSettings />
+      <DomainContinuityPanel />
     </div>
   );
 }

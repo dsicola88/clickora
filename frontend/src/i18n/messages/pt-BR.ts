@@ -1,5 +1,6 @@
 /** Auto-synced leaf-key parity with en.ts — do not drop keys. */
 import { cmOpsPtBR } from "./fragments/cmOps.pt-BR";
+import { continuityPtBR } from "./fragments/continuity.pt-BR";
 
 export const ptBR = {
   "language": {
@@ -424,6 +425,7 @@ export const ptBR = {
       "toastCreatedContinue": "Presell criada. Continue em Campanhas ou use «Nova presell» para o assistente completo com link do anúncio.",
       "toastCreatedAuto": "Página criada! Texto e imagens foram gerados automaticamente.",
       "toastUpdatedWarnings": "Presell atualizada. Continua publicada, mas há avisos de conformidade — reveja antes de escalar anúncios.",
+      "toastUpdatedPausedCompliance": "Alterações salvas. A presell foi pausada por conformidade — corrija os problemas e publique novamente.",
       "toastUpdated": "Presell atualizada.",
       "toastSaveError": "Erro ao salvar alterações.",
       "toastPausedRetry": " Clique em «Pausada» na lista para tentar publicar outra vez.",
@@ -2126,6 +2128,12 @@ export const ptBR = {
       "passwordShort": "A nova senha deve ter pelo menos 6 caracteres.",
       "passwordMismatch": "A confirmação da nova senha não coincide.",
       "passwordChanged": "Senha alterada.",
+      "passwordChangedOthersRevoked": "Senha alterada. As sessões em outros dispositivos foram encerradas.",
+      "sessionsTitle": "Sessões",
+      "sessionsDesc": "Se você usou a conta em um dispositivo que não controla mais, encerre as outras sessões. Este dispositivo continua conectado.",
+      "revokeOtherSessions": "Encerrar sessões em outros dispositivos",
+      "revokingSessions": "Encerrando…",
+      "otherSessionsRevoked": "Sessões em outros dispositivos encerradas.",
       "privacyTitle": "Dados e privacidade",
       "privacyDesc": "Exporte os metadados da sua conta (portabilidade) ou exclua a conta de forma permanente nesta instalação.",
       "exportJson": "Baixar meus dados (JSON)",
@@ -5545,6 +5553,7 @@ export const ptBR = {
         "seedIntroHtml": "<p>Arraste widgets do painel à esquerda para começar a construir. Clique em qualquer elemento para editá-lo no painel à direita.</p>",
       },
     },
+    "continuity": continuityPtBR,
     "notFound": {
       "title": "Página não encontrada",
       "subtitle": "Esta rota não existe.",

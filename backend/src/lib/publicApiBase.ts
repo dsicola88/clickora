@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import type { Request } from "express";
 import { systemPrisma } from "./prisma";
 import { getRequestHostname } from "./requestHost";
@@ -25,30 +26,71 @@ export function publicApiBaseFromRequest(req: Request): string {
 
 /**
  * Hostname preferido para /api/track da conta (sem fallback de request).
- * Ordem: is_default_tracking → purpose=tracking → qualquer both/tracking verificado.
+ * Ordem: is_default_tracking (saudável e ativo) → purpose=tracking → qualquer both/tracking verificado.
  */
 export async function preferredTrackApiBaseForUser(userId: string): Promise<string | null> {
   try {
-    const preferred =
-      (await systemPrisma.customDomain.findFirst({
-        where: {
-          userId,
-          status: "verified",
-          isDefaultTracking: true,
-          OR: [{ purpose: "tracking" }, { purpose: "both" }],
-        },
-        select: { hostname: true },
-      })) ??
-      (await systemPrisma.customDomain.findFirst({
-        where: { userId, status: "verified", purpose: "tracking" },
-        orderBy: { createdAt: "asc" },
-        select: { hostname: true },
-      })) ??
-      (await systemPrisma.customDomain.findFirst({
-        where: { userId, status: "verified", purpose: "both" },
-        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-        select: { hostname: true },
-      }));
+    let preferred: { hostname: string } | null = null;
+    try {
+      preferred =
+        (await systemPrisma.customDomain.findFirst({
+          where: {
+            userId,
+            status: "verified",
+            isActive: true,
+            healthStatus: { not: "down" },
+            isDefaultTracking: true,
+            OR: [{ purpose: "tracking" }, { purpose: "both" }],
+          },
+          select: { hostname: true },
+        })) ??
+        (await systemPrisma.customDomain.findFirst({
+          where: {
+            userId,
+            status: "verified",
+            isActive: true,
+            healthStatus: { not: "down" },
+            purpose: "tracking",
+          },
+          orderBy: [{ routingPriority: "asc" }, { createdAt: "asc" }],
+          select: { hostname: true },
+        })) ??
+        (await systemPrisma.customDomain.findFirst({
+          where: {
+            userId,
+            status: "verified",
+            isActive: true,
+            healthStatus: { not: "down" },
+            purpose: "both",
+          },
+          orderBy: [{ isDefault: "desc" }, { routingPriority: "asc" }, { createdAt: "asc" }],
+          select: { hostname: true },
+        }));
+    } catch (inner) {
+      if (!(inner instanceof Prisma.PrismaClientKnownRequestError) || inner.code !== "P2022") {
+        throw inner;
+      }
+      preferred =
+        (await systemPrisma.customDomain.findFirst({
+          where: {
+            userId,
+            status: "verified",
+            isDefaultTracking: true,
+            OR: [{ purpose: "tracking" }, { purpose: "both" }],
+          },
+          select: { hostname: true },
+        })) ??
+        (await systemPrisma.customDomain.findFirst({
+          where: { userId, status: "verified", purpose: "tracking" },
+          orderBy: { createdAt: "asc" },
+          select: { hostname: true },
+        })) ??
+        (await systemPrisma.customDomain.findFirst({
+          where: { userId, status: "verified", purpose: "both" },
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+          select: { hostname: true },
+        }));
+    }
     if (!preferred?.hostname) return null;
     return `https://${preferred.hostname}/api`;
   } catch {

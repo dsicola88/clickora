@@ -19,6 +19,32 @@ import {
 import { hashPassword, passwordBcryptRounds, verifyPassword } from "../lib/passwordCrypto";
 import { isTransactionalEmailConfigured, sendTransactionalEmail } from "../lib/mailer";
 import { resolveGoogleLoginClientId } from "../lib/googleLoginClientId";
+import type { JwtPayload } from "../lib/jwt";
+import { isTokenIssuedBeforeRevocation } from "../lib/workspaceSessionGuard";
+
+/** Invalida todos os JWT já emitidos da conta. Falha (ex.: coluna em falta) não bloqueia a operação principal. */
+async function revokeUserSessions(userId: string): Promise<boolean> {
+  try {
+    await systemPrisma.user.update({ where: { id: userId }, data: { sessionsRevokedAt: new Date() } });
+    return true;
+  } catch (err) {
+    console.warn("[auth] não foi possível revogar sessões:", err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
+/** Novo token para a sessão atual (emitido depois da revogação, por isso continua válido). */
+function reissueSessionToken(user: JwtPayload): string {
+  return signToken({
+    userId: user.userId,
+    email: user.email,
+    tenantUserId: user.tenantUserId,
+    workspaceId: user.workspaceId,
+    workspaceRole: user.workspaceRole,
+    workspacePermissions: user.workspacePermissions,
+    purpose: "session",
+  });
+}
 
 const loginSchema = z.object({
   email: z.string().trim().min(1).email(),
@@ -547,7 +573,8 @@ export const authController = {
       },
     });
 
-    if (!user) return res.status(404).json({ error: "Usuário não encontrado" });
+    // Token válido de uma conta apagada não autentica: 401 faz o cliente terminar a sessão (404 não).
+    if (!user) return res.status(401).json({ error: "Usuário não encontrado" });
 
     res.json(await serializeUserWithSession(user, req));
   },
@@ -609,8 +636,26 @@ export const authController = {
       where: { id: user.id },
       data: { password: await hashPassword(parsed.data.new_password, passwordBcryptRounds()) },
     });
+    const revoked = await revokeUserSessions(user.id);
 
-    res.json({ message: "Senha alterada com sucesso" });
+    res.json({
+      message: revoked
+        ? "Senha alterada com sucesso. As sessões noutros dispositivos foram terminadas."
+        : "Senha alterada com sucesso",
+      token: reissueSessionToken(req.user!),
+      other_sessions_revoked: revoked,
+    });
+  },
+
+  async revokeOtherSessions(req: Request, res: Response) {
+    const revoked = await revokeUserSessions(req.user!.userId);
+    if (!revoked) {
+      return res.status(503).json({ error: "Não foi possível terminar as outras sessões. Tente novamente." });
+    }
+    res.json({
+      message: "Sessões noutros dispositivos terminadas.",
+      token: reissueSessionToken(req.user!),
+    });
   },
 
   async uploadAvatar(req: Request, res: Response) {
@@ -888,11 +933,15 @@ export const authController = {
     if (!user || user.email.toLowerCase() !== (payload.email || "").toLowerCase()) {
       return res.status(400).json({ error: "Link de recuperação inválido ou expirado." });
     }
+    if (isTokenIssuedBeforeRevocation(payload.iat, user.sessionsRevokedAt)) {
+      return res.status(400).json({ error: "Este link de recuperação já foi utilizado. Peça um novo." });
+    }
 
     await systemPrisma.user.update({
       where: { id: user.id },
       data: { password: await hashPassword(parsed.data.password, passwordBcryptRounds()) },
     });
+    await revokeUserSessions(user.id);
 
     res.json({ message: "Senha atualizada com sucesso" });
   },

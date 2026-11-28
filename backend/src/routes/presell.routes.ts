@@ -68,6 +68,10 @@ presellRouter.post(
   presellAiGenerateLimiter,
   presellAiController.spawnVariantPack,
 );
+presellRouter.get("/:id/domains", presellController.getDomains);
+presellRouter.put("/:id/domains", presellWriteLimiter, presellController.setDomains);
+presellRouter.post("/:id/domains/swap-primary", presellWriteLimiter, presellController.swapPrimaryDomain);
+presellRouter.post("/:id/domains/rollback", presellWriteLimiter, presellController.rollbackPrimaryDomain);
 presellRouter.get("/:id", presellController.getById);
 /** Create/status: tecto próprio — não misturar com «Demasiadas auditorias» do probe. */
 presellRouter.post("/", presellWriteLimiter, presellController.create);

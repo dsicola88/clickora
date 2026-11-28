@@ -3,8 +3,9 @@
  * e para o worker edge aquecer sem bater na BD a cada clique.
  */
 import Redis from "ioredis";
+import { Prisma } from "@prisma/client";
 import { systemPrisma } from "./prisma";
-import { affiliateLinkFromPresellPage } from "./trackOfferRedirectGuard";
+import { resolveEffectiveOfferForPresell } from "./offerValidation";
 import { evaluateSubscriptionAccess } from "./subscription";
 import { shouldEnforceComplianceServeBlock } from "../compliance/evaluate";
 
@@ -113,39 +114,101 @@ async function putCache(presellId: string, value: DestPayload): Promise<void> {
   }
 }
 
+type EdgePageRow = {
+  id: string;
+  userId: string;
+  status: string;
+  type: string;
+  content: Prisma.JsonValue | null;
+  tracking: Prisma.JsonValue | null;
+  settings: Prisma.JsonValue | null;
+  complianceGate: string;
+  offer?: {
+    id: string;
+    hoplinkUrl: string;
+    backupHoplinkUrl: string | null;
+    network: string | null;
+    validationStatus: string;
+    isActive: boolean;
+  } | null;
+  user: { subscription: { status: string; endsAt: Date | null; plan: unknown } | null } | null;
+};
+
+async function loadEdgePage(presellId: string): Promise<EdgePageRow | null> {
+  try {
+    return (await systemPrisma.presellPage.findUnique({
+      where: { id: presellId },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        type: true,
+        content: true,
+        tracking: true,
+        settings: true,
+        complianceGate: true,
+        offer: {
+          select: {
+            id: true,
+            hoplinkUrl: true,
+            backupHoplinkUrl: true,
+            network: true,
+            validationStatus: true,
+            isActive: true,
+          },
+        },
+        user: { include: { subscription: { include: { plan: true } } } },
+      },
+    })) as EdgePageRow | null;
+  } catch (e) {
+    if (
+      !(e instanceof Prisma.PrismaClientKnownRequestError) ||
+      (e.code !== "P2021" && e.code !== "P2022")
+    ) {
+      throw e;
+    }
+    return (await systemPrisma.presellPage.findUnique({
+      where: { id: presellId },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        type: true,
+        content: true,
+        tracking: true,
+        settings: true,
+        complianceGate: true,
+        user: { include: { subscription: { include: { plan: true } } } },
+      },
+    })) as EdgePageRow | null;
+  }
+}
+
 /** Resolve + cacheia destino público para edge/worker. */
 export async function resolveTrackEdgeDest(presellId: string): Promise<DestPayload | null> {
   const cached = await getCachedTrackEdgeDest(presellId);
   if (cached) return cached;
 
-  const page = await systemPrisma.presellPage.findUnique({
-    where: { id: presellId },
-    select: {
-      id: true,
-      userId: true,
-      status: true,
-      type: true,
-      content: true,
-      tracking: true,
-      settings: true,
-      complianceGate: true,
-      user: { include: { subscription: { include: { plan: true } } } },
-    },
-  });
+  const page = await loadEdgePage(presellId);
   if (!page) return null;
   if (page.status !== "published") return null;
   if (
     shouldEnforceComplianceServeBlock({
-      gate: page.complianceGate,
+      gate: page.complianceGate as never,
       pageType: page.type,
     })
   ) {
     return null;
   }
-  const access = evaluateSubscriptionAccess(page.user?.subscription ?? null);
+  const access = evaluateSubscriptionAccess(page.user?.subscription as never);
   if (!access.allowed) return null;
-  const destination = affiliateLinkFromPresellPage(page.content, page.tracking);
-  if (!destination) return null;
+  const resolved = resolveEffectiveOfferForPresell({
+    offer: page.offer ?? null,
+    content: page.content,
+    tracking: page.tracking,
+  });
+  if (!resolved.ok) return null;
+  const destination = resolved.destination;
   const camp = await systemPrisma.affiliateCampaign.findFirst({
     where: { userId: page.userId, presellId: page.id, platform: { not: null } },
     orderBy: { updatedAt: "desc" },
@@ -164,7 +227,7 @@ export async function resolveTrackEdgeDest(presellId: string): Promise<DestPaylo
     destination,
     status: page.status,
     userId: page.userId,
-    network: camp?.platform?.trim() || null,
+    network: camp?.platform?.trim() || resolved.network || null,
     enterpriseCloak,
     cloakGeoDeny,
     updatedAt: Date.now(),

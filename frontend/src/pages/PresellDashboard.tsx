@@ -38,6 +38,8 @@ import { presellLanguageFromImport } from "@/lib/presellCampaignLanguage";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { presellService } from "@/services/presellService";
+import { offersService } from "@/services/offersService";
+import { PresellDomainBindingsControl } from "@/components/presell/PresellDomainBindingsControl";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
@@ -173,7 +175,9 @@ export default function PresellDashboard() {
   const navigate = useNavigate();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const canAdvertiseDpilot = userCanAccessDpilotAds(user, isSuperAdmin);
-  const { t } = useAppLocale();
+  const { t, m } = useAppLocale();
+  const presellOfferMsg = m.pages.continuity.presellOffer;
+  const [offerDetached, setOfferDetached] = useState(false);
   const queryClient = useQueryClient();
   /** Isola cache React Query por conta (evita mostrar dados da sessão anterior). */
   const tenantKey = tenantQueryKey(user);
@@ -181,6 +185,12 @@ export default function PresellDashboard() {
   const [showCreator, setShowCreator] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<Presell | null>(null);
+  /**
+   * Domínio público carregado do servidor ao abrir o editor. O save só envia `custom_domain_id`
+   * se o utilizador o alterou nesta sessão — evita reverter um failover/troca feito pelo monitor
+   * ou noutro separador enquanto o editor estava aberto.
+   */
+  const loadedCustomDomainIdRef = useRef<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   /** A carregar HTML (copiar fragmento para widget ou descarregar .html completo). */
   const [htmlExportBusyId, setHtmlExportBusyId] = useState<string | null>(null);
@@ -263,6 +273,17 @@ export default function PresellDashboard() {
       return data ?? [];
     },
     enabled: !!tenantKey,
+  });
+
+  const { data: savedOffers = [] } = useQuery({
+    queryKey: ["offers", tenantKey],
+    queryFn: async () => {
+      const { data, error } = await offersService.list();
+      if (error) return [];
+      return data ?? [];
+    },
+    enabled: !!tenantKey,
+    staleTime: 30_000,
   });
 
   const deleteMutation = useMutation({
@@ -366,7 +387,12 @@ export default function PresellDashboard() {
           (updated as { compliance_blocked?: boolean }).compliance_blocked,
       );
       if (blocked) {
-        toast.warning(t("pages.presells.toastUpdatedWarnings"), { duration: 9000 });
+        // A auditoria síncrona pode ter pausado a página — o toast segue o estado devolvido pelo servidor.
+        const paused = (updated as { status?: string }).status === "paused";
+        toast.warning(
+          t(paused ? "pages.presells.toastUpdatedPausedCompliance" : "pages.presells.toastUpdatedWarnings"),
+          { duration: 9000 },
+        );
       } else {
         toast.success(t("pages.presells.toastUpdated"));
       }
@@ -402,6 +428,8 @@ export default function PresellDashboard() {
     affiliateLink: "",
     /** Vazio = domínio padrão da conta; UUID = domínio verificado específico. */
     customDomainId: "",
+    /** Oferta associada (entidade Offer); vazio = manual/legado. */
+    offerId: "",
     importPresentation: "essentials" as PresellImportPresentation,
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -532,6 +560,7 @@ export default function PresellDashboard() {
       opts?.presetCustomDomain && hasVerifiedCustomDomain
         ? resolveDefaultCustomDomainIdForAccount(customDomains) ?? ""
         : "";
+    setOfferDetached(false);
     setFormData({
       pageName: "",
       pageSlug: "",
@@ -541,6 +570,7 @@ export default function PresellDashboard() {
       productLink: "",
       affiliateLink: "",
       customDomainId: presetDomainId,
+      offerId: "",
       importPresentation: "essentials",
     });
     setCreatorStep(1);
@@ -558,6 +588,7 @@ export default function PresellDashboard() {
   };
 
   const populateFormFromPresell = (page: Presell) => {
+    loadedCustomDomainIdRef.current = page.custom_domain_id ?? null;
     const content = (page.content || {}) as Record<string, unknown>;
     const settings = (page.settings || {}) as Record<string, unknown>;
     const affiliate = resolvePresellAffiliateLink(page);
@@ -572,6 +603,7 @@ export default function PresellDashboard() {
           : "black";
     const importPresentation =
       resolveImportPresentationFromContent(content, niche) ?? "essentials";
+    setOfferDetached(false);
     setFormData({
       pageName: page.title,
       pageSlug: page.slug,
@@ -581,6 +613,7 @@ export default function PresellDashboard() {
       productLink: source || affiliate,
       affiliateLink: affiliate,
       customDomainId: page.custom_domain_id ?? "",
+      offerId: page.offer_id ?? "",
       importPresentation,
     });
     setSlugTouchedByUser(true);
@@ -856,9 +889,11 @@ export default function PresellDashboard() {
             video_url: isVsl ? video_url : null,
             content,
             settings: buildPresellSettingsPayload(),
-            ...(hasVerifiedCustomDomain
+            // Só envia o domínio se foi alterado no formulário (não sobrescreve failover/troca do servidor).
+            ...(hasVerifiedCustomDomain && formData.customDomainId !== (loadedCustomDomainIdRef.current ?? "")
               ? { custom_domain_id: formData.customDomainId ? formData.customDomainId : null }
               : {}),
+            offer_id: formData.offerId ? formData.offerId : null,
           },
         });
       } catch (e) {
@@ -920,6 +955,7 @@ export default function PresellDashboard() {
         ...(hasVerifiedCustomDomain && formData.customDomainId
           ? { custom_domain_id: formData.customDomainId }
           : {}),
+        ...(formData.offerId ? { offer_id: formData.offerId } : {}),
         content: {
           title: data.title,
           subtitle: data.subtitle,
@@ -1310,6 +1346,42 @@ export default function PresellDashboard() {
                 </div>
 
                 <div className="space-y-2 rounded-lg border border-primary/25 bg-primary/[0.04] p-3 sm:p-4">
+                  {savedOffers.length > 0 ? (
+                    <div className="space-y-1.5 pb-2 border-b border-primary/15">
+                      <Label htmlFor="presell-offer-select" className="text-xs text-foreground">
+                        {presellOfferMsg.label}
+                      </Label>
+                      <Select
+                        value={formData.offerId || "__manual__"}
+                        onValueChange={(v) => {
+                          setOfferDetached(false);
+                          if (v === "__manual__") {
+                            updateField("offerId", "");
+                            return;
+                          }
+                          updateField("offerId", v);
+                          const chosen = savedOffers.find((o) => o.id === v);
+                          if (chosen?.hoplink_url) {
+                            updateField("affiliateLink", chosen.hoplink_url);
+                          }
+                        }}
+                      >
+                        <SelectTrigger id="presell-offer-select" className="h-9 text-xs bg-background">
+                          <SelectValue placeholder={presellOfferMsg.manual} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__manual__">{presellOfferMsg.manual}</SelectItem>
+                          {savedOffers.map((o) => (
+                            <SelectItem key={o.id} value={o.id}>
+                              {o.name}
+                              {o.network ? ` (${o.network})` : ""}
+                              {!o.is_active ? presellOfferMsg.pausedSuffix : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null}
                   <Label htmlFor="affiliateLinkOpt" className="text-foreground">
                     {t("pages.presells.offerLinkLabel")}{" "}
                     <span className="text-destructive font-normal">{t("pages.presells.requiredParen")}</span>
@@ -1319,11 +1391,24 @@ export default function PresellDashboard() {
                     type="url"
                     placeholder={t("pages.presells.offerLinkPlaceholder")}
                     value={formData.affiliateLink}
-                    onChange={(e) => updateField("affiliateLink", e.target.value)}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      updateField("affiliateLink", next);
+                      if (formData.offerId) {
+                        const linked = savedOffers.find((o) => o.id === formData.offerId);
+                        if (linked && next.trim() !== linked.hoplink_url.trim()) {
+                          updateField("offerId", "");
+                          setOfferDetached(true);
+                        }
+                      }
+                    }}
                     className={formErrors.affiliateLink ? "border-destructive focus-visible:ring-destructive" : ""}
                     required
                   />
                   <FieldError message={formErrors.affiliateLink} />
+                  {offerDetached ? (
+                    <p className="text-xs text-amber-700 dark:text-amber-400">{presellOfferMsg.detachedHint}</p>
+                  ) : null}
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     {t("pages.presells.offerLinkHint")}
                   </p>
@@ -1568,26 +1653,38 @@ export default function PresellDashboard() {
                 </div>
 
                 {hasVerifiedCustomDomain ? (
-                  <div className="space-y-2 max-w-xl">
-                    <Label>{t("pages.presells.publicDomainLabel")}</Label>
-                    <Select
-                      value={formData.customDomainId || "default"}
-                      onValueChange={(v) => updateField("customDomainId", v === "default" ? "" : v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={t("pages.presells.defaultDomain")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">{t("pages.presells.defaultDomain")}</SelectItem>
-                        {verifiedHostingDomains.map((d) => (
-                            <SelectItem key={d.id} value={d.id}>
-                              {d.hostname}
-                              {d.is_default ? t("pages.presells.defaultSuffix") : ""}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">{t("pages.presells.domainAdsHint")}</p>
+                  <div className="space-y-4">
+                    <div className="space-y-2 max-w-xl">
+                      <Label>{t("pages.presells.publicDomainLabel")}</Label>
+                      <Select
+                        value={formData.customDomainId || "default"}
+                        onValueChange={(v) => updateField("customDomainId", v === "default" ? "" : v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={t("pages.presells.defaultDomain")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="default">{t("pages.presells.defaultDomain")}</SelectItem>
+                          {verifiedHostingDomains.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {d.hostname}
+                                {d.is_default ? t("pages.presells.defaultSuffix") : ""}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">{t("pages.presells.domainAdsHint")}</p>
+                    </div>
+                    {isEditing && editingId ? (
+                      <PresellDomainBindingsControl
+                        presellId={editingId}
+                        onPrimaryChanged={(nextId) => {
+                          // A troca já foi persistida pelo controlo de bindings — alinhar o baseline.
+                          loadedCustomDomainIdRef.current = nextId ?? null;
+                          updateField("customDomainId", nextId ?? "");
+                        }}
+                      />
+                    ) : null}
                   </div>
                 ) : null}
 

@@ -42,6 +42,10 @@ describe("tenantPrisma USER_ID_MODELS", () => {
       "paidAdsProject",
       "presellComplianceAudit",
       "presellComplianceJob",
+      "offer",
+      "presellDomainBinding",
+      "offerDomainBinding",
+      "domainRoutingEvent",
     ] as const;
     for (const m of required) {
       assert.ok((USER_ID_MODELS as readonly string[]).includes(m), `falta ${m}`);
