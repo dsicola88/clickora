@@ -6,6 +6,10 @@
  */
 import assert from "node:assert/strict";
 
+import { randomBytes } from "node:crypto";
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 const API = (process.env.E2E_API_BASE || "https://clickora-production.up.railway.app/api").replace(
   /\/$/,
   "",
@@ -53,7 +57,7 @@ async function main() {
     method: "POST",
     body: JSON.stringify({
       email,
-      password: "E2eNeotonics-9chars",
+      password: E2E_LOCAL_PASSWORD,
       full_name: "E2E Neotonics",
       accept_policies: true,
     }),

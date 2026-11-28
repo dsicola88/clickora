@@ -1,3 +1,7 @@
+import { randomBytes } from "node:crypto";
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 /** Compara 1 página vs pacote 3 variantes — mwebkivo. */
 const API = (process.env.E2E_API_BASE || "http://127.0.0.1:3001/api").replace(/\/$/, "");
 const FE = (process.env.E2E_FE_BASE || "http://127.0.0.1:8080").replace(/\/$/, "");
@@ -27,7 +31,7 @@ async function main() {
     method: "POST",
     body: JSON.stringify({
       email,
-      password: "E2eFactory!Pass99",
+      password: E2E_LOCAL_PASSWORD,
       full_name: "Compare Pack",
       accept_policies: true,
     }),

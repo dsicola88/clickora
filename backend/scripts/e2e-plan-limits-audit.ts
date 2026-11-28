@@ -1,3 +1,7 @@
+import { randomBytes } from "node:crypto";
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 /**
  * Limites dos planos contra a API local. Só a base clickora_e2e em 127.0.0.1:55433.
  *
@@ -42,7 +46,7 @@ async function register(email: string) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       email,
-      password: "e2e-plan-audit-pass",
+      password: E2E_LOCAL_PASSWORD,
       full_name: "Auditoria planos",
       accept_policies: true,
     }),

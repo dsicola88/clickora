@@ -9,6 +9,10 @@ import assert from "node:assert/strict";
 import geoip from "geoip-lite";
 import { systemPrisma } from "../src/lib/prisma";
 
+import { randomBytes } from "node:crypto";
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 const BASE = (process.env.E2E_BASE || "http://127.0.0.1:39991").replace(/\/+$/, "");
 const OFFER = "https://offer.example/go";
 const ARM = "https://arm.example/landing";
@@ -75,7 +79,7 @@ async function main() {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       email,
-      password: "e2e-guard-pass",
+      password: E2E_LOCAL_PASSWORD,
       full_name: "E2E Guard",
       accept_policies: true,
     }),

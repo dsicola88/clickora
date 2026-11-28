@@ -8,6 +8,10 @@ import assert from "node:assert/strict";
 import geoip from "geoip-lite";
 import { systemPrisma } from "../src/lib/prisma";
 
+import { randomBytes } from "node:crypto";
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 const BASE = (process.env.E2E_BASE || "http://127.0.0.1:39991").replace(/\/+$/, "");
 const OFFER = "https://offer.example/go";
 const CHROME =
@@ -82,7 +86,7 @@ async function main() {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       email: `e2e-report-${stamp}@clickora.test`,
-      password: "e2e-report-pass",
+      password: E2E_LOCAL_PASSWORD,
       full_name: "E2E Report",
       accept_policies: true,
     }),

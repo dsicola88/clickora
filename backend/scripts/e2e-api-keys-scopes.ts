@@ -6,7 +6,7 @@
  *
  *   cd backend && npx tsx scripts/e2e-api-keys-scopes.ts
  */
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
@@ -22,6 +22,9 @@ import {
   requireSessionJwt,
 } from "../src/middleware/requireApiKeyScope";
 
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 const prisma = new PrismaClient();
 const results: { name: string; ok: boolean; detail: string }[] = [];
 
@@ -137,7 +140,7 @@ async function main() {
 
   const stamp = Date.now().toString(36);
   const email = `e2e-apikey-${stamp}@clickora.test`;
-  const password = "e2e-apikey-pass";
+  const password = E2E_LOCAL_PASSWORD;
   const userId = randomUUID();
   await prisma.user.create({
     data: {

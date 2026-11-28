@@ -10,19 +10,22 @@
  */
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomUUID, randomBytes } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { createPostbackToken } from "../src/lib/postbackToken";
 import { appendClickIdToAffiliateUrl } from "../src/lib/appendClickIdToUrl";
 
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 const BASE = (process.env.E2E_API_BASE || `http://127.0.0.1:${process.env.PORT || 3011}/api`).replace(
   /\/$/,
   "",
 );
 const EMAIL = `e2e-conv-${Date.now()}@dclickora.local`;
-const PASS = "E2eConvAudit!99";
+const PASS = E2E_LOCAL_PASSWORD;
 const GCLID = `EAIaIQobChMI_e2e_${createHash("sha1").update(EMAIL).digest("hex").slice(0, 16)}`;
 
 type CaseResult = { id: string; name: string; pass: boolean; detail: string };

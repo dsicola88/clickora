@@ -1,3 +1,7 @@
+import { randomBytes } from "node:crypto";
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 /** Compara / cria pacote white — mwebkivo. */
 const API = (process.env.E2E_API_BASE || "http://127.0.0.1:3001/api").replace(/\/$/, "");
 const FE = (process.env.E2E_FE_BASE || "http://127.0.0.1:8080").replace(/\/$/, "");
@@ -21,7 +25,7 @@ async function main() {
   const email = `white-${stamp}@clickora.local`;
   const reg = await req("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password: "E2eFactory!Pass99", full_name: "White Pack", accept_policies: true }),
+    body: JSON.stringify({ email, password: E2E_LOCAL_PASSWORD, full_name: "White Pack", accept_policies: true }),
   });
   const token = String(reg.json.token || "");
   if (!token) throw new Error(`auth ${reg.status} ${JSON.stringify(reg.json)}`);

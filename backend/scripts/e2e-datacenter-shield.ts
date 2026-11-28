@@ -7,6 +7,10 @@
 import geoip from "geoip-lite";
 import { systemPrisma } from "../src/lib/prisma";
 
+import { randomBytes } from "node:crypto";
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 const BASE = (process.env.E2E_BASE || "http://127.0.0.1:39991").replace(/\/+$/, "");
 const OFFER = "https://offer.example/go";
 const CDN77 = "152.233.29.1";
@@ -61,7 +65,7 @@ async function main() {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       email: `e2e-cdn77-${stamp}@clickora.test`,
-      password: "e2e-cdn77-pass",
+      password: E2E_LOCAL_PASSWORD,
       full_name: "E2E CDN77",
       accept_policies: true,
     }),

@@ -10,13 +10,16 @@
  *   E2E_BASE=http://127.0.0.1:3001 npx tsx scripts/e2e-conversion-funnel.ts
  */
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { loadConversionFunnel } from "../src/lib/conversionFunnel";
 
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 const prisma = new PrismaClient();
 const results: { name: string; ok: boolean; detail: string }[] = [];
 
@@ -44,7 +47,7 @@ async function main() {
   );
   const stamp = Date.now().toString(36);
   const email = `e2e-funnel-${stamp}@clickora.test`;
-  const passwordHash = await bcrypt.hash("e2e-funnel-pass", 4);
+  const passwordHash = await bcrypt.hash(E2E_LOCAL_PASSWORD, 4);
   const userId = randomUUID();
   const now = new Date();
   const rangeStart = new Date(now);
@@ -305,7 +308,7 @@ async function main() {
       const login = await fetch(`${base}/api/auth/login`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password: "e2e-funnel-pass" }),
+        body: JSON.stringify({ email, password: E2E_LOCAL_PASSWORD }),
       });
       const loginBody = (await login.json()) as { token?: string };
       if (!loginBody.token) {

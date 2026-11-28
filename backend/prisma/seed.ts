@@ -81,8 +81,15 @@ function jsonFeatures(lines: string[]) {
 }
 
 /**
+ * O seed corre como pre-deploy na Railway (em cada deploy): em produção nunca reescreve passwords de contas
+ * existentes, mesmo com SEED_RESET_PASSWORDS=true — a rotação faz-se pela app ou por script dedicado.
+ */
+const SEED_MAY_RESET_PASSWORDS =
+  process.env.SEED_RESET_PASSWORDS === "true" && process.env.NODE_ENV !== "production";
+
+/**
  * Sem password definida no ambiente, a conta é criada com um segredo aleatório (entrar via «Esqueci a senha»).
- * Contas existentes só têm a password reescrita com SEED_RESET_PASSWORDS=true.
+ * Contas existentes só têm a password reescrita com SEED_RESET_PASSWORDS=true fora de produção.
  */
 async function upsertUserWithRoleAndPlan(args: {
   email: string;
@@ -92,7 +99,7 @@ async function upsertUserWithRoleAndPlan(args: {
   planId: string;
 }) {
   const password = await bcrypt.hash(args.passwordPlain ?? randomBytes(32).toString("hex"), 12);
-  const resetExisting = process.env.SEED_RESET_PASSWORDS === "true" && args.passwordPlain !== null;
+  const resetExisting = SEED_MAY_RESET_PASSWORDS && args.passwordPlain !== null;
   /** `select` evita RETURNING * — sem isto, P2022 se colunas novas (ex. google_ads_*) ainda não existirem na BD. */
   const user = await prisma.user.upsert({
     where: { email: args.email },
@@ -243,6 +250,9 @@ async function main() {
     (process.env.CI === "true" ? process.env.CI_SEED_PASSWORD?.trim() : "") ||
     null;
   const managerPassword = process.env.SEED_MANAGER_PASSWORD?.trim() || seedPassword;
+  if (process.env.SEED_RESET_PASSWORDS === "true" && !SEED_MAY_RESET_PASSWORDS) {
+    console.warn("⚠️ SEED_RESET_PASSWORDS ignorado em produção: passwords de contas existentes não são alteradas.");
+  }
   if (!seedPassword) {
     console.warn(
       "⚠️ SEED_PASSWORD não definido: contas novas ficam com password aleatória; contas existentes mantêm a password.",

@@ -7,6 +7,10 @@
  */
 import assert from "node:assert/strict";
 
+import { randomBytes } from "node:crypto";
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 const API = (process.env.E2E_API_BASE || "http://127.0.0.1:3001/api").replace(/\/$/, "");
 const FE = (process.env.E2E_FE_BASE || "http://127.0.0.1:8080").replace(/\/$/, "");
 const OFFER = "https://mwebkivo.com/8389/5494/7/";
@@ -63,7 +67,7 @@ async function main() {
   await waitHealth();
   rec("health", true, "API ok");
 
-  const password = "E2eFactory!Pass99";
+  const password = E2E_LOCAL_PASSWORD;
   let email = `e2e-factory-${STAMP}@clickora.local`;
   let token = "";
   let lastAuth = "";

@@ -1,6 +1,10 @@
 import { stickyRotatorCookieName } from "../src/lib/trafficRotator.service";
 import { systemPrisma } from "../src/lib/prisma";
 
+import { randomBytes } from "node:crypto";
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 async function main() {
   const BASE = (process.env.LOAD_TEST_BASE_URL || "http://127.0.0.1:3012").replace(/\/$/, "");
   const stamp = Date.now().toString(36);
@@ -9,7 +13,7 @@ async function main() {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       email: `br-${stamp}@audit.clickora.test`,
-      password: "Browser1!",
+      password: E2E_LOCAL_PASSWORD,
       full_name: "Browser",
       accept_policies: true,
     }),

@@ -27,12 +27,9 @@ npm start      # Production
 
 ## Test users (seed)
 
-| Role | Email | Password | Plan |
-|------|-------|----------|------|
-| Super Admin | dclickora@gmail.com | (see `prisma/seed.ts`) | Annual (unlimited) |
-| Admin + Pro | adminpro@dclickora.com | pro123456 | Monthly (Pro) |
-| Admin | admin@dclickora.com | admin123456 | Annual |
-| User (testing) | daniel@gmail.com | daniel123456 | Monthly (Pro) |
+Passwords are never stored in the repository. The seed reads `SEED_PASSWORD` / `SEED_MANAGER_PASSWORD`
+from the environment; without them, new accounts get a random password (use "Forgot password").
+Existing accounts keep their password unless `SEED_RESET_PASSWORDS=true`.
 
 ## API Endpoints
 

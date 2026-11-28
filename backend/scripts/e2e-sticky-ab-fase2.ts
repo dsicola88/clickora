@@ -7,7 +7,7 @@
  *
  * Opcional: FASE2_API_MANAGED=1 — o script arranca/reinicia a API na PORT do BASE (reinício sticky).
  */
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { Prisma } from "@prisma/client";
@@ -20,6 +20,9 @@ import {
   databaseHostInfo,
 } from "./lib/loadTestSafety";
 
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 const BASE = (process.env.LOAD_TEST_BASE_URL || "http://127.0.0.1:3012").replace(/\/$/, "");
 const MANAGED = process.env.FASE2_API_MANAGED === "1";
 const WEIGHTED_N = Math.max(80, Number(process.env.FASE2_WEIGHTED_N || 200));
@@ -190,7 +193,7 @@ async function main() {
 
   const stamp = Date.now().toString(36);
   const email = `fase2-sticky-${stamp}@audit.clickora.test`;
-  const password = `Fase2-${stamp}-Pass!`;
+  const password = E2E_LOCAL_PASSWORD;
 
   const reg = await apiJson("/api/auth/register", {
     method: "POST",

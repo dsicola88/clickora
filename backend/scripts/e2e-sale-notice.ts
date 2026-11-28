@@ -7,6 +7,10 @@
  */
 import { mock } from "node:test";
 
+import { randomBytes } from "node:crypto";
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 const sentMails: Array<{ to?: string; subject?: string; text?: string; html?: string }> = [];
 const pushes: string[] = [];
 
@@ -119,7 +123,7 @@ async function main() {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       email: accountEmail,
-      password: "e2e-sale-pass",
+      password: E2E_LOCAL_PASSWORD,
       full_name: "E2E Venda",
       accept_policies: true,
     }),

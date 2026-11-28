@@ -8,9 +8,12 @@
  * Postback token vem do endpoint autenticado (não precisa JWT_SECRET local = prod).
  */
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 const BASE = (process.env.E2E_API_BASE || "https://clickora-production.up.railway.app/api").replace(
   /\/$/,
   "",
@@ -21,7 +24,7 @@ const EXISTING_EMAIL = (process.env.E2E_EMAIL || "").trim();
 const EXISTING_PASS = (process.env.E2E_PASSWORD || "").trim();
 const EMAIL_A = EXISTING_EMAIL || `e2e-spv-a-${STAMP}@dclickora.local`;
 const EMAIL_B = `e2e-spv-b-${STAMP}@dclickora.local`;
-const PASS = EXISTING_PASS || "E2eSpvAudit!99Xx";
+const PASS = EXISTING_PASS || E2E_LOCAL_PASSWORD;
 const OFFER = "https://www.digistore24.com/redir/e2e-product/demo/";
 const EXT_IMG = "https://www.google.com/favicon.ico";
 const USE_EXISTING = Boolean(EXISTING_EMAIL && EXISTING_PASS);

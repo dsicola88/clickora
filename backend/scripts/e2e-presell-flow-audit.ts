@@ -12,6 +12,10 @@ import { extractPresellSignals } from "../src/compliance/extractPresellSignals";
 import { canPublishForAds, evaluateCompliance } from "../src/compliance/evaluate";
 import type { DestinationProbeResult } from "../src/compliance/types";
 
+import { randomBytes } from "node:crypto";
+
+/** Password descartável por execução (a conta de teste é criada neste mesmo run). */
+const E2E_LOCAL_PASSWORD = randomBytes(12).toString("base64url");
 const API = (process.env.E2E_API_BASE || "http://127.0.0.1:3001/api").replace(/\/$/, "");
 const OFFER = "https://en.wikipedia.org/wiki/Tea";
 const HEADLINE = "E2E Tea — revisão e editor";
@@ -141,7 +145,7 @@ async function main() {
     method: "POST",
     body: JSON.stringify({
       email,
-      password: "E2eTestPass-9chars",
+      password: E2E_LOCAL_PASSWORD,
       full_name: "E2E Flow",
       accept_policies: true,
     }),
